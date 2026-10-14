@@ -41,3 +41,4 @@ research/papers/pdf/
 
 # ===== 案例数据（隐私：原始件与脱敏件均不入库，哈希登记在数据卡） =====
 research/data/
+research/.venv/

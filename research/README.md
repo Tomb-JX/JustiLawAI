@@ -8,6 +8,10 @@
 | `papers/fetch_papers.py` | 按清单下载 PDF 并生成校验和 | 是 |
 | `papers/checksums.tsv` | 每个 PDF 的 SHA-256 | 是 |
 | `papers/pdf/` | 论文 PDF | **否**（arXiv 许可只授权 arXiv 分发） |
+| `discretion/collect/` | 数据采集脚本与来源台账（数据链路负责，见[分工](../docs/04-plan/workstreams.md)） | 是 |
+| `.venv/` | 研究用虚拟环境（训练、评测依赖） | **否** |
+| `eval/metrics.py` | 门禁文档 §3 全部指标的唯一实现（只依赖 numpy） | 是 |
+| `eval/tests/` | 指标与 scikit-learn、pytrec_eval、CAIL 官方公式的一致性测试 | 是 |
 | `eval/leaderboard.csv` | 冻结基线与各门禁结果 | 是 |
 | `eval/access-log.csv` | 封存测试集访问记录 | 是 |
 
@@ -27,4 +31,20 @@ python research/papers/fetch_papers.py
 
 ```bash
 python research/papers/fetch_papers.py --verify
+```
+
+研究环境（Python 3.12，在仓库根目录）：
+
+```bash
+uv venv research/.venv --python 3.12
+```
+
+```bash
+uv pip install --python research/.venv/Scripts/python.exe numpy scipy scikit-learn pytest pyyaml pydantic pytrec-eval-terrier
+```
+
+运行指标一致性测试：
+
+```bash
+research/.venv/Scripts/python.exe -m pytest research/eval/tests -q
 ```
