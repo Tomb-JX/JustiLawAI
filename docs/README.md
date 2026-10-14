@@ -31,6 +31,7 @@ docs/
 │   ├── sota-baselines-and-gates.md  固定对照与阶段门禁（预注册，冻结后只能经偏离日志修改）
 │   ├── deviation-log.md         偏离日志
 │   ├── annotation-guideline.md  要素标注指南（字段表由 schema.py 生成）
+│   ├── notes/                   学习笔记（算法原理、操作步骤与结果解读）
 │   └── gate-reports/            各阶段门禁报告
 └── templates/                 模板库
     ├── api-spec.md              接口文档模板（新增接口时使用）
