@@ -59,7 +59,12 @@ def sha256_bytes(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
 
-def session() -> requests.Session:
+# 部分政府站点（深圳 sf.sz.gov.cn 等）服务端 ECC 握手不兼容 Python OpenSSL（BAD_ECPOINT），
+# 改用纯 RSA 密钥交换套件即可握手（curl 可通、Python 报错的站都先试这组）
+NO_EC_CIPHERS = "AES128-GCM-SHA256:AES256-GCM-SHA384:AES128-SHA:AES256-SHA"
+
+
+def session(ciphers: str | None = None) -> requests.Session:
     s = requests.Session()
     s.trust_env = False  # 绕过环境代理：政府站点国内直连，避免代理出口被 403
     # 政府站点 WAF（东城等）按请求头概率拦截：头集越接近浏览器越稳（详见 collect/README 已知坑）
@@ -72,21 +77,34 @@ def session() -> requests.Session:
             "Upgrade-Insecure-Requests": "1",
         }
     )
+    if ciphers:
+        import ssl
+
+        from requests.adapters import HTTPAdapter
+        from urllib3.util.ssl_ import create_urllib3_context
+
+        class _CipherAdapter(HTTPAdapter):
+            def init_poolmanager(self, *a, **kw):
+                kw["ssl_context"] = create_urllib3_context(ciphers=ciphers, cert_reqs=ssl.CERT_NONE)
+                return super().init_poolmanager(*a, **kw)
+
+        s.mount("https://", _CipherAdapter())
     return s
 
 
 _SHARED_SESSION: requests.Session | None = None
 
 
-def get_with_retry(url: str, *, tries: int = 5, timeout: int = 30, **kw) -> requests.Response:
-    """统一走浏览器头会话；WAF 节点规则有轮换，403 时多等几次常能过。"""
+def get_with_retry(url: str, *, tries: int = 5, timeout: int = 30, sess: requests.Session | None = None, **kw) -> requests.Response:
+    """统一走浏览器头会话；WAF 节点规则有轮换，403 时多等几次常能过。TLS 兼容站传 sess。"""
     global _SHARED_SESSION
-    if _SHARED_SESSION is None:
+    if sess is None and _SHARED_SESSION is None:
         _SHARED_SESSION = session()
+    s = sess or _SHARED_SESSION
     last_exc: Exception | None = None
     for i in range(tries):
         try:
-            resp = _SHARED_SESSION.get(url, timeout=timeout, **kw)
+            resp = s.get(url, timeout=timeout, **kw)
             resp.raise_for_status()
             return resp
         except Exception as e:  # noqa: BLE001 - 记录最后一次异常后重试
