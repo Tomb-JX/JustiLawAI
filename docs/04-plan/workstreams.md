@@ -64,6 +64,7 @@
 | 2026-10-15 | 数据链路 | 已推 main：4080e41 门头沟适配+赌博初筛、台账 230 件；7d95241 数据目录外置；f77f51b 批量采集规划（crawler-ops.md）与站点台账（sites.csv）。引擎可经 JUSTILAW_DATA_DIR 只读数据目录 |
 | 2026-10-15 | 引擎 | **接口发布：要素本体 schema v1.0.0**（`justilaw-api/app/discretion/schema.py`）与[标注指南](../05-research/annotation-guideline.md) v0.1，数据链路可按此准备 50 件试标样本 |
 | 2026-10-15 | 引擎 | 共享文件改动：`justilaw-api/requirements.txt` 增加 `pyyaml`（规范库）；`.gitignore` 增加 `research/.venv/`（研究用虚拟环境） |
+| 2026-10-15 | 数据链路（采集审计，工作树 `project-data-collection-audit-4bac93`，只写文档） | 已推 main：342d993 新增 [人工采集指南](./manual-collection-guide.md)——赌博案公开文书集中在县级政府网站（公安处罚决定书公示 + 县/区政府复议决定书），百度 `site:gov.cn` 定向检索为主力，信用中国降级。**请数据链路**：① 实现 URL 导入脚本（指南 §4.2）；② 修审计发现的 4 处缺陷——台账 `B-098` 重复 id（`manifest_add` 按行数编号）、浙江 58 件未抽正文（缺 `pypdf`）、初筛把引用法条中的"赌资"计为命中（东城唯一强命中为误报，B 渠道实际赌博案 0）、东城索引 127 / 落盘 124 / 台账 123 不一致 |
 
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
