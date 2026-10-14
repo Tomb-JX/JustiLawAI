@@ -3,3 +3,6 @@
 *.command text eol=lf
 *.bat     text eol=crlf
 *.ps1     text eol=crlf
+
+# 只追加的协作记录：多条工作流同时追加时保留双方的行，避免冲突
+docs/04-plan/collab-log.md merge=union

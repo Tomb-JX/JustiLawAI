@@ -1,6 +1,6 @@
 # 并行工作流与分工
 
-> 版本 v0.1 · 2026-10-15 · 适用于裁量引擎相关的并行开发（人或 AI 会话都适用）
+> 版本 v0.2 · 2026-10-15 · 适用于裁量引擎相关的并行开发（人或 AI 会话都适用）
 > 配套：[引擎方案](../02-design/gambling-discretion-engine.md) · [数据收集计划](./data-collection.md) · [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)
 >
 > 起因：2026-10-15 两条工作流共用一个工作树，一方做 rebase 时把另一方的原始数据临时移走（已全部恢复、核对无误）。本文件的规则就是为了不再出现这种互相打断。
@@ -21,10 +21,10 @@
 |---|---|---|
 | 数据链路 | `research/discretion/collect/**`、`docs/04-plan/data-collection.md` | 只有数据链路写 |
 | 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`research/papers/**`、`docs/05-research/**`、`docs/02-design/gambling-discretion-engine.md` | 只有引擎写 |
-| 共享 | `.gitignore`、`README.md`、`docs/README.md`、`research/README.md`、`justilaw-api/requirements.txt`、`docs/04-plan/milestones.md`、本文件 | 小改动、单独提交；提交前在本文件 §6 留一行记录 |
+| 共享 | `.gitignore`、`README.md`、`docs/README.md`、`research/README.md`、`justilaw-api/requirements.txt`、`docs/04-plan/milestones.md`、本文件 | 小改动、单独提交；提交前在[协作记录](./collab-log.md)留一行 |
 | 平台其他代码 | `justilaw-api/app/**`（discretion 以外）、`justilaw-web/**`、`launcher/**`、`ops/**` | 引擎接入平台时只做最小改动（注册路由、开关、卡片），单独提交 |
 
-需要改对方目录时：在 §6 留言说明需求，由对方改；紧急时改完立即留言。
+需要改对方目录时：在[协作记录](./collab-log.md)留言说明需求，由对方改；紧急时改完立即留言。
 
 ## 3. 数据目录：放在所有工作树之外
 
@@ -48,7 +48,7 @@
 
 | 接口 | 提供方 | 使用方 | 约定 |
 |---|---|---|---|
-| 要素本体 `schema.py`（字段、取值、证据格式） | 引擎 | 数据链路（标注） | 引擎在 P0 发布 v1；变更时提升版本号并在 §6 通知 |
+| 要素本体 `schema.py`（字段、取值、证据格式） | 引擎 | 数据链路（标注） | 引擎在 P0 发布 v1；变更时提升版本号并在协作记录中通知 |
 | 案例数据交付 | 数据链路 | 引擎 | JSONL，每行一件案例，必含 `id`（对应台账 manifest id）、`source_type`、`region`、`behavior_date`、`decision_date`、`fact_text`、`outcome`；与文件同目录附 `SHA256SUMS` |
 | 数据划分 | 数据链路生成，引擎复核 | 双方 | 按事件分组；划分文件只记 id 列表并入库；测试集封存按门禁 §7 |
 | 金标标注 | 数据链路组织，法律组校正 | 引擎 | 按 `schema.py` 当前版本导出，文件名带本体版本号 |
@@ -57,17 +57,10 @@
 
 ## 6. 协作记录（只追加）
 
-| 日期 | 工作流 | 内容 |
-|---|---|---|
-| 2026-10-15 | 引擎 | 新开 `discretion-engine` 工作树；原工作树留给数据链路。请数据链路完成 §3 的数据目录迁移 |
-| 2026-10-15 | 数据链路 | 完成 §3 迁移：research/data/ → `D:/02_Dev/Data/justilaw-research/`（432 文件 / 1.33 GB，前后 SHA-256 逐文件一致，审计存 `_migration_audit_*.json`）；common.py DATA_DIR 改为优先读 `JUSTILAW_DATA_DIR` |
-| 2026-10-15 | 数据链路 | 已推 main：4080e41 门头沟适配+赌博初筛、台账 230 件；7d95241 数据目录外置；f77f51b 批量采集规划（crawler-ops.md）与站点台账（sites.csv）。引擎可经 JUSTILAW_DATA_DIR 只读数据目录 |
-| 2026-10-15 | 引擎 | **接口发布：要素本体 schema v1.0.0**（`justilaw-api/app/discretion/schema.py`）与[标注指南](../05-research/annotation-guideline.md) v0.1，数据链路可按此准备 50 件试标样本 |
-| 2026-10-15 | 引擎 | 共享文件改动：`justilaw-api/requirements.txt` 增加 `pyyaml`（规范库）；`.gitignore` 增加 `research/.venv/`（研究用虚拟环境） |
-| 2026-10-15 | 数据链路（采集审计，工作树 `project-data-collection-audit-4bac93`，只写文档） | 已推 main：342d993 新增 [人工采集指南](./manual-collection-guide.md)——赌博案公开文书集中在县级政府网站（公安处罚决定书公示 + 县/区政府复议决定书），百度 `site:gov.cn` 定向检索为主力，信用中国降级。**请数据链路**：① 实现 URL 导入脚本（指南 §4.2）；② 修审计发现的 4 处缺陷——台账 `B-098` 重复 id（`manifest_add` 按行数编号）、浙江 58 件未抽正文（缺 `pypdf`）、初筛把引用法条中的"赌资"计为命中（东城唯一强命中为误报，B 渠道实际赌博案 0）、东城索引 127 / 落盘 124 / 台账 123 不一致 |
-| 2026-10-15 | 引擎 | **请数据链路更新数据收集计划 §5**（引擎方案 v0.4、门禁 v0.2 已改）：标注改为"教师银标 + 主动学习 + 人工校正"——① 教师模型（B1）给 CAIL 赌博子集 4,160 件与采集文书全部打银标；② 人工只校正随机抽样（≥100 件，用于估计银标质量，门禁 G2.12）和引擎挑出的最不确定案例；③ 银标只用于训练，测试集只用金标，被打过银标又进入测试集的案例须人工重标（门禁 §7）。教师模型选定前先不动 |
+已移到 [collab-log.md](./collab-log.md)（设为 union 合并，多方同时追加不会冲突）。新增记录请写在那里。
 
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
 | 2026-10-15 | v0.1 | 初版：工作流登记、目录归属、数据目录外置、Git 纪律、接口约定 | 模型组 |
+| 2026-10-15 | v0.2 | §6 协作记录移到 collab-log.md 并设为 union 合并 | 模型组 |

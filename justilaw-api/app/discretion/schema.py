@@ -7,7 +7,7 @@
 - 字段的 description 就是标注指南（GoLLIE 的做法：指南写进 schema），
   `python -m app.discretion.schema` 可导出指南表与 JSON Schema。
 
-版本：字段增删或语义变化时提升 SCHEMA_VERSION，并在 docs/04-plan/workstreams.md §6 登记。
+版本：字段增删或语义变化时提升 SCHEMA_VERSION，并在 docs/04-plan/collab-log.md 登记。
 """
 from __future__ import annotations
 
