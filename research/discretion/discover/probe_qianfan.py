@@ -8,10 +8,14 @@
   T4 site 列表指定两个县级域名时，结果是否只来自这两个域名
   T5 page_time 区间过滤（2026 年）是否生效
   T6 关闭 query 改写（enable_rewrite=false）对精确检索式的影响
+第二轮（4 次调用）：
+  T7/T8 时间过滤的正确写法（日期表达式 now-1y/d、recency 枚举 year）
+  T9/T10 query 内 site: 能否限定到单个县级域名（含 zwfw. 等子域），用于逐县枚举
 
 用法（仓库根目录）：
   设置环境变量 QIANFAN_API_KEY（百度智能云控制台创建的 API Key，不要写进任何文件）
-  python research/discretion/discover/probe_qianfan.py
+  python research/discretion/discover/probe_qianfan.py            # 全部测试
+  python research/discretion/discover/probe_qianfan.py T7 T8 T9 T10   # 只跑指定测试
 产出：$JUSTILAW_DATA_DIR/discover/probe/<时间戳>/ 下每个测试的原始响应 JSON + summary.md
 """
 
@@ -40,6 +44,12 @@ TESTS: list[tuple[str, str, dict]] = [
     ("T4_filter_domains", "行政复议决定书 赌博", {"search_filter": {"match": {"site": ["www.zjwy.gov.cn", "www.huadu.gov.cn"]}}}),
     ("T5_page_time_2026", "赌博 行政处罚决定书 第八十二条", {"search_filter": {"range": {"page_time": {"gte": "2026-01-01", "lte": "now/d"}}}}),
     ("T6_no_rewrite", BASE_Q, {"query_policy": {"enable_rewrite": False}}),
+    # 第二轮（M0 首轮结果见设计 §2.1）：T5 的绝对日期报 Invalid time range option，补测官方示例的日期表达式与 recency 枚举；
+    # T3 表明 match.site 不认后缀，补测 query 内 site: 能否限定到单个县级域名（含子域）
+    ("T7_page_time_math", "赌博 行政处罚决定书 第八十二条 site:gov.cn", {"search_filter": {"range": {"page_time": {"gte": "now-1y/d", "lte": "now/d"}}}}),
+    ("T8_recency_year", "赌博 行政处罚决定书 第八十二条 site:gov.cn", {"search_recency_filter": "year"}),
+    ("T9_inline_county", "赌博 site:dingxing.gov.cn", {}),
+    ("T10_inline_county_doc", "行罚决字 赌博 site:dingxing.gov.cn", {}),
 ]
 
 
@@ -78,7 +88,10 @@ def main() -> None:
         "| 测试 | HTTP | 返回条数 | gov.cn 条数 | 标题像目标文书 | 日期范围 | 域名样例 | 错误 |",
         "|---|---|---|---|---|---|---|---|",
     ]
+    only = {a for a in sys.argv[1:] if a.startswith("T")}  # 例：python probe_qianfan.py T7 T8 只跑这两项
     for name, q, extra in TESTS:
+        if only and name.split("_")[0] not in only:
+            continue
         res = call(key, q, extra)
         (out / f"{name}.json").write_text(json.dumps(res, ensure_ascii=False, indent=1), encoding="utf-8")
         rows.append(summarize(name, res))
