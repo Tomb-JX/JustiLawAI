@@ -11,6 +11,7 @@
 |---|---|---|---|---|
 | **数据链路** | `legal-ai-gambling-sentencing-cb2c21` | `claude/legal-ai-gambling-sentencing-cb2c21` | 采集、筛选、台账、脱敏、标注流水线 | 复议决定书多省适配、赌博案筛选 |
 | **引擎** | `discretion-engine` | `worktree-discretion-engine` | 规范层、要素本体、评测框架、模型、接口 | P0：规范层 + 要素本体 + 指标框架 |
+| **发现层** | `project-data-collection-audit-4bac93` | `claude/project-data-collection-audit-4bac93` | 用百度千帆官方搜索 API 发现赌博文书 URL 与可收割栏目，交付数据链路收割（[设计](./search-discovery-design.md)） | M0：API 探针；M1：查询规划 + 执行器 |
 
 - **一条工作流只在自己的工作树里写**。新开工作流先在此表登记，再开工。
 - 主检出目录（`D:/02_Dev/Projects/大创`，`main`）只用于浏览和人工操作，不作为任何工作流的开发目录。
@@ -21,6 +22,7 @@
 |---|---|---|
 | 数据链路 | `research/discretion/collect/**`、`docs/04-plan/data-collection.md` | 只有数据链路写 |
 | 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`research/papers/**`、`docs/05-research/**`、`docs/02-design/gambling-discretion-engine.md` | 只有引擎写 |
+| 发现层 | `research/discretion/discover/**`、`docs/04-plan/search-discovery-design.md`、`docs/04-plan/manual-collection-guide.md` | 只有发现层写；不写 `collect/`，经交付文件（设计 §6）与数据链路对接 |
 | 共享 | `.gitignore`、`README.md`、`docs/README.md`、`research/README.md`、`justilaw-api/requirements.txt`、`docs/04-plan/milestones.md`、本文件 | 小改动、单独提交；提交前在[协作记录](./collab-log.md)留一行 |
 | 平台其他代码 | `justilaw-api/app/**`（discretion 以外）、`justilaw-web/**`、`launcher/**`、`ops/**` | 引擎接入平台时只做最小改动（注册路由、开关、卡片），单独提交 |
 
