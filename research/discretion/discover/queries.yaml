@@ -1,0 +1,46 @@
+# 发现层查询模板（设计 docs/04-plan/search-discovery-design.md §3.1–3.2）
+# 每个模板 = 一组固定检索词；规划器在其上按「区域 → 时间 → 特征词」逐级拆分（结果顶到 top_k 才拆）。
+# 改模板会改变 query_id 与缓存键：已有缓存不会被误用，但也不再命中——改前想清楚。
+
+version: 1
+
+api:
+  top_k: 50              # 网页结果上限（官方文档：最大 50）
+  site_suffix: gov.cn    # 行内 site:，M0 T2 验证支持后缀
+
+templates:
+  - id: fy70
+    note: 复议决定书 × 旧法第七十条（M0 T2 同款检索式）
+    terms: [行政复议决定书, 赌博, 治安管理处罚法第七十条]
+  - id: cf70
+    note: 公安处罚决定书 × 旧法
+    terms: [行政处罚决定书, 赌博, 第七十条]
+  - id: wh70
+    note: 处罚决定文号写法（行罚决字）× 旧法
+    terms: [行罚决字, 赌博, 第七十条]
+  - id: cf82
+    note: 新法第八十二条，近一年（M0 T8 同款，T-time 主力）
+    terms: [赌博, 行政处罚决定书, 第八十二条]
+    recency: year
+  - id: fy82
+    note: 新法第八十二条的复议
+    terms: [行政复议决定书, 赌博, 第八十二条]
+    recency: year
+  - id: zfgs
+    note: 执法公示 / 执法结果信息栏目
+    terms: [行政执法公示, 赌博, 行政拘留]
+  - id: bycf
+    note: 不予处罚（门禁 G3.2 单独达标）
+    terms: [不予行政处罚决定书, 赌博]
+
+# 拆分维度，按顺序逐级使用（设计 §3.2 第一段）
+split:
+  regions: [北京, 天津, 河北, 山西, 内蒙古, 辽宁, 吉林, 黑龙江, 上海, 江苏, 浙江, 安徽, 福建, 江西, 山东,
+            河南, 湖北, 湖南, 广东, 广西, 海南, 重庆, 四川, 贵州, 云南, 西藏, 陕西, 甘肃, 青海, 宁夏, 新疆]
+  # page_time 日期表达式（M0 T7 验证；绝对日期会报错）。带 recency 的模板不做时间拆分
+  windows:
+    y0-1: {gte: now-1y/d, lte: now/d}
+    y1-2: {gte: now-2y/d, lte: now-1y/d}
+    y2-3: {gte: now-3y/d, lte: now-2y/d}
+    y3-5: {gte: now-5y/d, lte: now-3y/d}
+  features: [麻将, 扑克, 炸金花, 推饼, 六合彩, 网络赌博, 抽头渔利, 为赌博提供条件]
