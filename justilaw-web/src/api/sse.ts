@@ -1,5 +1,5 @@
 import { fetchEventSource } from '@microsoft/fetch-event-source'
-import { USE_MOCK, http } from './client'
+import { USE_MOCK, getAuthHeaders, http, notifyUnauthorized } from './client'
 import { mockChatStream } from '@/mocks/chat-stream'
 import type { ChatCompletionRequest } from '@/types/api'
 
@@ -30,11 +30,12 @@ export async function streamChatCompletion(
   const url = `${http.defaults.baseURL}/chat/completions`
   await fetchEventSource(url, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
     body: JSON.stringify(body),
     signal,
     openWhenHidden: true, // 页面切后台不中断生成
     async onopen(res) {
+      if (res.status === 401) notifyUnauthorized()
       if (!res.ok) throw new Error(`SSE 连接失败：HTTP ${res.status}`)
     },
     onmessage(ev) {

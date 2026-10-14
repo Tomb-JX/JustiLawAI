@@ -2,6 +2,8 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageLoading } from '@/components/common/misc'
+import { RequireAuth } from '@/features/auth/require-auth'
+import { CALLBACK_PATH } from '@/features/auth/logto-config'
 
 const ChatPage = lazy(() => import('@/features/chat/chat-page'))
 const AgentsPage = lazy(() => import('@/features/agents/agents-page'))
@@ -16,13 +18,21 @@ const WorkflowsPage = lazy(() => import('@/features/workflows/workflows-page'))
 const WorkflowEditorPage = lazy(() => import('@/features/workflows/workflow-editor-page'))
 const AdminPage = lazy(() => import('@/features/admin/admin-page'))
 const NotFound = lazy(() => import('@/features/misc/not-found'))
+const LoginPage = lazy(() => import('@/features/auth/login-page'))
+const CallbackPage = lazy(() => import('@/features/auth/callback-page'))
 
 const page = (el: React.ReactNode) => <Suspense fallback={<PageLoading />}>{el}</Suspense>
 
 export const router = createBrowserRouter([
+  { path: '/login', element: page(<LoginPage />) },
+  { path: CALLBACK_PATH, element: page(<CallbackPage />) },
   {
     path: '/',
-    element: <AppLayout />,
+    element: (
+      <RequireAuth>
+        <AppLayout />
+      </RequireAuth>
+    ),
     children: [
       { index: true, element: <Navigate to="/chat" replace /> },
       { path: 'chat/:conversationId?', element: page(<ChatPage />) },
