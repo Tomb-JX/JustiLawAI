@@ -23,6 +23,7 @@ docs/
 │   ├── milestones.md            里程碑计划与进度跟踪（M1-M6）
 │   ├── data-collection.md       数据收集计划（渠道 / 标注 / 治理 / 时间表）
 │   ├── crawler-ops.md           批量采集运维计划（站点台账 / 适配 SOP / 每周节奏）
+│   ├── pkulaw-playbook.md       渠道 C 北大法宝作战手册（检索式 / 导出 SOP / 侦察清单）
 │   ├── workstreams.md           并行工作流与分工（工作树、目录归属、Git 纪律、接口）
 │   ├── collab-log.md            协作记录（只追加，union 合并）
 │   └── meetings/                周例会纪要（YYYY-MM-DD-主题.md）
