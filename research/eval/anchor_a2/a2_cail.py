@@ -87,7 +87,8 @@ def load_cases() -> tuple[dict[str, dict], dict]:
                 continue
             labels[cid] = label
             cases[cid] = {"id": cid, "fact": doc["fact"], "charge": label[0], "months": label[1],
-                          "fine": meta.get("punish_of_money"), "cls": pt_cls(label[1])}
+                          "fine": meta.get("punish_of_money"), "cls": pt_cls(label[1]),
+                          "criminals": meta.get("criminals") or []}
     conflict = [cid for cid, lab in labels.items() if lab is None]
     for cid in conflict:
         del cases[cid]
