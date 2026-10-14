@@ -1,10 +1,11 @@
-"""业务数据持久化：会话/消息/智能体/知识库/文档/提示词/工作流/统计。
+"""业务数据持久化：会话/消息/智能体/知识库/文档/提示词/工作流/用户/文件/统计。
 
 JSON 文件存储，进程内单例；写操作直接落盘（演示规模够用，后续可平滑换 SQLite）。
 """
 from __future__ import annotations
 
 import json
+import os
 import threading
 import uuid
 from datetime import datetime, timezone
@@ -31,8 +32,11 @@ class JsonDB:
             self.data = json.loads(self.path.read_text("utf-8"))
 
     def save(self):
+        # 先写临时文件再替换：进程中途被杀也不会留下半截 JSON
         with LOCK:
-            self.path.write_text(json.dumps(self.data, ensure_ascii=False, indent=1), "utf-8")
+            tmp = self.path.with_suffix(".json.tmp")
+            tmp.write_text(json.dumps(self.data, ensure_ascii=False, indent=1), "utf-8")
+            os.replace(tmp, self.path)
 
 
 # 各业务集合
@@ -44,14 +48,22 @@ documents_db = JsonDB("documents", [])                     # list[Document]
 chunks_db = JsonDB("chunks", {})                           # {document_id: list[Chunk]}
 prompts_db = JsonDB("prompts", [])                         # list[Prompt]
 workflows_db = JsonDB("workflows", [])                     # list[Workflow]
+users_db = JsonDB("users", [])                             # list[User]
+files_db = JsonDB("files", {})                             # {file_id: {filename, size, path, owner}}
+settings_db = JsonDB("settings", {})                       # 平台设置（默认模型等）
 stats_db = JsonDB("stats", {"daily_calls": {}, "model_calls": {}})  # 统计
 
 
-def record_call(model_id: str):
-    """记录一次模型调用（按日/按模型）。"""
+def record_call(model_id: str, usage: dict | None = None):
+    """记录一次模型调用（按日/按模型，含 token 用量）。"""
     day = datetime.now().strftime("%m-%d")
-    stats_db.data["daily_calls"][day] = stats_db.data["daily_calls"].get(day, 0) + 1
-    stats_db.data["model_calls"][model_id] = stats_db.data["model_calls"].get(model_id, 0) + 1
+    s = stats_db.data
+    s["daily_calls"][day] = s["daily_calls"].get(day, 0) + 1
+    s["model_calls"][model_id] = s["model_calls"].get(model_id, 0) + 1
+    if usage:
+        tokens = s.setdefault("tokens", {})
+        tokens[model_id] = (tokens.get(model_id, 0)
+                            + usage.get("prompt_tokens", 0) + usage.get("completion_tokens", 0))
     stats_db.save()
 
 

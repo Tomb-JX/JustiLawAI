@@ -2,22 +2,72 @@
 
 仅当对应集合为空时写入（幂等）。语料种子（法条全文/案例）由 seed_corpus.py 单独导入。
 """
-from .store import agents_db, prompts_db, datasets_db, now
+from .store import agents_db, datasets_db, now, prompts_db, workflows_db
+
+
+def _node(nid: str, node_type: str, name: str, x: int, config: dict, y: int = 200) -> dict:
+    return {"id": nid, "type": "workflow", "position": {"x": x, "y": y},
+            "data": {"nodeType": node_type, "name": name, "config": config}}
+
+
+def _edges(*pairs: tuple[str, str]) -> list[dict]:
+    return [{"id": f"e{i + 1}", "source": s, "target": t} for i, (s, t) in enumerate(pairs)]
+
+
+# 工作流模板 ID 与前端「新建工作流」中的模板一一对应；llm 节点不写死模型，运行时用默认对话模型
+WORKFLOW_TEMPLATES = [
+    {"id": "w_1001", "name": "案情分析流水线",
+     "description": "要素抽取 → 法条检索 → 类案检索 → 综合分析，输出结构化分析结论",
+     "dsl": {"nodes": [
+         _node("nd_1", "start", "开始", 0, {"vars": [{"name": "case_facts", "label": "案情事实"}]}),
+         _node("nd_2", "llm", "要素抽取", 220, {"prompt": "从以下案情中抽取时间、地点、人物、行为、后果等要素，分条列出：\n{{case_facts}}", "temperature": 0.2}),
+         _node("nd_3", "retrieval", "法条检索", 440, {"dataset": "d_seed_law", "dataset_name": "法律法规库", "top_k": 5}, y=120),
+         _node("nd_4", "retrieval", "类案检索", 440, {"dataset": "d_seed_case", "dataset_name": "赌博类案例库", "top_k": 3}, y=280),
+         _node("nd_5", "llm", "综合分析", 660, {"prompt": "案情要素：\n{{要素抽取}}\n\n相关法条：\n{{法条检索}}\n\n相关案例：\n{{类案检索}}\n\n请输出：定性、法律依据（注明条文）、处理建议。资料不足时如实说明。", "temperature": 0.4}),
+         _node("nd_6", "reply", "直接回复", 880, {}),
+     ], "edges": _edges(("nd_1", "nd_2"), ("nd_2", "nd_3"), ("nd_2", "nd_4"), ("nd_3", "nd_5"), ("nd_4", "nd_5"), ("nd_5", "nd_6"))}},
+    {"id": "w_1002", "name": "判决预测（CAIL）",
+     "description": "要素抽取后调用外部预测模型 API（需在 HTTP 节点填写地址），法条核对后汇总输出",
+     "dsl": {"nodes": [
+         _node("nd_1", "start", "开始", 0, {"vars": [{"name": "facts", "label": "案情事实"}]}),
+         _node("nd_2", "llm", "要素抽取", 220, {"prompt": "抽取以下案件的关键要素（行为、数额、人数、情节）：\n{{facts}}", "temperature": 0.2}),
+         _node("nd_3", "http", "预测模型 API", 440, {"method": "POST", "url": ""}),
+         _node("nd_4", "retrieval", "法条核对", 660, {"dataset": "d_seed_law", "dataset_name": "法律法规库", "top_k": 5}),
+         _node("nd_5", "llm", "结论汇总", 880, {"prompt": "预测结果：\n{{预测模型 API}}\n\n法条：\n{{法条核对}}\n\n请汇总预测结论，并指出与法条不一致之处。", "temperature": 0.3}),
+         _node("nd_6", "reply", "直接回复", 1100, {}),
+     ], "edges": _edges(("nd_1", "nd_2"), ("nd_2", "nd_3"), ("nd_3", "nd_4"), ("nd_4", "nd_5"), ("nd_5", "nd_6"))}},
+    {"id": "w_1003", "name": "合同风险扫描",
+     "description": "合同文本 → 逐条审查 → 风险聚合 → 报告输出",
+     "dsl": {"nodes": [
+         _node("nd_1", "start", "开始", 0, {"vars": [{"name": "contract_text", "label": "合同文本"}]}),
+         _node("nd_2", "llm", "逐条审查", 220, {"prompt": "逐条识别以下合同中的风险条款，给出位置、风险等级（高/中/低）与修改建议：\n{{contract_text}}", "temperature": 0.2}),
+         _node("nd_3", "aggregate", "风险聚合", 440, {}),
+         _node("nd_4", "template", "报告模板", 660, {"template": "## 风险清单\n\n{{aggregate}}"}),
+         _node("nd_5", "reply", "直接回复", 880, {}),
+     ], "edges": _edges(("nd_1", "nd_2"), ("nd_2", "nd_3"), ("nd_3", "nd_4"), ("nd_4", "nd_5"))}},
+]
 
 
 def seed():
     if not datasets_db.data:
         datasets_db.data = [
-            {"id": "d_seed_law", "name": "法律法规库", "description": "刑法、治安管理处罚法等常用法律法规（运行 seed_corpus.py 导入全文）",
+            {"id": "d_seed_law", "name": "法律法规库", "description": "刑法、治安管理处罚法等常用法律法规（上传经核对的现行条文）",
              "chunk_config": {"max_length": 500, "overlap": 50},
              "retrieval_config": {"top_k": 5, "score_threshold": 0.35},
-             "doc_count": 0, "created_at": now()},
-            {"id": "d_seed_case", "name": "赌博类案例库", "description": "赌博/开设赌场相关案例（可从 CAIL2018 提取子集导入）",
+             "doc_count": 0, "created_by": "u_system", "created_at": now()},
+            {"id": "d_seed_case", "name": "赌博类案例库", "description": "赌博类行政处罚 / 刑事案例（上传可溯源的真实决定书、裁判文书）",
              "chunk_config": {"max_length": 800, "overlap": 80},
              "retrieval_config": {"top_k": 5, "score_threshold": 0.35},
-             "doc_count": 0, "created_at": now()},
+             "doc_count": 0, "created_by": "u_system", "created_at": now()},
         ]
         datasets_db.save()
+
+    existing = {w["id"] for w in workflows_db.data}
+    missing = [t for t in WORKFLOW_TEMPLATES if t["id"] not in existing]
+    if missing:
+        workflows_db.data.extend({**t, "status": "published", "is_template": True,
+                                  "created_by": "u_system", "created_at": now()} for t in missing)
+        workflows_db.save()
 
     if not agents_db.data:
         agents_db.data = [
