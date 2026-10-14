@@ -1,1 +1,18 @@
 date,gate,system_id,description,test_set,config_hash,prompt_hash,model_digest,data_hash,seed,metric,value,ci_low,ci_high,frozen
+2026-10-15,A2-dev,B-majority,恒预测训练集最多的区间（六个月以下）,cail-gambling-valid,,,,f9136587103a,20261015,acc,40.1937,35.351089588377725,45.036319612590795,no
+2026-10-15,A2-dev,B-majority,恒预测训练集最多的区间（六个月以下）,cail-gambling-valid,,,,f9136587103a,20261015,ma_p,5.742,,,no
+2026-10-15,A2-dev,B-majority,恒预测训练集最多的区间（六个月以下）,cail-gambling-valid,,,,f9136587103a,20261015,ma_r,14.2857,,,no
+2026-10-15,A2-dev,B-majority,恒预测训练集最多的区间（六个月以下）,cail-gambling-valid,,,,f9136587103a,20261015,ma_f,8.1915,,,no
+2026-10-15,A2-dev,B-majority,恒预测训练集最多的区间（六个月以下）,cail-gambling-valid,,,,f9136587103a,20261015,cail_log,68.4262,,,no
+2026-10-15,A2-dev,B4-tfidf-svm,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 0.3, 'clf__class_weight': None}，交叉验证准确率 44.13",cail-gambling-valid,,,,f9136587103a,20261015,acc,44.5521,39.70944309927361,49.39467312348668,no
+2026-10-15,A2-dev,B4-tfidf-svm,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 0.3, 'clf__class_weight': None}，交叉验证准确率 44.13",cail-gambling-valid,,,,f9136587103a,20261015,ma_p,29.4227,,,no
+2026-10-15,A2-dev,B4-tfidf-svm,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 0.3, 'clf__class_weight': None}，交叉验证准确率 44.13",cail-gambling-valid,,,,f9136587103a,20261015,ma_r,22.9376,,,no
+2026-10-15,A2-dev,B4-tfidf-svm,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 0.3, 'clf__class_weight': None}，交叉验证准确率 44.13",cail-gambling-valid,,,,f9136587103a,20261015,ma_f,22.9805,,,no
+2026-10-15,A2-dev,B4-tfidf-svm,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 0.3, 'clf__class_weight': None}，交叉验证准确率 44.13",cail-gambling-valid,,,,f9136587103a,20261015,cail_log,72.4455,,,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,acc,44.5521,39.95157384987893,49.39467312348668,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,ma_p,28.1133,,,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,ma_r,22.5356,,,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,ma_f,22.5534,,,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,cail_log,72.0097,,,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,rps,0.0641,,,no
+2026-10-15,A2-dev,B4-tfidf-lr,"字符 1–3 元 TF-IDF；5 折交叉验证选参 {'clf__C': 3.0, 'clf__class_weight': None}，交叉验证准确率 43.77",cail-gambling-valid,,,,f9136587103a,20261015,ece,0.0613,,,no

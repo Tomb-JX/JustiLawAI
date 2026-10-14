@@ -12,6 +12,7 @@
 | `.venv/` | 研究用虚拟环境（训练、评测依赖） | **否** |
 | `eval/metrics.py` | 门禁文档 §3 全部指标的唯一实现（只依赖 numpy） | 是 |
 | `eval/tests/` | 指标与 scikit-learn、pytrec_eval、CAIL 官方公式的一致性测试 | 是 |
+| `eval/anchor_a2/` | 公开锚点 A2（CAIL2018 赌博子集）：数据准备、划分 id、基线与探针；讲解见 [学习笔记](../docs/05-research/notes/A2-baselines.md) | 是（只含 id，不含文书） |
 | `eval/leaderboard.csv` | 冻结基线与各门禁结果 | 是 |
 | `eval/access-log.csv` | 封存测试集访问记录 | 是 |
 
