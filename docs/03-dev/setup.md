@@ -1,6 +1,6 @@
 # 环境搭建指南
 
-> 版本 v0.3 · 2026-10-14 · 前端 + 模型服务后端（justilaw-api）+ 部署
+> 版本 v0.4 · 2026-10-15 · 前端 + 模型服务后端（justilaw-api）+ 部署 + 用户本地 Ollama 接入
 
 ## 1. 基础环境
 
@@ -81,6 +81,7 @@ cp .env.example .env                              # 按需修改，.env 不入�
 | `CORS_ORIGINS` | 允许的前端源，逗号分隔 | `localhost` / `127.0.0.1` 的 5173、5174 |
 | `API_HOST` / `API_PORT` | 监听地址 | `127.0.0.1` / `8000` |
 | `DATA_DIR` | 运行数据目录 | `justilaw-api/store` |
+| `WEB_DIST_DIR` | 前端构建产物目录；存在时由后端直接托管网页（单机部署一个端口） | `justilaw-web/dist` |
 
 ### 4.3 准备模型
 
@@ -89,7 +90,9 @@ ollama pull qwen3.5:9b
 ollama pull bge-m3
 ```
 
-- Ollama 的模型启动时自动发现；之后新 pull 的模型在「模型服务」页点「同步模型」即可看到
+- Ollama 的模型启动时在后台自动发现，之后每 30 秒刷新；新 pull 的模型也可在「模型服务」页点「同步模型」立即看到
+- 不想敲命令：「模型服务」页 Ollama 卡片的「下载模型」（或对话页没有模型时出现的向导）可一键下载推荐模型
+- Ollama 不在 `127.0.0.1:11434`：在 Ollama 卡片上点地址旁的笔形图标修改，保存后立即重新发现模型；`OLLAMA_BASE_URL` 只是默认值
 - 其他模型（含云端嵌入模型）在「模型服务」页添加 OpenAI 兼容供应商，注册模型时勾选能力（对话 / 嵌入 / 视觉 / 工具 / 思维链）
 - **代理环境**：系统设了 `HTTP(S)_PROXY` 时，`ollama pull` 可能报 `something went wrong`（请求被代理截走）。临时取消代理再拉，或直接调 API：`curl --noproxy '*' http://127.0.0.1:11434/api/pull -d '{"model":"bge-m3"}'`。后端访问回环地址时已自动绕过代理
 
@@ -101,7 +104,31 @@ ollama pull bge-m3
 
 只导入**有出处的真实材料**（法条全文、裁判文书等）。检索结果会被当作类案和法条引用给用户，不要导入手写的示例文本。
 
-## 5. 部署（公网）
+## 5. 普通用户：使用自己电脑上的 Ollama
+
+两种方式都只需要用户先装好 [Ollama](https://ollama.com/download)。
+
+### 5.1 方式 A：打开公网站点，浏览器直连本机 Ollama
+
+推理在用户自己的电脑上进行，服务器只保存会话、做知识库检索。
+
+1. 打开站点并登录，在对话页模型下拉选「使用我电脑上的 Ollama…」（或「模型服务」页的「我电脑上的 Ollama」卡片 →「连接」）
+2. 向导会自动检测。提示"Ollama 正在运行，但还没有允许本网站访问"时，下载向导给出的放行脚本双击运行（把站点源加入 `OLLAMA_ORIGINS` 并重启 Ollama），回到网页点「重新检测」
+3. 没有模型时在向导里点「下载」，完成后模型下拉的「本机 · Ollama」分组即为本机模型
+
+限制：工作流试运行仍在服务器执行，暂不支持本机模型；Safari 可能拦截网页访问本机地址，请用 Chrome / Edge；Chrome 弹出"访问本地网络设备"的提示时点允许。本机模型设置只保存在当前浏览器。
+
+### 5.2 方式 B：单机一键部署
+
+整套服务跑在用户电脑上，免登录，数据只在本机。详见 [launcher/README.md](../../launcher/README.md)：
+
+1. 下载发布包 `JustiLawAI-local.zip` 并解压（开发者用 `ops/package-local.ps1` 打包）
+2. Windows 双击 `Start-JustiLaw.bat`；macOS / Linux 运行 `bash launcher/start.sh`。首次运行自动准备 Python 环境（没有 Python 时可经 uv 自动安装）
+3. 浏览器自动打开 `http://127.0.0.1:8000`，按向导下载模型即可使用
+
+也可以用 Docker：项目根目录 `docker compose up -d`，容器经 `host.docker.internal` 访问宿主机 Ollama（Linux 需让 Ollama 监听 `0.0.0.0`）。
+
+## 6. 部署（公网）
 
 | 组件 | 说明 |
 |---|---|
@@ -113,7 +140,7 @@ ollama pull bge-m3
 - 部署新版本后，已打开的旧页面加载懒加载文件失败时会自动刷新一次
 - 后端在服务器上以 `API_PORT=8100` 启动，`.env` 里配好 Logto 鉴权
 
-## 6. 常用脚本（justilaw-web）
+## 7. 常用脚本（justilaw-web）
 
 ```bash
 pnpm dev        # 开发
@@ -122,7 +149,7 @@ pnpm typecheck  # 仅类型检查
 pnpm preview    # 本地预览构建产物
 ```
 
-## 7. 常见问题（持续补充）
+## 8. 常见问题（持续补充）
 
 - **pnpm install 慢**：`pnpm config set registry https://registry.npmmirror.com`
 - **Node 版本不符**：`node -v` 检查，nvm 切换到 20+
@@ -136,3 +163,4 @@ pnpm preview    # 本地预览构建产物
 | 2026-10-14 | v0.1 | 初稿（占位，M1 补充） | 前端组 |
 | 2026-10-14 | v0.2 | 新增 Logto 环境变量与 Console 配置说明 | 前端组 |
 | 2026-10-14 | v0.3 | 新增后端安装、环境变量、模型准备、语料导入与公网部署说明；Logto 补充 idtoken 模式 | 模型组 |
+| 2026-10-15 | v0.4 | 新增「普通用户：使用自己电脑上的 Ollama」（浏览器直连 / 单机一键部署 / Docker）；Ollama 地址可在网页修改、一键下载模型；`WEB_DIST_DIR` | 模型组 |
