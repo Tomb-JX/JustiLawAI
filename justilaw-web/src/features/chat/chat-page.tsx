@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { createConversation, getAgent, listAgents } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { OllamaSetup, useSetupTarget } from '@/features/models/ollama-setup'
+import { OllamaSetup, useSetupTargets, type SetupTarget } from '@/features/models/ollama-setup'
 import { useChatModels } from '@/features/models/use-chat-models'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
@@ -41,7 +41,9 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
   const quickAgents = (agents ?? []).filter((a) => a.status === 'published').slice(0, 6)
   // 还没有任何可用模型：欢迎区直接换成模型连接向导，首次使用不用找设置页
   const { models, isLoading: modelsLoading } = useChatModels()
-  const setupTarget = useSetupTarget()
+  const setupTargets = useSetupTargets()
+  const [pickedTarget, setPickedTarget] = useState<SetupTarget>()
+  const setupTarget = pickedTarget && setupTargets.includes(pickedTarget) ? pickedTarget : setupTargets[0]
   const needsSetup = !modelsLoading && models.length === 0
 
   const createMut = useMutation({
@@ -81,7 +83,15 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
               ? '模型运行在你自己的电脑上，免费且对话内容不经过第三方模型服务。'
               : '检测本机 Ollama 并下载推荐模型，完成后即可开始对话。'}
           </p>
-          <OllamaSetup target={setupTarget} />
+          {setupTargets.length > 1 && (
+            <button
+              className="mb-3 text-xs text-primary hover:underline"
+              onClick={() => setPickedTarget(setupTarget === 'server' ? 'browser' : 'server')}
+            >
+              {setupTarget === 'server' ? '改为使用我电脑上的 Ollama →' : '改为配置服务器上的 Ollama →'}
+            </button>
+          )}
+          <OllamaSetup key={setupTarget} target={setupTarget} />
         </div>
       ) : agent?.suggested_questions && agent.suggested_questions.length > 0 ? (
         <div className="mt-6 grid w-full max-w-xl gap-2">

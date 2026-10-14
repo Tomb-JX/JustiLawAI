@@ -19,13 +19,14 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
-import { OllamaSetupDialog, useSetupTarget } from '@/features/models/ollama-setup'
+import { LOCAL_PREFIX, isLocalModel, useLocalOllamaStore } from '@/features/models/local-ollama'
+import { OllamaSetupDialog, SETUP_LABELS, useSetupTargets, type SetupTarget } from '@/features/models/ollama-setup'
 import { useChatModels } from '@/features/models/use-chat-models'
 import { useSettingsStore } from '@/stores/settings'
 import type { Agent } from '@/types/api'
 
 /** 模型下拉里的"连接模型"入口（不是真实模型 ID） */
-const SETUP_ITEM = '__setup__'
+const SETUP_PREFIX = '__setup__:'
 
 function ParamRow({
   label,
@@ -67,21 +68,26 @@ export function ChatHeader({
   const qc = useQueryClient()
   const { data: conversations } = useQuery({ queryKey: ['conversations'], queryFn: listConversations })
   // 服务端模型 + 本机 Ollama 模型（嵌入模型不能用于对话，已过滤）
-  const { models, serverModels, localModels, isLoading: modelsLoading } = useChatModels()
+  const { models, serverModels, localModels, localError, localEmpty, isLoading: modelsLoading } = useChatModels()
   const { data: modelSettings } = useQuery({ queryKey: ['model-settings'], queryFn: getModelSettings })
-  const setupTarget = useSetupTarget()
-  const [setupOpen, setSetupOpen] = useState(false)
+  const setupTargets = useSetupTargets()
+  const [setupTarget, setSetupTarget] = useState<SetupTarget>()
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
 
   const { model, setModel, params, setParams, resetParams, thinking, setThinking, ragEnabled, ragDatasetId, setRag } =
     useSettingsStore()
 
-  // 未选择或已失效（模型被删除/停用、本机 Ollama 已关闭）时，回退到平台默认对话模型
+  const localEnabled = useLocalOllamaStore((s) => s.enabled)
+  // 选中的本机模型暂时不可用（Ollama 没开）：保留选择，不能静默改用服务器模型——
+  // 用户选本机模型往往就是不希望对话内容经过服务器上的模型
+  const localUnavailable = localEnabled && isLocalModel(model) && !localModels.some((m) => m.id === model)
+
+  // 未选择或已失效（模型被删除/停用）时，回退到平台默认对话模型
   useEffect(() => {
-    if (modelsLoading || !models.length || models.some((m) => m.id === model)) return
+    if (modelsLoading || !models.length || models.some((m) => m.id === model) || localUnavailable) return
     const fallback = models.find((m) => m.id === modelSettings?.default_chat_model) ?? models[0]
     setModel(fallback.id)
-  }, [models, modelsLoading, model, modelSettings, setModel])
+  }, [models, modelsLoading, model, modelSettings, setModel, localUnavailable])
 
   const currentModel = models.find((m) => m.id === model)
   const conversation = conversations?.find((c) => c.id === conversationId)
@@ -231,19 +237,26 @@ export function ChatHeader({
 
         {/* 模型选择：没有任何可用模型时直接给出连接入口 */}
         {!modelsLoading && !models.length ? (
-          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setSetupOpen(true)}>
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setSetupTarget(setupTargets[0])}>
             <Plug className="h-3.5 w-3.5" />
             连接模型
           </Button>
         ) : (
-          <Select value={model} onValueChange={(v) => (v === SETUP_ITEM ? setSetupOpen(true) : setModel(v))}>
+          <Select
+            value={model}
+            onValueChange={(v) =>
+              v.startsWith(SETUP_PREFIX) ? setSetupTarget(v.slice(SETUP_PREFIX.length) as SetupTarget) : setModel(v)
+            }
+          >
             <SelectTrigger className="w-36 text-xs">
               <SelectValue placeholder="选择模型" />
             </SelectTrigger>
             <SelectContent>
               {serverModels.length > 0 && (
                 <SelectGroup>
-                  {localModels.length > 0 && <SelectLabel className="text-[11px]">服务器</SelectLabel>}
+                  {(localModels.length > 0 || localUnavailable) && (
+                    <SelectLabel className="text-[11px]">服务器</SelectLabel>
+                  )}
                   {serverModels.map((m) => (
                     <SelectItem key={m.id} value={m.id}>
                       {m.name}
@@ -251,7 +264,7 @@ export function ChatHeader({
                   ))}
                 </SelectGroup>
               )}
-              {localModels.length > 0 && (
+              {(localModels.length > 0 || localUnavailable) && (
                 <SelectGroup>
                   <SelectLabel className="text-[11px]">本机 · Ollama</SelectLabel>
                   {localModels.map((m) => (
@@ -259,17 +272,38 @@ export function ChatHeader({
                       {m.name}
                     </SelectItem>
                   ))}
+                  {localUnavailable && (
+                    <SelectItem value={model} className="text-muted-foreground">
+                      {model.slice(LOCAL_PREFIX.length)}（未连接）
+                    </SelectItem>
+                  )}
                 </SelectGroup>
               )}
+              {localError && (
+                <SelectItem value={`${SETUP_PREFIX}browser`} className="text-xs text-destructive">
+                  本机 Ollama 未连接，点击重新连接
+                </SelectItem>
+              )}
+              {localEmpty && (
+                <SelectItem value={`${SETUP_PREFIX}browser`} className="text-xs text-amber-600">
+                  本机 Ollama 还没有对话模型，点击下载
+                </SelectItem>
+              )}
               <SelectSeparator />
-              <SelectItem value={SETUP_ITEM} className="text-xs text-muted-foreground">
-                {setupTarget === 'browser' ? '使用我电脑上的 Ollama…' : '连接 / 下载模型…'}
-              </SelectItem>
+              {setupTargets.map((t) => (
+                <SelectItem key={t} value={`${SETUP_PREFIX}${t}`} className="text-xs text-muted-foreground">
+                  {setupTargets.length === 1 && t === 'server' ? '连接 / 下载模型…' : SETUP_LABELS[t]}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         )}
       </div>
-      <OllamaSetupDialog open={setupOpen} onOpenChange={setSetupOpen} target={setupTarget} />
+      <OllamaSetupDialog
+        open={!!setupTarget}
+        onOpenChange={(v) => !v && setSetupTarget(undefined)}
+        target={setupTarget ?? 'browser'}
+      />
     </header>
   )
 }

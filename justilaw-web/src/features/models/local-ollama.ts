@@ -224,9 +224,11 @@ export function makeAllowScript(os: ScriptOs, origin: string): { filename: strin
       `[Environment]::SetEnvironmentVariable('OLLAMA_ORIGINS',($l -join ','),'User');`,
       // 注册表里的新值不会进入当前进程，下面拉起的 Ollama 继承的是本进程环境，要同步设置
       `$env:OLLAMA_ORIGINS=($l -join ',');`,
+      // 先记下正在运行的托盘程序路径（Ollama 可能装在自定义目录），找不到再用默认安装位置
+      `$exe=(Get-Process 'ollama app' -ErrorAction SilentlyContinue | Select-Object -First 1).Path;`,
+      `if (-not $exe) { $exe=Join-Path $env:LOCALAPPDATA 'Programs\\Ollama\\ollama app.exe' };`,
       `Get-Process 'ollama app','ollama' -ErrorAction SilentlyContinue | Stop-Process -Force;`,
       `Start-Sleep 2;`,
-      `$exe=Join-Path $env:LOCALAPPDATA 'Programs\\Ollama\\ollama app.exe';`,
       `if (Test-Path $exe) { Start-Process $exe } else { Write-Host '请手动重新打开 Ollama' }`,
     ].join(' ')
     return {

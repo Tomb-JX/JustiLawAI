@@ -31,5 +31,7 @@ export function useChatModels() {
     models: [...serverModels, ...localModels],
     isLoading: server.isLoading || (localEnabled && local.isLoading),
     localError: localEnabled && local.isError ? (local.error as Error) : null,
+    /** 本机已连通但还没有可对话的模型（比如只装了嵌入模型） */
+    localEmpty: localEnabled && local.isSuccess && localModels.length === 0,
   }
 }
