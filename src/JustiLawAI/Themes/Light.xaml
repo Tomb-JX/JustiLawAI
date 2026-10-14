@@ -1,0 +1,201 @@
+<!--
+    DeepSeek Harness 风格色板 · 浅色
+
+    取值直接抄 DSH 自己的设计令牌（dsh-client-ui-theme / welcome.css 里的
+    dsw-static-* 与 dsw-alias-*，下面统一省掉前缀的连字符），映射关系：
+
+        Bg / StreamBg   <- alias-bg-base              纯白
+        Panel           <- alias-bg-layer-1           纯白（输出卡）
+        PanelAlt        <- static-neutral-bluish-50   #F9FAFB（材料卡、提示卡）
+        Sidebar         <- specific-sidebar-fill      #F9FAFB
+        Fill / FillHover<- bluish-75 / bluish-100     #F1F3F5 / #EBEEF2
+        Line/LineStrong <- alias-border-l2 / l4       rgba(.1) / rgba(.16) 压在白底上
+        Ink/Soft/Faint  <- label-primary/secondary/tertiary
+        Accent          <- alias-button-primary-fill  浅色下是近黑，不是蓝
+        Focus           <- static-deepseek-500        焦点环才是蓝的
+        Danger/Ok/Warn  <- state-error / state-success / state-warn
+
+    这里同时定义两类键：
+      1. 本应用自己的画刷（Bg / Panel / Ink / Accent …），XAML 里一律用
+         {DynamicResource …} 引用，这样换主题时能实时刷新。
+      2. 覆盖 WPF-UI 的 Fluent 颜色令牌（TextFillColorPrimaryBrush 之类），
+         把控件自带的 Windows 11 蓝色换成这组中性色。
+
+    本字典必须在 ThemesDictionary / ControlsDictionary 之后合并，否则覆盖不生效。
+-->
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ================= 颜色 ================= -->
+    <!-- 窗口底色（卡片之间的缝隙）。比卡片深一档，卡片才浮得起来。 -->
+    <Color x:Key="BackdropColor">#EBEEF2</Color>
+    <Color x:Key="BgColor">#FFFFFF</Color>
+    <Color x:Key="PanelColor">#FFFFFF</Color>
+    <Color x:Key="PanelAltColor">#F9FAFB</Color>
+    <Color x:Key="SidebarColor">#F9FAFB</Color>
+    <Color x:Key="StreamBgColor">#FFFFFF</Color>
+    <!-- 用户消息气泡：DSH 的 specific-bubble，浅色下 = deepseek-50 -->
+    <Color x:Key="BubbleColor">#EDF3FE</Color>
+    <Color x:Key="FillColor">#F1F3F5</Color>
+    <Color x:Key="FillHoverColor">#EBEEF2</Color>
+    <Color x:Key="LineColor">#E5E5E5</Color>
+    <Color x:Key="LineStrongColor">#D6D6D6</Color>
+    <Color x:Key="InkColor">#0F1115</Color>
+    <Color x:Key="InkSoftColor">#61666B</Color>
+    <Color x:Key="InkFaintColor">#81858C</Color>
+    <!-- 主按钮底色：DSH 浅色下用的是近黑（bluish-1000），不是强调蓝 -->
+    <Color x:Key="AccentColor">#0F1115</Color>
+    <Color x:Key="AccentHoverColor">#434549</Color>
+    <Color x:Key="AccentPressColor">#2B2D33</Color>
+    <Color x:Key="AccentSoftColor">#E4EDFD</Color>
+    <Color x:Key="AccentLineColor">#D3E2FF</Color>
+    <Color x:Key="OnAccentColor">#FFFFFF</Color>
+    <!-- 强调色：DSH 的 deepseek-500。发送键、焦点环、选中高亮、进度圈都走这一支蓝 -->
+    <Color x:Key="AccentSolidColor">#4176E6</Color>
+    <Color x:Key="AccentSolidHoverColor">#3568D4</Color>
+    <Color x:Key="AccentSolidPressColor">#2C58B8</Color>
+    <Color x:Key="OnAccentSolidColor">#FFFFFF</Color>
+    <!-- 焦点环：强调色本身（蓝），跟发送键一个色 -->
+    <Color x:Key="FocusColor">#4176E6</Color>
+    <Color x:Key="DangerColor">#EC1313</Color>
+    <Color x:Key="DangerSoftColor">#FEF2F2</Color>
+    <Color x:Key="DangerLineColor">#FBD5D5</Color>
+    <Color x:Key="OkColor">#22C55E</Color>
+    <Color x:Key="OkSoftColor">#E6FAED</Color>
+    <Color x:Key="WarnColor">#DD8629</Color>
+    <Color x:Key="WarnSoftColor">#FEF5E7</Color>
+
+    <!-- 浮层滚动条：没有轨道、没有箭头，只有一枚胶囊。
+         数值是 DSH 滚动条色（neutral-200 / 300）折成的半透明黑，
+         这样压在纯白或 #F9FAFB 上都成立。 -->
+    <Color x:Key="ScrollThumbColor">#26000000</Color>
+    <Color x:Key="ScrollThumbHoverColor">#40000000</Color>
+
+    <!-- 浮层遮罩：DSH 的 alias-bg-mask-1 = rgba(0,0,0,.24) -->
+    <Color x:Key="ScrimColor">#3D000000</Color>
+
+    <!-- ================= 本应用画刷 ================= -->
+    <SolidColorBrush x:Key="Backdrop"   Color="{StaticResource BackdropColor}"/>
+    <SolidColorBrush x:Key="Bg"         Color="{StaticResource BgColor}"/>
+    <SolidColorBrush x:Key="Panel"      Color="{StaticResource PanelColor}"/>
+    <SolidColorBrush x:Key="PanelAlt"   Color="{StaticResource PanelAltColor}"/>
+    <SolidColorBrush x:Key="Sidebar"    Color="{StaticResource SidebarColor}"/>
+    <SolidColorBrush x:Key="StreamBg"     Color="{StaticResource StreamBgColor}"/>
+    <SolidColorBrush x:Key="Bubble"     Color="{StaticResource BubbleColor}"/>
+
+    <!-- 消息流下沿的淡出：从透明渐到窗口底色，内容再往下就化进输入区后面，
+         不是被硬切一刀。高度按输入区上面 40px 左右定（见 MainWindow.xaml）。 -->
+    <LinearGradientBrush x:Key="BackdropFade" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="#00EBEEF2" Offset="0"/>
+        <GradientStop Color="#00EBEEF2" Offset="0.18"/>
+        <GradientStop Color="#EBEEF2"   Offset="0.44"/>
+        <GradientStop Color="#EBEEF2"   Offset="1"/>
+    </LinearGradientBrush>
+    <SolidColorBrush x:Key="Fill"       Color="{StaticResource FillColor}"/>
+    <SolidColorBrush x:Key="FillHover"  Color="{StaticResource FillHoverColor}"/>
+    <SolidColorBrush x:Key="Line"       Color="{StaticResource LineColor}"/>
+    <SolidColorBrush x:Key="LineStrong" Color="{StaticResource LineStrongColor}"/>
+    <SolidColorBrush x:Key="Ink"        Color="{StaticResource InkColor}"/>
+    <SolidColorBrush x:Key="InkSoft"    Color="{StaticResource InkSoftColor}"/>
+    <SolidColorBrush x:Key="InkFaint"   Color="{StaticResource InkFaintColor}"/>
+    <SolidColorBrush x:Key="Accent"     Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentHover" Color="{StaticResource AccentHoverColor}"/>
+    <SolidColorBrush x:Key="AccentPress" Color="{StaticResource AccentPressColor}"/>
+    <SolidColorBrush x:Key="AccentSoft" Color="{StaticResource AccentSoftColor}"/>
+    <SolidColorBrush x:Key="AccentLine" Color="{StaticResource AccentLineColor}"/>
+    <SolidColorBrush x:Key="OnAccent"   Color="{StaticResource OnAccentColor}"/>
+    <SolidColorBrush x:Key="AccentSolid"      Color="{StaticResource AccentSolidColor}"/>
+    <SolidColorBrush x:Key="AccentSolidHover" Color="{StaticResource AccentSolidHoverColor}"/>
+    <SolidColorBrush x:Key="AccentSolidPress" Color="{StaticResource AccentSolidPressColor}"/>
+    <SolidColorBrush x:Key="OnAccentSolid"    Color="{StaticResource OnAccentSolidColor}"/>
+    <SolidColorBrush x:Key="Focus"      Color="{StaticResource FocusColor}"/>
+    <SolidColorBrush x:Key="Danger"     Color="{StaticResource DangerColor}"/>
+    <SolidColorBrush x:Key="DangerSoft" Color="{StaticResource DangerSoftColor}"/>
+    <SolidColorBrush x:Key="DangerLine" Color="{StaticResource DangerLineColor}"/>
+    <SolidColorBrush x:Key="Ok"         Color="{StaticResource OkColor}"/>
+    <SolidColorBrush x:Key="OkSoft"     Color="{StaticResource OkSoftColor}"/>
+    <SolidColorBrush x:Key="Warn"       Color="{StaticResource WarnColor}"/>
+    <SolidColorBrush x:Key="WarnSoft"   Color="{StaticResource WarnSoftColor}"/>
+    <SolidColorBrush x:Key="Scrim"      Color="{StaticResource ScrimColor}"/>
+
+    <!-- 阴影用（卡片浮起时的柔和描边） -->
+    <SolidColorBrush x:Key="CardShadow" Color="#14000000"/>
+
+    <!-- 滚动条滑块 -->
+    <SolidColorBrush x:Key="ScrollThumb"      Color="{StaticResource ScrollThumbColor}"/>
+    <SolidColorBrush x:Key="ScrollThumbHover" Color="{StaticResource ScrollThumbHoverColor}"/>
+
+    <!-- ================= 覆盖 WPF-UI 的 Fluent 令牌 ================= -->
+    <SolidColorBrush x:Key="ApplicationBackgroundBrush"              Color="{StaticResource BgColor}"/>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseBrush"       Color="{StaticResource BgColor}"/>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorSecondaryBrush"  Color="{StaticResource PanelColor}"/>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorTertiaryBrush"   Color="{StaticResource PanelAltColor}"/>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorQuarternaryBrush" Color="{StaticResource FillColor}"/>
+    <SolidColorBrush x:Key="SolidBackgroundFillColorBaseAltBrush"    Color="{StaticResource SidebarColor}"/>
+    <SolidColorBrush x:Key="LayerFillColorDefaultBrush"              Color="{StaticResource PanelColor}"/>
+    <SolidColorBrush x:Key="LayerFillColorAltBrush"                  Color="{StaticResource PanelAltColor}"/>
+    <SolidColorBrush x:Key="CardBackgroundFillColorDefaultBrush"     Color="{StaticResource PanelColor}"/>
+    <SolidColorBrush x:Key="CardBackgroundFillColorSecondaryBrush"   Color="{StaticResource PanelAltColor}"/>
+    <SolidColorBrush x:Key="CardStrokeColorDefaultBrush"             Color="{StaticResource LineColor}"/>
+    <SolidColorBrush x:Key="ControlFillColorDefaultBrush"            Color="{StaticResource PanelColor}"/>
+    <SolidColorBrush x:Key="ControlFillColorSecondaryBrush"          Color="{StaticResource FillColor}"/>
+    <SolidColorBrush x:Key="ControlFillColorTertiaryBrush"           Color="{StaticResource FillColor}"/>
+    <SolidColorBrush x:Key="ControlFillColorInputActiveBrush"        Color="{StaticResource PanelColor}"/>
+    <SolidColorBrush x:Key="ControlStrokeColorDefaultBrush"          Color="{StaticResource LineStrongColor}"/>
+    <SolidColorBrush x:Key="ControlStrokeColorSecondaryBrush"        Color="{StaticResource LineColor}"/>
+    <SolidColorBrush x:Key="ControlElevationBorderBrush"             Color="{StaticResource LineColor}"/>
+    <SolidColorBrush x:Key="TextFillColorPrimaryBrush"               Color="{StaticResource InkColor}"/>
+    <SolidColorBrush x:Key="TextFillColorSecondaryBrush"             Color="{StaticResource InkSoftColor}"/>
+    <SolidColorBrush x:Key="TextFillColorTertiaryBrush"              Color="{StaticResource InkFaintColor}"/>
+    <SolidColorBrush x:Key="TextFillColorDisabledBrush"              Color="{StaticResource InkFaintColor}"/>
+    <SolidColorBrush x:Key="TextFillColorInverseBrush"               Color="{StaticResource OnAccentColor}"/>
+    <SolidColorBrush x:Key="DividerStrokeColorDefaultBrush"          Color="{StaticResource LineColor}"/>
+    <SolidColorBrush x:Key="SubtleFillColorSecondaryBrush"           Color="{StaticResource FillColor}"/>
+    <SolidColorBrush x:Key="SubtleFillColorTertiaryBrush"            Color="{StaticResource FillColor}"/>
+    <SolidColorBrush x:Key="AccentFillColorDefaultBrush"             Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="AccentFillColorSecondaryBrush"           Color="{StaticResource AccentHoverColor}"/>
+    <SolidColorBrush x:Key="AccentFillColorTertiaryBrush"            Color="{StaticResource AccentPressColor}"/>
+    <SolidColorBrush x:Key="AccentTextFillColorPrimaryBrush"         Color="{StaticResource AccentColor}"/>
+    <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush"       Color="{StaticResource OnAccentColor}"/>
+    <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush"     Color="{StaticResource OnAccentColor}"/>
+    <SolidColorBrush x:Key="FocusStrokeColorOuterBrush"              Color="{StaticResource FocusColor}"/>
+    <SolidColorBrush x:Key="FocusStrokeColorInnerBrush"              Color="{StaticResource FocusColor}"/>
+
+    <!-- ===== WPF-UI 里「派生自系统强调色」的地方，一律换成我们的强调蓝 =====
+         ProgressRing（生成中的小圈）、ui:TextBox 的选中高亮、
+         以及 ui:Button Appearance=Primary 系的画刷，默认都从
+         SystemAccentColor 推。把这一组指到 deepseek-500 上，
+         整机强调色就是这一支蓝，不会跟着 Windows 主题跑偏。
+         注意：主按钮（AccentColor）仍然走中性近黑，那是 DSH 的做法。 -->
+    <Color        x:Key="SystemAccentColor">#4176E6</Color>
+    <Color        x:Key="SystemAccentColorLight1">#5A8AEA</Color>
+    <Color        x:Key="SystemAccentColorLight2">#7AAAFF</Color>
+    <Color        x:Key="SystemAccentColorLight3">#A9C7FF</Color>
+    <Color        x:Key="SystemAccentColorDark1">#3568D4</Color>
+    <Color        x:Key="SystemAccentColorDark2">#2C58B8</Color>
+    <Color        x:Key="SystemAccentColorDark3">#22449A</Color>
+    <SolidColorBrush x:Key="SystemAccentColorPrimaryBrush"    Color="{StaticResource AccentSolidColor}"/>
+    <SolidColorBrush x:Key="SystemAccentColorSecondaryBrush"  Color="{StaticResource AccentSolidHoverColor}"/>
+    <SolidColorBrush x:Key="SystemAccentColorTertiaryBrush"   Color="{StaticResource AccentSolidPressColor}"/>
+    <SolidColorBrush x:Key="AccentButtonBackgroundBrush"             Color="{StaticResource AccentSolidColor}"/>
+    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOverBrush"  Color="{StaticResource AccentSolidHoverColor}"/>
+    <SolidColorBrush x:Key="AccentButtonBackgroundPressedBrush"      Color="{StaticResource AccentSolidPressColor}"/>
+    <SolidColorBrush x:Key="AccentButtonBorderBrush"                 Color="{StaticResource AccentSolidColor}"/>
+    <SolidColorBrush x:Key="AccentButtonForegroundBrush"             Color="{StaticResource OnAccentSolidColor}"/>
+    <SolidColorBrush x:Key="AccentButtonForegroundPointerOverBrush"  Color="{StaticResource OnAccentSolidColor}"/>
+    <SolidColorBrush x:Key="AccentButtonForegroundPressedBrush"      Color="{StaticResource OnAccentSolidColor}"/>
+    <SolidColorBrush x:Key="TextControlSelectionHighlightColor"      Color="{StaticResource AccentSoftColor}"/>
+    <SolidColorBrush x:Key="ProgressRingForeground"                  Color="{StaticResource AccentSolidColor}"/>
+
+    <!-- 文本选中 / 列表选中：WPF 走 SystemColors，不覆盖出来是系统蓝。
+         换成浅蓝底 + 正常字色，选中的字仍然读得清。 -->
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"           Color="{StaticResource AccentSoftColor}"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}"       Color="{StaticResource InkColor}"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightBrushKey}" Color="{StaticResource AccentSoftColor}"/>
+    <SolidColorBrush x:Key="{x:Static SystemColors.InactiveSelectionHighlightTextBrushKey}" Color="{StaticResource InkColor}"/>
+
+    <!-- 圆角：控件 8 / 浮层 12 -->
+    <CornerRadius x:Key="ControlCornerRadius">8</CornerRadius>
+    <CornerRadius x:Key="OverlayCornerRadius">12</CornerRadius>
+
+</ResourceDictionary>

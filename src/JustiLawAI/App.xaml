@@ -1,0 +1,451 @@
+<Application x:Class="JustiLawAI.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <ResourceDictionary>
+
+            <!-- ================= Fluent 控件样式 =================
+                 提供 WPF-UI 控件的样式与令牌。这里钉成浅色只是为了有个初值，
+                 真正的主题由 Services/ThemeService 在 OnStartup 里按系统设置换。 -->
+            <ResourceDictionary.MergedDictionaries>
+                <ui:ThemesDictionary Theme="Light"/>
+                <ui:ControlsDictionary/>
+
+                <!-- 本应用色板（照 DeepSeek Harness 的令牌）。必须放在最后：
+                     MergedDictionaries 是倒序查找的，
+                     放最后才能盖过上面 Fluent 字典里的令牌。 -->
+                <ResourceDictionary Source="Themes/Light.xaml"/>
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- ================= 字体 ================= -->
+            <FontFamily x:Key="Sans">Microsoft YaHei UI, Segoe UI, Arial</FontFamily>
+            <FontFamily x:Key="Mono">Cascadia Mono, Consolas, Courier New</FontFamily>
+
+            <!-- ================= 圆角（macOS 那组） ================= -->
+            <CornerRadius x:Key="RSm">6</CornerRadius>
+            <CornerRadius x:Key="RMd">8</CornerRadius>
+            <CornerRadius x:Key="RLg">10</CornerRadius>
+            <CornerRadius x:Key="RXl">12</CornerRadius>
+            <!-- 大块面（右栏卡片、输入壳、遮罩）用这个；发送键的圆角也取它，
+                 方的是 32x32，圆出来正好是一整圆。 -->
+            <CornerRadius x:Key="R2xl">20</CornerRadius>
+
+            <!-- ================= 卡片 ================= -->
+            <Style x:Key="Card" TargetType="Border">
+                <Setter Property="Background"      Value="{DynamicResource Panel}"/>
+                <Setter Property="BorderBrush"     Value="{DynamicResource Line}"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="CornerRadius"    Value="{StaticResource RLg}"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+            </Style>
+
+            <Style x:Key="CardAlt" TargetType="Border" BasedOn="{StaticResource Card}">
+                <Setter Property="Background"  Value="{DynamicResource PanelAlt}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
+            </Style>
+
+            <!-- ================= 输入框（设置窗口用） ================= -->
+            <Style x:Key="Input" TargetType="TextBox">
+                <Setter Property="Background"  Value="{DynamicResource Panel}"/>
+                <Setter Property="Foreground"  Value="{DynamicResource Ink}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource LineStrong}"/>
+                <Setter Property="CaretBrush"  Value="{DynamicResource Ink}"/>
+                <Setter Property="SelectionBrush" Value="{DynamicResource InkSoft}"/>
+                <Setter Property="FontFamily"  Value="{StaticResource Sans}"/>
+                <Setter Property="FontSize"    Value="13"/>
+                <Setter Property="Padding"     Value="10,7"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RMd}"
+                                    SnapsToDevicePixels="True">
+                                <ScrollViewer x:Name="PART_ContentHost"
+                                              Margin="{TemplateBinding Padding}"
+                                              VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
+                                              HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Focus}"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ================= 输入区外壳 =================
+                 输入区是「一个圆角壳，文字框和图标按钮都装在壳里」：
+                 壳负责画背景、描边和聚焦反馈，里面的 TextBox 不再画自己的框。 -->
+            <Style x:Key="ComposerShell" TargetType="Border">
+                <!-- 输入区是一张浅色卡片，浮在消息流上面。
+                     底色用 Fill：浅色下是淡灰、深色下比消息流亮一档，两种主题都能拉开层次。 -->
+                <Setter Property="Background"          Value="{DynamicResource Fill}"/>
+                <Setter Property="BorderBrush"         Value="{DynamicResource LineStrong}"/>
+                <Setter Property="BorderThickness"     Value="1"/>
+                <Setter Property="CornerRadius"        Value="{StaticResource R2xl}"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Style.Triggers>
+                    <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                        <Setter Property="BorderBrush" Value="{DynamicResource Focus}"/>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <Style x:Key="ComposerBox" TargetType="TextBox">
+                <Setter Property="Background"     Value="Transparent"/>
+                <Setter Property="Foreground"     Value="{DynamicResource Ink}"/>
+                <Setter Property="CaretBrush"     Value="{DynamicResource Ink}"/>
+                <Setter Property="SelectionBrush" Value="{DynamicResource InkSoft}"/>
+                <Setter Property="FontFamily"     Value="{StaticResource Sans}"/>
+                <Setter Property="FontSize"       Value="13"/>
+                <Setter Property="Padding"        Value="0"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="TextBox">
+                            <ScrollViewer x:Name="PART_ContentHost"
+                                          VerticalScrollBarVisibility="{TemplateBinding VerticalScrollBarVisibility}"
+                                          HorizontalScrollBarVisibility="{TemplateBinding HorizontalScrollBarVisibility}"/>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- ================= 小标签 ================= -->
+            <Style x:Key="Tag" TargetType="TextBlock">
+                <Setter Property="FontFamily" Value="{StaticResource Sans}"/>
+                <Setter Property="FontSize"   Value="11"/>
+                <Setter Property="Foreground" Value="{DynamicResource InkFaint}"/>
+            </Style>
+
+            <!-- ================= macOS 浮层滚动条 =================
+                 macOS 的滚动条不占轨道、没有上下箭头、没有刻度，就是一枚半透明胶囊，
+                 鼠标移上去变实一点。Windows 那套带箭头的原版一律不要，所以这里做了
+                 一个隐式样式，全应用的 ScrollBar 都会走它。 -->
+            <Style TargetType="ScrollBar">
+                <Setter Property="Background"      Value="Transparent"/>
+                <Setter Property="Width"           Value="11"/>
+                <Setter Property="MinWidth"        Value="11"/>
+                <Setter Property="Focusable"       Value="False"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ScrollBar">
+                            <Grid Background="Transparent">
+                                <Track x:Name="PART_Track" Orientation="Vertical" IsDirectionReversed="True">
+                                    <Track.DecreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageUpCommand"
+                                                      Focusable="False" Opacity="0"/>
+                                    </Track.DecreaseRepeatButton>
+                                    <Track.Thumb>
+                                        <Thumb>
+                                            <Thumb.Template>
+                                                <ControlTemplate TargetType="Thumb">
+                                                    <Border x:Name="Pill"
+                                                            Background="{DynamicResource ScrollThumb}"
+                                                            CornerRadius="3"
+                                                            Margin="3,0"/>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter TargetName="Pill" Property="Background"
+                                                                    Value="{DynamicResource ScrollThumbHover}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Thumb.Template>
+                                        </Thumb>
+                                    </Track.Thumb>
+                                    <Track.IncreaseRepeatButton>
+                                        <RepeatButton Command="ScrollBar.PageDownCommand"
+                                                      Focusable="False" Opacity="0"/>
+                                    </Track.IncreaseRepeatButton>
+                                </Track>
+                            </Grid>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="Orientation" Value="Horizontal">
+                        <Setter Property="Width"    Value="Auto"/>
+                        <Setter Property="MinWidth" Value="0"/>
+                        <Setter Property="Height"   Value="11"/>
+                        <Setter Property="MinHeight" Value="11"/>
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="ScrollBar">
+                                    <Grid Background="Transparent">
+                                        <Track x:Name="PART_Track" Orientation="Horizontal">
+                                            <Track.DecreaseRepeatButton>
+                                                <RepeatButton Command="ScrollBar.PageLeftCommand"
+                                                              Focusable="False" Opacity="0"/>
+                                            </Track.DecreaseRepeatButton>
+                                            <Track.Thumb>
+                                                <Thumb>
+                                                    <Thumb.Template>
+                                                        <ControlTemplate TargetType="Thumb">
+                                                            <Border x:Name="Pill"
+                                                                    Background="{DynamicResource ScrollThumb}"
+                                                                    CornerRadius="3"
+                                                                    Margin="0,3"/>
+                                                            <ControlTemplate.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter TargetName="Pill" Property="Background"
+                                                                            Value="{DynamicResource ScrollThumbHover}"/>
+                                                                </Trigger>
+                                                            </ControlTemplate.Triggers>
+                                                        </ControlTemplate>
+                                                    </Thumb.Template>
+                                                </Thumb>
+                                            </Track.Thumb>
+                                            <Track.IncreaseRepeatButton>
+                                                <RepeatButton Command="ScrollBar.PageRightCommand"
+                                                              Focusable="False" Opacity="0"/>
+                                            </Track.IncreaseRepeatButton>
+                                        </Track>
+                                    </Grid>
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+
+            <!-- ================= macOS 风格按钮 =================
+                 macOS 的按钮是「圆角 6 的胶囊矩形」：默认白底 + 1px 描边，
+                 主按钮填系统蓝，图标按钮平时透明、悬停才有底色。 -->
+            <Style x:Key="MacButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="{StaticResource Sans}"/>
+                <Setter Property="FontSize"   Value="12.5"/>
+                <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                <Setter Property="Background" Value="{DynamicResource Panel}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource LineStrong}"/>
+                <Setter Property="Padding"    Value="13,6"/>
+                <Setter Property="Cursor"     Value="Hand"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RSm}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="False"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FillHover}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Fill}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="MacPrimaryButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="{StaticResource Sans}"/>
+                <Setter Property="FontSize"   Value="12.5"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Foreground" Value="{DynamicResource OnAccent}"/>
+                <Setter Property="Background" Value="{DynamicResource Accent}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter Property="Padding"    Value="15,6"/>
+                <Setter Property="Cursor"     Value="Hand"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RSm}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="False"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentHover}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentHover}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentPress}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentPress}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 输入框里那颗发送键：圆角与输入框一致（R2xl），底色是全界面唯一一处强调色。 -->
+            <Style x:Key="MacRoundPrimaryButton" TargetType="Button" BasedOn="{StaticResource MacPrimaryButton}">
+                <Setter Property="Foreground" Value="{DynamicResource OnAccentSolid}"/>
+                <Setter Property="Background" Value="{DynamicResource AccentSolid}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentSolid}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource R2xl}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="False"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSolidHover}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentSolidHover}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSolidPress}"/>
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource AccentSolidPress}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 破坏性动作（删案件）：红底白字，和主按钮同形。 -->
+            <Style x:Key="MacDangerButton" TargetType="Button" BasedOn="{StaticResource MacPrimaryButton}">
+                <Setter Property="Foreground"  Value="#FFFFFF"/>
+                <Setter Property="Background"  Value="{DynamicResource Danger}"/>
+                <Setter Property="BorderBrush" Value="{DynamicResource Danger}"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="{StaticResource RSm}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="False"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.88"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.74"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <Style x:Key="MacIconButton" TargetType="Button">
+                <Setter Property="Foreground" Value="{DynamicResource InkSoft}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding"    Value="7,6"/>
+                <Setter Property="Cursor"     Value="Hand"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{StaticResource RSm}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="False"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Fill}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FillHover}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+            <!-- 正文边上那些不抢眼的动作（比如回答右下角的「另存为」）：
+                 平时就是一行小字，只有悬停才浮出一层浅底。 -->
+            <Style x:Key="LinkButton" TargetType="Button">
+                <Setter Property="FontFamily" Value="{StaticResource Sans}"/>
+                <Setter Property="FontSize"   Value="12"/>
+                <Setter Property="Foreground" Value="{DynamicResource InkFaint}"/>
+                <Setter Property="Background" Value="Transparent"/>
+                <Setter Property="Padding"    Value="8,4"/>
+                <Setter Property="Cursor"     Value="Hand"/>
+                <Setter Property="SnapsToDevicePixels" Value="True"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="{StaticResource RSm}"
+                                    SnapsToDevicePixels="True">
+                                <ContentPresenter Margin="{TemplateBinding Padding}"
+                                                  HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"
+                                                  RecognizesAccessKey="False"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Fill}"/>
+                                    <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FillHover}"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.42"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

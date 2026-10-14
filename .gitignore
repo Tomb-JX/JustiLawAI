@@ -1,28 +1,46 @@
-# ===== 数据集（严禁入库：单文件超 GitHub 100MB 限制）=====
-CAIL2018_ALL_DATA.zip
-final_all_data/
+# ---- 构建产物 ----
+[Bb]in/
+[Oo]bj/
+dist/
+*.binlog
+*.nupkg
+
+# ---- 本机专有配置（可能含 API Key，绝不入库）----
+*.local.json
+
+# ---- 运行时产生的东西：配置与案件存档 ----
+JustiLawAI-data/
+
+# ---- 大文件 / 数据集（单文件超 GitHub 100MB 限制）----
 *.zip
 *.tar.gz
+CAIL2018_ALL_DATA.zip
+final_all_data/
 
-# ===== 依赖与构建 =====
-node_modules/
-dist/
-build/
-
-# ===== 环境与密钥 =====
+# ---- 环境与密钥 ----
 .env
 .env.*.local
 *.pem
 *.key
 
-# ===== 日志与临时文件 =====
+# ---- 日志与临时文件 ----
 *.log
 .cache/
 .temp/
+__pycache__/
+*.pyc
 
-# ===== 编辑器与工具会话 =====
+# ---- 编辑器与工具会话 ----
+.obsidian/
 .zcode/
+.vs/
 .idea/
 .vscode/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ---- 系统 ----
 .DS_Store
 Thumbs.db

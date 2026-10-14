@@ -1,0 +1,618 @@
+<ui:FluentWindow x:Class="JustiLawAI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:sys="clr-namespace:System;assembly=mscorlib"
+        mc:Ignorable="d"
+        Title="JustiLawAI"
+        Icon="pack://application:,,,/Assets/app.ico"
+        Height="880" Width="1380" MinHeight="620" MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        ExtendsContentIntoTitleBar="True"
+        WindowBackdropType="None"
+        WindowCornerPreference="Round"
+        Background="{DynamicResource Backdrop}"
+        FontFamily="{StaticResource Sans}">
+
+    <!--
+        这个窗口的取色全部走 {DynamicResource}：色板运行时会被 ThemeService
+        整本换掉，用 {StaticResource} 的话换主题时不会刷新。
+    -->
+    <ui:FluentWindow.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+
+        <!-- ================= 文字 ================= -->
+        <Style x:Key="CardTitle" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="12.5"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="CardMeta" TargetType="TextBlock">
+            <Setter Property="FontSize"   Value="11.5"/>
+            <Setter Property="Foreground" Value="{DynamicResource InkFaint}"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Margin"     Value="8,0,0,0"/>
+        </Style>
+
+        <!-- 卡里可直接选中复制的正文。中文用无衬线，行高放宽一点更好读。
+             字号 / 行高照 DeepSeek Harness 的正文（14 / 22）。 -->
+        <Style x:Key="BubbleText" TargetType="TextBox">
+            <Setter Property="IsReadOnly"      Value="True"/>
+            <Setter Property="TextWrapping"    Value="Wrap"/>
+            <Setter Property="Background"      Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding"         Value="0"/>
+            <Setter Property="Margin"          Value="0,8,0,0"/>
+            <Setter Property="Foreground"      Value="{DynamicResource Ink}"/>
+            <Setter Property="CaretBrush"      Value="{DynamicResource Ink}"/>
+            <Setter Property="SelectionBrush"  Value="{DynamicResource InkSoft}"/>
+            <Setter Property="FontSize"        Value="14"/>
+            <Setter Property="IsTabStop"       Value="False"/>
+        </Style>
+
+        <!-- 对话那一列的宽度：DSH 的 chat-content-width 是
+             clamp(680px, 列宽 * .64, 920px)，这里取它的上限；
+             窄窗口时 MaxWidth 撑不满，自然就收窄了。
+             用户气泡最多占它的 70.2%（DSH 的 .702），
+             输入区再宽 32（DSH 的 composer-card-max-width）。 -->
+        <!-- 对话那一列的宽度：DSH 的 chat-content-width 是
+             clamp(680px, 列宽 * .64, 920px)，这里取它在大窗口下的实际值，
+             窄窗口时 MaxWidth 撑不满，自然就收窄了。
+             用户气泡最多占它的 70.2%（DSH 的 .702），
+             输入区再宽 40（DSH 的 composer-card-max-width）。 -->
+        <sys:Double x:Key="ChatWidth">760</sys:Double>
+        <sys:Double x:Key="UserBubbleWidth">534</sys:Double>
+        <sys:Double x:Key="ComposerWidth">800</sys:Double>
+
+        <!-- ============ 用户消息（靠右的空气泡） ============
+             挂进来的文件就显示成一个文件；手打进去的文字折成一行，点开看全文。 -->
+        <DataTemplate x:Key="TplMaterial">
+            <Border HorizontalAlignment="Right"
+                    MinWidth="200"
+                    MaxWidth="{StaticResource UserBubbleWidth}"
+                    Background="{DynamicResource Bubble}"
+                    CornerRadius="{StaticResource RXl}"
+                    Padding="16,10"
+                    SnapsToDevicePixels="True">
+                <Grid>
+                    <!-- 手打的文字：直接摊开显示全文，不折叠、不截断。 -->
+                    <TextBlock x:Name="TypedPart"
+                               Text="{Binding Body}"
+                               TextWrapping="Wrap"
+                               FontSize="14"
+                               Foreground="{DynamicResource Ink}"/>
+
+                    <!-- 挂进来的文件：只显示成一个文件 -->
+                    <StackPanel x:Name="FilePart" Orientation="Horizontal" Visibility="Collapsed">
+                        <ui:SymbolIcon Symbol="Document24" FontSize="16"
+                                       Foreground="{DynamicResource InkSoft}"
+                                       VerticalAlignment="Top" Margin="0,1,0,0"/>
+                        <StackPanel Margin="9,0,0,0">
+                            <TextBlock Text="{Binding Title}"
+                                       FontSize="12.5"
+                                       MaxWidth="380"
+                                       TextTrimming="CharacterEllipsis"
+                                       Foreground="{DynamicResource Ink}"/>
+                            <TextBlock Text="{Binding Subtitle}"
+                                       FontSize="11"
+                                       Margin="0,2,0,0"
+                                       Foreground="{DynamicResource InkFaint}"/>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+            <DataTemplate.Triggers>
+                <DataTrigger Binding="{Binding IsFile}" Value="True">
+                    <Setter TargetName="TypedPart" Property="Visibility" Value="Collapsed"/>
+                    <Setter TargetName="FilePart" Property="Visibility" Value="Visible"/>
+                </DataTrigger>
+            </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <!-- ============ 模型回答（靠左，不套卡） ============
+             DSH 的回答就是一段贴在底色上的正文，没有气泡也没有描边，
+             只有一行很轻的元信息压在正文上面。 -->
+        <DataTemplate x:Key="TplOutput">
+            <StackPanel>
+                <StackPanel Orientation="Horizontal">
+                    <ui:SymbolIcon Symbol="Sparkle24" FontSize="13"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource InkFaint}"/>
+                    <TextBlock Text="{Binding Subtitle}" Style="{StaticResource CardMeta}" Margin="7,0,0,0"/>
+                    <ui:ProgressRing IsIndeterminate="True" Width="13" Height="13"
+                                     Foreground="{DynamicResource AccentSolid}"
+                                     Margin="8,0,0,0" VerticalAlignment="Center"
+                                     Visibility="{Binding IsStreaming, Converter={StaticResource BoolToVis}}"/>
+                </StackPanel>
+
+                <TextBox x:Name="OutputBody"
+                         AutomationProperties.AutomationId="OutputBox"
+                         Style="{StaticResource BubbleText}"
+                         FontSize="15"
+                         Text="{Binding Text, Mode=OneWay}"/>
+
+                <!-- 与正文一条细线之隔，「另存为」贴在这一条回答自己的左下角 -->
+                <Border HorizontalAlignment="Stretch"
+                        BorderBrush="{DynamicResource Line}"
+                        BorderThickness="0,1,0,0"
+                        Margin="0,10,0,0"
+                        Padding="0,6,0,0"
+                        SnapsToDevicePixels="True">
+                    <Button Style="{StaticResource LinkButton}"
+                            HorizontalAlignment="Left"
+                            Margin="-8,0,0,0"
+                            ToolTip="把这一段存成文本文件"
+                            Click="OnSaveMessage">
+                        <StackPanel Orientation="Horizontal">
+                            <ui:SymbolIcon Symbol="Save24" FontSize="13"/>
+                            <TextBlock Text="另存为" Margin="6,0,0,0" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+                </Border>
+            </StackPanel>
+        </DataTemplate>
+
+        <!-- ============ 出错 ============ -->
+        <DataTemplate x:Key="TplError">
+            <Border HorizontalAlignment="Stretch"
+                    Background="{DynamicResource DangerSoft}"
+                    CornerRadius="{StaticResource RLg}"
+                    Padding="14,10"
+                    SnapsToDevicePixels="True">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Warning24" FontSize="14"
+                                       Foreground="{DynamicResource Danger}"/>
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource CardTitle}"
+                                   Foreground="{DynamicResource Danger}" Margin="7,0,0,0"/>
+                        <TextBlock Text="{Binding Subtitle}" Style="{StaticResource CardMeta}"/>
+                    </StackPanel>
+                    <TextBox Style="{StaticResource BubbleText}" Text="{Binding Text, Mode=OneWay}"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- ============ 提示 ============ -->
+        <DataTemplate x:Key="TplNotice">
+            <Border HorizontalAlignment="Stretch"
+                    Background="{DynamicResource Fill}"
+                    CornerRadius="{StaticResource RLg}"
+                    Padding="14,10"
+                    SnapsToDevicePixels="True">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <ui:SymbolIcon Symbol="Info24" FontSize="14"
+                                       Foreground="{DynamicResource InkFaint}"/>
+                        <TextBlock Text="{Binding Title}" Style="{StaticResource CardTitle}" Margin="7,0,0,0"/>
+                    </StackPanel>
+                    <TextBox Style="{StaticResource BubbleText}" Text="{Binding Text, Mode=OneWay}"
+                             Foreground="{DynamicResource InkSoft}"/>
+                </StackPanel>
+            </Border>
+        </DataTemplate>
+
+        <!-- 按 Kind 挑模板：默认输出卡，其余三种各自覆盖 -->
+        <DataTemplate x:Key="TplAny">
+            <ContentControl Content="{Binding}">
+                <ContentControl.Style>
+                    <Style TargetType="ContentControl">
+                        <Setter Property="ContentTemplate" Value="{StaticResource TplOutput}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding Kind}" Value="Material">
+                                <Setter Property="ContentTemplate" Value="{StaticResource TplMaterial}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Kind}" Value="Error">
+                                <Setter Property="ContentTemplate" Value="{StaticResource TplError}"/>
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding Kind}" Value="Notice">
+                                <Setter Property="ContentTemplate" Value="{StaticResource TplNotice}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ContentControl.Style>
+            </ContentControl>
+        </DataTemplate>
+
+        <!-- ============ 左侧案件行 ============ -->
+        <!-- 选中态用一层浅填充，不用强调色整条铺满——那样太重，也不像 macOS。 -->
+        <Style x:Key="CaseItem" TargetType="ListBoxItem">
+            <Setter Property="Padding"                   Value="10,9"/>
+            <Setter Property="Margin"                    Value="0,1"/>
+            <Setter Property="SnapsToDevicePixels"       Value="True"/>
+            <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd"
+                                Background="Transparent"
+                                CornerRadius="{StaticResource RMd}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Stretch" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Fill}"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Fill}"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </ui:FluentWindow.Resources>
+
+    <!-- 整窗底色铺在这一层：ui:FluentWindow 的模板自己会用 Fluent 的
+         ApplicationBackgroundBrush 铺一层底，那一层我们改不动（覆盖那个键会让
+         WPF-UI 启动时直接崩）。把 Backdrop 铺满这一层，标题栏再设成透明，
+         上下的底色就是同一个颜色了。 -->
+    <Grid Background="{DynamicResource Backdrop}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ============ 标题栏 ============ -->
+        <!-- 这个版本的 ui:TitleBar 只渲染 Header，不渲染 Title，所以字都放在 Header 里。
+             窗口自身的 Title 仍然要设，任务栏与 Alt+Tab 用它。
+             背景留透明，露出下面那一层 Backdrop。 -->
+        <ui:TitleBar Grid.Row="0" Title="JustiLawAI" Background="Transparent">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/app-64.png"/>
+            </ui:TitleBar.Icon>
+            <ui:TitleBar.Header>
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="JustiLawAI" FontSize="12.5" FontWeight="SemiBold"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+                    <TextBlock Text="赌博类行政案件辅助分析" FontSize="12" Margin="10,0,0,0"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"/>
+                </StackPanel>
+            </ui:TitleBar.Header>
+        </ui:TitleBar>
+
+        <!-- ============ 主体 ============
+             左右两栏各是一张圆角卡片，中间和四周留出窗口底色的缝隙。
+             不用通到底的分割线，避免界面被切成互不相干的几块。 -->
+        <Grid Grid.Row="1"
+              Margin="10,0,10,10"
+              AllowDrop="True" DragOver="OnDragOver" Drop="OnDrop">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="SidebarColumn" Width="250" MinWidth="200" MaxWidth="360"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <!-- ===== 左：案件 ===== -->
+            <Border Grid.Column="0"
+                    Background="{DynamicResource Sidebar}"
+                    BorderBrush="{DynamicResource Line}"
+                    BorderThickness="1"
+                    CornerRadius="{StaticResource R2xl}"
+                    Margin="0,0,10,0"
+                    SnapsToDevicePixels="True">
+                <DockPanel>
+                    <!-- ===== 左下角：设置 ===== -->
+                    <Border x:Name="SettingsBox" DockPanel.Dock="Bottom"
+                            BorderBrush="{DynamicResource Line}"
+                            BorderThickness="0,1,0,0"
+                            Margin="12,0"
+                            Padding="0,8">
+                        <Button x:Name="SettingsButton" Style="{StaticResource MacIconButton}" Padding="10,7"
+                                HorizontalAlignment="Left"
+                                ToolTip="接口地址、模型名、系统提示词"
+                                AutomationProperties.AutomationId="SettingsButton"
+                                Click="OnOpenSettings">
+                            <StackPanel Orientation="Horizontal">
+                                <ui:SymbolIcon Symbol="Settings24" FontSize="14"/>
+                                <TextBlock x:Name="SettingsLabel" Text="设置" FontSize="12" Margin="8,0,0,0"
+                                           VerticalAlignment="Center"/>
+                            </StackPanel>
+                        </Button>
+                    </Border>
+
+                    <Grid x:Name="SidebarHeader" DockPanel.Dock="Top" Margin="18,16,12,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition x:Name="SidebarTitleColumn" Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <!-- 收起 / 展开案件列表 -->
+                        <Button x:Name="SidebarToggle" Grid.Column="0"
+                                Style="{StaticResource MacIconButton}"
+                                Padding="4,4"
+                                ToolTip="收起案件列表"
+                                AutomationProperties.AutomationId="SidebarToggleButton"
+                                AutomationProperties.Name="收起案件列表"
+                                Click="OnToggleSidebar">
+                            <ui:SymbolIcon x:Name="SidebarToggleIcon" Symbol="PanelLeftContract24" FontSize="14"/>
+                        </Button>
+                        <TextBlock x:Name="SidebarTitle" Grid.Column="1" Text="案件" FontSize="12.5" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource InkFaint}" VerticalAlignment="Center"
+                                   Margin="8,0,0,0"/>
+                        <Button x:Name="NewCaseButton" Grid.Column="2"
+                                Style="{StaticResource MacIconButton}"
+                                HorizontalAlignment="Right" Padding="6,5"
+                                ToolTip="新建案件"
+                                AutomationProperties.AutomationId="NewCaseButton"
+                                Click="OnNewCase">
+                            <ui:SymbolIcon Symbol="Add24" FontSize="14"/>
+                        </Button>
+                    </Grid>
+
+                    <ListBox x:Name="CaseList"
+                             AutomationProperties.AutomationId="CaseList"
+                             ItemsSource="{Binding Cases}"
+                             SelectedItem="{Binding SelectedCase}"
+                             Background="Transparent"
+                             BorderThickness="0"
+                             Margin="10,0,10,12"
+                             ItemContainerStyle="{StaticResource CaseItem}"
+                             PreviewMouseRightButtonDown="OnCaseListRightClick"
+                             ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                        <!-- 菜单挂在命名的 ListBox 上，不放进 CaseItem 样式：
+                             样式 setter 里的 ContextMenu 不在窗口 namescope 内，
+                             里面写 Click= 会让编译出的 Connect 串 id 并炸在 InitializeComponent。 -->
+                        <ListBox.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Header="删除案件" Click="OnDeleteCase">
+                                    <MenuItem.Icon>
+                                        <ui:SymbolIcon Symbol="Delete24"/>
+                                    </MenuItem.Icon>
+                                </MenuItem>
+                            </ContextMenu>
+                        </ListBox.ContextMenu>
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel>
+                                    <TextBlock FontSize="12.5"
+                                               Foreground="{DynamicResource Ink}">
+                                        <!-- 展开时是案件名；收起成窄轨时改成日期——
+                                             窄轨塞不下名字，日期一眼能认出是哪天办的。 -->
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{Binding Name}"/>
+                                                <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="True"
+                                                                 Binding="{Binding SidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                        <Setter Property="Text" Value="{Binding Date}"/>
+                                                        <Setter Property="TextWrapping" Value="Wrap"/>
+                                                        <Setter Property="TextTrimming" Value="None"/>
+                                                        <Setter Property="TextAlignment" Value="Center"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                    <TextBlock Text="{Binding Summary}" FontSize="11"
+                                               Foreground="{DynamicResource InkFaint}"
+                                               Margin="0,3,0,0"
+                                               TextTrimming="CharacterEllipsis">
+                                        <!-- 窄轨里放不下时间那行，收起时整行藏掉。 -->
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Style.Triggers>
+                                                    <DataTrigger Value="True"
+                                                                 Binding="{Binding SidebarCollapsed, RelativeSource={RelativeSource AncestorType=Window}}">
+                                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                </DockPanel>
+            </Border>
+
+            <!-- ===== 右：消息流 + 输入区 =====
+                 右栏**不做成卡片**：直接铺在窗口底色上，只有左栏那张圆角卡片是浮起来的。 -->
+            <Grid Grid.Column="1">
+                <!-- 输入区压在消息流上面：
+                     ScrollViewer 铺满整列，输入区是一张浮在上面的浅色卡片。 -->
+                <ScrollViewer x:Name="StreamScroll"
+                              Background="{DynamicResource StreamBg}"
+                              Padding="32,16,32,120"
+                              VerticalScrollBarVisibility="Auto">
+                    <!-- 消息列照 DeepSeek Harness：居中、限宽，窄窗口就跟着收窄。
+                         用户气泡和回答共用这一列，所以左右两头一定对齐。 -->
+                    <Grid MaxWidth="{StaticResource ChatWidth}">
+                    <ItemsControl x:Name="MessageList"
+                                  AutomationProperties.AutomationId="MessageList"
+                                  ItemsSource="{Binding Messages}"
+                                  ItemTemplate="{StaticResource TplAny}">
+                        <ItemsControl.ItemContainerStyle>
+                            <Style TargetType="ContentPresenter">
+                                <Setter Property="Margin" Value="0,0,0,12"/>
+                            </Style>
+                        </ItemsControl.ItemContainerStyle>
+                    </ItemsControl>
+                    </Grid>
+                </ScrollViewer>
+
+                <!-- 输入区：不铺自己的底色，直接露出手底下的那块消息流。
+                     顶上一段从透明渐到窗口底色 —— 消息滚下来就在这儿化掉，
+                     是从输入框后面穿过去，不是被刀切齐。
+                     底部不留 padding：输入卡片的底边要跟左边那张卡片的下沿齐平。 -->
+                <Border VerticalAlignment="Bottom"
+                        Background="{DynamicResource BackdropFade}"
+                        Padding="32,4,32,0">
+                    <Grid MaxWidth="{StaticResource ComposerWidth}">
+                        <StackPanel>
+
+                        <!-- 待发送的材料：挂着的文件，不是倒进输入框的文字 -->
+                        <ItemsControl ItemsSource="{Binding Attachments}"
+                                      Margin="0,0,0,10"
+                                      Visibility="{Binding HasAttachments, Converter={StaticResource BoolToVis}}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel/>
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="{DynamicResource Fill}"
+                                            BorderBrush="{DynamicResource Line}"
+                                            BorderThickness="1"
+                                            CornerRadius="{StaticResource RSm}"
+                                            Padding="8,4"
+                                            Margin="0,0,8,6">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="DocumentText24" FontSize="12"
+                                                           Foreground="{DynamicResource InkSoft}"/>
+                                            <TextBlock Text="{Binding Name}" FontSize="12"
+                                                       Foreground="{DynamicResource Ink}" Margin="6,0,0,0"
+                                                       MaxWidth="320" TextTrimming="CharacterEllipsis"
+                                                       VerticalAlignment="Center"/>
+                                            <TextBlock Text="{Binding Summary}" FontSize="12"
+                                                       Foreground="{DynamicResource InkFaint}" Margin="8,0,0,0"
+                                                       VerticalAlignment="Center"/>
+                                            <Button Style="{StaticResource MacIconButton}"
+                                                    Padding="3,1" Margin="6,0,0,0"
+                                                    ToolTip="移除这份材料"
+                                                    CommandParameter="{Binding}"
+                                                    Command="{Binding DataContext.RemoveAttachmentCommand,
+                                                              RelativeSource={RelativeSource AncestorType=ItemsControl}}">
+                                                <ui:SymbolIcon Symbol="Dismiss24" FontSize="11"/>
+                                            </Button>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+
+                        <!-- 输入壳：底色与消息流一致，只留一圈描边，不再浮成一块卡片。 -->
+                        <Border Style="{StaticResource ComposerShell}">
+                            <DockPanel>
+                                <Grid DockPanel.Dock="Bottom" Margin="8,0,8,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <StackPanel Grid.Column="0" Orientation="Horizontal">
+                                        <Button Style="{StaticResource MacIconButton}"
+                                                ToolTip="打开材料（.txt / .md / .docx）"
+                                                AutomationProperties.AutomationId="OpenFileButton"
+                                                Click="OnOpenFile">
+                                            <ui:SymbolIcon Symbol="FolderOpen24" FontSize="14"/>
+                                        </Button>
+                                        <Button Style="{StaticResource MacIconButton}" Margin="2,0,0,0"
+                                                ToolTip="清空输入"
+                                                Command="{Binding ClearComposerCommand}">
+                                            <ui:SymbolIcon Symbol="Broom24" FontSize="14"/>
+                                        </Button>
+                                    </StackPanel>
+
+                                    <TextBlock Grid.Column="1"
+                                               Text="{Binding ModelSummary}"
+                                               FontSize="11.5"
+                                               Foreground="{DynamicResource InkFaint}"
+                                               HorizontalAlignment="Left"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- 状态回执就放在这一行里，不再单独占一条底部状态栏 -->
+                                    <TextBlock Grid.Column="1"
+                                               AutomationProperties.AutomationId="StatusText"
+                                               Text="{Binding StatusText}"
+                                               FontSize="11.5"
+                                               Foreground="{DynamicResource InkFaint}"
+                                               HorizontalAlignment="Right"
+                                               VerticalAlignment="Center"
+                                               Margin="12,0"
+                                               TextTrimming="CharacterEllipsis"/>
+
+                                    <!-- 发送与暂停是同一颗按钮：空闲时是「发送」，
+                                         出结果之前一直可以按下去暂停 -->
+                                    <Button Grid.Column="2"
+                                            Width="32" Height="32" Padding="0"
+                                            AutomationProperties.AutomationId="SendButton">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource MacRoundPrimaryButton}">
+                                                <Setter Property="ToolTip" Value="发送"/>
+                                                <Setter Property="Command" Value="{Binding SendCommand}"/>
+                                                <Setter Property="Content">
+                                                    <Setter.Value>
+                                                        <ui:SymbolIcon Symbol="ArrowUp24" FontSize="15"/>
+                                                    </Setter.Value>
+                                                </Setter>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsBusy}" Value="True">
+                                                        <Setter Property="ToolTip" Value="暂停"/>
+                                                        <Setter Property="Command" Value="{Binding StopCommand}"/>
+                                                        <Setter Property="Content">
+                                                            <Setter.Value>
+                                                                <ui:SymbolIcon Symbol="Pause24" FontSize="14"/>
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                </Grid>
+
+                                <Grid Margin="14,12,14,6">
+                                    <TextBox x:Name="InputBox"
+                                             AutomationProperties.AutomationId="InputBox"
+                                             Text="{Binding InputText, UpdateSourceTrigger=PropertyChanged}"
+                                             AcceptsReturn="True"
+                                             TextWrapping="Wrap"
+                                             MinHeight="52"
+                                             MaxHeight="240"
+                                             VerticalScrollBarVisibility="Auto"
+                                             VerticalContentAlignment="Top"
+                                             Style="{StaticResource ComposerBox}"/>
+                                    <TextBlock Text="要模型做什么写在这里。材料点左边的文件夹图标挂进来，支持 .txt / .md / .docx"
+                                               IsHitTestVisible="False"
+                                               TextWrapping="Wrap"
+                                               FontSize="13"
+                                               Foreground="{DynamicResource InkFaint}">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Visibility" Value="Collapsed"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding InputText}" Value="">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding InputText}" Value="{x:Null}">
+                                                        <Setter Property="Visibility" Value="Visible"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DockPanel>
+                        </Border>
+                        </StackPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- ============ 浮层 ============
+                 设置、新建案件、提示/确认都压在这里面，不另开窗口。
+                 浮层只盖住「对话内容」这一块，标题栏和左边的案件栏保持可见。 -->
+            <Border x:Name="OverlayHost"
+                    Grid.Column="1"
+                    Panel.ZIndex="100"
+                    Visibility="Collapsed"
+                    Background="{DynamicResource Scrim}">
+                <ContentControl x:Name="OverlayBody"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Margin="28,24"/>
+            </Border>
+        </Grid>
+    </Grid>
+</ui:FluentWindow>

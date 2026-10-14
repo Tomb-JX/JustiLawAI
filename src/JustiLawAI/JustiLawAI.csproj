@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <RootNamespace>JustiLawAI</RootNamespace>
+    <AssemblyName>JustiLawAI</AssemblyName>
+    <Version>0.1.0</Version>
+    <Product>JustiLawAI</Product>
+    <Description>赌博类行政案件辅助分析桌面工具</Description>
+    <NeutralLanguage>zh-CN</NeutralLanguage>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 窗口与标题栏用的图标，由 tools/make_icons.py 生成。
+         app.ico 同时给 <ApplicationIcon> 和窗口 Icon，所以两个都要嵌成资源。 -->
+    <Resource Include="Assets\app.ico" />
+    <Resource Include="Assets\app-64.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="DocumentFormat.OpenXml" Version="3.1.0" />
+    <PackageReference Include="System.Text.Encoding.CodePages" Version="8.0.0" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
+  </ItemGroup>
+
+</Project>
