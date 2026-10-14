@@ -21,9 +21,9 @@ docs/
 │   └── conventions.md           代码 / Git / 文档规范
 ├── 04-plan/                   计划层
 │   ├── milestones.md            里程碑计划与进度跟踪（M1-M6）
-│   ├── data-collection.md       数据收集计划（裁量引擎）
-│   ├── workstreams.md           并行工作流与分工（工作树、目录归属、Git 纪律、接口）
 │   ├── data-collection.md       数据收集计划（渠道 / 标注 / 治理 / 时间表）
+│   ├── crawler-ops.md           批量采集运维计划（站点台账 / 适配 SOP / 每周节奏）
+│   ├── workstreams.md           并行工作流与分工（工作树、目录归属、Git 纪律、接口）
 │   └── meetings/                周例会纪要（YYYY-MM-DD-主题.md）
 ├── 05-research/               研究层（裁量引擎）
 │   ├── reference-library.md     文献与资料库（出处 / 分级 / 选择依据）

@@ -1,0 +1,25 @@
+site_id,kind,region,status,adapter,list_url,cms,notes
+zhejiang,省司法厅,浙江,已通,iter_zhejiang,https://sft.zj.gov.cn/col/col1228964155/index.html,汉网jpaas,58件已收；unit接口GET+paramJson翻页；页面count不可信
+bjdch,区政府,北京市东城区,已通,iter_bjdch,https://www.bjdch.gov.cn/zwgk/jgdh/qzfzcbmdh/qsfj/xzfygk/xzfyjdgk/,TRS静态,127件已收；index_N翻页；WAF需完整浏览器头
+bjmtg,区司法局,北京市门头沟区,已通,iter_bjmtg,https://www.bjmtg.gov.cn/mtg11J023/c104083/mtgqbm_yjlist.shtml,JCMS,49件已收；翻页文件名_2起；无charset需嗅探
+bjshi,市司法局,北京市,待适配,,https://sfj.beijing.gov.cn/sfj/zwgk/tzgg75/,,市政府复议决定全文PDF附于送达公告
+bjft,区政府,北京市丰台区,探查中,,https://www.bjft.gov.cn/xxfb/xzfygk/xzfyjdgk,,条目JS渲染待解
+bjchy,区政府,北京市朝阳区,候选,,http://www.bjchy.gov.cn/affair/xzfy/,,壳页
+bjdx,区政府,北京市大兴区,候选,,,,
+nanjing,市司法局,江苏南京,探查中,,https://sfj.nanjing.gov.cn/zwfw/xzfyzxsq/xzfyjdswsgk/szfxzfyjds/,,19KB页无静态条目（JS渲染）
+jinan,市司法局,山东济南,探查中,,https://jnssfj.jinan.gov.cn/col/col55260/index.html,汉网,webId未暴露
+guangzhou,市司法局,广东广州,候选,,https://sfj.gz.gov.cn/,,已见attachment PDF（复议决定）
+yixing,市司法局,江苏宜兴,受阻,,https://www.yixing.gov.cn/yxsf/zfxxgk/xzfyjdswsgk/fyjdswsgk/index.shtml,,Python SSL错误
+hunan,省司法厅,湖南,受阻,,https://sft.hunan.gov.cn/,,Python TLS握手失败（curl可通）需降cipher
+creditchina,公示平台,全国,受阻,,https://public.creditchina.gov.cn/,,JS盾412→真实浏览器半自动（渠道E）
+shanxi,省司法厅,山西,候选,,https://sft.shanxi.gov.cn/,,赌博基准省（晋公通字〔2022〕82号）
+shanghai,市司法局,上海,候选,,https://sfj.sh.gov.cn/,,赌博基准市（沪公行规〔2023〕5号）
+yunnan,省司法厅,云南,候选,,https://sft.yn.gov.cn/,,赌博基准省（云公规〔2024〕1号）
+anhui,省司法厅,安徽,候选,,https://sft.ah.gov.cn/,,赌博基准省（皖公通〔2023〕17号）首页SPA
+zhejiang_city,市司法局,浙江（杭州/宁波/温州）,候选,,https://www.hangzhou.gov.cn/,,市级专栏待逐市定位
+shandong,省司法厅,山东,候选,,https://sft.shandong.gov.cn/,,,
+jiangsu,省司法厅,江苏,候选,,https://sft.jiangsu.gov.cn/,,,
+henan,省司法厅,河南,候选,,https://sft.henan.gov.cn/,,,
+hubei,省司法厅,湖北,候选,,https://sft.hubei.gov.cn/,,,
+shenzhen,市司法局,广东深圳,候选,,https://www.sz.gov.cn/,,治安处罚基数大
+chengdu,市司法局,四川成都,候选,,https://www.chengdu.gov.cn/,,治安处罚基数大
