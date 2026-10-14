@@ -11,6 +11,7 @@ import {
   Workflow,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { UserMenu } from '@/features/auth/user-menu'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 
@@ -65,15 +66,7 @@ export function AppLayout() {
             {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             {theme === 'dark' ? '浅色模式' : '深色模式'}
           </Button>
-          <div className="flex items-center gap-2.5 rounded-lg bg-muted/60 px-3 py-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
-              法
-            </div>
-            <div className="min-w-0">
-              <div className="truncate text-xs font-medium">法学研究者</div>
-              <div className="text-[10px] text-muted-foreground">本地演示模式</div>
-            </div>
-          </div>
+          <UserMenu />
         </div>
       </aside>
 
