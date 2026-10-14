@@ -14,13 +14,20 @@ docs/
 │   └── glossary.md              术语表（法律 + AI 领域，团队统一用语）
 ├── 02-design/                 设计层
 │   ├── frontend-design.md       前端设计方案（架构 / 技术选型 / 模块 / 页面）
-│   └── api-contract.md          API 契约（前后端对接唯一依据，变更须评审）
+│   ├── api-contract.md          API 契约（前后端对接唯一依据，变更须评审）
+│   └── gambling-discretion-engine.md  赌博案件智能裁量引擎方案（业界调研 / 架构 / 数据 / 评测）
 ├── 03-dev/                    开发层
 │   ├── setup.md                 环境搭建指南
 │   └── conventions.md           代码 / Git / 文档规范
 ├── 04-plan/                   计划层
 │   ├── milestones.md            里程碑计划与进度跟踪（M1-M6）
+│   ├── data-collection.md       数据收集计划（渠道 / 标注 / 治理 / 时间表）
 │   └── meetings/                周例会纪要（YYYY-MM-DD-主题.md）
+├── 05-research/               研究层（裁量引擎）
+│   ├── reference-library.md     文献与资料库（出处 / 分级 / 选择依据）
+│   ├── sota-baselines-and-gates.md  固定对照与阶段门禁（预注册，冻结后只能经偏离日志修改）
+│   ├── deviation-log.md         偏离日志
+│   └── gate-reports/            各阶段门禁报告
 └── templates/                 模板库
     ├── api-spec.md              接口文档模板（新增接口时使用）
     ├── feature-design.md        功能设计模板
@@ -34,6 +41,8 @@ docs/
 | 新加入的成员 | 根 README → 术语表 → 前端设计方案 → 环境搭建 |
 | 后端同学 | API 契约（重点 §3.3 SSE）→ 产品需求 → 里程碑 |
 | 指导老师 / 结题材料 | 产品需求 → 前端设计方案 → 里程碑进度 |
+| 模型组（裁量引擎） | 引擎方案 → 固定对照与阶段门禁 → 文献与资料库 |
+| 法律组（裁量引擎） | 引擎方案 §3 领域分析 → 数据收集计划（重点标注与 B-H）→ 门禁文档 |
 
 ## 文档管理规范
 
