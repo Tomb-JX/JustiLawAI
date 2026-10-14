@@ -2,7 +2,7 @@
 
 > 版本 v0.1 · 2026-10-15 · 配套：[引擎方案](../02-design/gambling-discretion-engine.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
 >
-> 机器可读清单：[`research/papers/manifest.csv`](../../research/papers/manifest.csv)（128 条）。下载：在仓库根目录运行 `python research/papers/fetch_papers.py`，PDF 存在 `research/papers/pdf/`（不入库），校验和记录在 `research/papers/checksums.tsv`。
+> 机器可读清单：[`research/papers/manifest.csv`](../../research/papers/manifest.csv)（129 条）。下载：在仓库根目录运行 `python research/papers/fetch_papers.py`，PDF 存在 `research/papers/pdf/`（不入库），校验和记录在 `research/papers/checksums.tsv`。
 >
 > 2026-10-15 下载结果：123 篇成功；TabPFN v2（Nature）与 Bürkner & Vuorre（SAGE）会拦截脚本，需用浏览器手动下载；Super Learner、Stacked Generalization、ML Test Score 没有公开 PDF，只给出 DOI 或页面链接。
 
@@ -185,6 +185,7 @@
 | **CheckList** | ACL 2020 最佳论文 | 【奠基】最小功能测试、不变性测试、方向性测试三类行为测试 | 单调性 / 不变性 / 变形测试套件的组织方式 |
 | **Reusable Holdout**（Dwork 等） | Science 2015 / NeurIPS 2015 | 【奠基】反复查看测试集会让测试集过拟合 | 封存测试集，限制查看次数 |
 | **Leakage and the Reproducibility Crisis** | Patterns 2023 | 【警示】8 类数据泄漏的分类法；在 17 个领域找到受泄漏影响的论文共 329 篇 ✅（arXiv v1 摘要） | 门禁中的泄漏检查清单 |
+| **Nadeau & Bengio 2003** 修正的重复交叉验证 t 检验 | Machine Learning 52 | 【奠基】交叉验证各折训练集重叠，普通 t 检验过于乐观；加入 n_test/n_train 修正项 | 门禁 A2 与小测试集上的模型比较（门禁 §6） |
 | Koehn 2004 / Dror 2018 | EMNLP 2004 / ACL 2018 | 【奠基】配对自助法显著性检验；NLP 显著性检验选择指南 | "显著优于"的统一判定方法 |
 | WILDS | ICML 2021 | 【基准】时间、地域等真实分布偏移下的评测 | 时间外推、地域外推测试集 |
 | Shortcut Learning | Nature MI 2020 | 【警示】模型会利用数据中的捷径 | 变形测试：改写事实表述，结论不应改变 |

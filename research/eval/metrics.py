@@ -267,6 +267,25 @@ def non_inferior(result: dict, delta: float) -> bool:
     return result["ci_low"] > -delta
 
 
+def corrected_resampled_ttest(diffs: Sequence[float], n_train: int, n_test: int) -> dict:
+    """修正的重复交叉验证 t 检验（Nadeau & Bengio 2003）。
+
+    diffs：同一批划分上逐折的指标差值（我们 − 基线），共 k = 折数 × 重复次数 个。
+    各折训练集互相重叠，差值并不独立，普通 t 检验会低估方差；修正项 n_test/n_train 把这部分相关性补回来：
+        t = mean(d) / sqrt((1/k + n_test/n_train) · var(d))，自由度 k − 1。
+    返回 t 统计量与单侧 p 值（H1：我们更好）。
+    """
+    from scipy import stats
+    d = np.asarray(diffs, float)
+    k = len(d)
+    var = d.var(ddof=1)
+    if var == 0:
+        return {"mean_diff": float(d.mean()), "t": float("inf") if d.mean() > 0 else 0.0,
+                "p_value": 0.0 if d.mean() > 0 else 1.0}
+    t = d.mean() / math.sqrt((1 / k + n_test / n_train) * var)
+    return {"mean_diff": float(d.mean()), "t": float(t), "p_value": float(stats.t.sf(t, k - 1))}
+
+
 def holm(p_values: Sequence[float], alpha: float = 0.05) -> list[bool]:
     """Holm 逐步校正：返回每个假设是否被拒绝（即对应的"优于"成立）。"""
     order = np.argsort(p_values)

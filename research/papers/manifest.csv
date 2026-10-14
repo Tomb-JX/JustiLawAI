@@ -127,3 +127,4 @@ ModelCards,C,GOV,2019,FAT* 2019,"Model Cards for Model Reporting",https://arxiv.
 Datasheets,C,GOV;DATA,2021,CACM 2021,"Datasheets for Datasets",https://arxiv.org/abs/1803.09010v8,https://arxiv.org/pdf/1803.09010v8
 HiddenTechDebt,C,GOV,2015,NeurIPS 2015,"Hidden Technical Debt in Machine Learning Systems",https://papers.nips.cc/paper_files/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html,https://papers.nips.cc/paper_files/paper/2015/file/86df7dcfd896fcaf2674f757a2463eba-Paper.pdf
 MLTestScore,C,GOV,2017,IEEE BigData 2017,"The ML Test Score: A Rubric for ML Production Readiness and Technical Debt Reduction",https://research.google/pubs/the-ml-test-score-a-rubric-for-ml-production-readiness-and-technical-debt-reduction/,
+NadeauBengio-CorrectedTTest,A,EVAL,2003,Machine Learning 52,"Inference for the Generalization Error",https://doi.org/10.1023/A:1024068626366,

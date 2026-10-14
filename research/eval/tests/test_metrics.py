@@ -140,3 +140,20 @@ def test_paired_bootstrap_detects_real_difference():
 def test_tvd():
     assert m.tvd([0.5, 0.5], [0.5, 0.5]) == 0
     assert abs(m.tvd([1, 0], [0, 1]) - 1) < TOL
+
+
+def test_corrected_ttest_is_more_conservative_than_naive():
+    from scipy import stats
+    rng = np.random.default_rng(6)
+    diffs = 0.02 + 0.03 * rng.standard_normal(25)
+    res = m.corrected_resampled_ttest(diffs, n_train=2975, n_test=744)
+    naive = stats.ttest_1samp(diffs, 0, alternative="greater")
+    k = 25
+    expected_t = diffs.mean() / math.sqrt((1 / k + 744 / 2975) * diffs.var(ddof=1))
+    assert abs(res["t"] - expected_t) < TOL
+    assert res["p_value"] > naive.pvalue          # 修正后更保守
+
+
+def test_corrected_ttest_null_case():
+    res = m.corrected_resampled_ttest([0.01, -0.01] * 10, 100, 25)
+    assert abs(res["mean_diff"]) < TOL and abs(res["p_value"] - 0.5) < 1e-3
