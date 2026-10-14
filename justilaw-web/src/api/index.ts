@@ -248,6 +248,13 @@ export async function pingProvider(id: string): Promise<{ latency_ms: number }> 
   return (await http.post(`/providers/${id}/ping`)) as { latency_ms: number }
 }
 
+/** 拉取远端供应商的模型名列表（只列不存，供「添加模型」点选） */
+export async function fetchProviderRemoteModels(providerId: string): Promise<string[]> {
+  if (USE_MOCK) return mockApi.fetchRemoteModels(providerId)
+  const r = (await http.post(`/providers/${providerId}/remote-models`)) as { models: string[] }
+  return r.models
+}
+
 export async function addProviderModel(
   providerId: string,
   model: { id?: string; name: string; capabilities?: string[] },

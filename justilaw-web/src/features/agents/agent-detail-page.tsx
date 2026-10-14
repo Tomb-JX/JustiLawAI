@@ -84,7 +84,7 @@ export default function AgentDetailPage() {
               </span>
             </div>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap justify-end gap-2">
             {isMine && (
               <>
                 <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/agents/create')}>

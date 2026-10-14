@@ -90,7 +90,7 @@ export default function DatasetsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100"
                     onClick={() => {
                       if (confirm(`确认删除知识库「${d.name}」？该操作不可恢复。`)) deleteMut.mutate(d.id)
                     }}

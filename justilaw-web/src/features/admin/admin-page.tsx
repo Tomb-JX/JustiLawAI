@@ -32,8 +32,8 @@ function UsersTab() {
   if (isLoading) return <PageLoading />
 
   return (
-    <div className="overflow-hidden rounded-2xl border bg-card shadow-sm">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-2xl border bg-card shadow-sm">
+      <table className="w-full min-w-[640px] text-sm">
         <thead>
           <tr className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
             <th className="px-4 py-2.5 font-medium">用户</th>

@@ -438,6 +438,23 @@ async def ping_provider(provider: Provider) -> int:
     return int((time.time() - t0) * 1000)
 
 
+async def fetch_remote_models(provider: Provider) -> list[str]:
+    """拉取远端供应商的模型名列表（只列不存，供前端「添加模型」时点选）。
+
+    - openai_compat：GET /models 解析 OpenAI 格式 data[*].id
+    - ollama：GET /api/tags 取 name（与自动发现同源）
+    """
+    async with provider.client(15) as client:
+        if provider.type == "ollama":
+            r = await client.get(f"{provider.base_url}/api/tags")
+            r.raise_for_status()
+            return [m["name"] for m in r.json().get("models", []) if m.get("name")]
+        r = await client.get(provider.base_url.rstrip("/") + "/models", headers=provider.headers())
+        r.raise_for_status()
+        data = r.json().get("data", [])
+        return [m["id"] for m in data if isinstance(m, dict) and m.get("id")]
+
+
 async def ping_model(model_id: str) -> int:
     """模型级测试：嵌入模型实际嵌入一次；对话模型测供应商连通（不消耗生成额度）。"""
     info = provider_store.model_info(model_id)

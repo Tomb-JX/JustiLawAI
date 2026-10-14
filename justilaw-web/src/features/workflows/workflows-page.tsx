@@ -99,7 +99,7 @@ export default function WorkflowsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100"
                     onClick={(e) => {
                       e.stopPropagation()
                       if (confirm(`确认删除工作流「${w.name}」？`)) deleteMut.mutate(w.id)

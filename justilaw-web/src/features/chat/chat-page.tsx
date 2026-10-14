@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -6,9 +6,7 @@ import {
   Check,
   Gavel,
   MessagesSquare,
-  Menu,
   ScrollText,
-  X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
@@ -155,6 +153,12 @@ function ConversationView({
     if (content) await editAndResend(id, content)
   }
 
+  // 稳定引用：内联箭头函数会让所有用户消息的 memo 失效（每帧全量重渲染）
+  const startEdit = useCallback(
+    (msg: Message) => setEditing({ id: msg.id, content: msg.content }),
+    [],
+  )
+
   return (
     <>
       <div
@@ -176,7 +180,7 @@ function ConversationView({
                     message={m}
                     isLastAssistant={i === lastAssistantIdx && m.role === 'assistant'}
                     onRegenerate={regenerate}
-                    onEdit={m.role === 'user' ? (msg) => setEditing({ id: msg.id, content: msg.content }) : undefined}
+                    onEdit={m.role === 'user' ? startEdit : undefined}
                   />
                   {editing?.id === m.id && (
                     <div className="ml-auto mt-2 w-[82%] rounded-xl border bg-card p-2.5 shadow-sm">
@@ -255,15 +259,7 @@ export default function ChatPage() {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* 移动端顶栏 */}
-        <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-card/50 px-3 lg:hidden">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
-            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
-          </Button>
-          <span className="text-sm font-medium">{agent?.name ?? 'JustiLawAI 对话'}</span>
-        </div>
-
-        <ChatHeader conversationId={conversationId} agent={agent} />
+        <ChatHeader conversationId={conversationId} agent={agent} onOpenSidebar={() => setSidebarOpen(true)} />
         {conversationId ? (
           <ConversationView key={conversationId} conversationId={conversationId} agent={agent} />
         ) : (

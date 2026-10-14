@@ -1,4 +1,4 @@
-import { memo, useState } from 'react'
+import { memo, useDeferredValue, useState } from 'react'
 import {
   Bot,
   Brain,
@@ -63,6 +63,8 @@ export const MessageItem = memo(function MessageItem({
 }: MessageItemProps) {
   const [copied, setCopied] = useState(false)
   const [showReasoning, setShowReasoning] = useState(false)
+  // 流式期间 token 高频落盘：延迟值让 React 可中断重量级 markdown 重解析，输入/滚动保持响应
+  const deferredContent = useDeferredValue(message.content)
   const isUser = message.role === 'user'
   const attachments = 'attachments' in message ? message.attachments : undefined
 
@@ -94,7 +96,7 @@ export const MessageItem = memo(function MessageItem({
                 ))}
               </div>
             )}
-            <div className="mt-1 flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="mt-1 flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100">
               <Button variant="ghost" size="icon" className="h-6.5 h-7 w-7" onClick={copy}>
                 {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
               </Button>
@@ -138,14 +140,14 @@ export const MessageItem = memo(function MessageItem({
             </div>
           )}
           <div className={cn(streaming && 'stream-caret')}>
-            <MarkdownRenderer content={message.content} />
+            <MarkdownRenderer content={deferredContent} />
           </div>
           {'card' in message && message.card && <MessageCardView card={message.card} />}
           {'citations' in message && message.citations && message.citations.length > 0 && (
             <CitationChips items={message.citations} />
           )}
           {!streaming && (
-            <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="mt-1 flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100">
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copy}>
                 {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
               </Button>

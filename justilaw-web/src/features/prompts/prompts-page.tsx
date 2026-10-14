@@ -75,7 +75,7 @@ export default function PromptsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100"
+                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100"
                     onClick={() => deleteMut.mutate(p.id)}
                   >
                     <Trash2 className="h-3.5 w-3.5 text-destructive" />

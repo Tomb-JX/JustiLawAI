@@ -328,7 +328,7 @@ function SettingsTab({ datasetId }: { datasetId: string }) {
         <label className="text-sm font-medium">描述</label>
         <Textarea value={description} onChange={(e) => setDescription(e.target.value)} className="min-h-[64px] bg-background" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <label className="text-sm font-medium">分段最大长度</label>
           <Input

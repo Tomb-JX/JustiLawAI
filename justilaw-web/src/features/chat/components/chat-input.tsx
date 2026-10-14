@@ -99,7 +99,7 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
   }
 
   return (
-    <div className="shrink-0 px-4 pb-4">
+    <div className="shrink-0 px-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
       <div className="mx-auto max-w-3xl">
         <Popover open={promptOpen && matched.length > 0} onOpenChange={setPromptOpen}>
           <PopoverAnchor asChild>
@@ -188,7 +188,7 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
           <PopoverContent
             side="top"
             align="start"
-            className="w-96 max-h-64 overflow-y-auto p-1.5"
+            className="w-[min(24rem,calc(100vw-2rem))] max-h-64 overflow-y-auto p-1.5"
             onOpenAutoFocus={(e) => e.preventDefault()}
           >
             <div className="px-2 py-1 text-[11px] text-muted-foreground">提示词模板</div>

@@ -20,8 +20,12 @@ export type SendMode = 'new' | 'regenerate'
  */
 export function useChatStream(conversationId: string | undefined, agentId?: string) {
   const qc = useQueryClient()
-  const { setDraft, patchDraft, appendContent, clearDraft } = useChatStore()
-  const { model, params, thinking, ragEnabled, ragDatasetId } = useSettingsStore()
+  // 窄 selector 订阅：流式落盘只触发真正依赖该草稿的组件，不再全量重渲染本组件树
+  const model = useSettingsStore((s) => s.model)
+  const params = useSettingsStore((s) => s.params)
+  const thinking = useSettingsStore((s) => s.thinking)
+  const ragEnabled = useSettingsStore((s) => s.ragEnabled)
+  const ragDatasetId = useSettingsStore((s) => s.ragDatasetId)
 
   const isStreaming = useChatStore((s) => (conversationId ? !!s.drafts[conversationId] : false))
 
@@ -62,7 +66,7 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
       }
 
       const draftId = uid('m')
-      setDraft(cid, { id: draftId, content: '', status: 'streaming' })
+      useChatStore.getState().setDraft(cid, { id: draftId, content: '', status: 'streaming' })
 
       const ctrl = new AbortController()
       controllers.set(cid, ctrl)
@@ -73,7 +77,7 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
       const flush = () => {
         raf = 0
         if (buffer) {
-          appendContent(cid, buffer)
+          useChatStore.getState().appendContent(cid, buffer)
           buffer = ''
         }
       }
@@ -106,13 +110,13 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
             } else if (name === 'reasoning') {
               flush()
               const cur = useChatStore.getState().drafts[cid]?.reasoning ?? ''
-              patchDraft(cid, { reasoning: cur + String(data.delta ?? '') })
+              useChatStore.getState().patchDraft(cid, { reasoning: cur + String(data.delta ?? '') })
             } else if (name === 'citations') {
               flush()
-              patchDraft(cid, { citations: data.items as Citation[] })
+              useChatStore.getState().patchDraft(cid, { citations: data.items as Citation[] })
             } else if (name === 'card') {
               flush()
-              patchDraft(cid, {
+              useChatStore.getState().patchDraft(cid, {
                 card: {
                   card_type: data.card_type as 'prediction' | 'case_list' | 'risk_list' | 'document',
                   payload: data.payload as MessageCard['payload'],
@@ -129,22 +133,22 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
       } catch (e) {
         const aborted = ctrl.signal.aborted || (e as Error)?.name === 'AbortError'
         flush()
-        patchDraft(cid, { status: aborted ? 'aborted' : 'error' })
+        useChatStore.getState().patchDraft(cid, { status: aborted ? 'aborted' : 'error' })
         if (!aborted) toast.error((e as Error)?.message ?? '生成失败，请重试')
       } finally {
         if (raf) cancelAnimationFrame(raf)
         flush()
       }
 
-      if (ctrl.signal.aborted) patchDraft(cid, { status: 'aborted' })
+      if (ctrl.signal.aborted) useChatStore.getState().patchDraft(cid, { status: 'aborted' })
 
       // 服务端/Mock 已在流中落库，统一刷新保持单一数据源
       await qc.invalidateQueries({ queryKey: ['messages', cid] })
       qc.invalidateQueries({ queryKey: ['conversations'] })
-      clearDraft(cid)
+      useChatStore.getState().clearDraft(cid)
       controllers.delete(cid)
     },
-    [conversationId, agentId, model, params, ragEnabled, ragDatasetId, qc, setDraft, patchDraft, appendContent, clearDraft],
+    [conversationId, agentId, model, params, thinking, ragEnabled, ragDatasetId, qc],
   )
 
   const regenerate = useCallback(async () => {

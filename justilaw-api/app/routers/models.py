@@ -5,7 +5,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..auth import current_user, require_admin
-from ..model_gateway.gateway import ping_model, ping_provider, provider_store
+from ..model_gateway.gateway import fetch_remote_models, ping_model, ping_provider, provider_store
 from ..resp import err, ok
 
 router = APIRouter(dependencies=[Depends(current_user)])
@@ -102,6 +102,18 @@ async def ping_provider_api(pid: str):
         return ok({"latency_ms": await ping_provider(p)})
     except Exception as e:
         raise HTTPException(500, detail=err(50001, f"连通失败：{e}"))
+
+
+@router.post("/providers/{pid}/remote-models", dependencies=[Depends(require_admin)])
+async def list_remote_models(pid: str):
+    """拉取远端供应商的模型名列表（只列不存，供「添加模型」点选）。"""
+    p = provider_store.get(pid)
+    if not p:
+        raise HTTPException(404, detail=err(40400, "供应商不存在"))
+    try:
+        return ok({"models": await fetch_remote_models(p)})
+    except Exception as e:
+        raise HTTPException(500, detail=err(50001, f"拉取模型列表失败：{e}"))
 
 
 @router.post("/providers/{pid}/refresh", dependencies=[Depends(require_admin)])

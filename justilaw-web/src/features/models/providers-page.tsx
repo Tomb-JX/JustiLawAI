@@ -19,6 +19,7 @@ import {
   addProvider,
   addProviderModel,
   deleteProvider,
+  fetchProviderRemoteModels,
   getModelSettings,
   listModels,
   listProviders,
@@ -66,6 +67,17 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
   const [addOpen, setAddOpen] = useState(false)
   const [modelName, setModelName] = useState('')
   const [caps, setCaps] = useState<string[]>(['completion'])
+  const [remoteModels, setRemoteModels] = useState<string[] | null>(null)
+
+  // 从远端 API 拉取模型名列表（只列不存），点选填入输入框，仍可手动输入
+  const fetchMut = useMutation({
+    mutationFn: () => fetchProviderRemoteModels(provider.id),
+    onSuccess: (models) => {
+      setRemoteModels(models)
+      if (models.length > 0) toast.success(`拉取到 ${models.length} 个模型，点击选择即可`)
+    },
+    onError: (e) => toast.error(`拉取失败：${(e as Error).message}，可手动输入模型名`),
+  })
 
   const pingMut = useMutation({
     mutationFn: () => pingProvider(provider.id),
@@ -205,17 +217,50 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
       )}
 
       {/* 添加模型对话框 */}
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+      <Dialog open={addOpen} onOpenChange={(v) => { setAddOpen(v); if (!v) { setRemoteModels(null); setModelName('') } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>向「{provider.name}」添加模型</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
-            <Input
-              value={modelName}
-              onChange={(e) => setModelName(e.target.value)}
-              placeholder="模型名（与 API 一致，如 glm-4-plus / deepseek-chat）"
-            />
+            <div className="flex gap-2">
+              <Input
+                value={modelName}
+                onChange={(e) => setModelName(e.target.value)}
+                placeholder="模型名（与 API 一致，如 glm-4-plus / deepseek-chat）"
+              />
+              <Button
+                variant="outline"
+                className="shrink-0 gap-1 text-xs"
+                onClick={() => fetchMut.mutate()}
+                disabled={fetchMut.isPending}
+              >
+                <RefreshCw className={`h-3 w-3 ${fetchMut.isPending ? 'animate-spin' : ''}`} />
+                {fetchMut.isPending ? '拉取中' : '拉取列表'}
+              </Button>
+            </div>
+            {remoteModels && (
+              <div className="max-h-40 overflow-y-auto rounded-lg border">
+                {remoteModels.length === 0 ? (
+                  <p className="p-3 text-xs text-muted-foreground">API 返回的模型列表为空</p>
+                ) : (
+                  remoteModels.map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setModelName(m)}
+                      className={`flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs transition-colors hover:bg-accent ${
+                        modelName === m ? 'bg-accent text-primary' : ''
+                      }`}
+                    >
+                      <span className="truncate">{m}</span>
+                      {provider.models.some((x) => x.name === m) && (
+                        <span className="ml-2 shrink-0 text-[11px] text-muted-foreground">已添加</span>
+                      )}
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
             <div className="space-y-1.5">
               <label className="text-sm font-medium">能力标签</label>
               <div className="flex flex-wrap gap-1.5">

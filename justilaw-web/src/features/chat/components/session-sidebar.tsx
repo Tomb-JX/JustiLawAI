@@ -151,7 +151,7 @@ export function SessionSidebar({ className }: { className?: string }) {
                       <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                         <button
                           className={cn(
-                            'rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100',
+                            'rounded p-0.5 text-muted-foreground opacity-0 transition-opacity hover:text-foreground group-hover:opacity-100 max-lg:opacity-100',
                             active && 'opacity-100',
                           )}
                         >

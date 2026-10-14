@@ -1,6 +1,6 @@
 import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eraser, Library, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { Eraser, Library, PanelLeft, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { clearMessages, getDataset, getModelSettings, listConversations, listDatasets, listModels } from '@/api'
 import { Badge } from '@/components/ui/badge'
@@ -50,9 +50,11 @@ function ParamRow({
 export function ChatHeader({
   conversationId,
   agent,
+  onOpenSidebar,
 }: {
   conversationId?: string
   agent?: Agent
+  onOpenSidebar?: () => void
 }) {
   const qc = useQueryClient()
   const { data: conversations } = useQuery({ queryKey: ['conversations'], queryFn: listConversations })
@@ -77,8 +79,18 @@ export function ChatHeader({
   const title = agent?.name ?? conversation?.title ?? 'JustiLawAI'
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-card/50 px-4">
-      <div className="flex min-w-0 items-center gap-2">
+    <header className="flex h-14 shrink-0 items-center justify-between gap-2 border-b bg-card/50 px-2 sm:px-4">
+      <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+        {onOpenSidebar && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 lg:hidden"
+            onClick={onOpenSidebar}
+          >
+            <PanelLeft className="h-4 w-4" />
+          </Button>
+        )}
         <h1 className="truncate text-sm font-semibold">{title}</h1>
         {agent && <Badge variant="secondary">智能体</Badge>}
         {currentModel && (

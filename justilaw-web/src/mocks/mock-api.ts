@@ -411,6 +411,13 @@ export const mockApi = {
     return p
   },
 
+  async fetchRemoteModels(id: string): Promise<string[]> {
+    await delay(300)
+    const p = mockProviders.find((x) => x.id === id)
+    if (!p) throw new Error('供应商不存在')
+    return ['glm-4-plus', 'glm-4-air', 'glm-4-flash', 'embedding-3']
+  },
+
   async addProviderModel(
     providerId: string,
     model: { id?: string; name: string; capabilities?: string[] },
