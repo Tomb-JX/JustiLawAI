@@ -1,13 +1,13 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.1（草案，**待后端评审**） · 2026-10-14
+> 版本 v0.2（草案，**待后端评审**） · 2026-10-14
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
 ## 1. 通用约定
 
 - **Base URL**：`/api/v1`
-- **鉴权**：除 `POST /auth/register`、`POST /auth/login` 外，均需请求头 `Authorization: Bearer <JWT>`
+- **鉴权**：所有接口均需请求头 `Authorization: Bearer <access_token>`，token 由 **Logto**（OIDC）签发，详见 §1.3
 - **Content-Type**：`application/json`（文件上传为 `multipart/form-data`）
 - **响应包**（所有 REST 接口统一）：
 
@@ -35,11 +35,29 @@
 
 带类型前缀的短 ID，便于日志排查：`u_` 用户、`c_` 会话、`m_` 消息、`a_` 智能体、`w_` 工作流、`d_` 知识库、`doc_` 文档、`ch_` 分段、`f_` 文件。
 
+### 1.3 鉴权（Logto OIDC）
+
+注册、登录、找回密码、社交登录全部由 Logto 托管，**后端不再实现账号密码接口**。
+
+| 项 | 值 |
+|---|---|
+| Issuer | `https://oglnok.logto.app/oidc` |
+| JWKS | `https://oglnok.logto.app/oidc/jwks` |
+| Audience（`aud`） | 后端 API Resource 标识，在 Logto Console › API resources 创建（待定，如 `https://api.justilaw.ai`），前端配置于 `VITE_LOGTO_RESOURCE` |
+| 签名算法 | ES384（以 JWKS 返回为准） |
+
+后端对每个请求：
+1. 用 JWKS 校验 JWT 签名、`iss`、`aud`、`exp`，失败返回 401 / `40100`（前端会自动重新发起登录）
+2. 以 `sub`（Logto 用户 ID）为键查找本地用户，**首次出现即自动建档**（upsert），业务数据一律按本地用户 ID 隔离
+3. 角色取自 token 的 `scope` 或 Logto RBAC；管理员角色名约定为 `admin`
+
 ## 2. 核心数据模型（TypeScript 定义，前后端共用）
 
 ```ts
 interface User {
-  id: string; username: string; nickname: string; avatar?: string;
+  id: string;            // 本地用户 ID（u_ 前缀）
+  logto_id: string;      // Logto 用户 ID，即 JWT 的 sub
+  username?: string; nickname: string; email?: string; avatar?: string;
   role: 'user' | 'admin'; created_at: string;
 }
 
@@ -104,9 +122,8 @@ interface ModelInfo {
 ### 3.1 认证与用户
 
 ```
-POST /auth/register    { username, password, nickname }            → data: { token, user }
-POST /auth/login       { username, password }                      → data: { token, user }
-GET  /auth/me                                                      → data: User
+# 注册 / 登录 / 登出由 Logto 托管（见 §1.3），无对应后端接口
+GET  /auth/me          （首次调用时按 JWT 自动建档）                 → data: User
 PUT  /users/me         { nickname?, avatar? }                      → data: User
 ```
 
@@ -214,3 +231,4 @@ POST /files                multipart/form-data（对话附件）→ data: { file
 | 日期 | 版本 | 变更 | 提出方 |
 |---|---|---|---|
 | 2026-10-14 | v0.1 | 初稿（待后端评审） | 前端组 |
+| 2026-10-14 | v0.2 | 鉴权改为 Logto OIDC：移除 `/auth/register`、`/auth/login`；新增 §1.3 JWT 校验约定；`User` 增加 `logto_id`、`email` | 前端组 |

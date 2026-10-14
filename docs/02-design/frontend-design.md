@@ -1,6 +1,6 @@
 # JustiLawAI 前端设计方案
 
-> 版本 v1.0 · 2026-10-14 · 配套文档：[API 契约](./api-contract.md) · [产品需求](../01-product/requirements.md) · [里程碑计划](../04-plan/milestones.md)
+> 版本 v1.2 · 2026-10-14 · 配套文档：[API 契约](./api-contract.md) · [产品需求](../01-product/requirements.md) · [里程碑计划](../04-plan/milestones.md)
 
 ## 1. 项目定位
 
@@ -123,7 +123,7 @@
 - 模型列表（后端提供）、默认参数、连通性测试；对话中的模型切换数据源
 
 ### 4.7 用户体系与管理后台
-- 登录 / 注册（账号密码，预留 OAuth）；JWT 鉴权、路由守卫
+- 登录 / 注册：接入 **Logto**（OIDC + PKCE），由 Logto 托管登录页（账号密码、邮箱验证码、社交登录均在 Logto Console 配置）；路由守卫
 - 个人中心：资料、我的智能体 / 知识库 / 会话历史
 - 角色权限：普通用户 / 管理员
 - 管理后台（admin）：用户管理、智能体审核、调用用量统计（图表）
@@ -160,7 +160,8 @@
 ## 6. 页面结构与路由
 
 ```
-/login  /register                      AuthLayout（居中卡片）
+/login                                 登录引导页（跳转 Logto 登录 / 注册）
+/callback                              Logto 登录回调（无需鉴权）
 /  → AppLayout（左侧主导航 + 顶栏）
 ├── /chat                              对话中心（左会话列表 + 右对话窗）
 │   └── /chat/:conversationId          ?agentId= 可带入智能体
@@ -280,7 +281,7 @@ justilaw-web/
 3. **长会话性能**：消息列表虚拟化（@tanstack/react-virtual）；流式期间仅重渲染输出中的那条消息（memo 隔离）
 4. **画布方案**：React Flow 自定义节点组件；DSL 即 `{ nodes, edges }` JSON；配置面板由 zod schema 驱动动态表单
 5. **Mock 解耦**：MSW 按 API 契约打桩（SSE 用 ReadableStream 模拟增量），后端就绪后仅切换 `VITE_API_BASE_URL`
-6. **鉴权**：JWT（localStorage + axios 拦截器，预留刷新机制）；路由守卫 + 按钮级权限（admin）
+6. **鉴权**：`@logto/react` 管理登录态与 token 刷新（refresh token 存 localStorage，由 SDK 维护）；`RequireAuth` 路由守卫；api 层通过注入的 token getter 为 axios / SSE 请求附加 `Authorization`，遇 401 自动重新登录；按钮级权限（admin）读 ID Token 的 `roles` 声明，最终以后端为准
 
 ---
 
@@ -310,3 +311,4 @@ justilaw-web/
 |---|---|---|---|
 | 2026-10-14 | v1.0 | 初稿 | 前端组 |
 | 2026-10-14 | v1.1 | M1 提前交付：Mock 改为内置模拟层（VITE_USE_MOCK）；代码高亮定为 rehype-highlight；登录/多用户按决策暂缓 | 前端组 |
+| 2026-10-14 | v1.2 | 多用户登录接入 Logto（OIDC），替代自建账号密码 + JWT 方案；新增 /callback 路由 | 前端组 |
