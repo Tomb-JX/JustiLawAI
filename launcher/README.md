@@ -1,5 +1,7 @@
 # JustiLawAI 单机版
 
+**下载**：<https://github.com/Tomb-JX/JustiLawAI/releases/latest>（`JustiLawAI-local-<版本>.zip`，可用同名 `.sha256` 校验）
+
 在自己电脑上运行完整的 JustiLawAI：网页、知识库、智能体、工作流都在本机，模型由本机的 Ollama 提供。**免登录**，数据只保存在本机。
 
 ## 三步开始

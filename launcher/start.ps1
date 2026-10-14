@@ -45,6 +45,18 @@ function Get-Json($url, $timeoutMs = 3000) {
   } catch { return $null }
 }
 
+# 端口上是不是"单机版 JustiLawAI"：鉴权关闭且托管了网页（开发用的后端只提供 API，不能当成已在运行）
+function Test-JustiLawLocal($p) {
+  $h = Get-Json "http://127.0.0.1:$p/api/v1/health"
+  if (-not $h -or $h.data.service -ne 'justilaw-api' -or $h.data.auth_enabled) { return $false }
+  try {
+    $req = [System.Net.WebRequest]::Create("http://127.0.0.1:$p/")
+    $req.Proxy = $null; $req.Timeout = 3000
+    $resp = $req.GetResponse(); $type = $resp.ContentType; $resp.Close()
+    return $type -like 'text/html*'
+  } catch { return $false }
+}
+
 function Test-PortFree($p) {
   try {
     $l = New-Object System.Net.Sockets.TcpListener([System.Net.IPAddress]::Loopback, $p)
@@ -68,8 +80,7 @@ Write-Host 'JustiLawAI 单机版' -ForegroundColor White
 Write-Host "目录：$Root"
 
 # ---------- 1. 已在运行则直接打开 ----------
-$health = Get-Json "http://127.0.0.1:$Port/api/v1/health"
-if ($health -and $health.data.service -eq 'justilaw-api') {
+if (Test-JustiLawLocal $Port) {
   Ok "服务已在运行：http://127.0.0.1:$Port"
   if (-not $NoBrowser) { Start-Process "http://127.0.0.1:$Port" }
   exit 0

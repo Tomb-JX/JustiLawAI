@@ -22,12 +22,17 @@ fail() { printf '\n\033[31m[错误] %s\033[0m\n' "$1"; exit 1; }
 get() { curl -fsS --noproxy '*' -m 3 "$1" 2>/dev/null; }
 open_url() { if command -v open >/dev/null; then open "$1"; elif command -v xdg-open >/dev/null; then xdg-open "$1" >/dev/null 2>&1 || true; fi; }
 port_busy() { (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null; }
+# 端口上是不是"单机版 JustiLawAI"：鉴权关闭且托管了网页（开发用的后端只提供 API，不能当成已在运行）
+is_local_justilaw() {
+  get "http://127.0.0.1:$1/api/v1/health" | grep -q '"auth_enabled":false' &&
+    curl -fsS --noproxy '*' -m 3 -o /dev/null -w '%{content_type}' "http://127.0.0.1:$1/" 2>/dev/null | grep -q '^text/html'
+}
 
 echo "JustiLawAI 单机版"
 echo "目录：$ROOT"
 
 # ---------- 1. 已在运行则直接打开 ----------
-if get "http://127.0.0.1:$PORT/api/v1/health" | grep -q '"justilaw-api"'; then
+if is_local_justilaw "$PORT"; then
   ok "服务已在运行：http://127.0.0.1:$PORT"
   open_url "http://127.0.0.1:$PORT"
   exit 0
