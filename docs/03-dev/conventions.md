@@ -1,18 +1,34 @@
 # 开发规范
 
-> 版本 v0.1 · 2026-10-14 · 全员遵守，PR 不合规范不予合并
+> 版本 v0.2 · 2026-10-15 · 全员遵守
 
 ## 1. Git 规范
 
 ### 分支模型
 ```
-main          # 受保护，只接受 PR 合入，保持可运行
+main          # 主干，始终保持可运行
 feature/*     # 功能分支：feature/chat-streaming
-fix/*         # 修复分支：fix/sse-reconnect
-docs/*        # 文档分支：docs/api-contract
+fix/*         # 修复分支：fix/sse-reconnect（小修复可直接提交 main）
+docs/*        # 文档分支：docs/api-contract（小改动可直接提交 main）
 ```
-- 分支从 `main` 切出，完成后提 PR 自查 + 一人复核后合入
+
+### 什么时候直接提交 main，什么时候走 PR
+
+| 直接 push 到 main | 开分支走 PR |
+|---|---|
+| 文档修改、错别字、注释 | 新功能、新页面、新接口 |
+| 范围明确的小 bug 修复 | 改动 API 契约 / 数据结构 / 鉴权 |
+| 配置、依赖版本、脚本的小调整 | 跨前后端或多个模块的改动 |
+| | 需要队友知情或评审的改动 |
+
+- 直接提交前必须本地通过：前端 `pnpm build`（含类型检查），改了后端至少确认 `python -c "import app.main"` 能导入
 - 提交前 `git pull --rebase origin main`，避免无意义 merge 节点
+- 走 PR 时自查第 5 节清单后即可自行合并；涉及他人负责模块时请对方复核
+- 合并后删除功能分支（建议在 GitHub 仓库 Settings › General 勾选 Automatically delete head branches）
+
+### 发布
+
+单机版发布：在 main 上打 `v*` 标签并推送，CI 自动打包并创建 GitHub Release（见 `docs/03-dev/setup.md` §5.2）。
 
 ### Commit 信息（Conventional Commits）
 ```
@@ -57,10 +73,16 @@ type 取值：
 
 见 [文档中心 README](../README.md) §文档管理规范。要点：先改文档再写码（契约/架构）；文档改动 commit 用 `docs:` 前缀；每个文档维护变更日志。
 
-## 5. 代码评审清单（PR 自查）
+## 5. 代码评审清单（提交 / PR 自查）
 
 - [ ] 符合命名/目录/样式规范，无硬编码色值与 magic number
 - [ ] 无被注释掉的死代码、无 console.log 遗留
 - [ ] 接口调用走 api 层，错误有兜底
 - [ ] 新增依赖有必要性说明
 - [ ] 涉及契约/架构变更的，文档已同步更新
+
+## 变更日志
+| 日期 | 版本 | 变更 | 作者 |
+|---|---|---|---|
+| 2026-10-14 | v0.1 | 初稿：main 只接受 PR 合入 | 前端组 |
+| 2026-10-15 | v0.2 | 提交规则改为「小改动直接提交 main，大功能走 PR」；PR 自查后可自行合并；新增发布规则 | 模型组 |
