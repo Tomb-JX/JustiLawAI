@@ -70,9 +70,11 @@ def iter_bjdch(max_pages: int) -> list[dict]:
         url = base if page == 1 else f"{base}index_{page - 1}.html"
         try:
             html = get_with_retry(url, verify=False).text
-        except RuntimeError as e:
-            if page > 1 and "404" in str(e):
-                break  # 翻过存档末尾，正常结束
+        except RuntimeError:
+            # 翻页失败按存档末尾处理（站点返回 404 或 WAF 拦截均可能；
+            # RuntimeError 消息不含状态码，不能按 "404" 字样判断）
+            if page > 1:
+                break
             raise
         found = pat.findall(html)
         if not found:
@@ -92,8 +94,47 @@ def iter_bjdch(max_pages: int) -> list[dict]:
     return items
 
 
-ITERATORS = {"zhejiang": iter_zhejiang, "bjdch": iter_bjdch}
-REGIONS = {"zhejiang": "浙江", "bjdch": "北京市东城区"}
+def iter_bjmtg(max_pages: int) -> list[dict]:
+    base = "https://www.bjmtg.gov.cn/mtg11J023/c104083/"
+    pat = re.compile(r'href="(/mtg11J023/c104083/20\d{4}/[0-9a-f]{32}\.shtml)"[^>]*>\s*([^<]{4,80})')
+    seen, items, page = set(), [], 1
+    while True:
+        url = base + ("mtgqbm_yjlist.shtml" if page == 1 else f"mtgqbm_yjlist_{page}.shtml")  # 该站翻页文件名从 _2 起
+        try:
+            html = decode_html(get_with_retry(url, verify=False))
+        except RuntimeError:
+            if page > 1:
+                break
+            raise
+        found = pat.findall(html)
+        if not found:
+            break
+        new = 0
+        for href, title in found:
+            full = "https://www.bjmtg.gov.cn" + href
+            if full not in seen:
+                seen.add(full)
+                items.append({"title": title.strip(), "url": full, "page": page})
+                new += 1
+        report(f"  第 {page} 页：{len(found)} 条（新 {new}）")
+        if new == 0 or (max_pages and page >= max_pages):
+            break
+        page += 1
+        time.sleep(1.5)
+    return items
+
+
+ITERATORS = {"zhejiang": iter_zhejiang, "bjdch": iter_bjdch, "bjmtg": iter_bjmtg}
+REGIONS = {"zhejiang": "浙江", "bjdch": "北京市东城区", "bjmtg": "北京市门头沟区"}
+
+
+def decode_html(resp) -> str:
+    """部分站点不返回 charset，requests 会按 latin-1 误读 UTF-8；统一嗅探。"""
+    raw = resp.content
+    head = raw[:2048].lower()
+    if b'charset="gb' in head or b"charset='gb" in head or b'charset=gb' in head:
+        return raw.decode("gbk", errors="replace")
+    return raw.decode("utf-8", errors="replace")
 
 
 # ---------- 正文抽取（存 .txt 旁文件，供筛选与后续标注） ----------
