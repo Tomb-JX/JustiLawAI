@@ -91,6 +91,30 @@ function ensureChunks(documentId: string): Chunk[] {
 }
 
 export const mockApi = {
+  async getHealth() {
+    await delay(50)
+    return {
+      status: 'up' as const,
+      auth_enabled: true,
+      setup_required: false,
+      ollama: { enabled: true, reachable: true, version: 'mock', base_url: null },
+      default_chat_model: mockModelSettings.default_chat_model,
+      default_embed_model: mockModelSettings.default_embed_model,
+      warnings: [],
+    }
+  },
+
+  async detectOllama(baseUrl?: string) {
+    await delay(300)
+    return {
+      base_url: baseUrl || 'http://127.0.0.1:11434',
+      reachable: true,
+      version: 'mock',
+      models: ['qwen3.5:9b', 'bge-m3:latest'],
+      error: null,
+    }
+  },
+
   /* ---- 会话 ---- */
   async listConversations(): Promise<Conversation[]> {
     await sleep()

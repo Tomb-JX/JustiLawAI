@@ -7,7 +7,10 @@ import {
   Eye,
   Globe,
   HardDrive,
+  Download,
   Loader2,
+  MonitorSmartphone,
+  Pencil,
   Plus,
   RefreshCw,
   Server,
@@ -42,7 +45,12 @@ import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/common/misc'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { useAuthMode } from '@/features/auth/auth-mode'
+import { useCurrentUser } from '@/features/auth/use-auth'
 import type { ModelInfo, ModelProvider } from '@/types/api'
+import { DEFAULT_LOCAL_URL, useLocalOllamaStore } from './local-ollama'
+import { OllamaSetupDialog, type SetupTarget } from './ollama-setup'
+import { useLocalModels } from './use-chat-models'
 
 const CAP_LABELS: Record<string, string> = {
   completion: '对话',
@@ -58,12 +66,43 @@ const TYPE_META = {
   openai_compat: { label: 'OpenAI 兼容 API', icon: Globe, desc: '自定义 base_url + api_key' },
 }
 
-function ProviderCard({ provider }: { provider: ModelProvider }) {
+/** Ollama 连接状态（后端最近一次自动发现的结果） */
+function OllamaStatus({ provider }: { provider: ModelProvider }) {
+  const st = provider.status
+  if (!st) return <span className="text-xs text-muted-foreground">检测中…</span>
+  return st.reachable ? (
+    <span className="text-xs text-emerald-600">已连接{st.version ? ` · v${st.version}` : ''}</span>
+  ) : (
+    <span className="text-xs text-destructive">未连接：{st.error}</span>
+  )
+}
+
+function ProviderCard({
+  provider,
+  canEdit,
+  onSetup,
+}: {
+  provider: ModelProvider
+  canEdit: boolean
+  onSetup: (target: SetupTarget) => void
+}) {
   const qc = useQueryClient()
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['providers'] })
     qc.invalidateQueries({ queryKey: ['models'] })
+    qc.invalidateQueries({ queryKey: ['health'] })
   }
+  const [editingUrl, setEditingUrl] = useState(false)
+  const [urlDraft, setUrlDraft] = useState(provider.base_url)
+  const urlMut = useMutation({
+    mutationFn: () => updateProvider(provider.id, { base_url: urlDraft.trim() }),
+    onSuccess: (p) => {
+      invalidate()
+      setEditingUrl(false)
+      if (p.status?.reachable === false) toast.warning(`地址已保存，但连接失败：${p.status.error}`)
+      else toast.success(`地址已保存，发现 ${p.models.length} 个模型`)
+    },
+  })
   const [addOpen, setAddOpen] = useState(false)
   const [modelName, setModelName] = useState('')
   const [caps, setCaps] = useState<string[]>(['completion'])
@@ -135,17 +174,58 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{provider.name}</span>
             <Badge variant="secondary">{meta.label}</Badge>
-            <span className={`text-xs ${provider.enabled ? 'text-emerald-600' : 'text-muted-foreground'}`}>
-              {provider.enabled ? '已启用' : '已停用'}
-            </span>
+            {!provider.enabled ? (
+              <span className="text-xs text-muted-foreground">已停用</span>
+            ) : provider.type === 'ollama' ? (
+              <OllamaStatus provider={provider} />
+            ) : (
+              <span className="text-xs text-emerald-600">已启用</span>
+            )}
           </div>
-          <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{provider.base_url}</div>
+          {editingUrl ? (
+            <div className="mt-1 flex gap-1.5">
+              <Input
+                value={urlDraft}
+                onChange={(e) => setUrlDraft(e.target.value)}
+                className="h-7 font-mono text-xs"
+                placeholder={DEFAULT_LOCAL_URL}
+              />
+              <Button size="sm" className="h-7 text-xs" disabled={urlMut.isPending || !urlDraft.trim()} onClick={() => urlMut.mutate()}>
+                保存
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setEditingUrl(false)}>
+                取消
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-0.5 flex items-center gap-1 font-mono text-xs text-muted-foreground">
+              <span className="truncate">{provider.base_url}</span>
+              {canEdit && (
+                <button
+                  className="shrink-0 hover:text-foreground"
+                  title="修改地址"
+                  onClick={() => {
+                    setUrlDraft(provider.base_url)
+                    setEditingUrl(true)
+                  }}
+                >
+                  <Pencil className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          )}
           <div className="mt-0.5 text-xs text-muted-foreground">
             {provider.models.length} 个模型 · {meta.desc}
           </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {provider.type === 'ollama' && (
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+          {provider.type === 'ollama' && canEdit && provider.id === 'ollama' && (
+            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => onSetup('server')}>
+              <Download className="h-3 w-3" />
+              下载模型
+            </Button>
+          )}
+          {provider.type === 'ollama' && canEdit && (
             <Button
               variant="outline"
               size="sm"
@@ -167,7 +247,7 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
             {pingMut.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Activity className="h-3 w-3" />}
             测试
           </Button>
-          <Switch checked={provider.enabled} onCheckedChange={(v) => toggleMut.mutate(v)} />
+          {canEdit && <Switch checked={provider.enabled} onCheckedChange={(v) => toggleMut.mutate(v)} />}
         </div>
       </div>
 
@@ -184,7 +264,7 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
                 </Badge>
               ))}
             </div>
-            {provider.type === 'openai_compat' && (
+            {provider.type === 'openai_compat' && canEdit && (
               <button
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => removeModelMut.mutate(m.id)}
@@ -196,12 +276,24 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
         ))}
       </div>
 
-      {provider.type === 'openai_compat' && (
+      {provider.type === 'ollama' && provider.enabled && provider.models.length === 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          {provider.status?.reachable
+            ? 'Ollama 已连接，但还没有模型。点「下载模型」一键下载推荐模型。'
+            : '没有连接到 Ollama：确认 Ollama 已打开；若不在本机，点地址旁的笔形图标修改。'}
+        </p>
+      )}
+
+      {canEdit && provider.id !== 'ollama' && (
         <div className="mt-3 flex items-center justify-between border-t pt-3">
-          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setAddOpen(true)}>
-            <Plus className="h-3 w-3" />
-            添加模型
-          </Button>
+          {provider.type === 'openai_compat' ? (
+            <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={() => setAddOpen(true)}>
+              <Plus className="h-3 w-3" />
+              添加模型
+            </Button>
+          ) : (
+            <span />
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -352,19 +444,81 @@ function DefaultModelsCard() {
   )
 }
 
+/** 本机 Ollama（浏览器直连）：每个用户各自电脑上的模型，设置只存在当前浏览器 */
+function LocalOllamaCard({ onSetup }: { onSetup: () => void }) {
+  const { enabled, baseUrl, setEnabled } = useLocalOllamaStore()
+  const { data: models, isError, isFetching, refetch } = useLocalModels()
+  return (
+    <div className="rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-start gap-3">
+        <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+          <MonitorSmartphone className="h-5 w-5 text-primary" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-semibold">我电脑上的 Ollama</span>
+            <Badge variant="secondary">浏览器直连</Badge>
+            {enabled &&
+              (isError ? (
+                <span className="text-xs text-destructive">未连接</span>
+              ) : models ? (
+                <span className="text-xs text-emerald-600">已连接</span>
+              ) : null)}
+          </div>
+          <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">{baseUrl}</div>
+          <div className="mt-0.5 text-xs text-muted-foreground">
+            {enabled ? `${models?.length ?? 0} 个模型 · ` : ''}对话在你自己的电脑上推理，设置只保存在当前浏览器
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {enabled && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={() => void refetch()}
+              disabled={isFetching}
+            >
+              <RefreshCw className={`h-3 w-3 ${isFetching ? 'animate-spin' : ''}`} />
+              刷新
+            </Button>
+          )}
+          <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={onSetup}>
+            {enabled ? '重新连接' : '连接'}
+          </Button>
+          {enabled && <Switch checked={enabled} onCheckedChange={setEnabled} />}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const PROVIDER_DEFAULT_URL = { openai_compat: 'https://api.openai.com/v1', ollama: DEFAULT_LOCAL_URL }
+
 export default function ProvidersPage() {
   const { data: providers, isLoading } = useQuery({ queryKey: ['providers'], queryFn: listProviders })
+  const authMode = useAuthMode()
+  const { data: user } = useCurrentUser()
+  const canEdit = !!user?.isAdmin
+  const [setupTarget, setSetupTarget] = useState<SetupTarget>()
   const [open, setOpen] = useState(false)
+  const [ptype, setPtype] = useState<'openai_compat' | 'ollama'>('openai_compat')
   const [name, setName] = useState('')
-  const [baseUrl, setBaseUrl] = useState('https://api.openai.com/v1')
+  const [baseUrl, setBaseUrl] = useState(PROVIDER_DEFAULT_URL.openai_compat)
   const [apiKey, setApiKey] = useState('')
 
   const createMut = useMutation({
-    mutationFn: () => addProvider({ name: name.trim(), base_url: baseUrl.trim(), api_key: apiKey.trim() }),
+    mutationFn: () =>
+      addProvider({
+        name: name.trim(),
+        type: ptype,
+        base_url: baseUrl.trim(),
+        api_key: ptype === 'ollama' ? '' : apiKey.trim(),
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['providers'] })
       qc.invalidateQueries({ queryKey: ['models'] })
-      toast.success('供应商已添加，可继续添加模型')
+      toast.success(ptype === 'ollama' ? '已添加，模型会自动发现' : '供应商已添加，可继续添加模型')
       setOpen(false)
       setName('')
       setApiKey('')
@@ -382,21 +536,39 @@ export default function ProvidersPage() {
               管理模型供应商：本地 Ollama 自动发现；自定义 OpenAI 兼容 API（base_url + api_key）
             </p>
           </div>
-          <Button size="sm" className="gap-1" onClick={() => setOpen(true)}>
-            <Plus className="h-3.5 w-3.5" />
-            接入自定义 API
-          </Button>
+          {canEdit && (
+            <Button size="sm" className="gap-1" onClick={() => setOpen(true)}>
+              <Plus className="h-3.5 w-3.5" />
+              接入模型服务
+            </Button>
+          )}
         </div>
 
-        <DefaultModelsCard />
+        {!canEdit && user && (
+          <p className="mt-4 rounded-lg bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+            服务器上的模型由管理员配置。想用自己电脑上的模型？在下方连接「我电脑上的 Ollama」即可。
+          </p>
+        )}
+
+        {canEdit && <DefaultModelsCard />}
 
         {isLoading ? (
           <PageLoading />
         ) : (
           <div className="mt-6 grid gap-4">
-            {providers?.map((p) => <ProviderCard key={p.id} provider={p} />)}
+            {/* 单机部署时服务端就是本机，无需再浏览器直连 */}
+            {authMode === 'logto' && <LocalOllamaCard onSetup={() => setSetupTarget('browser')} />}
+            {providers?.map((p) => (
+              <ProviderCard key={p.id} provider={p} canEdit={canEdit} onSetup={setSetupTarget} />
+            ))}
           </div>
         )}
+
+        <OllamaSetupDialog
+          open={!!setupTarget}
+          onOpenChange={(v) => !v && setSetupTarget(undefined)}
+          target={setupTarget ?? 'server'}
+        />
 
         <div className="mt-6 rounded-2xl border border-dashed p-4 text-xs leading-relaxed text-muted-foreground">
           <div className="mb-1 flex items-center gap-1.5 font-medium text-foreground">
@@ -412,9 +584,28 @@ export default function ProvidersPage() {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>接入自定义 API</DialogTitle>
+            <DialogTitle>接入模型服务</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">类型</label>
+              <Select
+                value={ptype}
+                onValueChange={(v) => {
+                  const t = v as 'openai_compat' | 'ollama'
+                  setPtype(t)
+                  setBaseUrl(PROVIDER_DEFAULT_URL[t])
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="openai_compat">OpenAI 兼容 API（GLM / DeepSeek / 通义等）</SelectItem>
+                  <SelectItem value="ollama">另一台 Ollama（模型自动发现）</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <div className="space-y-1.5">
               <label className="text-sm font-medium">名称</label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="如：智谱 GLM" />
@@ -423,10 +614,12 @@ export default function ProvidersPage() {
               <label className="text-sm font-medium">Base URL</label>
               <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://open.bigmodel.cn/api/paas/v4" />
             </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">API Key（可选）</label>
-              <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" />
-            </div>
+            {ptype === 'openai_compat' && (
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">API Key（可选）</label>
+                <Input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="sk-…" />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>

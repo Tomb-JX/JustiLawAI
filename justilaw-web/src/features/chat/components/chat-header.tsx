@@ -1,23 +1,31 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Eraser, Library, PanelLeft, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { Eraser, Library, PanelLeft, Plug, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
-import { clearMessages, getDataset, getModelSettings, listConversations, listDatasets, listModels } from '@/api'
+import { clearMessages, getDataset, getModelSettings, listConversations, listDatasets } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectLabel,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { OllamaSetupDialog, useSetupTarget } from '@/features/models/ollama-setup'
+import { useChatModels } from '@/features/models/use-chat-models'
 import { useSettingsStore } from '@/stores/settings'
 import type { Agent } from '@/types/api'
+
+/** 模型下拉里的"连接模型"入口（不是真实模型 ID） */
+const SETUP_ITEM = '__setup__'
 
 function ParamRow({
   label,
@@ -58,23 +66,24 @@ export function ChatHeader({
 }) {
   const qc = useQueryClient()
   const { data: conversations } = useQuery({ queryKey: ['conversations'], queryFn: listConversations })
-  const { data: allModels } = useQuery({ queryKey: ['models'], queryFn: listModels })
+  // 服务端模型 + 本机 Ollama 模型（嵌入模型不能用于对话，已过滤）
+  const { models, serverModels, localModels, isLoading: modelsLoading } = useChatModels()
   const { data: modelSettings } = useQuery({ queryKey: ['model-settings'], queryFn: getModelSettings })
-  // 嵌入模型不能用于对话
-  const models = allModels?.filter((m) => (m.capabilities ?? ['completion']).includes('completion'))
+  const setupTarget = useSetupTarget()
+  const [setupOpen, setSetupOpen] = useState(false)
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
 
   const { model, setModel, params, setParams, resetParams, thinking, setThinking, ragEnabled, ragDatasetId, setRag } =
     useSettingsStore()
 
-  // 未选择或已失效（模型被删除/停用）时，回退到平台默认对话模型
+  // 未选择或已失效（模型被删除/停用、本机 Ollama 已关闭）时，回退到平台默认对话模型
   useEffect(() => {
-    if (!models?.length || models.some((m) => m.id === model)) return
+    if (modelsLoading || !models.length || models.some((m) => m.id === model)) return
     const fallback = models.find((m) => m.id === modelSettings?.default_chat_model) ?? models[0]
     setModel(fallback.id)
-  }, [models, model, modelSettings, setModel])
+  }, [models, modelsLoading, model, modelSettings, setModel])
 
-  const currentModel = models?.find((m) => m.id === model)
+  const currentModel = models.find((m) => m.id === model)
   const conversation = conversations?.find((c) => c.id === conversationId)
   const title = agent?.name ?? conversation?.title ?? 'JustiLawAI'
 
@@ -220,20 +229,47 @@ export function ChatHeader({
           </PopoverContent>
         </Popover>
 
-        {/* 模型选择 */}
-        <Select value={model} onValueChange={setModel}>
-          <SelectTrigger className="w-36 text-xs">
-            <SelectValue placeholder="选择模型" />
-          </SelectTrigger>
-          <SelectContent>
-            {models?.map((m) => (
-              <SelectItem key={m.id} value={m.id}>
-                {m.name}
+        {/* 模型选择：没有任何可用模型时直接给出连接入口 */}
+        {!modelsLoading && !models.length ? (
+          <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setSetupOpen(true)}>
+            <Plug className="h-3.5 w-3.5" />
+            连接模型
+          </Button>
+        ) : (
+          <Select value={model} onValueChange={(v) => (v === SETUP_ITEM ? setSetupOpen(true) : setModel(v))}>
+            <SelectTrigger className="w-36 text-xs">
+              <SelectValue placeholder="选择模型" />
+            </SelectTrigger>
+            <SelectContent>
+              {serverModels.length > 0 && (
+                <SelectGroup>
+                  {localModels.length > 0 && <SelectLabel className="text-[11px]">服务器</SelectLabel>}
+                  {serverModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              {localModels.length > 0 && (
+                <SelectGroup>
+                  <SelectLabel className="text-[11px]">本机 · Ollama</SelectLabel>
+                  {localModels.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              )}
+              <SelectSeparator />
+              <SelectItem value={SETUP_ITEM} className="text-xs text-muted-foreground">
+                {setupTarget === 'browser' ? '使用我电脑上的 Ollama…' : '连接 / 下载模型…'}
               </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            </SelectContent>
+          </Select>
+        )}
       </div>
+      <OllamaSetupDialog open={setupOpen} onOpenChange={setSetupOpen} target={setupTarget} />
     </header>
   )
 }

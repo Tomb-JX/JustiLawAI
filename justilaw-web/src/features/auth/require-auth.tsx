@@ -3,11 +3,13 @@ import { Navigate, useLocation } from 'react-router-dom'
 import { useLogto } from '@logto/react'
 import { setAccessTokenGetter, setUnauthorizedHandler } from '@/api/client'
 import { PageLoading } from '@/components/common/misc'
+import { useAuthMode } from './auth-mode'
 import { API_RESOURCE } from './logto-config'
 import { useSignIn } from './use-auth'
 
-/** 路由守卫：未登录跳 /login，并把 Logto token 注入 api 层 */
+/** 路由守卫：未登录跳 /login，并把 Logto token 注入 api 层；单机模式直接放行 */
 export function RequireAuth({ children }: { children: ReactNode }) {
+  const authMode = useAuthMode()
   const { isAuthenticated, isLoading, getAccessToken, getIdToken } = useLogto()
   const signIn = useSignIn()
   const location = useLocation()
@@ -41,6 +43,9 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       setUnauthorizedHandler(undefined)
     }
   }, [isAuthenticated, getAccessToken, getIdToken, signIn])
+
+  if (authMode === 'loading') return <div className="h-screen"><PageLoading /></div>
+  if (authMode === 'local') return children
 
   // Logto 在取 token 等异步操作期间也会置 isLoading，已登录时不能因此卸载整个应用
   if (!isAuthenticated) {

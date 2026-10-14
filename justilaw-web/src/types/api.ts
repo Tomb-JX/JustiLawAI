@@ -196,6 +196,36 @@ export interface ModelProvider {
     capabilities: string[]
     default_params: { temperature: number; top_p: number; max_tokens: number }
   }[]
+  /** 自动发现供应商（Ollama）最近一次连接结果；未检测过为 null */
+  status?: { reachable: boolean; version: string | null; error: string | null } | null
+}
+
+/** GET /health：登录前即可调用，前端据此判断单机模式与是否需要模型连接向导 */
+export interface Health {
+  status: 'up' | 'degraded'
+  auth_enabled: boolean
+  setup_required: boolean
+  ollama: { enabled: boolean; reachable: boolean | null; version: string | null; base_url: string | null }
+  default_chat_model: string | null
+  default_embed_model: string | null
+  warnings: string[]
+}
+
+/** Ollama 地址探测结果（服务端 /providers/ollama/detect 与浏览器直连检测共用） */
+export interface OllamaProbe {
+  base_url: string
+  reachable: boolean
+  version: string | null
+  models: string[]
+  error: string | null
+}
+
+/** POST /chat/prepare：浏览器直连本机模型前，由服务端组装好的上下文 */
+export interface ChatPrepared {
+  assistant_id: string
+  llm_messages: { role: 'system' | 'user' | 'assistant'; content: string }[]
+  citations: Citation[] | null
+  rag_error: string | null
 }
 
 export interface ModelSettings {

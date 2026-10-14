@@ -12,6 +12,7 @@ export type ChatEventName =
   | 'card'
   | 'done'
   | 'error'
+  | 'progress'
 
 type EventHandler = (name: ChatEventName, data: Record<string, unknown>) => void
 
@@ -65,6 +66,25 @@ export async function streamChatCompletion(
     return mockChatStream(body, onEvent, signal)
   }
   await postSSE('/chat/completions', body, onEvent, signal)
+}
+
+/** 让服务端的 Ollama 下载模型：progress {status, completed?, total?} → done {model} | error */
+export async function streamPullModel(
+  providerId: string,
+  model: string,
+  onEvent: EventHandler,
+  signal: AbortSignal,
+): Promise<void> {
+  if (USE_MOCK) {
+    for (let i = 1; i <= 5; i++) {
+      if (signal.aborted) return
+      await new Promise((r) => setTimeout(r, 300))
+      onEvent('progress', { status: 'pulling', completed: i * 20, total: 100 })
+    }
+    onEvent('done', { model: `${providerId}/${model}` })
+    return
+  }
+  await postSSE(`/providers/${providerId}/pull`, { model }, onEvent, signal)
 }
 
 /** 工作流试运行（真实模式）：workflow 事件逐节点回报，message 为最终结果。 */

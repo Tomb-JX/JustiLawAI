@@ -1,12 +1,14 @@
 import { useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { streamChatCompletion } from '@/api/sse'
+import { streamChatCompletion, type ChatEventName } from '@/api/sse'
+import { isLocalModel, useLocalOllamaStore } from '@/features/models/local-ollama'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
 import { nowISO } from '@/api/client'
 import { uid } from '@/lib/utils'
-import type { Citation, Message, MessageCard } from '@/types/api'
+import type { ChatCompletionRequest, Citation, Message, MessageCard, ModelInfo } from '@/types/api'
+import { streamLocalChatCompletion } from './local-chat'
 
 /** 每个会话独立的中断控制器（非响应式，不放入 store） */
 const controllers = new Map<string, AbortController>()
@@ -89,47 +91,58 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }))
 
+      const req: ChatCompletionRequest = {
+        conversation_id: cid,
+        agent_id: agentId || undefined,
+        // 未选择时交给服务端用平台默认对话模型
+        model: model || '',
+        messages: history,
+        stream: true,
+        params,
+        thinking,
+        attachments: attachments?.map((a) => ({ file_id: a.file_id, filename: a.filename })),
+        retrieval: ragEnabled && ragDatasetId ? { dataset_ids: [ragDatasetId], top_k: 5 } : undefined,
+      }
+
       try {
-        await streamChatCompletion(
-          {
-            conversation_id: cid,
-            agent_id: agentId || undefined,
-            model: model || 'ollama/qwen3.5:9b',
-            messages: history,
-            stream: true,
-            params,
-            thinking,
-            attachments: attachments?.map((a) => ({ file_id: a.file_id, filename: a.filename })),
-            retrieval:
-              ragEnabled && ragDatasetId ? { dataset_ids: [ragDatasetId], top_k: 5 } : undefined,
-          },
-          (name, data) => {
-            if (name === 'message') {
-              buffer += String(data.delta ?? '')
-              schedule()
-            } else if (name === 'reasoning') {
-              flush()
-              const cur = useChatStore.getState().drafts[cid]?.reasoning ?? ''
-              useChatStore.getState().patchDraft(cid, { reasoning: cur + String(data.delta ?? '') })
-            } else if (name === 'citations') {
-              flush()
-              useChatStore.getState().patchDraft(cid, { citations: data.items as Citation[] })
-            } else if (name === 'card') {
-              flush()
-              useChatStore.getState().patchDraft(cid, {
-                card: {
-                  card_type: data.card_type as 'prediction' | 'case_list' | 'risk_list' | 'document',
-                  payload: data.payload as MessageCard['payload'],
-                },
-              })
-            } else if (name === 'tool_call' && data.status === 'failed') {
-              toast.warning(String(data.message ?? '工具调用失败'))
-            } else if (name === 'error') {
-              throw new Error(String(data.message ?? '生成失败'))
-            }
-          },
-          ctrl.signal,
-        )
+        const onEvent = (name: ChatEventName, data: Record<string, unknown>) => {
+          if (name === 'message') {
+            buffer += String(data.delta ?? '')
+            schedule()
+          } else if (name === 'reasoning') {
+            flush()
+            const cur = useChatStore.getState().drafts[cid]?.reasoning ?? ''
+            useChatStore.getState().patchDraft(cid, { reasoning: cur + String(data.delta ?? '') })
+          } else if (name === 'citations') {
+            flush()
+            useChatStore.getState().patchDraft(cid, { citations: data.items as Citation[] })
+          } else if (name === 'card') {
+            flush()
+            useChatStore.getState().patchDraft(cid, {
+              card: {
+                card_type: data.card_type as 'prediction' | 'case_list' | 'risk_list' | 'document',
+                payload: data.payload as MessageCard['payload'],
+              },
+            })
+          } else if (name === 'tool_call' && data.status === 'failed') {
+            toast.warning(String(data.message ?? '工具调用失败'))
+          } else if (name === 'error') {
+            throw new Error(String(data.message ?? '生成失败'))
+          }
+        }
+        if (isLocalModel(req.model)) {
+          // 本机模型：浏览器直连用户电脑上的 Ollama 推理
+          const { baseUrl } = useLocalOllamaStore.getState()
+          const info = qc.getQueryData<ModelInfo[]>(['local-models', baseUrl])?.find((m) => m.id === req.model)
+          await streamLocalChatCompletion(
+            req,
+            { supportsThinking: !!info?.capabilities?.includes('thinking') },
+            onEvent,
+            ctrl.signal,
+          )
+        } else {
+          await streamChatCompletion(req, onEvent, ctrl.signal)
+        }
       } catch (e) {
         const aborted = ctrl.signal.aborted || (e as Error)?.name === 'AbortError'
         flush()

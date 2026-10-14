@@ -4,16 +4,19 @@ import { useLogto } from '@logto/react'
 import { Loader2, LogIn, Scale, UserPlus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/common/misc'
+import { useAuthMode } from './auth-mode'
 import { useSignIn } from './use-auth'
 
 export default function LoginPage() {
+  const authMode = useAuthMode()
   const { isAuthenticated, isLoading, error } = useLogto()
   const signIn = useSignIn()
   const location = useLocation()
   const returnTo = (location.state as { returnTo?: string } | null)?.returnTo
   const [pending, setPending] = useState<'login' | 'register'>()
 
-  if (isAuthenticated) return <Navigate to={returnTo ?? '/chat'} replace />
+  if (isAuthenticated || authMode === 'local') return <Navigate to={returnTo ?? '/chat'} replace />
+  if (authMode === 'loading') return <div className="h-screen"><PageLoading /></div>
   if (isLoading && !pending) return <div className="h-screen"><PageLoading /></div>
 
   const start = (mode: 'login' | 'register') => {
