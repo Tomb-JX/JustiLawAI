@@ -34,3 +34,10 @@ justilaw-api/store/
 justilaw-api/.venv/
 __pycache__/
 *.pyc
+
+# ===== 研究资料 =====
+# 论文 PDF 只存本地（arXiv 许可只授权 arXiv 分发），入库的是 manifest + 校验和
+research/papers/pdf/
+
+# ===== 案例数据（隐私：原始件与脱敏件均不入库，哈希登记在数据卡） =====
+research/data/

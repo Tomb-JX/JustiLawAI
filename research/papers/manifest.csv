@@ -1,0 +1,129 @@
+key,tier,modules,year,venue,title,url,pdf_url
+MSR2,A,M4;M3;TRAIN,2026,arXiv,"Multi-Source Retrieval and Reasoning for Legal Sentencing Prediction",https://arxiv.org/abs/2602.04690v3,https://arxiv.org/pdf/2602.04690v3
+PLJP,A,M4;M5,2023,EMNLP 2023,"Precedent-Enhanced Legal Judgment Prediction with LLM and Domain-Model Collaboration",https://arxiv.org/abs/2310.09241v1,https://arxiv.org/pdf/2310.09241v1
+ADAPT,A,M3;M1,2024,EMNLP 2024 Findings,"Enabling Discriminative Reasoning in LLMs for Legal Judgment Prediction",https://arxiv.org/abs/2407.01964v4,https://arxiv.org/pdf/2407.01964v4
+GLARE,A,M3;M5,2025,arXiv,"GLARE: Agentic Reasoning for Legal Judgment Prediction",https://arxiv.org/abs/2508.16383v1,https://arxiv.org/pdf/2508.16383v1
+SMS,A,M4,2025,arXiv,"Adaptive Sentencing Prediction with Guaranteed Accuracy and Legal Interpretability",https://arxiv.org/abs/2505.14011v1,https://arxiv.org/pdf/2505.14011v1
+RLJP,A,M2;M3,2025,arXiv,"RLJP: Legal Judgment Prediction via First-Order Logic Rule-enhanced with Large Language Models",https://arxiv.org/abs/2505.21281v2,https://arxiv.org/pdf/2505.21281v2
+PDP-Bench,A,M2;M3;EVAL,2026,arXiv,"The Cases LJP Never Sees: Prosecution Decision Prediction for More Complete Criminal Liability Assessment",https://arxiv.org/abs/2605.28464v1,https://arxiv.org/pdf/2605.28464v1
+CAIL2018-Dataset,A,DATA;EVAL,2018,arXiv,"CAIL2018: A Large-Scale Legal Dataset for Judgment Prediction",https://arxiv.org/abs/1807.02478v1,https://arxiv.org/pdf/1807.02478v1
+CAIL2018-Overview,A,EVAL,2018,arXiv,"Overview of CAIL2018: Legal Judgment Prediction Competition",https://arxiv.org/abs/1810.05851v1,https://arxiv.org/pdf/1810.05851v1
+LawBench,A,EVAL;M1,2024,EMNLP 2024,"LawBench: Benchmarking Legal Knowledge of Large Language Models",https://arxiv.org/abs/2309.16289v1,https://arxiv.org/pdf/2309.16289v1
+CLaw,A,M6;EVAL,2025,EMNLP 2025 Findings,"CLaw: Benchmarking Chinese Legal Knowledge in Large Language Models - A Fine-grained Corpus and Reasoning Analysis",https://arxiv.org/abs/2509.21208v1,https://arxiv.org/pdf/2509.21208v1
+HallucinationFree,A,M6;EVAL,2024,J. Empirical Legal Studies,"Hallucination-Free? Assessing the Reliability of Leading AI Legal Research Tools",https://arxiv.org/abs/2405.20362v1,https://arxiv.org/pdf/2405.20362v1
+LeCaRDv2,A,M5;EVAL,2023,arXiv,"LeCaRDv2: A Large-Scale Chinese Legal Case Retrieval Dataset",https://arxiv.org/abs/2310.17609v1,https://arxiv.org/pdf/2310.17609v1
+KELLER,A,M5,2024,arXiv,"Learning Interpretable Legal Case Retrieval via Knowledge-Guided Case Reformulation",https://arxiv.org/abs/2406.19760v1,https://arxiv.org/pdf/2406.19760v1
+SAILER,A,M5,2023,SIGIR 2023,"SAILER: Structure-aware Pre-trained Language Model for Legal Case Retrieval",https://arxiv.org/abs/2304.11370v1,https://arxiv.org/pdf/2304.11370v1
+DISC-LawLLM,A,M6;TRAIN,2023,arXiv,"DISC-LawLLM: Fine-tuning Large Language Models for Intelligent Legal Services",https://arxiv.org/abs/2309.11325v2,https://arxiv.org/pdf/2309.11325v2
+TabPFN-v2,A,M4,2025,Nature,"Accurate predictions on small data with a tabular foundation model",https://www.nature.com/articles/s41586-024-08328-6,https://www.nature.com/articles/s41586-024-08328-6.pdf
+TabICLv2,A,M4,2026,ICML 2026,"TabICLv2: A better, faster, scalable, and open tabular foundation model",https://arxiv.org/abs/2602.11139,https://arxiv.org/pdf/2602.11139
+TabArena,A,M4;EVAL,2025,arXiv,"TabArena: A Living Benchmark for Machine Learning on Tabular Data",https://arxiv.org/abs/2506.16791v4,https://arxiv.org/pdf/2506.16791v4
+Conformal-GentleIntro,A,M4,2021,Foundations and Trends in ML,"A Gentle Introduction to Conformal Prediction and Distribution-Free Uncertainty Quantification",https://arxiv.org/abs/2107.07511v6,https://arxiv.org/pdf/2107.07511v6
+APS,A,M4,2020,NeurIPS 2020,"Classification with Valid and Adaptive Coverage",https://arxiv.org/abs/2006.02544v1,https://arxiv.org/pdf/2006.02544v1
+OrdinalCP-Dey,A,M4,2023,NeurIPS 2023,"Conformal Prediction Sets for Ordinal Classification",https://proceedings.neurips.cc/paper_files/paper/2023/hash/029f699912bf3db747fe110948cc6169-Abstract-Conference.html,https://proceedings.neurips.cc/paper_files/paper/2023/file/029f699912bf3db747fe110948cc6169-Paper-Conference.pdf
+ConditionalConformal,A,M4,2023,arXiv,"Conformal Prediction With Conditional Guarantees",https://arxiv.org/abs/2305.12616v4,https://arxiv.org/pdf/2305.12616v4
+Calibration-Guo,A,M4;M3,2017,ICML 2017,"On Calibration of Modern Neural Networks",https://arxiv.org/abs/1706.04599v2,https://arxiv.org/pdf/1706.04599v2
+BayesianWorkflow,A,M4,2020,arXiv,"Bayesian Workflow",https://arxiv.org/abs/2011.01808v1,https://arxiv.org/pdf/2011.01808v1
+CheckList,A,EVAL,2020,ACL 2020 Best Paper,"Beyond Accuracy: Behavioral Testing of NLP models with CheckList",https://arxiv.org/abs/2005.04118v1,https://arxiv.org/pdf/2005.04118v1
+ReusableHoldout,A,GOV,2015,Science 2015 / NeurIPS 2015,"Generalization in Adaptive Data Analysis and Holdout Reuse",https://arxiv.org/abs/1506.02629v2,https://arxiv.org/pdf/1506.02629v2
+Leakage,A,GOV;DATA,2023,Patterns 2023,"Leakage and the Reproducibility Crisis in ML-based Science",https://arxiv.org/abs/2207.07048v1,https://arxiv.org/pdf/2207.07048v1
+Koehn-Bootstrap,A,EVAL,2004,EMNLP 2004,"Statistical Significance Tests for Machine Translation Evaluation",https://aclanthology.org/W04-3250/,https://aclanthology.org/W04-3250.pdf
+Dror-Significance,A,EVAL,2018,ACL 2018,"The Hitchhiker's Guide to Testing Statistical Significance in Natural Language Processing",https://aclanthology.org/P18-1128/,https://aclanthology.org/P18-1128.pdf
+LetMeSpeakFreely,A,M1,2024,EMNLP 2024 Industry,"Let Me Speak Freely? A Study on the Impact of Format Restrictions on Performance of Large Language Models",https://arxiv.org/abs/2408.02442v3,https://arxiv.org/pdf/2408.02442v3
+BGE-M3,A,M5,2024,ACL 2024 Findings,"M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation",https://arxiv.org/abs/2402.03216v5,https://arxiv.org/pdf/2402.03216v5
+Qwen3-Embedding,A,M5,2025,arXiv,"Qwen3 Embedding: Advancing Text Embedding and Reranking Through Foundation Models",https://arxiv.org/abs/2506.05176v3,https://arxiv.org/pdf/2506.05176v3
+LegalSyllogism,B,M6,2023,arXiv,"Legal Syllogism Prompting: Teaching Large Language Models for Legal Judgment Prediction",https://arxiv.org/abs/2307.08321v1,https://arxiv.org/pdf/2307.08321v1
+LADAN,B,M3,2020,ACL 2020,"Distinguish Confusing Law Articles for Legal Judgment Prediction",https://arxiv.org/abs/2004.02557v3,https://arxiv.org/pdf/2004.02557v3
+ChargeBasedTerm,B,M4,2019,EMNLP 2019,"Charge-Based Prison Term Prediction with Deep Gating Network",https://arxiv.org/abs/1908.11521v1,https://arxiv.org/pdf/1908.11521v1
+RealisticLJP,B,EVAL,2024,arXiv,"Rethinking Legal Judgement Prediction in a Realistic Scenario in the Era of Large Language Models",https://arxiv.org/abs/2410.10542v1,https://arxiv.org/pdf/2410.10542v1
+TestTimeScalingLegal,B,M3;EVAL,2025,arXiv,"Evaluating Test-Time Scaling LLMs for Legal Reasoning: OpenAI o1, DeepSeek-R1, and Beyond",https://arxiv.org/abs/2503.16040v2,https://arxiv.org/pdf/2503.16040v2
+MultiJustice,B,DATA,2025,arXiv,"MultiJustice: A Chinese Dataset for Multi-Party, Multi-Charge Legal Prediction",https://arxiv.org/abs/2507.06909v1,https://arxiv.org/pdf/2507.06909v1
+LexEval,B,EVAL,2024,NeurIPS 2024 D&B,"LexEval: A Comprehensive Chinese Legal Benchmark for Evaluating Large Language Models",https://arxiv.org/abs/2409.20288v4,https://arxiv.org/pdf/2409.20288v4
+LAiW,B,EVAL,2023,arXiv,"LAiW: A Chinese Legal Large Language Models Benchmark",https://arxiv.org/abs/2310.05620v2,https://arxiv.org/pdf/2310.05620v2
+JuDGE,B,M6;EVAL,2025,SIGIR 2025,"JuDGE: Benchmarking Judgment Document Generation for Chinese Legal System",https://arxiv.org/abs/2503.14258v3,https://arxiv.org/pdf/2503.14258v3
+LEVEN,B,M1;DATA,2022,ACL 2022 Findings,"LEVEN: A Large-Scale Chinese Legal Event Detection Dataset",https://arxiv.org/abs/2203.08556v1,https://arxiv.org/pdf/2203.08556v1
+LegalAgentBench,B,EVAL,2024,arXiv,"LegalAgentBench: Evaluating LLM Agents in Legal Domain",https://arxiv.org/abs/2412.17259v1,https://arxiv.org/pdf/2412.17259v1
+AgentsCourt,B,M6,2024,arXiv,"AgentsCourt: Building Judicial Decision-Making Agents with Court Debate Simulation and Legal Knowledge Augmentation",https://arxiv.org/abs/2403.02959v3,https://arxiv.org/pdf/2403.02959v3
+AgentsOnBench,B,M6,2024,arXiv,"Agents on the Bench: Large Language Model Based Multi Agent Framework for Trustworthy Digital Justice",https://arxiv.org/abs/2412.18697v1,https://arxiv.org/pdf/2412.18697v1
+JurisMMA,B,M3,2026,arXiv,"Multimodal Multi-Agent Empowered Legal Judgment Prediction",https://arxiv.org/abs/2601.12815v5,https://arxiv.org/pdf/2601.12815v5
+LargeLegalFictions,B,M6;EVAL,2024,J. Legal Analysis,"Large Legal Fictions: Profiling Legal Hallucinations in Large Language Models",https://arxiv.org/abs/2401.01301v2,https://arxiv.org/pdf/2401.01301v2
+LawLLM-Survey-2025,B,SURVEY,2025,arXiv,"When Large Language Models Meet Law: Dual-Lens Taxonomy, Technical Advances, and Ethical Governance",https://arxiv.org/abs/2507.07748v1,https://arxiv.org/pdf/2507.07748v1
+GoLLIE,B,M1,2024,ICLR 2024,"GoLLIE: Annotation Guidelines improve Zero-Shot Information-Extraction",https://arxiv.org/abs/2310.03668v5,https://arxiv.org/pdf/2310.03668v5
+XGrammar,B,M1,2024,MLSys 2025,"XGrammar: Flexible and Efficient Structured Generation Engine for Large Language Models",https://arxiv.org/abs/2411.15100v3,https://arxiv.org/pdf/2411.15100v3
+Outlines,B,M1,2023,arXiv,"Efficient Guided Generation for Large Language Models",https://arxiv.org/abs/2307.09702v4,https://arxiv.org/pdf/2307.09702v4
+JSONSchemaBench,B,M1;EVAL,2025,arXiv,"JSONSchemaBench: A Rigorous Benchmark of Structured Outputs for Language Models",https://arxiv.org/abs/2501.10868v3,https://arxiv.org/pdf/2501.10868v3
+ALCE,B,M6,2023,EMNLP 2023,"Enabling Large Language Models to Generate Text with Citations",https://arxiv.org/abs/2305.14627v2,https://arxiv.org/pdf/2305.14627v2
+FActScore,B,M6;EVAL,2023,EMNLP 2023,"FActScore: Fine-grained Atomic Evaluation of Factual Precision in Long Form Text Generation",https://arxiv.org/abs/2305.14251v2,https://arxiv.org/pdf/2305.14251v2
+CoVe,B,M6,2024,ACL 2024 Findings,"Chain-of-Verification Reduces Hallucination in Large Language Models",https://arxiv.org/abs/2309.11495v2,https://arxiv.org/pdf/2309.11495v2
+SelfCheckGPT,B,M1;M6,2023,EMNLP 2023,"SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models",https://arxiv.org/abs/2303.08896v3,https://arxiv.org/pdf/2303.08896v3
+RAGAS,B,EVAL,2024,EACL 2024 Demo,"Ragas: Automated Evaluation of Retrieval Augmented Generation",https://arxiv.org/abs/2309.15217v2,https://arxiv.org/pdf/2309.15217v2
+LostInMiddle,B,M3;M6,2024,TACL 2024,"Lost in the Middle: How Language Models Use Long Contexts",https://arxiv.org/abs/2307.03172v3,https://arxiv.org/pdf/2307.03172v3
+mGTE,B,M5,2024,EMNLP 2024 Industry,"mGTE: Generalized Long-Context Text Representation and Reranking Models for Multilingual Text Retrieval",https://arxiv.org/abs/2407.19669v2,https://arxiv.org/pdf/2407.19669v2
+RRF,B,M5,2009,SIGIR 2009,"Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods",https://dl.acm.org/doi/10.1145/1571941.1572114,https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf
+CORAL,B,M4,2020,Pattern Recognition Letters,"Rank consistent ordinal regression for neural networks with application to age estimation",https://arxiv.org/abs/1901.07884v7,https://arxiv.org/pdf/1901.07884v7
+CORN,B,M4,2023,Pattern Analysis and Applications,"Deep Neural Networks for Rank-Consistent Ordinal Regression Based On Conditional Probabilities",https://arxiv.org/abs/2111.08851v5,https://arxiv.org/pdf/2111.08851v5
+Burkner-Ordinal,B,M4,2019,AMPPS,"Ordinal Regression Models in Psychology: A Tutorial",https://doi.org/10.1177/2515245918823199,https://journals.sagepub.com/doi/pdf/10.1177/2515245918823199
+NUTS,B,M4,2014,JMLR,"The No-U-Turn Sampler: Adaptively Setting Path Lengths in Hamiltonian Monte Carlo",https://arxiv.org/abs/1111.4246v1,https://arxiv.org/pdf/1111.4246v1
+NumPyro,B,M4,2019,arXiv,"Composable Effects for Flexible and Accelerated Probabilistic Programming in NumPyro",https://arxiv.org/abs/1912.11554v1,https://arxiv.org/pdf/1912.11554v1
+SBC,B,M4,2018,arXiv,"Validating Bayesian Inference Algorithms with Simulation-Based Calibration",https://arxiv.org/abs/1804.06788v2,https://arxiv.org/pdf/1804.06788v2
+OrdinalCP-Medical,B,M4,2022,MICCAI 2022,"Improving Trustworthiness of AI Disease Severity Rating in Medical Imaging with Ordinal Conformal Prediction Sets",https://arxiv.org/abs/2207.02238v1,https://arxiv.org/pdf/2207.02238v1
+OrdinalCP-FWER,B,M4,2024,arXiv,"Distribution-free Conformal Prediction for Ordinal Classification",https://arxiv.org/abs/2404.16610v2,https://arxiv.org/pdf/2404.16610v2
+OrdinalCP-RPS,B,M4,2026,UAI 2026,"Reliable Conformal Prediction for Ordinal Classification Using the Ranked Probability Score",https://proceedings.mlr.press/v337/haas26a.html,https://raw.githubusercontent.com/mlresearch/v337/main/assets/haas26a/haas26a.pdf
+CQR,B,M4,2019,NeurIPS 2019,"Conformalized Quantile Regression",https://arxiv.org/abs/1905.03222v1,https://arxiv.org/pdf/1905.03222v1
+RAPS,B,M4,2021,ICLR 2021,"Uncertainty Sets for Image Classifiers using Conformal Prediction",https://arxiv.org/abs/2009.14193v5,https://arxiv.org/pdf/2009.14193v5
+XGBoost,B,M4,2016,KDD 2016,"XGBoost: A Scalable Tree Boosting System",https://arxiv.org/abs/1603.02754v3,https://arxiv.org/pdf/1603.02754v3
+LightGBM,B,M4,2017,NeurIPS 2017,"LightGBM: A Highly Efficient Gradient Boosting Decision Tree",https://papers.nips.cc/paper_files/paper/2017/hash/6449f44a102fde848669bdd9eb6b76fa-Abstract.html,https://papers.nips.cc/paper_files/paper/2017/file/6449f44a102fde848669bdd9eb6b76fa-Paper.pdf
+CatBoost,B,M4,2018,NeurIPS 2018,"CatBoost: unbiased boosting with categorical features",https://arxiv.org/abs/1706.09516v5,https://arxiv.org/pdf/1706.09516v5
+TabM,B,M4,2025,ICLR 2025,"TabM: Advancing Tabular Deep Learning with Parameter-Efficient Ensembling",https://arxiv.org/abs/2410.24210v3,https://arxiv.org/pdf/2410.24210v3
+TabICL,B,M4,2025,ICML 2025,"TabICL: A Tabular Foundation Model for In-Context Learning on Large Data",https://arxiv.org/abs/2502.05564v2,https://arxiv.org/pdf/2502.05564v2
+TabPFN-2.5,B,M4,2025,arXiv,"TabPFN-2.5: Advancing the State of the Art in Tabular Foundation Models",https://arxiv.org/abs/2511.08667v2,https://arxiv.org/pdf/2511.08667v2
+TabPFN-3,B,M4,2026,arXiv,"TabPFN-3: Technical Report",https://arxiv.org/abs/2605.13986v2,https://arxiv.org/pdf/2605.13986v2
+TabPFN-3.5,B,M4,2026,arXiv,"TabPFN-3.5: Technical Report",https://arxiv.org/abs/2609.17895v2,https://arxiv.org/pdf/2609.17895v2
+Mitra-v2,B,M4,2026,arXiv,"Mitra-v2 Technical Report",https://arxiv.org/abs/2609.04540v1,https://arxiv.org/pdf/2609.04540v1
+DeepLattice,B,M4,2017,NeurIPS 2017,"Deep Lattice Networks and Partial Monotonic Functions",https://arxiv.org/abs/1709.06680v1,https://arxiv.org/pdf/1709.06680v1
+SHAP,B,M6,2017,NeurIPS 2017,"A Unified Approach to Interpreting Model Predictions",https://arxiv.org/abs/1705.07874v2,https://arxiv.org/pdf/1705.07874v2
+CounterfactualExpl,B,M6,2018,Harvard JOLT,"Counterfactual Explanations without Opening the Black Box: Automated Decisions and the GDPR",https://arxiv.org/abs/1711.00399v3,https://arxiv.org/pdf/1711.00399v3
+UnfaithfulCoT,B,M6,2023,NeurIPS 2023,"Language Models Don't Always Say What They Think: Unfaithful Explanations in Chain-of-Thought Prompting",https://arxiv.org/abs/2305.04388v2,https://arxiv.org/pdf/2305.04388v2
+CounterfactualFairness,B,EVAL,2017,NeurIPS 2017,"Counterfactual Fairness",https://arxiv.org/abs/1703.06856v3,https://arxiv.org/pdf/1703.06856v3
+SelfConsistency,B,M1;M3,2023,ICLR 2023,"Self-Consistency Improves Chain of Thought Reasoning in Language Models",https://arxiv.org/abs/2203.11171v4,https://arxiv.org/pdf/2203.11171v4
+LLM-as-Judge,B,EVAL,2023,NeurIPS 2023 D&B,"Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena",https://arxiv.org/abs/2306.05685v4,https://arxiv.org/pdf/2306.05685v4
+Qwen3-TR,B,M1;M3,2025,arXiv,"Qwen3 Technical Report",https://arxiv.org/abs/2505.09388v1,https://arxiv.org/pdf/2505.09388v1
+LoRA,C,TRAIN,2022,ICLR 2022,"LoRA: Low-Rank Adaptation of Large Language Models",https://arxiv.org/abs/2106.09685v2,https://arxiv.org/pdf/2106.09685v2
+QLoRA,C,TRAIN,2023,NeurIPS 2023,"QLoRA: Efficient Finetuning of Quantized LLMs",https://arxiv.org/abs/2305.14314v1,https://arxiv.org/pdf/2305.14314v1
+DoRA,C,TRAIN,2024,ICML 2024,"DoRA: Weight-Decomposed Low-Rank Adaptation",https://arxiv.org/abs/2402.09353v6,https://arxiv.org/pdf/2402.09353v6
+LoRA-LearnsLess,C,TRAIN,2024,TMLR 2024,"LoRA Learns Less and Forgets Less",https://arxiv.org/abs/2405.09673v2,https://arxiv.org/pdf/2405.09673v2
+LIMA,C,TRAIN;DATA,2023,NeurIPS 2023,"LIMA: Less Is More for Alignment",https://arxiv.org/abs/2305.11206v1,https://arxiv.org/pdf/2305.11206v1
+DEITA,C,TRAIN;DATA,2024,ICLR 2024,"What Makes Good Data for Alignment? A Comprehensive Study of Automatic Data Selection in Instruction Tuning",https://arxiv.org/abs/2312.15685v2,https://arxiv.org/pdf/2312.15685v2
+STaR,C,TRAIN,2022,NeurIPS 2022,"STaR: Bootstrapping Reasoning With Reasoning",https://arxiv.org/abs/2203.14465v2,https://arxiv.org/pdf/2203.14465v2
+DistillStepByStep,C,TRAIN,2023,ACL 2023 Findings,"Distilling Step-by-Step! Outperforming Larger Language Models with Less Training Data and Smaller Model Sizes",https://arxiv.org/abs/2305.02301v2,https://arxiv.org/pdf/2305.02301v2
+RFT,C,TRAIN,2023,arXiv,"Scaling Relationship on Learning Mathematical Reasoning with Large Language Models",https://arxiv.org/abs/2308.01825v2,https://arxiv.org/pdf/2308.01825v2
+DPO,C,TRAIN,2023,NeurIPS 2023,"Direct Preference Optimization: Your Language Model is Secretly a Reward Model",https://arxiv.org/abs/2305.18290v3,https://arxiv.org/pdf/2305.18290v3
+DeepSeekMath-GRPO,C,TRAIN,2024,arXiv,"DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models",https://arxiv.org/abs/2402.03300v3,https://arxiv.org/pdf/2402.03300v3
+DeepSeek-R1,C,TRAIN,2025,Nature 2025,"DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning",https://arxiv.org/abs/2501.12948v2,https://arxiv.org/pdf/2501.12948v2
+DAPO,C,TRAIN,2025,arXiv,"DAPO: An Open-Source LLM Reinforcement Learning System at Scale",https://arxiv.org/abs/2503.14476v2,https://arxiv.org/pdf/2503.14476v2
+DrGRPO,C,TRAIN,2025,COLM 2025,"Understanding R1-Zero-Like Training: A Critical Perspective",https://arxiv.org/abs/2503.20783v2,https://arxiv.org/pdf/2503.20783v2
+GSPO,C,TRAIN,2025,arXiv,"Group Sequence Policy Optimization",https://arxiv.org/abs/2507.18071v2,https://arxiv.org/pdf/2507.18071v2
+RaR,C,TRAIN,2026,ICLR 2026,"Rubrics as Rewards: Reinforcement Learning Beyond Verifiable Domains",https://arxiv.org/abs/2507.17746v2,https://arxiv.org/pdf/2507.17746v2
+PRM-LetsVerify,C,TRAIN,2024,ICLR 2024,"Let's Verify Step by Step",https://arxiv.org/abs/2305.20050v1,https://arxiv.org/pdf/2305.20050v1
+Search-R1,C,TRAIN,2025,COLM 2025,"Search-R1: Training LLMs to Reason and Leverage Search Engines with Reinforcement Learning",https://arxiv.org/abs/2503.09516v5,https://arxiv.org/pdf/2503.09516v5
+HybridFlow-verl,C,TRAIN,2025,EuroSys 2025,"HybridFlow: A Flexible and Efficient RLHF Framework",https://arxiv.org/abs/2409.19256v2,https://arxiv.org/pdf/2409.19256v2
+LlamaFactory,C,TRAIN,2024,ACL 2024 Demo,"LlamaFactory: Unified Efficient Fine-Tuning of 100+ Language Models",https://arxiv.org/abs/2403.13372v4,https://arxiv.org/pdf/2403.13372v4
+ModelSoups,C,TRAIN,2022,ICML 2022,"Model soups: averaging weights of multiple fine-tuned models improves accuracy without increasing inference time",https://arxiv.org/abs/2203.05482v3,https://arxiv.org/pdf/2203.05482v3
+DeepEnsembles,C,M4,2017,NeurIPS 2017,"Simple and Scalable Predictive Uncertainty Estimation using Deep Ensembles",https://arxiv.org/abs/1612.01474v3,https://arxiv.org/pdf/1612.01474v3
+ConfidentLearning,C,DATA,2021,JAIR 2021,"Confident Learning: Estimating Uncertainty in Dataset Labels",https://arxiv.org/abs/1911.00068v6,https://arxiv.org/pdf/1911.00068v6
+Snorkel,C,DATA,2017,VLDB 2018,"Snorkel: Rapid Training Data Creation with Weak Supervision",https://arxiv.org/abs/1711.10160v1,https://arxiv.org/pdf/1711.10160v1
+DatasetCartography,C,DATA,2020,EMNLP 2020,"Dataset Cartography: Mapping and Diagnosing Datasets with Training Dynamics",https://arxiv.org/abs/2009.10795v2,https://arxiv.org/pdf/2009.10795v2
+SelfInstruct,C,DATA,2023,ACL 2023,"Self-Instruct: Aligning Language Models with Self-Generated Instructions",https://arxiv.org/abs/2212.10560v2,https://arxiv.org/pdf/2212.10560v2
+CurseOfRecursion,C,DATA,2024,Nature 2024,"The Curse of Recursion: Training on Generated Data Makes Models Forget",https://arxiv.org/abs/2305.17493v3,https://arxiv.org/pdf/2305.17493v3
+ActiveLearning-Settles,C,DATA,2009,Tech Report,"Active Learning Literature Survey",https://burrsettles.com/pub/settles.activelearning.pdf,https://burrsettles.com/pub/settles.activelearning.pdf
+Optuna,C,TRAIN,2019,KDD 2019,"Optuna: A Next-generation Hyperparameter Optimization Framework",https://arxiv.org/abs/1907.10902v1,https://arxiv.org/pdf/1907.10902v1
+SuperLearner,C,M4,2007,Stat. Appl. Genet. Mol. Biol.,"Super Learner",https://doi.org/10.2202/1544-6115.1309,
+Stacking-Wolpert,C,M4,1992,Neural Networks,"Stacked Generalization",https://doi.org/10.1016/S0893-6080(05)80023-1,
+WILDS,C,EVAL,2021,ICML 2021,"WILDS: A Benchmark of in-the-Wild Distribution Shifts",https://arxiv.org/abs/2012.07421v3,https://arxiv.org/pdf/2012.07421v3
+ShortcutLearning,C,EVAL,2020,Nature Machine Intelligence,"Shortcut Learning in Deep Neural Networks",https://arxiv.org/abs/2004.07780v5,https://arxiv.org/pdf/2004.07780v5
+HELM,C,EVAL,2023,TMLR 2023,"Holistic Evaluation of Language Models",https://arxiv.org/abs/2211.09110v2,https://arxiv.org/pdf/2211.09110v2
+REFORMS,C,GOV,2024,Science Advances 2024,"REFORMS: Reporting Standards for Machine Learning Based Science",https://arxiv.org/abs/2308.07832v2,https://arxiv.org/pdf/2308.07832v2
+ModelCards,C,GOV,2019,FAT* 2019,"Model Cards for Model Reporting",https://arxiv.org/abs/1810.03993v2,https://arxiv.org/pdf/1810.03993v2
+Datasheets,C,GOV;DATA,2021,CACM 2021,"Datasheets for Datasets",https://arxiv.org/abs/1803.09010v8,https://arxiv.org/pdf/1803.09010v8
+HiddenTechDebt,C,GOV,2015,NeurIPS 2015,"Hidden Technical Debt in Machine Learning Systems",https://papers.nips.cc/paper_files/paper/2015/hash/86df7dcfd896fcaf2674f757a2463eba-Abstract.html,https://papers.nips.cc/paper_files/paper/2015/file/86df7dcfd896fcaf2674f757a2463eba-Paper.pdf
+MLTestScore,C,GOV,2017,IEEE BigData 2017,"The ML Test Score: A Rubric for ML Production Readiness and Technical Debt Reduction",https://research.google/pubs/the-ml-test-score-a-rubric-for-ml-production-readiness-and-technical-debt-reduction/,
