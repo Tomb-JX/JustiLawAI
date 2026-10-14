@@ -8,7 +8,10 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
+import re
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import AsyncIterator
@@ -22,6 +25,10 @@ from ..store import settings_db
 DEFAULT_PARAMS = {"temperature": 0.7, "top_p": 0.9, "max_tokens": 2048}
 EMBED_PARAMS = {"temperature": 0, "top_p": 1, "max_tokens": 0}
 OLLAMA_REFRESH_INTERVAL_S = 30
+OLLAMA_PROBE_TIMEOUT_S = 3
+# 向导"自动检测"依次尝试的地址：本机 → Docker 容器访问宿主机
+OLLAMA_CANDIDATE_URLS = ("http://127.0.0.1:11434", "http://host.docker.internal:11434")
+MODEL_NAME_RE = re.compile(r"^[A-Za-z0-9][\w.\-/]*(:[\w.\-]+)?$")
 
 
 # ---------- 供应商数据模型 ----------
@@ -59,7 +66,11 @@ def _is_loopback(url: str) -> bool:
 
 
 class ProviderStore:
-    """Provider 持久化（JSON）。内置 Ollama 供应商不可删除；Ollama 类供应商的模型自动发现。"""
+    """Provider 持久化（JSON）。内置 Ollama 供应商不可删除；Ollama 类供应商的模型自动发现。
+
+    自动发现的网络请求都不在事件循环里同步执行：查询接口只读缓存，过期时投递到后台线程刷新，
+    Ollama 不可达也不会拖慢其他接口。
+    """
 
     def __init__(self):
         self.path = config.DATA_DIR / "providers.json"
@@ -68,10 +79,11 @@ class ProviderStore:
                                base_url=config.OLLAMA_BASE_URL),
         }
         self._last_refresh: dict[str, float] = {}
+        self._refreshing: set[str] = set()
+        self._lock = threading.Lock()
+        # 自动发现供应商的最近一次连接结果：{reachable, version, error, checked_at}
+        self.status: dict[str, dict] = {}
         self._load()
-        for p in self._providers.values():
-            if p.auto_discover:
-                self.refresh(p.id)
 
     def _load(self):
         if not self.path.exists():
@@ -81,27 +93,46 @@ class ProviderStore:
                 builtin = self._providers["ollama"]
                 builtin.name = raw.get("name", builtin.name)
                 builtin.enabled = raw.get("enabled", True)
+                builtin.base_url = raw.get("base_url") or builtin.base_url
+                builtin.models = raw.get("models", [])
                 continue
             self._providers[raw["id"]] = Provider(**raw)
 
     def _save(self):
-        self.path.write_text(
-            json.dumps([p.__dict__ for p in self._providers.values()], ensure_ascii=False, indent=2),
-            "utf-8",
-        )
+        rows = []
+        for p in self._providers.values():
+            d = p.__dict__.copy()
+            # 内置 Ollama 的地址与环境变量一致时不落盘，之后改 OLLAMA_BASE_URL 仍能生效
+            if p.id == "ollama" and p.base_url == config.OLLAMA_BASE_URL:
+                d.pop("base_url")
+            rows.append(d)
+        tmp = self.path.with_suffix(".tmp")
+        tmp.write_text(json.dumps(rows, ensure_ascii=False, indent=2), "utf-8")
+        tmp.replace(self.path)
 
     def refresh(self, pid: str) -> bool:
-        """从 Ollama /api/tags 同步模型清单（含能力标签）。失败时保留旧清单，返回是否成功。"""
+        """从 Ollama /api/tags 同步模型清单（含能力标签）。失败时保留旧清单，返回是否成功。
+
+        同步阻塞（最长 OLLAMA_PROBE_TIMEOUT_S），异步代码里用 refresh_async 或 asyncio.to_thread 调用。
+        """
         p = self._providers.get(pid)
         if not p or not p.auto_discover:
             return False
         self._last_refresh[pid] = time.time()
         try:
-            r = httpx.get(f"{p.base_url}/api/tags", timeout=5, trust_env=not _is_loopback(p.base_url))
-            r.raise_for_status()
-            tags = r.json().get("models", [])
-        except Exception:
+            with httpx.Client(timeout=OLLAMA_PROBE_TIMEOUT_S, trust_env=not _is_loopback(p.base_url)) as c:
+                r = c.get(f"{p.base_url}/api/tags")
+                r.raise_for_status()
+                tags = r.json().get("models", [])
+                try:
+                    version = c.get(f"{p.base_url}/api/version").json().get("version")
+                except Exception:
+                    version = None
+        except Exception as e:
+            self.status[pid] = {"reachable": False, "version": None, "error": _short_error(e),
+                                "checked_at": time.time()}
             return False
+        self.status[pid] = {"reachable": True, "version": version, "error": None, "checked_at": time.time()}
         old = {m["id"]: m for m in p.models}
         models = []
         for t in tags:
@@ -120,11 +151,41 @@ class ProviderStore:
         self._save()
         return True
 
+    async def refresh_async(self, pid: str) -> bool:
+        return await asyncio.to_thread(self.refresh, pid)
+
+    async def refresh_all(self):
+        """启动时调用：后台刷新全部自动发现供应商，不阻塞服务启动。"""
+        for p in list(self._providers.values()):
+            if p.auto_discover and p.enabled:
+                await self.refresh_async(p.id)
+
     def _maybe_refresh(self):
-        for p in self._providers.values():
-            if p.auto_discover and p.enabled and \
-                    time.time() - self._last_refresh.get(p.id, 0) > OLLAMA_REFRESH_INTERVAL_S:
+        """缓存过期时投递后台刷新；本次调用直接用旧缓存返回。"""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+        for p in list(self._providers.values()):
+            if not (p.auto_discover and p.enabled) or \
+                    time.time() - self._last_refresh.get(p.id, 0) <= OLLAMA_REFRESH_INTERVAL_S:
+                continue
+            if loop is None:  # 非异步上下文（脚本、测试）直接同步刷新
                 self.refresh(p.id)
+                continue
+            with self._lock:
+                if p.id in self._refreshing:
+                    continue
+                self._refreshing.add(p.id)
+                self._last_refresh[p.id] = time.time()
+            loop.run_in_executor(None, self._refresh_bg, p.id)
+
+    def _refresh_bg(self, pid: str):
+        try:
+            self.refresh(pid)
+        finally:
+            with self._lock:
+                self._refreshing.discard(pid)
 
     # ---- CRUD ----
     def list(self) -> list[Provider]:
@@ -145,20 +206,23 @@ class ProviderStore:
         kw.setdefault("models", [])
         p = Provider(**kw)
         self._providers[pid] = p
-        if p.auto_discover:
-            self.refresh(pid)
         self._save()
         return p
 
     def update(self, pid: str, patch: dict) -> Provider | None:
+        """更新供应商；Ollama 类改了地址会清空模型缓存，调用方随后应刷新。"""
         p = self._providers.get(pid)
         if not p:
             return None
         for k, v in patch.items():
             if k in ("name", "base_url", "api_key", "enabled") and v is not None:
-                if pid == "ollama" and k == "base_url":
-                    continue
-                setattr(p, k, v.rstrip("/") if k == "base_url" else v)
+                if k == "base_url":
+                    v = v.strip().rstrip("/")
+                    if p.auto_discover and v != p.base_url:
+                        p.models = []
+                        self.status.pop(pid, None)
+                        self._last_refresh.pop(pid, None)
+                setattr(p, k, v)
         self._save()
         return p
 
@@ -228,12 +292,17 @@ class ProviderStore:
             platform_model_id = f"ollama/{platform_model_id}"
         for p in self._providers.values():
             if p.enabled and platform_model_id.startswith(p.id + "/"):
-                real = platform_model_id[len(p.id) + 1:]
-                # 自动发现的供应商：刚 pull 的模型可能还不在缓存里，补刷一次
-                if p.auto_discover and not any(_same_model(m["id"], platform_model_id) for m in p.models):
-                    self.refresh(p.id)
-                return p, real
+                return p, platform_model_id[len(p.id) + 1:]
         return None
+
+    async def resolve_async(self, platform_model_id: str) -> tuple[Provider, str] | None:
+        """同 resolve；自动发现的供应商里找不到该模型时（刚 pull 的），先在后台线程补刷一次缓存。"""
+        resolved = self.resolve(platform_model_id)
+        if resolved:
+            p, real = resolved
+            if p.auto_discover and not any(_same_model(m["name"], real) for m in p.models):
+                await self.refresh_async(p.id)
+        return resolved
 
     # ---- 默认模型 ----
     def default_model(self, kind: str) -> str | None:
@@ -262,6 +331,16 @@ def _same_model(a: str, b: str) -> bool:
     return strip(a) == strip(b)
 
 
+def _short_error(e: Exception) -> str:
+    if isinstance(e, httpx.ConnectError):
+        return "无法连接（Ollama 未启动或地址错误）"
+    if isinstance(e, httpx.TimeoutException):
+        return "连接超时"
+    if isinstance(e, httpx.HTTPStatusError):
+        return f"HTTP {e.response.status_code}"
+    return str(e)[:200] or e.__class__.__name__
+
+
 def _guess_caps(tag: dict) -> list[str]:
     """旧版 Ollama 的 /api/tags 不返回 capabilities 时，按模型族粗略判断。"""
     family = (tag.get("details") or {}).get("family", "").lower()
@@ -283,8 +362,8 @@ class ChatDelta:
     usage: dict | None = None     # 仅最后一个增量携带：{prompt_tokens, completion_tokens}
 
 
-def _resolve_or_raise(model_id: str) -> tuple[Provider, str]:
-    resolved = provider_store.resolve(model_id)
+async def _resolve_or_raise(model_id: str) -> tuple[Provider, str]:
+    resolved = await provider_store.resolve_async(model_id)
     if not resolved:
         raise RuntimeError(f"未注册或已停用的模型：{model_id}（请在「模型服务」页检查供应商）")
     return resolved
@@ -297,7 +376,7 @@ async def stream_chat(
     thinking: bool = False,
 ) -> AsyncIterator[ChatDelta]:
     """统一对话流：yield ChatDelta(text=..., thinking=...)，结束时 yield 一个带 usage 的增量。"""
-    provider, real_model = _resolve_or_raise(model_id)
+    provider, real_model = await _resolve_or_raise(model_id)
     info = provider_store.model_info(f"{provider.id}/{real_model}") or {}
     supports_thinking = "thinking" in info.get("capabilities", [])
 
@@ -407,7 +486,7 @@ async def embed_texts(model_id: str | None, texts: list[str]) -> list[list[float
     model_id = model_id or provider_store.default_model("embedding")
     if not model_id:
         raise RuntimeError("没有可用的嵌入模型：请在 Ollama 中拉取（如 ollama pull bge-m3）或在「模型服务」页添加嵌入模型")
-    provider, real_model = _resolve_or_raise(model_id)
+    provider, real_model = await _resolve_or_raise(model_id)
     out: list[list[float]] = []
     async with provider.client(120) as client:
         for i in range(0, len(texts), config.EMBED_BATCH_SIZE):
@@ -458,9 +537,72 @@ async def fetch_remote_models(provider: Provider) -> list[str]:
 async def ping_model(model_id: str) -> int:
     """模型级测试：嵌入模型实际嵌入一次；对话模型测供应商连通（不消耗生成额度）。"""
     info = provider_store.model_info(model_id)
-    provider, _ = _resolve_or_raise(model_id)
+    provider, _ = await _resolve_or_raise(model_id)
     t0 = time.time()
     if info and info.get("capabilities") == ["embedding"]:
         await embed_texts(model_id, ["ping"])
         return int((time.time() - t0) * 1000)
     return await ping_provider(provider)
+
+
+# ---------- Ollama 连接向导 ----------
+
+async def probe_ollama(base_url: str) -> dict:
+    """探测一个 Ollama 地址（只读不存）：{base_url, reachable, version, models, error}。"""
+    base_url = base_url.strip().rstrip("/")
+    out = {"base_url": base_url, "reachable": False, "version": None, "models": [], "error": None}
+    try:
+        async with httpx.AsyncClient(timeout=OLLAMA_PROBE_TIMEOUT_S,
+                                     trust_env=not _is_loopback(base_url)) as client:
+            r = await client.get(f"{base_url}/api/version")
+            r.raise_for_status()
+            out["version"] = r.json().get("version")
+            tags = (await client.get(f"{base_url}/api/tags")).json().get("models", [])
+            out["models"] = [t["name"] for t in tags if t.get("name")]
+            out["reachable"] = True
+    except Exception as e:
+        out["error"] = _short_error(e)
+    return out
+
+
+async def detect_ollama(base_url: str | None = None) -> dict:
+    """自动检测：给了地址只测该地址；否则依次尝试当前配置地址与常见本机地址，返回第一个可达的。"""
+    if base_url:
+        return await probe_ollama(base_url)
+    builtin = provider_store.get("ollama")
+    candidates = [builtin.base_url] if builtin else []
+    candidates += [u for u in OLLAMA_CANDIDATE_URLS if u not in candidates]
+    first = None
+    for url in candidates:
+        res = await probe_ollama(url)
+        if res["reachable"]:
+            return res
+        first = first or res
+    return first
+
+
+async def pull_model(provider: Provider, name: str) -> AsyncIterator[dict]:
+    """代理 Ollama /api/pull：逐条 yield 进度 {status, completed?, total?}；失败抛 RuntimeError。"""
+    if not MODEL_NAME_RE.match(name):
+        raise RuntimeError(f"模型名不合法：{name}")
+    # 下载大模型可能持续数十分钟：不设读超时，只限制连接超时
+    timeout = httpx.Timeout(None, connect=OLLAMA_PROBE_TIMEOUT_S)
+    async with httpx.AsyncClient(timeout=timeout, trust_env=not _is_loopback(provider.base_url)) as client:
+        req = client.build_request("POST", f"{provider.base_url}/api/pull", json={"model": name, "stream": True})
+        resp = await client.send(req, stream=True)
+        try:
+            if resp.status_code != 200:
+                body = (await resp.aread()).decode("utf-8", "ignore")[:300]
+                raise RuntimeError(f"Ollama 返回 {resp.status_code}：{body}")
+            async for line in resp.aiter_lines():
+                if not line.strip():
+                    continue
+                try:
+                    j = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if j.get("error"):
+                    raise RuntimeError(j["error"])
+                yield {k: j[k] for k in ("status", "completed", "total") if k in j}
+        finally:
+            await resp.aclose()
