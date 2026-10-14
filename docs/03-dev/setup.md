@@ -29,6 +29,7 @@ pnpm dev        # 开发服务器，默认 http://localhost:5173
 | 变量 | 说明 | 默认 |
 |---|---|---|
 | `VITE_API_BASE_URL` | 后端接口地址 | `/api/v1`（开发模式经 vite proxy 转发到 `127.0.0.1:8000`） |
+| `JUSTILAW_API` | 开发服务器代理目标（启动 `pnpm dev` 时的进程环境变量，不写进 .env） | `http://127.0.0.1:8000` |
 | `VITE_USE_MOCK` | 是否启用内置 Mock 层 | `.env.development` 与 `.env.production` 均为 `false`（走真实后端） |
 | `VITE_LOGTO_ENDPOINT` | Logto 租户地址 | `https://oglnok.logto.app/` |
 | `VITE_LOGTO_APP_ID` | Logto SPA 应用 ID（公开信息） | 已写入 `.env.development` / `.env.production` |
@@ -112,9 +113,11 @@ ollama pull bge-m3
 
 推理在用户自己的电脑上进行，服务器只保存会话、做知识库检索。
 
-1. 打开站点并登录，在对话页模型下拉选「使用我电脑上的 Ollama…」（或「模型服务」页的「我电脑上的 Ollama」卡片 →「连接」）
+1. 打开站点并登录，在对话页模型下拉选「使用我电脑上的 Ollama…」（或「模型服务」页的「我电脑上的 Ollama」卡片 →「连接」）。管理员的下拉里同时有「连接 / 下载服务器模型…」（配置服务器用的 Ollama，对所有用户生效），两者互不影响
 2. 向导会自动检测。提示"Ollama 正在运行，但还没有允许本网站访问"时，下载向导给出的放行脚本双击运行（把站点源加入 `OLLAMA_ORIGINS` 并重启 Ollama），回到网页点「重新检测」
 3. 没有模型时在向导里点「下载」，完成后模型下拉的「本机 · Ollama」分组即为本机模型
+
+本机 Ollama 没开时，已选的本机模型会显示「未连接」并保留选择，不会自动改用服务器模型（避免对话内容在用户不知情时发给服务器上的模型）。
 
 限制：工作流试运行仍在服务器执行，暂不支持本机模型；Safari 可能拦截网页访问本机地址，请用 Chrome / Edge；Chrome 弹出"访问本地网络设备"的提示时点允许。本机模型设置只保存在当前浏览器。
 
