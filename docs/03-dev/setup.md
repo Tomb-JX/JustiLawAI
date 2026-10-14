@@ -125,7 +125,7 @@ ollama pull bge-m3
 
 整套服务跑在用户电脑上，免登录，数据只在本机。详见 [launcher/README.md](../../launcher/README.md)：
 
-1. 下载发布包 `JustiLawAI-local.zip` 并解压（开发者用 `ops/package-local.ps1` 打包）
+1. 下载发布包 `JustiLawAI-local.zip` 并解压（开发者用 `python ops/package_local.py` 打包）
 2. Windows 双击 `Start-JustiLaw.bat`；macOS / Linux 运行 `bash launcher/start.sh`。首次运行自动准备 Python 环境（没有 Python 时可经 uv 自动安装）
 3. 浏览器自动打开 `http://127.0.0.1:8000`，按向导下载模型即可使用
 
