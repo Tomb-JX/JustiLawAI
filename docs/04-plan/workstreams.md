@@ -62,6 +62,8 @@
 | 2026-10-15 | 引擎 | 新开 `discretion-engine` 工作树；原工作树留给数据链路。请数据链路完成 §3 的数据目录迁移 |
 | 2026-10-15 | 数据链路 | 完成 §3 迁移：research/data/ → `D:/02_Dev/Data/justilaw-research/`（432 文件 / 1.33 GB，前后 SHA-256 逐文件一致，审计存 `_migration_audit_*.json`）；common.py DATA_DIR 改为优先读 `JUSTILAW_DATA_DIR` |
 | 2026-10-15 | 数据链路 | 已推 main：4080e41 门头沟适配+赌博初筛、台账 230 件；7d95241 数据目录外置；f77f51b 批量采集规划（crawler-ops.md）与站点台账（sites.csv）。引擎可经 JUSTILAW_DATA_DIR 只读数据目录 |
+| 2026-10-15 | 引擎 | **接口发布：要素本体 schema v1.0.0**（`justilaw-api/app/discretion/schema.py`）与[标注指南](../05-research/annotation-guideline.md) v0.1，数据链路可按此准备 50 件试标样本 |
+| 2026-10-15 | 引擎 | 共享文件改动：`justilaw-api/requirements.txt` 增加 `pyyaml`（规范库）；`.gitignore` 增加 `research/.venv/`（研究用虚拟环境） |
 
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
