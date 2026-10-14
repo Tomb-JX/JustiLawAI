@@ -1,13 +1,23 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, Gavel, Library, MessagesSquare, ScrollText, FileSearch } from 'lucide-react'
+import {
+  Bot,
+  Check,
+  Gavel,
+  Library,
+  MessagesSquare,
+  Menu,
+  ScrollText,
+  FileSearch,
+  X,
+} from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
 import { createConversation, getAgent } from '@/api'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Skeleton } from '@/components/ui/skeleton'
+import { Textarea } from '@/components/ui/textarea'
+import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
 import { ChatHeader } from './components/chat-header'
 import { ChatInput } from './components/chat-input'
@@ -25,11 +35,8 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
 
   const createMut = useMutation({
     mutationFn: (title: string) => createConversation({ title, agent_id: agentId }),
-    onSuccess: invalidate,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
   })
-  function invalidate() {
-    qc.invalidateQueries({ queryKey: ['conversations'] })
-  }
 
   const startWith = async (question: string) => {
     try {
@@ -58,7 +65,7 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
           {agent.suggested_questions.map((q) => (
             <button
               key={q}
-              onClick={() => startWith(q)}
+              onClick={() => void startWith(q)}
               className="rounded-xl border bg-card px-4 py-2.5 text-left text-sm text-foreground/90 shadow-sm transition-colors hover:border-primary/40 hover:bg-accent"
             >
               {q}
@@ -72,7 +79,8 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
             { id: 'a_1002', name: '判决预测', icon: Gavel },
             { id: 'a_1003', name: '类案检索', icon: FileSearch },
             { id: 'a_1004', name: '法条解释', icon: ScrollText },
-            { id: 'a_1006', name: '知识库问答', icon: Library },
+            { id: 'a_1005', name: '合同审查', icon: Library },
+            { id: 'a_1006', name: '文书起草', icon: Bot },
           ].map(({ id, name, icon: Icon }) => (
             <Button
               key={id}
@@ -100,7 +108,7 @@ function ConversationView({
   conversationId: string
   agent?: Agent
 }) {
-  const { send, stop, regenerate, isStreaming } = useChatStream(conversationId, agent?.id)
+  const { send, stop, regenerate, editAndResend, isStreaming } = useChatStream(conversationId, agent?.id)
   const { data: messages, isLoading } = useQuery({
     queryKey: ['messages', conversationId],
     queryFn: () => import('@/api').then((m) => m.listMessages(conversationId)),
@@ -110,6 +118,7 @@ function ConversationView({
   const prefill = useChatStore((s) => s.prefill)
   const consumePrefill = useChatStore((s) => s.consumePrefill)
   const sentForRef = useRef(0)
+  const [editing, setEditing] = useState<{ id: string; content: string } | null>(null)
 
   // 自动发送的预填（推荐问题 → 建会话后立即提问）
   useEffect(() => {
@@ -135,6 +144,14 @@ function ConversationView({
   const list = messages ?? []
   const lastAssistantIdx = draft ? -1 : list.length - 1
 
+  const confirmEdit = async () => {
+    if (!editing) return
+    const content = editing.content.trim()
+    const id = editing.id
+    setEditing(null)
+    if (content) await editAndResend(id, content)
+  }
+
   return (
     <>
       <div
@@ -145,18 +162,39 @@ function ConversationView({
         <div className="mx-auto max-w-3xl space-y-5">
           {isLoading ? (
             <div className="space-y-3">
-              <Skeleton className="ml-auto h-10 w-1/2" />
-              <Skeleton className="h-24 w-3/4" />
+              <div className="ml-auto h-10 w-1/2 animate-pulse rounded-lg bg-muted" />
+              <div className="h-24 w-3/4 animate-pulse rounded-lg bg-muted" />
             </div>
           ) : (
             <>
-              {list.map((m, i) => (
-                <MessageItem
-                  key={m.id}
-                  message={m}
-                  isLastAssistant={i === lastAssistantIdx && m.role === 'assistant'}
-                  onRegenerate={regenerate}
-                />
+              {list.map((m: Message, i: number) => (
+                <div key={m.id}>
+                  <MessageItem
+                    message={m}
+                    isLastAssistant={i === lastAssistantIdx && m.role === 'assistant'}
+                    onRegenerate={regenerate}
+                    onEdit={m.role === 'user' ? (msg) => setEditing({ id: msg.id, content: msg.content }) : undefined}
+                  />
+                  {editing?.id === m.id && (
+                    <div className="ml-auto mt-2 w-[82%] rounded-xl border bg-card p-2.5 shadow-sm">
+                      <Textarea
+                        autoFocus
+                        value={editing.content}
+                        onChange={(e) => setEditing({ ...editing, content: e.target.value })}
+                        className="min-h-[72px] resize-none border-0 shadow-none focus-visible:ring-0"
+                      />
+                      <div className="flex justify-end gap-2 pt-1.5">
+                        <Button variant="ghost" size="sm" onClick={() => setEditing(null)}>
+                          取消
+                        </Button>
+                        <Button size="sm" className="gap-1" onClick={() => void confirmEdit()}>
+                          <Check className="h-3.5 w-3.5" />
+                          保存并重发
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
               ))}
               {draft && (
                 <MessageItem
@@ -174,7 +212,7 @@ function ConversationView({
           )}
         </div>
       </div>
-      <ChatInput onSend={(t) => void send(t)} onStop={stop} streaming={isStreaming} />
+      <ChatInput onSend={(t, atts) => void send(t, 'new', atts)} onStop={stop} streaming={isStreaming} />
     </>
   )
 }
@@ -185,6 +223,7 @@ export default function ChatPage() {
   const { conversationId } = useParams()
   const [searchParams] = useSearchParams()
   const agentId = searchParams.get('agentId') ?? undefined
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const { data: agent } = useQuery({
     queryKey: ['agents', agentId],
@@ -192,10 +231,35 @@ export default function ChatPage() {
     enabled: !!agentId,
   })
 
+  // 切换会话后自动收起移动端侧栏
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [conversationId])
+
   return (
-    <div className="flex h-full">
-      <SessionSidebar />
+    <div className="relative flex h-full">
+      <SessionSidebar
+        className={cn(
+          'max-lg:absolute max-lg:inset-y-0 max-lg:left-0 max-lg:z-40 max-lg:shadow-2xl',
+          sidebarOpen ? 'max-lg:flex' : 'max-lg:hidden',
+        )}
+      />
+      {sidebarOpen && (
+        <div
+          className="absolute inset-0 z-30 bg-black/40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <div className="flex min-w-0 flex-1 flex-col">
+        {/* 移动端顶栏 */}
+        <div className="flex h-11 shrink-0 items-center gap-2 border-b bg-card/50 px-3 lg:hidden">
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setSidebarOpen(true)}>
+            {sidebarOpen ? <X className="h-4 w-4" /> : <Menu className="h-4 w-4" />}
+          </Button>
+          <span className="text-sm font-medium">{agent?.name ?? 'JustiLawAI 对话'}</span>
+        </div>
+
         <ChatHeader conversationId={conversationId} agent={agent} />
         {conversationId ? (
           <ConversationView key={conversationId} conversationId={conversationId} agent={agent} />

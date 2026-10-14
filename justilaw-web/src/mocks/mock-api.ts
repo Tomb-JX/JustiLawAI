@@ -5,25 +5,33 @@
 import { delay, nowISO } from '@/api/client'
 import { uid } from '@/lib/utils'
 import {
+  adminUsers,
   agents,
   chunks,
   conversations,
   datasets,
   documents,
   messages,
+  modelDist,
   models,
   prompts,
+  usageStats,
+  workflows,
 } from './data'
 import type {
+  AdminUser,
   Agent,
   Chunk,
   Conversation,
   Dataset,
   Document,
   DocumentStatus,
+  ModelDist,
   ModelInfo,
   Message,
   Prompt,
+  UsagePoint,
+  Workflow,
 } from '@/types/api'
 
 function sortConversations(list: Conversation[]): Conversation[] {
@@ -35,6 +43,31 @@ function sortConversations(list: Conversation[]): Conversation[] {
 }
 
 const sleep = () => delay(120 + Math.random() * 260)
+
+/** 无预置分段的文档按需生成分段（模拟切片结果） */
+const SAMPLE_TEXTS = [
+  '第十条 治安管理处罚的种类分为：（一）警告；（二）罚款；（三）行政拘留；（四）吊销公安机关发放的许可证。对违反治安管理的外国人，可以附加适用限期出境或者驱逐出境。',
+  '第十九条 违反治安管理有下列情形之一的，减轻处罚或者不予处罚：（一）情节特别轻微的；（二）主动消除或者减轻违法后果，并取得被侵害人谅解的；（三）出于他人胁迫或者诱骗的。',
+  '第七十条 以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。',
+  '第七十二条 明知是赌博赃物而窝藏、转移或者代为销售的，依照有关规定处罚。参与赌博且赌资巨大、多次参与赌博经处罚不改的，从重处罚。',
+  '（典型案例）李某在经营棋牌室期间，以每桌抽取 50 元的方式渔利，累计 3.8 万元。公安机关认定其构成为赌博提供条件，情节严重，处行政拘留十二日，并处罚款 2000 元。',
+  '（典型案例）张某利用微信群组织"接龙押注"式赌博，参赌人员 40 余人，赌资流水 20 余万元，人民法院以开设赌场罪判处有期徒刑十个月，并处罚金 2 万元。',
+]
+
+function ensureChunks(documentId: string): Chunk[] {
+  const own = chunks.filter((c) => c.document_id === documentId)
+  if (own.length > 0) return own
+  for (let i = 0; i < 6; i++) {
+    chunks.push({
+      id: uid('ch'),
+      document_id: documentId,
+      index: i + 1,
+      enabled: true,
+      content: SAMPLE_TEXTS[i % SAMPLE_TEXTS.length],
+    })
+  }
+  return chunks.filter((c) => c.document_id === documentId)
+}
 
 export const mockApi = {
   /* ---- 会话 ---- */
@@ -78,6 +111,11 @@ export const mockApi = {
     return [...(messages[conversationId] ?? [])]
   },
 
+  async clearMessages(conversationId: string): Promise<void> {
+    await delay(60)
+    messages[conversationId] = []
+  },
+
   /* ---- 智能体 ---- */
   async listAgents(): Promise<Agent[]> {
     await sleep()
@@ -91,6 +129,43 @@ export const mockApi = {
     return agent
   },
 
+  async createAgent(body: Partial<Agent>): Promise<Agent> {
+    await delay(150)
+    const agent: Agent = {
+      ...body,
+      id: uid('a'),
+      name: body.name ?? '未命名智能体',
+      category: body.category ?? '法律咨询',
+      description: body.description ?? '',
+      system_prompt: body.system_prompt ?? '你是法律智能助手。',
+      opening_statement: body.opening_statement,
+      suggested_questions: body.suggested_questions ?? [],
+      tool_ids: body.tool_ids ?? [],
+      dataset_ids: body.dataset_ids ?? [],
+      scope: body.scope ?? 'private',
+      status: 'draft',
+      usage_count: 0,
+      created_by: 'u_me',
+      created_at: nowISO(),
+    }
+    agents.unshift(agent)
+    return agent
+  },
+
+  async updateAgent(id: string, patch: Partial<Agent>): Promise<Agent> {
+    await delay(100)
+    const agent = agents.find((a) => a.id === id)
+    if (!agent) throw new Error('智能体不存在')
+    Object.assign(agent, patch)
+    return agent
+  },
+
+  async deleteAgent(id: string): Promise<void> {
+    await delay(80)
+    const idx = agents.findIndex((a) => a.id === id)
+    if (idx >= 0) agents.splice(idx, 1)
+  },
+
   /* ---- 知识库 ---- */
   async listDatasets(): Promise<Dataset[]> {
     await sleep()
@@ -102,6 +177,35 @@ export const mockApi = {
     const ds = datasets.find((d) => d.id === id)
     if (!ds) throw new Error('知识库不存在')
     return ds
+  },
+
+  async createDataset(body: Partial<Dataset>): Promise<Dataset> {
+    await delay(150)
+    const ds: Dataset = {
+      id: uid('d'),
+      name: body.name ?? '未命名知识库',
+      description: body.description,
+      chunk_config: body.chunk_config ?? { max_length: 500, overlap: 50 },
+      retrieval_config: body.retrieval_config ?? { top_k: 5, score_threshold: 0.6 },
+      doc_count: 0,
+      created_at: nowISO(),
+    }
+    datasets.unshift(ds)
+    return ds
+  },
+
+  async updateDataset(id: string, patch: Partial<Dataset>): Promise<Dataset> {
+    await delay(100)
+    const ds = datasets.find((d) => d.id === id)
+    if (!ds) throw new Error('知识库不存在')
+    Object.assign(ds, patch)
+    return ds
+  },
+
+  async deleteDataset(id: string): Promise<void> {
+    await delay(80)
+    const idx = datasets.findIndex((d) => d.id === id)
+    if (idx >= 0) datasets.splice(idx, 1)
   },
 
   async listDocuments(datasetId: string): Promise<Document[]> {
@@ -131,9 +235,27 @@ export const mockApi = {
     return doc
   },
 
+  async deleteDocument(documentId: string): Promise<void> {
+    await delay(80)
+    const idx = documents.findIndex((d) => d.id === documentId)
+    if (idx >= 0) {
+      const ds = datasets.find((d) => d.id === documents[idx].dataset_id)
+      if (ds) ds.doc_count = Math.max(0, ds.doc_count - 1)
+      documents.splice(idx, 1)
+    }
+  },
+
   async listChunks(documentId: string): Promise<Chunk[]> {
     await sleep()
-    return chunks.filter((c) => c.document_id === documentId)
+    return [...ensureChunks(documentId)]
+  },
+
+  async updateChunk(chunkId: string, patch: { enabled?: boolean; content?: string }): Promise<Chunk> {
+    await delay(60)
+    const chunk = chunks.find((c) => c.id === chunkId)
+    if (!chunk) throw new Error('分段不存在')
+    Object.assign(chunk, patch)
+    return chunk
   },
 
   async hitTesting(
@@ -142,9 +264,9 @@ export const mockApi = {
     topK = 5,
   ): Promise<{ items: { chunk: Chunk; score: number }[] }> {
     await delay(500 + Math.random() * 400)
-    const pool = chunks.filter((c) =>
-      documents.some((d) => d.id === c.document_id && d.dataset_id === datasetId),
-    )
+    const docs = documents.filter((d) => d.dataset_id === datasetId)
+    docs.forEach((d) => ensureChunks(d.id))
+    const pool = chunks.filter((c) => docs.some((d) => d.id === c.document_id && d.status === 'completed'))
     // 模拟语义匹配：命中"赌博/赌"关键词的片段排前
     const scored = pool.map((chunk, i) => {
       const keywordHit = /赌|拘留|罚款|刑法|治安/.test(query) && /赌|拘留|罚款/.test(chunk.content)
@@ -155,7 +277,57 @@ export const mockApi = {
     return { items: scored.slice(0, topK) }
   },
 
-  /* ---- 模型 / 提示词 ---- */
+  /* ---- 工作流 ---- */
+  async listWorkflows(): Promise<Workflow[]> {
+    await sleep()
+    return [...workflows]
+  },
+
+  async getWorkflow(id: string): Promise<Workflow> {
+    await sleep()
+    const wf = workflows.find((w) => w.id === id)
+    if (!wf) throw new Error('工作流不存在')
+    return wf
+  },
+
+  async createWorkflow(body: { name: string; description?: string; from_workflow_id?: string }): Promise<Workflow> {
+    await delay(120)
+    const source = body.from_workflow_id ? workflows.find((w) => w.id === body.from_workflow_id) : undefined
+    const wf: Workflow = {
+      id: uid('w'),
+      name: body.name,
+      description: body.description ?? source?.description ?? '',
+      status: 'draft',
+      created_at: nowISO(),
+      dsl: source
+        ? JSON.parse(JSON.stringify(source.dsl))
+        : {
+            nodes: [
+              { id: 'nd_1', type: 'workflow' as const, position: { x: 0, y: 200 }, data: { nodeType: 'start' as const, name: '开始', config: { vars: [{ name: 'query', label: '输入' }] } } },
+              { id: 'nd_2', type: 'workflow' as const, position: { x: 240, y: 200 }, data: { nodeType: 'reply' as const, name: '直接回复', config: {} } },
+            ],
+            edges: [{ id: uid('e'), source: 'nd_1', target: 'nd_2' }],
+          },
+    }
+    workflows.unshift(wf)
+    return wf
+  },
+
+  async updateWorkflow(id: string, patch: Partial<Workflow>): Promise<Workflow> {
+    await delay(120)
+    const wf = workflows.find((w) => w.id === id)
+    if (!wf) throw new Error('工作流不存在')
+    Object.assign(wf, patch)
+    return wf
+  },
+
+  async deleteWorkflow(id: string): Promise<void> {
+    await delay(80)
+    const idx = workflows.findIndex((w) => w.id === id)
+    if (idx >= 0) workflows.splice(idx, 1)
+  },
+
+  /* ---- 模型 / 提示词 / 文件 ---- */
   async listModels(): Promise<ModelInfo[]> {
     await sleep()
     return [...models]
@@ -164,6 +336,11 @@ export const mockApi = {
   async pingModel(_id: string): Promise<{ latency_ms: number }> {
     await delay(300)
     return { latency_ms: 40 + Math.floor(Math.random() * 160) }
+  },
+
+  async uploadFile(filename: string, size: number): Promise<{ file_id: string; filename: string; size: number }> {
+    await delay(400 + Math.random() * 600)
+    return { file_id: uid('f'), filename, size }
   },
 
   async listPrompts(): Promise<Prompt[]> {
@@ -188,6 +365,28 @@ export const mockApi = {
     await delay(60)
     const idx = prompts.findIndex((p) => p.id === id)
     if (idx >= 0) prompts.splice(idx, 1)
+  },
+
+  /* ---- 管理后台 ---- */
+  async listAdminUsers(): Promise<AdminUser[]> {
+    await sleep()
+    return [...adminUsers]
+  },
+
+  async setUserStatus(id: string, status: 'active' | 'disabled'): Promise<void> {
+    await delay(80)
+    const u = adminUsers.find((x) => x.id === id)
+    if (u) u.status = status
+  },
+
+  async getUsageStats(): Promise<UsagePoint[]> {
+    await sleep()
+    return [...usageStats]
+  },
+
+  async getModelDist(): Promise<ModelDist[]> {
+    await sleep()
+    return [...modelDist]
   },
 }
 

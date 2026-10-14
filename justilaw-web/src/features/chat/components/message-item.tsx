@@ -1,5 +1,16 @@
 import { memo, useState } from 'react'
-import { Bot, Check, Copy, RefreshCw, ThumbsDown, ThumbsUp, User } from 'lucide-react'
+import {
+  Bot,
+  Brain,
+  Check,
+  Copy,
+  FileText,
+  Pencil,
+  RefreshCw,
+  ThumbsDown,
+  ThumbsUp,
+  User,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { MarkdownRenderer } from '@/components/markdown/MarkdownRenderer'
 import { Button } from '@/components/ui/button'
@@ -40,6 +51,7 @@ interface MessageItemProps {
   streaming?: boolean
   isLastAssistant?: boolean
   onRegenerate?: () => void
+  onEdit?: (message: Message) => void
 }
 
 export const MessageItem = memo(function MessageItem({
@@ -47,9 +59,12 @@ export const MessageItem = memo(function MessageItem({
   streaming,
   isLastAssistant,
   onRegenerate,
+  onEdit,
 }: MessageItemProps) {
   const [copied, setCopied] = useState(false)
+  const [showReasoning, setShowReasoning] = useState(false)
   const isUser = message.role === 'user'
+  const attachments = 'attachments' in message ? message.attachments : undefined
 
   const copy = async () => {
     await navigator.clipboard.writeText(message.content)
@@ -62,8 +77,33 @@ export const MessageItem = memo(function MessageItem({
     return (
       <div className="group flex justify-end animate-fade-in">
         <div className="flex max-w-[82%] items-start gap-2.5">
-          <div className="whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
-            {message.content}
+          <div className="min-w-0">
+            <div className="whitespace-pre-wrap rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+              {message.content}
+            </div>
+            {attachments && attachments.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap justify-end gap-1.5">
+                {attachments.map((a) => (
+                  <span
+                    key={a.file_id}
+                    className="inline-flex items-center gap-1 rounded-md border bg-muted/50 px-1.5 py-0.5 text-xs text-muted-foreground"
+                  >
+                    <FileText className="h-3 w-3" />
+                    {a.filename}
+                  </span>
+                ))}
+              </div>
+            )}
+            <div className="mt-1 flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+              <Button variant="ghost" size="icon" className="h-6.5 h-7 w-7" onClick={copy}>
+                {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
+              </Button>
+              {onEdit && (
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(message)}>
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
           </div>
           <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary">
             <User className="h-4 w-4 text-secondary-foreground" />
@@ -80,6 +120,23 @@ export const MessageItem = memo(function MessageItem({
           <Bot className="h-4 w-4 text-primary-foreground" />
         </div>
         <div className="min-w-0 flex-1">
+          {/* 思维链（推理模型场景） */}
+          {'reasoning' in message && message.reasoning && (
+            <div className="mb-2">
+              <button
+                onClick={() => setShowReasoning((v) => !v)}
+                className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Brain className="h-3 w-3" />
+                {streaming && !message.content ? '深度思考中…' : `深度思考（点击${showReasoning ? '收起' : '展开'}）`}
+              </button>
+              {showReasoning && (
+                <div className="mt-1.5 rounded-lg border bg-muted/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
+                  {message.reasoning}
+                </div>
+              )}
+            </div>
+          )}
           <div className={cn(streaming && 'stream-caret')}>
             <MarkdownRenderer content={message.content} />
           </div>

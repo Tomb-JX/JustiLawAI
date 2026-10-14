@@ -21,7 +21,7 @@ export type SendMode = 'new' | 'regenerate'
 export function useChatStream(conversationId: string | undefined, agentId?: string) {
   const qc = useQueryClient()
   const { setDraft, patchDraft, appendContent, clearDraft } = useChatStore()
-  const { model, params, ragEnabled, ragDatasetId } = useSettingsStore()
+  const { model, params, thinking, ragEnabled, ragDatasetId } = useSettingsStore()
 
   const isStreaming = useChatStore((s) => (conversationId ? !!s.drafts[conversationId] : false))
 
@@ -30,7 +30,7 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
   }, [conversationId])
 
   const send = useCallback(
-    async (content: string, mode: SendMode = 'new') => {
+    async (content: string, mode: SendMode = 'new', attachments?: { file_id: string; filename: string }[]) => {
       if (!conversationId) return
       const cid = conversationId
 
@@ -47,6 +47,7 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
           role: 'user',
           content_type: 'markdown',
           content,
+          attachments: attachments?.map((a) => ({ ...a, size: 0 })),
           status: 'done',
           created_at: nowISO(),
         }
@@ -89,10 +90,11 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
           {
             conversation_id: cid,
             agent_id: agentId || undefined,
-            model: model || 'justilaw-legal',
+            model: model || 'ollama/qwen3.5:9b',
             messages: history,
             stream: true,
             params,
+            thinking,
             retrieval:
               ragEnabled && ragDatasetId ? { dataset_ids: [ragDatasetId], top_k: 5 } : undefined,
           },
@@ -100,6 +102,10 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
             if (name === 'message') {
               buffer += String(data.delta ?? '')
               schedule()
+            } else if (name === 'reasoning') {
+              flush()
+              const cur = useChatStore.getState().drafts[cid]?.reasoning ?? ''
+              patchDraft(cid, { reasoning: cur + String(data.delta ?? '') })
             } else if (name === 'citations') {
               flush()
               patchDraft(cid, { citations: data.items as Citation[] })
@@ -145,5 +151,18 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
     if (lastUser) await send(lastUser.content, 'regenerate')
   }, [conversationId, qc, send])
 
-  return { send, stop, regenerate, isStreaming }
+  /** 编辑用户消息并重发：截断该消息之后的历史，以新内容重新请求 */
+  const editAndResend = useCallback(
+    async (messageId: string, newContent: string) => {
+      if (!conversationId) return
+      const list = qc.getQueryData<Message[]>(['messages', conversationId]) ?? []
+      const idx = list.findIndex((m) => m.id === messageId)
+      if (idx < 0) return
+      qc.setQueryData<Message[]>(['messages', conversationId], list.slice(0, idx))
+      await send(newContent, 'new')
+    },
+    [conversationId, qc, send],
+  )
+
+  return { send, stop, regenerate, editAndResend, isStreaming }
 }

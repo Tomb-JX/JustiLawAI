@@ -1,0 +1,1 @@
+{"conversation_id":"c_test1","model":"ollama/qwen3.5:9b","messages":[{"role":"user","content":"一句话说明开设赌场罪和赌博罪的核心区别"}],"stream":true,"params":{"temperature":0.3,"top_p":0.9,"max_tokens":300}}

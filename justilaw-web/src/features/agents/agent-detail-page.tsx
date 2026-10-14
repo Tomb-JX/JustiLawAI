@@ -1,7 +1,18 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Bot, ChevronRight, Flame, MessagesSquare } from 'lucide-react'
-import { getAgent, listDatasets } from '@/api'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowLeft,
+  Bot,
+  ChevronRight,
+  Flame,
+  MessagesSquare,
+  Pencil,
+  Send,
+  Trash2,
+  Undo2,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import { deleteAgent, getAgent, listDatasets, updateAgent } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/common/misc'
@@ -9,6 +20,7 @@ import { PageLoading } from '@/components/common/misc'
 export default function AgentDetailPage() {
   const { agentId } = useParams()
   const navigate = useNavigate()
+  const qc = useQueryClient()
   const { data: agent, isLoading } = useQuery({
     queryKey: ['agents', agentId],
     queryFn: () => getAgent(agentId!),
@@ -16,10 +28,31 @@ export default function AgentDetailPage() {
   })
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
 
+  const invalidate = () => qc.invalidateQueries({ queryKey: ['agents'] })
+
+  const statusMut = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'published' | 'offline' | 'draft' }) =>
+      updateAgent(id, { status }),
+    onSuccess: (_d, vars) => {
+      invalidate()
+      toast.success(vars.status === 'published' ? '已发布到广场' : vars.status === 'offline' ? '已下架' : '已转为草稿')
+    },
+  })
+
+  const deleteMut = useMutation({
+    mutationFn: deleteAgent,
+    onSuccess: () => {
+      invalidate()
+      toast.success('智能体已删除')
+      navigate('/agents')
+    },
+  })
+
   if (isLoading) return <PageLoading />
   if (!agent)
     return <div className="p-10 text-center text-sm text-muted-foreground">智能体不存在</div>
 
+  const isMine = agent.created_by === 'u_me'
   const linkedDatasets = (datasets ?? []).filter((d) => agent.dataset_ids.includes(d.id))
 
   return (
@@ -51,10 +84,51 @@ export default function AgentDetailPage() {
               </span>
             </div>
           </div>
-          <Button className="gap-1.5" onClick={() => navigate(`/chat?agentId=${agent.id}`)}>
-            <MessagesSquare className="h-4 w-4" />
-            开始对话
-          </Button>
+          <div className="flex shrink-0 gap-2">
+            {isMine && (
+              <>
+                <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/agents/create')}>
+                  <Pencil className="h-3.5 w-3.5" />
+                  编辑
+                </Button>
+                {agent.status !== 'published' ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => statusMut.mutate({ id: agent.id, status: 'published' })}
+                  >
+                    <Send className="h-3.5 w-3.5" />
+                    发布到广场
+                  </Button>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => statusMut.mutate({ id: agent.id, status: 'offline' })}
+                  >
+                    <Undo2 className="h-3.5 w-3.5" />
+                    下架
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1 text-destructive"
+                  onClick={() => {
+                    if (confirm(`确认删除智能体「${agent.name}」？`)) deleteMut.mutate(agent.id)
+                  }}
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </>
+            )}
+            <Button className="gap-1.5" onClick={() => navigate(`/chat?agentId=${agent.id}`)}>
+              <MessagesSquare className="h-4 w-4" />
+              开始对话
+            </Button>
+          </div>
         </div>
 
         <div className="mt-8 grid gap-4 md:grid-cols-2">

@@ -1,6 +1,8 @@
-import { BookOpen, FileText, Gavel, Scale, ShieldAlert } from 'lucide-react'
+import { BookOpen, Copy, Download, FileText, Gavel, Scale, ShieldAlert } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
-import type { CaseItem, MessageCard, PredictionPayload, RiskItem } from '@/types/api'
+import { Button } from '@/components/ui/button'
+import type { CaseItem, DocumentPayload, MessageCard, PredictionPayload, RiskItem } from '@/types/api'
 
 /** 结构化输出卡片：法律平台区别于通用 AI 应用的关键呈现形式 */
 
@@ -120,6 +122,46 @@ function RiskListCard({ items }: { items: RiskItem[] }) {
   )
 }
 
+function DocumentCardView({ payload }: { payload: DocumentPayload }) {
+  const copy = async () => {
+    await navigator.clipboard.writeText(payload.content)
+    toast.success('文书已复制到剪贴板')
+  }
+  const download = () => {
+    const blob = new Blob([payload.content], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${payload.title}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <div className="mt-3 w-full max-w-lg overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="flex items-center justify-between border-b bg-muted/50 px-4 py-2.5">
+        <span className="flex items-center gap-2 text-sm font-semibold">
+          <FileText className="h-4 w-4 text-primary" />
+          {payload.title}
+        </span>
+        <Badge variant="secondary">{payload.doc_type}</Badge>
+      </div>
+      <pre className="max-h-80 overflow-y-auto whitespace-pre-wrap px-4 py-3 font-sans text-sm leading-relaxed">
+        {payload.content}
+      </pre>
+      <div className="flex justify-end gap-2 border-t px-4 py-2.5">
+        <Button variant="outline" size="sm" className="gap-1" onClick={copy}>
+          <Copy className="h-3.5 w-3.5" />
+          复制
+        </Button>
+        <Button variant="outline" size="sm" className="gap-1" onClick={download}>
+          <Download className="h-3.5 w-3.5" />
+          下载 .md
+        </Button>
+      </div>
+    </div>
+  )
+}
+
 export function MessageCardView({ card }: { card: MessageCard }) {
   switch (card.card_type) {
     case 'prediction':
@@ -128,6 +170,8 @@ export function MessageCardView({ card }: { card: MessageCard }) {
       return <CaseListCard items={card.payload as CaseItem[]} />
     case 'risk_list':
       return <RiskListCard items={card.payload as RiskItem[]} />
+    case 'document':
+      return <DocumentCardView payload={card.payload as DocumentPayload} />
     default:
       return (
         <div className="mt-3 flex items-center gap-2 rounded-lg border bg-muted/40 p-3 text-sm text-muted-foreground">

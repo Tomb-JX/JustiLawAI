@@ -380,3 +380,116 @@ export const prompts: Prompt[] = [
     starred: false,
   },
 ]
+
+/* ============ 工作流 ============ */
+
+import type { Workflow } from '@/types/api'
+
+type DslNodeType = 'start' | 'llm' | 'retrieval' | 'branch' | 'http' | 'template' | 'aggregate' | 'reply'
+
+const n = (id: string, nodeType: DslNodeType, name: string, x: number, config: Record<string, unknown> = {}) => ({
+  id,
+  type: 'workflow' as const,
+  position: { x, y: 200 },
+  data: { nodeType, name, config },
+})
+
+export const workflows: Workflow[] = [
+  {
+    id: 'w_1001',
+    name: '案情分析流水线',
+    description: '要素抽取 → 法条检索 → 类案检索 → 综合分析，输出结构化分析结论',
+    status: 'published',
+    created_at: iso(60 * 24 * 10),
+    dsl: {
+      nodes: [
+        n('nd_1', 'start', '开始', 0, { vars: [{ name: 'case_facts', label: '案情事实' }] }),
+        n('nd_2', 'llm', '要素抽取', 220, { model: 'justilaw-legal', prompt: '从以下案情中抽取时间/地点/人物/行为/后果要素：{{case_facts}}', temperature: 0.2 }),
+        n('nd_3', 'retrieval', '法条检索', 440, { dataset: 'd_1001', top_k: 5 }),
+        n('nd_4', 'retrieval', '类案检索', 660, { dataset: 'd_1002', top_k: 3 }),
+        n('nd_5', 'llm', '综合分析', 880, { model: 'justilaw-legal', prompt: '基于要素与检索结果输出定性、依据与建议', temperature: 0.4 }),
+        n('nd_6', 'reply', '直接回复', 1100, {}),
+      ],
+      edges: [
+        { id: 'e1', source: 'nd_1', target: 'nd_2' },
+        { id: 'e2', source: 'nd_2', target: 'nd_3' },
+        { id: 'e3', source: 'nd_2', target: 'nd_4' },
+        { id: 'e4', source: 'nd_3', target: 'nd_5' },
+        { id: 'e5', source: 'nd_4', target: 'nd_5' },
+        { id: 'e6', source: 'nd_5', target: 'nd_6' },
+      ],
+    },
+  },
+  {
+    id: 'w_1002',
+    name: '判决预测（CAIL）',
+    description: '要素抽取后调用 CAIL 判决预测模型 API，法条核对后汇总输出',
+    status: 'published',
+    created_at: iso(60 * 24 * 8),
+    dsl: {
+      nodes: [
+        n('nd_1', 'start', '开始', 0, { vars: [{ name: 'facts', label: '案情事实' }] }),
+        n('nd_2', 'llm', '要素抽取', 220, { model: 'justilaw-legal', prompt: '抽取案件要素：{{facts}}', temperature: 0.2 }),
+        n('nd_3', 'http', 'CAIL 预测', 440, { method: 'POST', url: 'https://api.justilaw.ai/v1/cail/predict' }),
+        n('nd_4', 'retrieval', '法条核对', 660, { dataset: 'd_1001', top_k: 5 }),
+        n('nd_5', 'llm', '结论汇总', 880, { model: 'justilaw-legal', prompt: '汇总预测结果与法条核对差异', temperature: 0.3 }),
+        n('nd_6', 'reply', '直接回复', 1100, {}),
+      ],
+      edges: [
+        { id: 'e1', source: 'nd_1', target: 'nd_2' },
+        { id: 'e2', source: 'nd_2', target: 'nd_3' },
+        { id: 'e3', source: 'nd_3', target: 'nd_4' },
+        { id: 'e4', source: 'nd_4', target: 'nd_5' },
+        { id: 'e5', source: 'nd_5', target: 'nd_6' },
+      ],
+    },
+  },
+  {
+    id: 'w_1003',
+    name: '合同风险扫描',
+    description: '上传合同 → 逐块审查 → 风险分级聚合 → 报告输出',
+    status: 'draft',
+    created_at: iso(60 * 24 * 3),
+    dsl: {
+      nodes: [
+        n('nd_1', 'start', '开始', 0, { vars: [{ name: 'contract_text', label: '合同文本' }] }),
+        n('nd_2', 'llm', '逐块审查', 220, { model: 'justilaw-legal', prompt: '逐条识别合同风险：{{contract_text}}', temperature: 0.2 }),
+        n('nd_3', 'aggregate', '风险聚合', 440, {}),
+        n('nd_4', 'template', '报告模板', 660, { template: '## 风险清单\n{{aggregate}}' }),
+        n('nd_5', 'reply', '直接回复', 880, {}),
+      ],
+      edges: [
+        { id: 'e1', source: 'nd_1', target: 'nd_2' },
+        { id: 'e2', source: 'nd_2', target: 'nd_3' },
+        { id: 'e3', source: 'nd_3', target: 'nd_4' },
+        { id: 'e4', source: 'nd_4', target: 'nd_5' },
+      ],
+    },
+  },
+]
+
+/* ============ 管理后台 ============ */
+
+import type { AdminUser, UsagePoint, ModelDist } from '@/types/api'
+
+export const adminUsers: AdminUser[] = [
+  { id: 'u_1', username: 'admin', nickname: '平台管理员', role: 'admin', status: 'active', agent_count: 6, created_at: iso(60 * 24 * 60) },
+  { id: 'u_2', username: 'zhang_san', nickname: '张三', role: 'user', status: 'active', agent_count: 2, created_at: iso(60 * 24 * 30) },
+  { id: 'u_3', username: 'li_si', nickname: '李四', role: 'user', status: 'active', agent_count: 1, created_at: iso(60 * 24 * 20) },
+  { id: 'u_4', username: 'wang_wu', nickname: '王五', role: 'user', status: 'disabled', agent_count: 0, created_at: iso(60 * 24 * 12) },
+  { id: 'u_5', username: 'zhao_law', nickname: '赵律师', role: 'user', status: 'active', agent_count: 3, created_at: iso(60 * 24 * 5) },
+]
+
+export const usageStats: UsagePoint[] = [
+  { date: '10-01', calls: 182 }, { date: '10-02', calls: 214 }, { date: '10-03', calls: 198 },
+  { date: '10-04', calls: 260 }, { date: '10-05', calls: 305 }, { date: '10-06', calls: 288 },
+  { date: '10-07', calls: 322 }, { date: '10-08', calls: 356 }, { date: '10-09', calls: 401 },
+  { date: '10-10', calls: 388 }, { date: '10-11', calls: 430 }, { date: '10-12', calls: 465 },
+  { date: '10-13', calls: 512 }, { date: '10-14', calls: 548 },
+]
+
+export const modelDist: ModelDist[] = [
+  { name: 'JustiLaw 法律增强', value: 2680 },
+  { name: 'JustiLaw 基座', value: 1640 },
+  { name: 'CAIL 判决预测', value: 920 },
+]

@@ -6,11 +6,14 @@ import {
   MessagesSquare,
   Moon,
   Scale,
+  Server,
+  ShieldCheck,
   Sparkles,
   Sun,
   Workflow,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { CommandPalette } from '@/components/command-palette'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 
@@ -20,7 +23,9 @@ const navItems = [
   { to: '/datasets', label: '知识库', icon: Library },
   { to: '/prompts', label: '提示词', icon: Sparkles },
   { to: '/models', label: '模型', icon: Cpu },
+  { to: '/providers', label: '模型服务', icon: Server },
   { to: '/workflows', label: '工作流', icon: Workflow },
+  { to: '/admin', label: '管理后台', icon: ShieldCheck },
 ]
 
 export function AppLayout() {
@@ -80,6 +85,8 @@ export function AppLayout() {
       <main className="min-w-0 flex-1 overflow-hidden">
         <Outlet />
       </main>
+
+      <CommandPalette />
     </div>
   )
 }

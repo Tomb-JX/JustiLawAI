@@ -1,6 +1,20 @@
 import { USE_MOCK, delay, http } from './client'
 import { mockApi } from '@/mocks/mock-api'
-import type { Agent, Chunk, Conversation, Dataset, Document, ModelInfo, Message, Prompt } from '@/types/api'
+import type {
+  Agent,
+  AdminUser,
+  Chunk,
+  Conversation,
+  Dataset,
+  Document,
+  ModelDist,
+  ModelInfo,
+  ModelProvider,
+  Message,
+  Prompt,
+  UsagePoint,
+  Workflow,
+} from '@/types/api'
 
 /* ============ 会话 ============ */
 
@@ -33,6 +47,11 @@ export async function listMessages(conversationId: string): Promise<Message[]> {
   return data.list
 }
 
+export async function clearMessages(conversationId: string): Promise<void> {
+  if (USE_MOCK) return mockApi.clearMessages(conversationId)
+  await http.delete(`/conversations/${conversationId}/messages`)
+}
+
 /* ============ 智能体 ============ */
 
 export async function listAgents(): Promise<Agent[]> {
@@ -43,6 +62,21 @@ export async function listAgents(): Promise<Agent[]> {
 export async function getAgent(id: string): Promise<Agent> {
   if (USE_MOCK) return mockApi.getAgent(id)
   return (await http.get(`/agents/${id}`)) as Agent
+}
+
+export async function createAgent(body: Partial<Agent>): Promise<Agent> {
+  if (USE_MOCK) return mockApi.createAgent(body)
+  return (await http.post('/agents', body)) as Agent
+}
+
+export async function updateAgent(id: string, patch: Partial<Agent>): Promise<Agent> {
+  if (USE_MOCK) return mockApi.updateAgent(id, patch)
+  return (await http.patch(`/agents/${id}`, patch)) as Agent
+}
+
+export async function deleteAgent(id: string): Promise<void> {
+  if (USE_MOCK) return mockApi.deleteAgent(id)
+  await http.delete(`/agents/${id}`)
 }
 
 /* ============ 知识库 ============ */
@@ -57,6 +91,21 @@ export async function getDataset(id: string): Promise<Dataset> {
   return (await http.get(`/datasets/${id}`)) as Dataset
 }
 
+export async function createDataset(body: Partial<Dataset>): Promise<Dataset> {
+  if (USE_MOCK) return mockApi.createDataset(body)
+  return (await http.post('/datasets', body)) as Dataset
+}
+
+export async function updateDataset(id: string, patch: Partial<Dataset>): Promise<Dataset> {
+  if (USE_MOCK) return mockApi.updateDataset(id, patch)
+  return (await http.patch(`/datasets/${id}`, patch)) as Dataset
+}
+
+export async function deleteDataset(id: string): Promise<void> {
+  if (USE_MOCK) return mockApi.deleteDataset(id)
+  await http.delete(`/datasets/${id}`)
+}
+
 export async function listDocuments(datasetId: string): Promise<Document[]> {
   if (USE_MOCK) return mockApi.listDocuments(datasetId)
   return (await http.get(`/datasets/${datasetId}/documents`)) as Document[]
@@ -69,9 +118,22 @@ export async function uploadDocument(datasetId: string, filename: string, size: 
   return (await http.post(`/datasets/${datasetId}/documents`, form)) as Document
 }
 
+export async function deleteDocument(documentId: string): Promise<void> {
+  if (USE_MOCK) return mockApi.deleteDocument(documentId)
+  await http.delete(`/documents/${documentId}`)
+}
+
 export async function listChunks(documentId: string): Promise<Chunk[]> {
   if (USE_MOCK) return mockApi.listChunks(documentId)
   return (await http.get(`/documents/${documentId}/chunks`)) as Chunk[]
+}
+
+export async function updateChunk(
+  chunkId: string,
+  patch: { enabled?: boolean; content?: string },
+): Promise<Chunk> {
+  if (USE_MOCK) return mockApi.updateChunk(chunkId, patch)
+  return (await http.patch(`/chunks/${chunkId}`, patch)) as Chunk
 }
 
 export async function hitTesting(
@@ -85,7 +147,38 @@ export async function hitTesting(
   }
 }
 
-/* ============ 模型 / 提示词 ============ */
+/* ============ 工作流 ============ */
+
+export async function listWorkflows(): Promise<Workflow[]> {
+  if (USE_MOCK) return mockApi.listWorkflows()
+  return (await http.get('/workflows')) as Workflow[]
+}
+
+export async function getWorkflow(id: string): Promise<Workflow> {
+  if (USE_MOCK) return mockApi.getWorkflow(id)
+  return (await http.get(`/workflows/${id}`)) as Workflow
+}
+
+export async function createWorkflow(body: {
+  name: string
+  description?: string
+  from_workflow_id?: string
+}): Promise<Workflow> {
+  if (USE_MOCK) return mockApi.createWorkflow(body)
+  return (await http.post('/workflows', body)) as Workflow
+}
+
+export async function updateWorkflow(id: string, patch: Partial<Workflow>): Promise<Workflow> {
+  if (USE_MOCK) return mockApi.updateWorkflow(id, patch)
+  return (await http.patch(`/workflows/${id}`, patch)) as Workflow
+}
+
+export async function deleteWorkflow(id: string): Promise<void> {
+  if (USE_MOCK) return mockApi.deleteWorkflow(id)
+  await http.delete(`/workflows/${id}`)
+}
+
+/* ============ 模型 / 供应商 / 提示词 / 文件 ============ */
 
 export async function listModels(): Promise<ModelInfo[]> {
   if (USE_MOCK) return mockApi.listModels()
@@ -94,7 +187,59 @@ export async function listModels(): Promise<ModelInfo[]> {
 
 export async function pingModel(id: string): Promise<{ latency_ms: number }> {
   if (USE_MOCK) return mockApi.pingModel(id)
-  return (await http.post(`/models/${id}/ping`)) as { latency_ms: number }
+  return (await http.post(`/models/${encodeURIComponent(id)}/ping`)) as { latency_ms: number }
+}
+
+export async function listProviders(): Promise<ModelProvider[]> {
+  if (USE_MOCK) return mockApi.listProviders()
+  return (await http.get('/providers')) as ModelProvider[]
+}
+
+export async function addProvider(body: {
+  name: string
+  base_url: string
+  api_key?: string
+}): Promise<ModelProvider> {
+  if (USE_MOCK) return mockApi.addProvider(body)
+  return (await http.post('/providers', body)) as ModelProvider
+}
+
+export async function updateProvider(id: string, patch: Partial<ModelProvider>): Promise<ModelProvider> {
+  if (USE_MOCK) return mockApi.updateProvider(id, patch)
+  return (await http.patch(`/providers/${id}`, patch)) as ModelProvider
+}
+
+export async function deleteProvider(id: string): Promise<void> {
+  if (USE_MOCK) return mockApi.deleteProvider(id)
+  await http.delete(`/providers/${id}`)
+}
+
+export async function pingProvider(id: string): Promise<{ latency_ms: number }> {
+  if (USE_MOCK) return mockApi.pingModel(id)
+  return (await http.post(`/providers/${id}/ping`)) as { latency_ms: number }
+}
+
+export async function addProviderModel(
+  providerId: string,
+  model: { id?: string; name: string; capabilities?: string[] },
+): Promise<ModelInfo> {
+  if (USE_MOCK) return mockApi.addProviderModel(providerId, model)
+  return (await http.post(`/providers/${providerId}/models`, model)) as ModelInfo
+}
+
+export async function removeProviderModel(providerId: string, modelId: string): Promise<void> {
+  if (USE_MOCK) return mockApi.removeProviderModel(providerId, modelId)
+  await http.delete(`/providers/${providerId}/models/${encodeURIComponent(modelId)}`)
+}
+
+export async function uploadFile(
+  filename: string,
+  size: number,
+): Promise<{ file_id: string; filename: string; size: number }> {
+  if (USE_MOCK) return mockApi.uploadFile(filename, size)
+  const form = new FormData()
+  form.append('file', new Blob([filename]), filename)
+  return (await http.post('/files', form)) as { file_id: string; filename: string; size: number }
 }
 
 export async function listPrompts(): Promise<Prompt[]> {
@@ -110,6 +255,28 @@ export async function createPrompt(body: { name: string; content: string; catego
 export async function deletePrompt(id: string): Promise<void> {
   if (USE_MOCK) return mockApi.deletePrompt(id)
   await http.delete(`/prompts/${id}`)
+}
+
+/* ============ 管理后台 ============ */
+
+export async function listAdminUsers(): Promise<AdminUser[]> {
+  if (USE_MOCK) return mockApi.listAdminUsers()
+  return (await http.get('/admin/users')) as AdminUser[]
+}
+
+export async function setUserStatus(id: string, status: 'active' | 'disabled'): Promise<void> {
+  if (USE_MOCK) return mockApi.setUserStatus(id, status)
+  await http.patch(`/admin/users/${id}`, { status })
+}
+
+export async function getUsageStats(): Promise<UsagePoint[]> {
+  if (USE_MOCK) return mockApi.getUsageStats()
+  return (await http.get('/admin/stats/usage')) as UsagePoint[]
+}
+
+export async function getModelDist(): Promise<ModelDist[]> {
+  if (USE_MOCK) return mockApi.getModelDist()
+  return (await http.get('/admin/stats/models')) as ModelDist[]
 }
 
 export { delay }

@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Library, RotateCcw, SlidersHorizontal } from 'lucide-react'
-import { getDataset, listConversations, listDatasets, listModels } from '@/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Eraser, Library, RotateCcw, SlidersHorizontal } from 'lucide-react'
+import { toast } from 'sonner'
+import { clearMessages, getDataset, listConversations, listDatasets, listModels } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -14,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useSettingsStore } from '@/stores/settings'
 import type { Agent } from '@/types/api'
 
@@ -52,11 +54,12 @@ export function ChatHeader({
   conversationId?: string
   agent?: Agent
 }) {
+  const qc = useQueryClient()
   const { data: conversations } = useQuery({ queryKey: ['conversations'], queryFn: listConversations })
   const { data: models } = useQuery({ queryKey: ['models'], queryFn: listModels })
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
 
-  const { model, setModel, params, setParams, resetParams, ragEnabled, ragDatasetId, setRag } =
+  const { model, setModel, params, setParams, resetParams, thinking, setThinking, ragEnabled, ragDatasetId, setRag } =
     useSettingsStore()
 
   // 首次进入：默认选第一个模型
@@ -81,6 +84,27 @@ export function ChatHeader({
       </div>
 
       <div className="flex items-center gap-1.5">
+        {/* 清空上下文 */}
+        {conversationId && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-muted-foreground"
+                onClick={() => {
+                  qc.setQueryData(['messages', conversationId], [])
+                  void clearMessages(conversationId)
+                  toast.success('上下文已清空，开启全新对话')
+                }}
+              >
+                <Eraser className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>清空上下文</TooltipContent>
+          </Tooltip>
+        )}
+
         {/* 知识库检索（RAG）开关 */}
         <Popover>
           <PopoverTrigger asChild>
@@ -167,6 +191,15 @@ export function ChatHeader({
               step={256}
               onChange={(v) => setParams({ max_tokens: v })}
             />
+            {currentModel?.capabilities?.includes('thinking') && (
+              <div className="flex items-center justify-between border-t pt-3">
+                <div>
+                  <div className="text-sm font-medium">深度思考</div>
+                  <div className="text-xs text-muted-foreground">开启思维链（较慢，答案更严谨）</div>
+                </div>
+                <Switch checked={thinking} onCheckedChange={setThinking} />
+              </div>
+            )}
           </PopoverContent>
         </Popover>
 

@@ -4,6 +4,7 @@ import type { Citation, MessageCard } from '@/types/api'
 export interface DraftMessage {
   id: string
   content: string
+  reasoning?: string
   citations?: Citation[]
   card?: MessageCard
   status: 'streaming' | 'error' | 'aborted'

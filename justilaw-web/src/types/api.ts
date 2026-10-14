@@ -30,6 +30,12 @@ export interface Citation {
   chunk_id?: string
 }
 
+export interface Attachment {
+  file_id: string
+  filename: string
+  size: number
+}
+
 // ---------- 结构化输出卡片 ----------
 
 export interface PredictionPayload {
@@ -59,9 +65,15 @@ export interface RiskItem {
   suggestion: string
 }
 
+export interface DocumentPayload {
+  title: string
+  doc_type: string
+  content: string
+}
+
 export type MessageCard = {
   card_type: 'prediction' | 'case_list' | 'risk_list' | 'document'
-  payload: PredictionPayload | CaseItem[] | RiskItem[] | Record<string, unknown>
+  payload: PredictionPayload | CaseItem[] | RiskItem[] | DocumentPayload | Record<string, unknown>
 }
 
 export type MessageStatus = 'streaming' | 'done' | 'error' | 'aborted'
@@ -75,6 +87,7 @@ export interface Message {
   card?: MessageCard
   citations?: Citation[]
   reasoning?: string
+  attachments?: Attachment[]
   status: MessageStatus
   usage?: { prompt_tokens: number; completion_tokens: number }
   created_at: string
@@ -100,9 +113,14 @@ export interface Agent {
 
 export interface WorkflowNode {
   id: string
-  type: string
+  /** 画布渲染节点类型，固定为 'workflow'；语义类型在 data.nodeType */
+  type: 'workflow'
   position: { x: number; y: number }
-  data: Record<string, unknown>
+  data: {
+    nodeType: 'start' | 'llm' | 'retrieval' | 'branch' | 'http' | 'template' | 'aggregate' | 'reply'
+    name: string
+    config: Record<string, unknown>
+  }
 }
 
 export interface WorkflowEdge {
@@ -155,8 +173,27 @@ export interface ModelInfo {
   id: string
   name: string
   provider: string
+  provider_name?: string
+  provider_type?: string
+  capabilities?: string[]
   description?: string
   default_params: { temperature: number; top_p: number; max_tokens: number }
+}
+
+/** 模型供应商（自定义 API 配置，对齐主流智能体平台） */
+export interface ModelProvider {
+  id: string
+  name: string
+  type: 'ollama' | 'openai_compat'
+  base_url: string
+  api_key: string
+  enabled: boolean
+  models: {
+    id: string
+    name: string
+    capabilities: string[]
+    default_params: { temperature: number; top_p: number; max_tokens: number }
+  }[]
 }
 
 export interface Prompt {
@@ -165,6 +202,28 @@ export interface Prompt {
   content: string
   category: string
   starred: boolean
+}
+
+// ---------- 管理后台 ----------
+
+export interface AdminUser {
+  id: string
+  username: string
+  nickname: string
+  role: 'user' | 'admin'
+  status: 'active' | 'disabled'
+  agent_count: number
+  created_at: string
+}
+
+export interface UsagePoint {
+  date: string
+  calls: number
+}
+
+export interface ModelDist {
+  name: string
+  value: number
 }
 
 // ---------- 对话补全请求 ----------
@@ -176,5 +235,7 @@ export interface ChatCompletionRequest {
   messages: { role: 'user' | 'assistant' | 'system'; content: string }[]
   stream: true
   params: { temperature: number; top_p: number; max_tokens: number }
+  thinking?: boolean
   retrieval?: { dataset_ids: string[]; top_k: number }
+  attachments?: { file_id: string; filename: string }[]
 }

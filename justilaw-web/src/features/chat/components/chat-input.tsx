@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { CornerDownLeft, Square, Sparkles } from 'lucide-react'
-import { listPrompts } from '@/api'
+import { CornerDownLeft, FileText, Loader2, Paperclip, Square, Sparkles, X } from 'lucide-react'
+import { listPrompts, uploadFile } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { Textarea } from '@/components/ui/textarea'
 import { useChatStore } from '@/stores/chat'
-import { cn } from '@/lib/utils'
+import { cn, formatBytes } from '@/lib/utils'
+import type { Attachment } from '@/types/api'
 
 interface ChatInputProps {
-  onSend: (text: string) => void
+  onSend: (text: string, attachments?: { file_id: string; filename: string }[]) => void
   onStop: () => void
   streaming: boolean
 }
 
 export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
   const [value, setValue] = useState('')
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [uploading, setUploading] = useState(false)
   const [promptOpen, setPromptOpen] = useState(false)
   const taRef = useRef<HTMLTextAreaElement>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
   const { data: prompts } = useQuery({ queryKey: ['prompts'], queryFn: listPrompts })
 
   const prefill = useChatStore((s) => s.prefill)
@@ -52,9 +56,13 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
 
   const doSend = () => {
     const text = value.trim()
-    if (!text || streaming) return
-    onSend(text)
+    if ((!text && attachments.length === 0) || streaming) return
+    onSend(
+      text || '请分析我上传的文件',
+      attachments.map((a) => ({ file_id: a.file_id, filename: a.filename })),
+    )
     setValue('')
+    setAttachments([])
     requestAnimationFrame(resize)
   }
 
@@ -62,6 +70,20 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
     setValue(content)
     setPromptOpen(false)
     taRef.current?.focus()
+  }
+
+  const addFiles = async (files: FileList | null) => {
+    if (!files?.length) return
+    setUploading(true)
+    try {
+      for (const f of Array.from(files)) {
+        const res = await uploadFile(f.name, f.size)
+        setAttachments((prev) => [...prev, res])
+      }
+    } finally {
+      setUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -79,6 +101,34 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
         <Popover open={promptOpen && matched.length > 0} onOpenChange={setPromptOpen}>
           <PopoverAnchor asChild>
             <div className="rounded-2xl border bg-card p-2.5 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+              {/* 附件列表 */}
+              {(attachments.length > 0 || uploading) && (
+                <div className="flex flex-wrap gap-1.5 px-1 pb-2">
+                  {attachments.map((a) => (
+                    <span
+                      key={a.file_id}
+                      className="inline-flex items-center gap-1.5 rounded-md border bg-muted/60 px-2 py-1 text-xs"
+                    >
+                      <FileText className="h-3 w-3 text-primary" />
+                      <span className="max-w-[160px] truncate">{a.filename}</span>
+                      <span className="text-muted-foreground">{formatBytes(a.size)}</span>
+                      <button
+                        onClick={() => setAttachments((prev) => prev.filter((x) => x.file_id !== a.file_id))}
+                        className="text-muted-foreground hover:text-destructive"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {uploading && (
+                    <span className="inline-flex items-center gap-1.5 rounded-md border bg-muted/60 px-2 py-1 text-xs text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      解析中…
+                    </span>
+                  )}
+                </div>
+              )}
+
               <Textarea
                 ref={taRef}
                 value={value}
@@ -92,9 +142,28 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
                 rows={1}
               />
               <div className="flex items-center justify-between px-1 pt-1.5">
-                <span className="hidden text-[11px] text-muted-foreground sm:inline">
-                  AI 生成内容仅供参考，不构成法律意见
-                </span>
+                <div className="flex items-center gap-1">
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    multiple
+                    accept=".pdf,.docx,.txt,.md,.json,.csv"
+                    className="hidden"
+                    onChange={(e) => void addFiles(e.target.files)}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-muted-foreground"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={uploading}
+                  >
+                    <Paperclip className="h-4 w-4" />
+                  </Button>
+                  <span className="hidden text-[11px] text-muted-foreground sm:inline">
+                    AI 生成内容仅供参考，不构成法律意见
+                  </span>
+                </div>
                 {streaming ? (
                   <Button size="sm" variant="secondary" className="gap-1.5" onClick={onStop}>
                     <Square className="h-3.5 w-3.5 fill-current" />
@@ -103,8 +172,8 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
                 ) : (
                   <Button
                     size="icon"
-                    className={cn('h-8 w-8 rounded-lg', !value.trim() && 'opacity-40')}
-                    disabled={!value.trim()}
+                    className={cn('h-8 w-8 rounded-lg', !value.trim() && attachments.length === 0 && 'opacity-40')}
+                    disabled={!value.trim() && attachments.length === 0}
                     onClick={doSend}
                   >
                     <CornerDownLeft className="h-4 w-4" />

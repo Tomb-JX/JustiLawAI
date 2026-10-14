@@ -38,7 +38,7 @@ function groupConversations(list: Conversation[]) {
   ].filter((g) => g.items.length > 0)
 }
 
-export function SessionSidebar() {
+export function SessionSidebar({ className }: { className?: string }) {
   const navigate = useNavigate()
   const { conversationId } = useParams()
   const qc = useQueryClient()
@@ -89,7 +89,7 @@ export function SessionSidebar() {
   }
 
   return (
-    <aside className="hidden w-64 shrink-0 flex-col border-r bg-card lg:flex">
+    <aside className={cn('hidden w-64 shrink-0 flex-col border-r bg-card lg:flex', className)}>
       <div className="space-y-2.5 p-3">
         <Button className="w-full justify-start gap-2" onClick={() => createMut.mutate()}>
           <MessageSquarePlus className="h-4 w-4" />

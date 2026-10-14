@@ -35,6 +35,38 @@ const PREDICTION_TEXT =
 
 const CASE_TEXT = '为你检索到以下相似案例：'
 
+const CONTRACT_TEXT = [
+  '### 合同审查结果\n已逐条审查你提供的合同文本，识别出以下法律风险（详见风险清单卡片）：\n\n1. **违约金上限缺失**——建议约定不超过合同总额 30%\n2. **争议解决条款不利**——管辖法院约定在对方所在地\n3. **知识产权归属不明**——成果归属未明确约定\n\n> ⚠️ 以上分析由 AI 生成，仅供参考，不构成法律意见。',
+].join('\n')
+
+const DOC_TEXT = '已根据你提供的要素生成文书初稿，可直接复制或下载（见下方文书卡片）：'
+
+const COMPLAINT_DOC = [
+  '民事起诉状',
+  '',
+  '原告：张某某，男，19XX年X月X日出生，汉族，住XX市XX区XX路XX号。',
+  '被告：李某某，男，19XX年X月X日出生，汉族，住XX市XX区XX路XX号。',
+  '',
+  '诉讼请求：',
+  '一、判令被告偿还原告借款本金人民币 50,000 元；',
+  '二、判令被告支付自 2025 年 6 月 1 日起至实际清偿之日止的利息（按 LPR 计算）；',
+  '三、本案诉讼费用由被告承担。',
+  '',
+  '事实与理由：',
+  '2025 年 5 月，被告以资金周转为由向原告借款人民币 50,000 元，约定 2025 年 8 月底归还，并出具借条一份。借款到期后，原告多次催要，被告以各种理由推脱，至今未偿还。原告认为，原、被告之间的借贷关系合法有效，被告拒不还款的行为侵害了原告的合法权益。',
+  '',
+  '据此，原告依据《中华人民共和国民事诉讼法》第一百二十二条之规定，特向贵院提起诉讼，请求依法判如所请。',
+  '',
+  '此致',
+  'XX市XX区人民法院',
+  '',
+  '具状人：张某某',
+  '2026 年 10 月 14 日',
+].join('\n')
+
+const PREDICTION_REASONING =
+  '正在抽取案情要素：识别主体、行为方式、危害后果与数额 → 与 CAIL2018 训练分布中的相似案例匹配 → 结合量刑指导意见校验刑期区间回归结果。'
+
 /* ---------- 工具 ---------- */
 
 function* chunkify(text: string): Generator<string> {
@@ -94,6 +126,18 @@ export async function mockChatStream(
 
   let citations: import('@/types/api').Citation[] | undefined
 
+  // 1'') 思维链（判决预测等推理场景，正文前推送）
+  let reasoningText = ''
+  if (agentId === 'a_1002') {
+    for (const piece of PREDICTION_REASONING.match(/[\s\S]{1,6}/g) ?? []) {
+      if (signal.aborted) return
+      reasoningText += piece
+      onEvent('reasoning', { delta: piece })
+      await delay(40)
+    }
+    await delay(200)
+  }
+
   // 2) 选择回答脚本
   let text: string
   let card: import('@/types/api').MessageCard | undefined
@@ -147,6 +191,40 @@ export async function mockChatStream(
         },
       ],
     }
+  } else if (agentId === 'a_1005') {
+    // 合同审查：文本 + 风险清单卡片
+    text = CONTRACT_TEXT
+    citesLaw = true
+    card = {
+      card_type: 'risk_list',
+      payload: [
+        {
+          clause: '违约金上限缺失',
+          position: '第 7 条 违约责任',
+          level: 'high',
+          suggestion: '约定违约金不超过合同总额的 30%，并明确计算方式',
+        },
+        {
+          clause: '争议解决条款不利',
+          position: '第 12 条 争议解决',
+          level: 'medium',
+          suggestion: '将管辖法院改为"被告所在地或合同签订地人民法院"，或约定仲裁',
+        },
+        {
+          clause: '知识产权归属不明',
+          position: '第 9 条 成果交付',
+          level: 'high',
+          suggestion: '明确约定交付成果的知识产权归委托方所有，并约定源文件交付',
+        },
+      ],
+    }
+  } else if (agentId === 'a_1006') {
+    // 文书起草：文本 + 文书卡片（可复制/下载）
+    text = DOC_TEXT
+    card = {
+      card_type: 'document',
+      payload: { title: '民事起诉状（初稿）', doc_type: '起诉状', content: COMPLAINT_DOC },
+    }
   } else if (/赌|麻将|棋牌|抢红包/.test(question)) {
     text = GAMBLING_ANSWER
     citesLaw = true
@@ -155,6 +233,13 @@ export async function mockChatStream(
     citesLaw = true
   } else {
     text = GENERIC_ANSWER(question)
+  }
+
+  // 附件解析提示（多模态占位）
+  if (req.attachments?.length) {
+    text =
+      `已接收并解析 ${req.attachments.length} 个附件：${req.attachments.map((a) => a.filename).join('、')}。\n\n` +
+      text
   }
 
   // 1') 引用事件：凡正文引用法条或开启 RAG 的场景都推送
@@ -203,6 +288,7 @@ export async function mockChatStream(
   const finalMsg: Partial<import('@/types/api').Message> = {
     citations,
     card,
+    reasoning: reasoningText || undefined,
     usage: {
       prompt_tokens: Math.floor(question.length * 1.6) + 40,
       completion_tokens: Math.floor(text.length * 1.4),
