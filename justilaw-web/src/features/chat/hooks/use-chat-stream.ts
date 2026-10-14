@@ -95,6 +95,7 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
             stream: true,
             params,
             thinking,
+            attachments: attachments?.map((a) => ({ file_id: a.file_id, filename: a.filename })),
             retrieval:
               ragEnabled && ragDatasetId ? { dataset_ids: [ragDatasetId], top_k: 5 } : undefined,
           },
