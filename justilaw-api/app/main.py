@@ -72,4 +72,22 @@ async def health():
     }}
 
 
+@app.on_event("startup")
+async def startup_warm():
+    """启动时与每小时预热 JWKS 缓存：避免新 kid token 的首个请求在线拉取（网络不稳会卡 5s）。"""
+    if not AUTH_ENABLED:
+        return
+
+    import asyncio
+
+    from .auth import warm_jwks
+
+    async def loop():
+        while True:
+            await asyncio.to_thread(warm_jwks)
+            await asyncio.sleep(3600)
+
+    asyncio.create_task(loop())
+
+
 seed()

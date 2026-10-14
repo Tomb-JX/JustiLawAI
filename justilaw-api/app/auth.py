@@ -30,9 +30,22 @@ def _jwks():
     if _jwks_client is None:
         from jwt import PyJWKClient
 
-        # 公钥缓存在进程内，Logto 轮换密钥时按 kid 自动重新拉取
-        _jwks_client = PyJWKClient(f"{ISSUER}/jwks", cache_keys=True)
+        # timeout=5：服务器到 Logto 云的网络不稳时 JWKS 拉取会永久挂起，
+        # 进而卡死所有携带新 kid token 的请求（表现为前端保存无任何反应）
+        _jwks_client = PyJWKClient(f"{ISSUER}/jwks", cache_keys=True, timeout=5)
     return _jwks_client
+
+
+def warm_jwks() -> None:
+    """启动/定时预热 JWKS 缓存：登录换发的新 token 常带新 kid，提前拉取避免首个请求卡 5s+。"""
+    import jwt
+
+    try:
+        _jwks().get_jwk_set()
+    except Exception as e:  # 预热失败不阻塞启动，首个请求会再试
+        import logging
+
+        logging.getLogger("justilaw.auth").info("JWKS 预热失败（稍后重试）：%s", e)
 
 
 def _unauthorized(message: str) -> HTTPException:

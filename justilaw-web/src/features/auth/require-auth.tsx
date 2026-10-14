@@ -30,6 +30,11 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       if (reauthingRef.current) return
       reauthingRef.current = true
       void signIn({ returnTo: returnToRef.current })
+      // signIn（proxy 包装）失败会被静默吞掉，跳转也可能被浏览器拦截；
+      // 5s 后放行重试，避免 token 过期后鉴权恢复永久卡死（所有请求静默 401）
+      setTimeout(() => {
+        reauthingRef.current = false
+      }, 5000)
     })
     return () => {
       setAccessTokenGetter(undefined)

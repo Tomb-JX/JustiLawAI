@@ -7,6 +7,7 @@ final_all_data/
 # ===== 依赖与构建 =====
 node_modules/
 dist/
+dist_*/
 build/
 
 # ===== 环境与密钥 =====

@@ -29,8 +29,18 @@ export function setUnauthorizedHandler(handler?: () => void) {
 
 /** 当前用户的鉴权请求头；SSE 等不走 axios 的请求也需手动带上 */
 export async function getAuthHeaders(): Promise<Record<string, string>> {
-  const token = await accessTokenGetter?.()
-  return token ? { Authorization: `Bearer ${token}` } : {}
+  if (!accessTokenGetter) return {}
+  try {
+    // token 过期时 SDK 会向 Logto 云静默刷新，网络不通会永久挂起；
+    // 3s 超时兜底：放弃带 token（请求将 401 → 触发重新登录），不能卡死所有请求
+    const token = await Promise.race([
+      accessTokenGetter(),
+      new Promise<undefined>((resolve) => setTimeout(() => resolve(undefined), 3000)),
+    ])
+    return token ? { Authorization: `Bearer ${token}` } : {}
+  } catch {
+    return {}
+  }
 }
 
 export function notifyUnauthorized() {
