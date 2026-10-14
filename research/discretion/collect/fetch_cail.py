@@ -138,7 +138,7 @@ def main() -> None:
                 charge_counter[doc["meta"]["accusation"][0]] += 1
                 months = doc["meta"]["term_of_imprisonment"]["imprisonment"]
                 term_counter["≤6月" if months <= 6 else "1-3年" if months <= 36 else "3-5年" if months <= 60 else ">5年"] += 1
-                fout.write(line)
+                fout.write(line + "\n")  # strip 已去掉换行，不补则整文件挤成一行、非合法 JSONL
         stats_lines += [f"- **{split}**：全量 {n_all:,} → 赌博子集 {n_kept:,}"]
         report(f"  {split}: {n_all:,} -> {n_kept:,}")
 
