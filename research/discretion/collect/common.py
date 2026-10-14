@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import csv
 import hashlib
+import os
 import time
 from datetime import datetime
 from pathlib import Path
@@ -19,7 +20,9 @@ from pathlib import Path
 import requests
 
 HERE = Path(__file__).resolve().parent
-DATA_DIR = HERE.parent.parent / "data"
+# 数据目录在仓库之外（分工文档 workstreams.md §3）：默认 D:/02_Dev/Data/justilaw-research，
+# 可用环境变量 JUSTILAW_DATA_DIR 覆盖；引擎侧只读此目录，中间产物写 <DATA_DIR>/engine/。
+DATA_DIR = Path(os.environ.get("JUSTILAW_DATA_DIR", "D:/02_Dev/Data/justilaw-research"))
 RAW_DIR = DATA_DIR / "raw"
 MANIFEST = HERE / "manifest.csv"
 
