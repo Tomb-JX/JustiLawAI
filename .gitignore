@@ -8,6 +8,7 @@ final_all_data/
 node_modules/
 dist/
 dist_*/
+release/
 build/
 
 # ===== 环境与密钥 =====

@@ -3,12 +3,16 @@
 链路：
   请求(agent_id?) → 取智能体 system_prompt 注入 → 附件文本注入 → RAG 检索(可选) →
   模型网关流式生成 → message/reasoning/citations/done 事件推送 → 消息落库
+
+浏览器直连本机 Ollama 时（模型 ID 以 local/ 开头）拆成两步：
+  POST /chat/prepare 组装上下文 → 浏览器推理 → POST /chat/commit 落库
 """
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
+from dataclasses import dataclass
 
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
@@ -17,7 +21,7 @@ from .. import config
 from ..auth import current_user
 from ..model_gateway.gateway import provider_store, stream_chat
 from ..rag.retrieval import retrieve, to_citations, to_context
-from ..resp import err
+from ..resp import err, ok
 from ..store import (agents_db, conversations_db, find, messages_db, now, record_call, uid,
                      users_db)
 from .files import attachment_text
@@ -46,8 +50,24 @@ def _estimate_tokens(text: str) -> int:
     return max(1, len(text))
 
 
-@router.post("/chat/completions")
-async def chat_completions(body: dict, user: dict = Depends(current_user)):
+LOCAL_MODEL_PREFIX = "local/"   # 浏览器直连用户本机 Ollama 的模型（模式 A），服务端不推理
+
+
+@dataclass
+class ChatContext:
+    cid: str
+    conv: dict
+    question: str
+    agent: dict | None
+    llm_messages: list[dict]
+    citations: list[dict] | None
+    rag_error: str | None
+
+
+async def build_context(body: dict, user: dict) -> ChatContext:
+    """对话上下文组装（服务端推理与浏览器直连共用）：
+    会话校验/兜底创建 → 重建历史并落库用户消息 → 智能体 system_prompt → 附件文本 → RAG 检索。
+    """
     cid: str = body["conversation_id"]
     history: list[dict] = body.get("messages") or []
     if not history or history[-1].get("role") != "user":
@@ -60,14 +80,6 @@ async def chat_completions(body: dict, user: dict = Depends(current_user)):
         conv = {"id": cid, "title": "新对话", "agent_id": body.get("agent_id"), "pinned": False,
                 "owner_id": user["id"], "last_message_at": now(), "created_at": now()}
         conversations_db.data.insert(0, conv)
-
-    model: str = body.get("model") or provider_store.default_model("chat") or ""
-    if model and "/" not in model:
-        model = f"ollama/{model}"
-    if not model:
-        raise HTTPException(422, detail=err(42200, "没有可用的对话模型，请先在「模型服务」页配置"))
-    params: dict = body.get("params") or {}
-    thinking: bool = bool(body.get("thinking"))
     retrieval: dict | None = body.get("retrieval")
 
     # 1) 智能体上下文（system_prompt 服务端注入，前端不可篡改）
@@ -115,6 +127,22 @@ async def chat_completions(body: dict, user: dict = Depends(current_user)):
     llm_messages = [{"role": "system", "content": system_prompt}]
     llm_messages += [{"role": m["role"], "content": m["content"]} for m in history[:-1]]
     llm_messages.append({"role": "user", "content": user_content})
+    return ChatContext(cid, conv, question, agent, llm_messages, citations, rag_error)
+
+
+@router.post("/chat/completions")
+async def chat_completions(body: dict, user: dict = Depends(current_user)):
+    model: str = body.get("model") or provider_store.default_model("chat") or ""
+    if model.startswith(LOCAL_MODEL_PREFIX):
+        raise HTTPException(422, detail=err(42200, "本机模型由浏览器直连推理，请走 /chat/prepare + /chat/commit"))
+    if model and "/" not in model:
+        model = f"ollama/{model}"
+    if not model:
+        raise HTTPException(422, detail=err(42200, "没有可用的对话模型，请先在「模型服务」页配置"))
+    params: dict = body.get("params") or {}
+    thinking: bool = bool(body.get("thinking"))
+    ctx = await build_context(body, user)
+    llm_messages, citations = ctx.llm_messages, ctx.citations
 
     async def gen():
         assistant_id = uid("m")
@@ -123,8 +151,8 @@ async def chat_completions(body: dict, user: dict = Depends(current_user)):
         status = "done"
         error_event = None
         try:
-            if rag_error:
-                yield sse("tool_call", {"name": "knowledge_retrieval", "status": "failed", "message": rag_error})
+            if ctx.rag_error:
+                yield sse("tool_call", {"name": "knowledge_retrieval", "status": "failed", "message": ctx.rag_error})
             if citations:
                 yield sse("citations", {"items": citations})
             async for delta in stream_chat(model, llm_messages, params, thinking):
@@ -148,8 +176,8 @@ async def chat_completions(body: dict, user: dict = Depends(current_user)):
             if not usage or not usage.get("completion_tokens"):
                 usage = {"prompt_tokens": _estimate_tokens("".join(m["content"] for m in llm_messages)),
                          "completion_tokens": _estimate_tokens(full_text)}
-            _persist(cid, conv, question, agent, user, model, usage, {
-                "id": assistant_id, "conversation_id": cid, "role": "assistant",
+            _persist(ctx.cid, ctx.conv, ctx.question, ctx.agent, user, model, usage, {
+                "id": assistant_id, "conversation_id": ctx.cid, "role": "assistant",
                 "content_type": "markdown", "content": full_text or ("（已停止）" if status == "aborted" else "（无输出）"),
                 "citations": citations, "reasoning": full_thinking or None,
                 "status": status, "usage": usage, "created_at": now(),
@@ -162,14 +190,62 @@ async def chat_completions(body: dict, user: dict = Depends(current_user)):
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
+# ---------- 浏览器直连本机 Ollama（模式 A）：服务端只组装上下文与落库 ----------
+
+@router.post("/chat/prepare")
+async def chat_prepare(body: dict, user: dict = Depends(current_user)):
+    """与 /chat/completions 同参。返回组装好的 llm_messages（含 system_prompt 与检索资料），
+    由浏览器发给用户本机 Ollama 推理，生成结束后调用 /chat/commit 落库。"""
+    ctx = await build_context(body, user)
+    messages_db.save()
+    conversations_db.save()
+    return ok({"assistant_id": uid("m"), "llm_messages": ctx.llm_messages,
+               "citations": ctx.citations, "rag_error": ctx.rag_error})
+
+
+@router.post("/chat/commit")
+async def chat_commit(body: dict, user: dict = Depends(current_user)):
+    """落库浏览器端生成的助手回复：{conversation_id, assistant_id, model, content, reasoning?,
+    status: done|aborted|error, usage?, citations?}。同一 assistant_id 重复提交按覆盖处理。"""
+    cid = body.get("conversation_id") or ""
+    conv = find(conversations_db.data, id=cid)
+    if not conv:
+        raise HTTPException(404, detail=err(40400, "会话不存在"))
+    if conv.get("owner_id") not in (None, user["id"]) and user["role"] != "admin":
+        raise HTTPException(403, detail=err(40300, "无权访问该会话"))
+    aid = body.get("assistant_id") or uid("m")
+    status = body.get("status") if body.get("status") in ("done", "aborted", "error") else "done"
+    content = str(body.get("content") or "")
+    model = str(body.get("model") or "local/unknown")
+    if not model.startswith(LOCAL_MODEL_PREFIX):
+        model = LOCAL_MODEL_PREFIX + model
+    usage = body.get("usage") if isinstance(body.get("usage"), dict) else None
+    if not usage or not usage.get("completion_tokens"):
+        usage = {"prompt_tokens": 0, "completion_tokens": _estimate_tokens(content)}
+    msgs = messages_db.data.setdefault(cid, [])
+    resubmit = any(m["id"] == aid for m in msgs)   # 重复提交只覆盖内容，不重复计数
+    messages_db.data[cid] = [m for m in msgs if m["id"] != aid]
+    question = next((m["content"] for m in reversed(msgs) if m["role"] == "user"), "")
+    agent = find(agents_db.data, id=conv["agent_id"]) if conv.get("agent_id") else None
+    _persist(cid, conv, question, agent, user, model, usage, {
+        "id": aid, "conversation_id": cid, "role": "assistant", "content_type": "markdown",
+        "content": content or ("（已停止）" if status == "aborted" else "（无输出）"),
+        "citations": body.get("citations"), "reasoning": body.get("reasoning") or None,
+        "status": status, "usage": usage, "created_at": now(),
+    }, count=not resubmit)
+    return ok({"message_id": aid, "usage": usage})
+
+
 def _persist(cid: str, conv: dict, question: str, agent: dict | None, user: dict,
-             model: str, usage: dict, assistant_msg: dict):
+             model: str, usage: dict, assistant_msg: dict, count: bool = True):
     messages_db.data.setdefault(cid, []).append(assistant_msg)
     messages_db.save()
     conv["last_message_at"] = now()
     if conv.get("title") in ("新对话", None) and question:
         conv["title"] = question[:24]
     conversations_db.save()
+    if not count:
+        return
     record_call(model, usage)
     u = find(users_db.data, id=user["id"])
     if u:

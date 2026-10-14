@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { createConversation, getAgent, listAgents } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { OllamaSetup, useSetupTarget } from '@/features/models/ollama-setup'
+import { useChatModels } from '@/features/models/use-chat-models'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
 import { ChatHeader } from './components/chat-header'
@@ -37,6 +39,10 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
   // 快捷入口取已发布的智能体，而不是写死 ID（Mock 与真实后端的 ID 不同）
   const { data: agents } = useQuery({ queryKey: ['agents'], queryFn: listAgents, enabled: !agent })
   const quickAgents = (agents ?? []).filter((a) => a.status === 'published').slice(0, 6)
+  // 还没有任何可用模型：欢迎区直接换成模型连接向导，首次使用不用找设置页
+  const { models, isLoading: modelsLoading } = useChatModels()
+  const setupTarget = useSetupTarget()
+  const needsSetup = !modelsLoading && models.length === 0
 
   const createMut = useMutation({
     mutationFn: (title: string) => createConversation({ title, agent_id: agentId }),
@@ -65,7 +71,19 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
         {agent?.opening_statement ?? '从左侧新建对话，或从下方内置法律智能体开始'}
       </p>
 
-      {agent?.suggested_questions && agent.suggested_questions.length > 0 ? (
+      {needsSetup ? (
+        <div className="mt-6 w-full max-w-lg rounded-2xl border bg-card p-5 text-left shadow-sm">
+          <div className="mb-1 text-sm font-semibold">
+            {setupTarget === 'browser' ? '先连接你电脑上的 Ollama 模型' : '先连接一个模型'}
+          </div>
+          <p className="mb-4 text-xs text-muted-foreground">
+            {setupTarget === 'browser'
+              ? '模型运行在你自己的电脑上，免费且对话内容不经过第三方模型服务。'
+              : '检测本机 Ollama 并下载推荐模型，完成后即可开始对话。'}
+          </p>
+          <OllamaSetup target={setupTarget} />
+        </div>
+      ) : agent?.suggested_questions && agent.suggested_questions.length > 0 ? (
         <div className="mt-6 grid w-full max-w-xl gap-2">
           {agent.suggested_questions.map((q) => (
             <button

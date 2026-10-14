@@ -1,0 +1,5 @@
+# 启动脚本的换行符必须固定：sh 在 CRLF 下无法运行，bat/ps1 在 Windows 上用 CRLF
+*.sh      text eol=lf
+*.command text eol=lf
+*.bat     text eol=crlf
+*.ps1     text eol=crlf

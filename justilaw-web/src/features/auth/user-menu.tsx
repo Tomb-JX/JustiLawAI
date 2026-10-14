@@ -33,20 +33,24 @@ export function UserMenu() {
           <div className="min-w-0">
             <div className="truncate text-xs font-medium">{user.name}</div>
             <div className="truncate text-[10px] text-muted-foreground">
-              {user.isAdmin ? '管理员' : '普通用户'}
+              {user.isLocal ? '单机模式' : user.isAdmin ? '管理员' : '普通用户'}
             </div>
           </div>
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent side="top" align="start" className="w-[var(--radix-dropdown-menu-trigger-width)]">
         <DropdownMenuLabel className="truncate text-xs font-normal text-muted-foreground">
-          {user.email ?? user.name}
+          {user.isLocal ? '单机模式：数据只保存在本机，无需登录' : (user.email ?? user.name)}
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => void signOut()}>
-          <LogOut />
-          退出登录
-        </DropdownMenuItem>
+        {!user.isLocal && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => void signOut()}>
+              <LogOut />
+              退出登录
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   )

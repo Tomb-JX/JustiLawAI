@@ -2,15 +2,32 @@
 
 读接口所有登录用户可用；修改供应商 / 默认模型需要管理员（api_key 属于平台级配置）。
 """
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 
 from ..auth import current_user, require_admin
-from ..model_gateway.gateway import fetch_remote_models, ping_model, ping_provider, provider_store
+from ..model_gateway.gateway import (
+    detect_ollama, fetch_remote_models, ping_model, ping_provider, provider_store, pull_model,
+)
 from ..resp import err, ok
 
 router = APIRouter(dependencies=[Depends(current_user)])
 
 PROVIDER_TYPES = ("openai_compat", "ollama")
+
+
+def _public(p) -> dict:
+    """供应商公开信息；自动发现的供应商附带最近一次连接状态。"""
+    out = p.public()
+    if p.auto_discover:
+        out["status"] = provider_store.status.get(p.id)
+    return out
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
 @router.get("/models")
@@ -52,7 +69,13 @@ async def set_model_settings(body: dict):
 
 @router.get("/providers")
 async def list_providers():
-    return ok([p.public() for p in provider_store.list()])
+    return ok([_public(p) for p in provider_store.list()])
+
+
+@router.post("/providers/ollama/detect", dependencies=[Depends(require_admin)])
+async def detect_ollama_api(body: dict | None = None):
+    """检测 Ollama 是否可达（只测不存）。不传 base_url 时依次尝试当前地址与常见本机地址。"""
+    return ok(await detect_ollama((body or {}).get("base_url")))
 
 
 @router.post("/providers", dependencies=[Depends(require_admin)])
@@ -72,7 +95,9 @@ async def add_provider(body: dict):
         api_key=(body.get("api_key") or "").strip(),
         enabled=body.get("enabled", True),
     )
-    return ok(p.public())
+    if p.auto_discover:
+        await provider_store.refresh_async(p.id)
+    return ok(_public(p))
 
 
 @router.patch("/providers/{pid}", dependencies=[Depends(require_admin)])
@@ -83,7 +108,9 @@ async def update_provider(pid: str, body: dict):
     p = provider_store.update(pid, body)
     if not p:
         raise HTTPException(404, detail=err(40400, "供应商不存在"))
-    return ok(p.public())
+    if p.auto_discover and not p.models:  # 改了地址：立即按新地址重新发现
+        await provider_store.refresh_async(pid)
+    return ok(_public(p))
 
 
 @router.delete("/providers/{pid}", dependencies=[Depends(require_admin)])
@@ -124,9 +151,46 @@ async def refresh_provider(pid: str):
         raise HTTPException(404, detail=err(40400, "供应商不存在"))
     if not p.auto_discover:
         raise HTTPException(400, detail=err(40000, "该供应商的模型需要手动添加"))
-    if not provider_store.refresh(pid):
-        raise HTTPException(500, detail=err(50001, f"无法连接 {p.base_url}"))
-    return ok(p.public())
+    if not await provider_store.refresh_async(pid):
+        reason = (provider_store.status.get(pid) or {}).get("error") or "无法连接"
+        raise HTTPException(500, detail=err(50001, f"{reason}：{p.base_url}"))
+    return ok(_public(p))
+
+
+@router.post("/providers/{pid}/pull", dependencies=[Depends(require_admin)])
+async def pull_provider_model(pid: str, body: dict):
+    """让 Ollama 下载模型，SSE 推送进度：progress {status, completed?, total?} → done {model} | error。
+
+    下载完成后刷新模型清单；平台此前没有同类模型时，自动设为默认对话 / 嵌入模型。
+    客户端断开不会中止 Ollama 端的下载（再次拉取会断点续传）。
+    """
+    p = provider_store.get(pid)
+    if not p:
+        raise HTTPException(404, detail=err(40400, "供应商不存在"))
+    if p.type != "ollama":
+        raise HTTPException(400, detail=err(40000, "只有 Ollama 供应商支持在线拉取模型"))
+    name = (body.get("model") or "").strip()
+    if not name:
+        raise HTTPException(422, detail=err(42200, "model 必填"))
+    had_chat = bool(provider_store.all_models("completion"))
+    had_embed = bool(provider_store.all_models("embedding"))
+
+    async def gen():
+        try:
+            async for prog in pull_model(p, name):
+                yield _sse("progress", prog)
+            await provider_store.refresh_async(pid)
+            mid = next((m["id"] for m in p.models if m["name"] in (name, f"{name}:latest")), f"{pid}/{name}")
+            if not had_chat:
+                provider_store.set_default_model("chat", mid)
+            if not had_embed:
+                provider_store.set_default_model("embedding", mid)
+            yield _sse("done", {"model": mid})
+        except Exception as e:
+            yield _sse("error", {"code": 50001, "message": f"拉取失败：{e}"})
+
+    return StreamingResponse(gen(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
 @router.post("/providers/{pid}/models", dependencies=[Depends(require_admin)])

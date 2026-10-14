@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.3（已按 justilaw-api 实现对齐） · 2026-10-14
+> 版本 v0.4（已按 justilaw-api 实现对齐） · 2026-10-15
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -55,6 +55,8 @@
 | resource | `LOGTO_ENDPOINT` + `LOGTO_API_RESOURCE` | 面向 API Resource 的 access token（前端配 `VITE_LOGTO_RESOURCE`） | API Resource 标识 |
 | idtoken | `LOGTO_ENDPOINT` + `LOGTO_APP_ID` | ID Token（`VITE_LOGTO_RESOURCE` 留空时前端自动改发） | SPA 应用 App ID |
 | 本地 | 不配 `LOGTO_ENDPOINT` | 不校验 | 不校验；所有请求视为本地管理员 |
+
+**单机模式（前端）**：前端启动时先调 `GET /health`（不需要鉴权）。`auth_enabled=false` 时跳过 Logto 登录，以"本地用户"（管理员）身份直接进入，同一份前端构建既可公网部署也可单机使用。单机模式没有任何访问控制，只能监听 `127.0.0.1`。
 
 idtoken 模式用于 Logto 免费版无法创建 API Resource 的情况。签名、`iss`、`aud`、`exp` 一样全部校验，代价是 ID Token 本身面向客户端，只适合小规模部署。升级 Pro 后补上 `LOGTO_API_RESOURCE` 就切回 resource 模式。
 
@@ -203,6 +205,23 @@ POST /chat/completions
 **中断约定**：客户端断开连接（AbortController）即视为"停止生成"，后端终止推理，并将已生成内容落库为 `status=aborted`。
 **重新生成 / 编辑重发**：由前端按消息数组重新调用本接口实现，不单独建接口。
 
+#### 3.3.1 浏览器直连本机模型（模型 ID 以 `local/` 开头）
+
+推理在用户电脑上的 Ollama 里进行（浏览器直接请求 `http://127.0.0.1:11434/api/chat`），服务端不推理，只负责组装上下文与落库。`/chat/completions` 收到 `local/` 模型返回 42200。
+
+```
+POST /chat/prepare   请求体同 /chat/completions
+                     → data: { assistant_id, llm_messages: [{role, content}], citations: Citation[] | null, rag_error: string | null }
+                     （完成会话校验、用户消息落库、智能体提示词 / 附件文本 / 知识库检索注入）
+POST /chat/commit    { conversation_id, assistant_id, model, content, reasoning?, status: done|aborted|error,
+                       usage?, citations? }   → data: { message_id, usage }
+                     （生成结束、中止或出错都要调用；同一 assistant_id 重复提交只覆盖内容，不重复计数）
+```
+
+- `llm_messages` 含智能体的 `system_prompt` 与检索资料原文，会下发到浏览器。这是浏览器直连的必要代价：智能体提示词对使用者可见
+- 知识库检索仍在服务端用服务端的嵌入模型完成；服务端没有嵌入模型时 `rag_error` 给出原因，对话照常进行
+- 前提：Ollama 允许本站跨域（`OLLAMA_ORIGINS`）。Ollama 默认只放行 localhost / 127.0.0.1 等本机来源，公网站点需要用户把站点源加入该变量（前端向导提供一键脚本）
+
 ### 3.4 智能体
 
 ```
@@ -279,14 +298,21 @@ GET    /settings/models        → data: { default_chat_model, default_embed_mod
 PUT    /settings/models 🔒     { default_chat_model?, default_embed_model? }
                                  （须是具备对应能力的已注册模型，否则 42200）
 
-GET    /providers              → data: ModelProvider[]
+GET    /providers              → data: (ModelProvider & { status? })[]
+                                 （ollama 类附带最近一次连接结果 status: { reachable, version, error, checked_at }；
+                                   模型清单每 30 秒在后台刷新，Ollama 不可达不会拖慢接口）
 POST   /providers 🔒           { name, type: 'ollama' | 'openai_compat', base_url, api_key?, enabled? }
-PATCH  /providers/{id} 🔒      （部分更新；api_key 传回打码值表示不修改）
+PATCH  /providers/{id} 🔒      （部分更新；api_key 传回打码值表示不修改；Ollama 类改 base_url 后立即按新地址重新发现）
 DELETE /providers/{id} 🔒      （内置供应商不可删，返回 40000）
 POST   /providers/{id}/ping    → data: { latency_ms }
 POST   /providers/{id}/remote-models 🔒  → data: { models: string[] }
                                  （拉取远端模型名列表，只列不存；ollama 读 /api/tags，openai_compat 读 /models）
 POST   /providers/{id}/refresh 🔒        （仅 ollama：重新发现模型，新 pull 的模型立即可见）
+POST   /providers/ollama/detect 🔒       { base_url? } → data: { base_url, reachable, version, models: string[], error }
+                                 （只测不存；不传 base_url 时依次尝试当前地址、127.0.0.1:11434、host.docker.internal:11434，返回第一个可达的）
+POST   /providers/{id}/pull 🔒           { model } → SSE：progress {status, completed?, total?} → done {model} | error
+                                 （仅 ollama：让 Ollama 下载模型；完成后刷新清单，平台此前没有同类模型时自动设为默认对话 / 嵌入模型；
+                                   客户端断开不会中止 Ollama 端的下载，再次拉取会断点续传）
 POST   /providers/{id}/models 🔒         { id 或 name, capabilities?: string[], default_params? }
                                  （手动注册模型，capabilities 默认 ["completion"]；注册嵌入模型时传 ["embedding"]）
 PATCH  /providers/{id}/models/{model} 🔒
@@ -310,6 +336,23 @@ GET    /admin/stats/usage 🔒   → data: { date, calls }[]（最近 14 天）
 GET    /admin/stats/models 🔒  → data: { name, value }[]（各模型调用次数）
 ```
 
+### 3.9 服务状态（无需鉴权）
+
+```
+GET /health  → data: {
+  service: 'justilaw-api', status: 'up' | 'degraded',
+  auth_enabled: boolean,                 // false = 单机模式，前端免登录
+  setup_required: boolean,               // 没有可用对话模型，前端展示「模型连接向导」
+  ollama: { enabled, reachable: boolean | null, version, base_url },   // reachable=null 表示尚未检测；
+                                         // base_url 仅单机模式返回（公网部署不暴露内网地址）
+  default_chat_model, default_embed_model, warnings: string[]
+}
+```
+
+### 3.10 托管前端
+
+后端检测到 `WEB_DIST_DIR`（默认 `../justilaw-web/dist`）存在时，直接托管前端：`/api/*` 以外的路径返回静态文件或 `index.html`（SPA 回退），`assets/` 下不存在的文件返回 404（让旧页面触发整页刷新）。单机部署只需一个端口。
+
 ## 4. 联调约定
 
 1. 前端基于 MSW 按本契约**全量 Mock**（SSE 用 ReadableStream 模拟增量），先行开发
@@ -324,3 +367,4 @@ GET    /admin/stats/models 🔒  → data: { name, value }[]（各模型调用�
 | 2026-10-14 | v0.1 | 初稿（待后端评审） | 前端组 |
 | 2026-10-14 | v0.2 | 鉴权改为 Logto OIDC：移除 `/auth/register`、`/auth/login`；新增 §1.3 JWT 校验约定；`User` 增加 `logto_id`、`email` | 前端组 |
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
+| 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |

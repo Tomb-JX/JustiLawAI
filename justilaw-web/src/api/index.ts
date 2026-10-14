@@ -11,6 +11,10 @@ import type {
   ModelInfo,
   ModelProvider,
   ModelSettings,
+  Health,
+  OllamaProbe,
+  ChatPrepared,
+  ChatCompletionRequest,
   Message,
   Prompt,
   UsagePoint,
@@ -223,6 +227,7 @@ export async function addProvider(body: {
   name: string
   base_url: string
   api_key?: string
+  type?: 'ollama' | 'openai_compat'
 }): Promise<ModelProvider> {
   if (USE_MOCK) return mockApi.addProvider(body)
   return (await http.post('/providers', body)) as ModelProvider
@@ -293,9 +298,45 @@ export async function deletePrompt(id: string): Promise<void> {
 /* ============ 当前用户 ============ */
 
 /** 登录后把 ID Token 中的昵称/邮箱/头像同步到后端（access token 不含这些资料） */
-export async function syncProfile(profile: { nickname?: string; email?: string; avatar?: string }): Promise<void> {
-  if (USE_MOCK) return
-  await http.put('/users/me', profile)
+/** 同步资料并返回后端用户（含角色：后端 ADMIN_SUBS 也能授予管理员） */
+export async function syncProfile(profile: {
+  nickname?: string
+  email?: string
+  avatar?: string
+}): Promise<{ role: 'user' | 'admin' } | null> {
+  if (USE_MOCK) return null
+  return (await http.put('/users/me', profile)) as { role: 'user' | 'admin' }
+}
+
+/* ============ 服务状态与模型连接向导 ============ */
+
+export async function getHealth(): Promise<Health> {
+  if (USE_MOCK) return mockApi.getHealth()
+  return (await http.get('/health')) as Health
+}
+
+/** 服务端探测 Ollama（管理员）；不传地址时自动尝试常见本机地址 */
+export async function detectOllama(baseUrl?: string): Promise<OllamaProbe> {
+  if (USE_MOCK) return mockApi.detectOllama(baseUrl)
+  return (await http.post('/providers/ollama/detect', { base_url: baseUrl || undefined })) as OllamaProbe
+}
+
+/** 浏览器直连本机模型：服务端组装上下文（智能体提示词 / 附件 / 知识库检索） */
+export async function chatPrepare(body: ChatCompletionRequest): Promise<ChatPrepared> {
+  return (await http.post('/chat/prepare', body)) as ChatPrepared
+}
+
+export async function chatCommit(body: {
+  conversation_id: string
+  assistant_id: string
+  model: string
+  content: string
+  reasoning?: string
+  status: 'done' | 'aborted' | 'error'
+  usage?: { prompt_tokens: number; completion_tokens: number }
+  citations?: unknown
+}): Promise<void> {
+  await http.post('/chat/commit', body)
 }
 
 /* ============ 管理后台 ============ */

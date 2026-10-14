@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useLogto, type IdTokenClaims } from '@logto/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { syncProfile } from '@/api'
+import { useAuthMode } from './auth-mode'
 import { signInRedirectUri, signOutRedirectUri } from './logto-config'
 
 const RETURN_TO_KEY = 'justilaw-auth-return-to'
@@ -71,7 +72,11 @@ export interface CurrentUser {
   avatar?: string
   roles: string[]
   isAdmin: boolean
+  /** 单机模式（免登录）的本地用户 */
+  isLocal?: boolean
 }
+
+const LOCAL_USER: CurrentUser = { id: 'local', name: '本地用户', roles: ['admin'], isAdmin: true, isLocal: true }
 
 function toCurrentUser(claims: IdTokenClaims): CurrentUser {
   const roles = Array.isArray(claims.roles) ? (claims.roles as string[]) : []
@@ -85,20 +90,28 @@ function toCurrentUser(claims: IdTokenClaims): CurrentUser {
   }
 }
 
-/** 当前登录用户（来自 ID Token claims，本地解析）；每次会话顺带把资料同步到后端一次 */
+/**
+ * 当前登录用户（来自 ID Token claims，本地解析）；每次会话顺带把资料同步到后端一次。
+ * 管理员身份以后端为准（Logto 角色或后端 ADMIN_SUBS 任一即可）；单机模式固定为本地管理员。
+ */
 export function useCurrentUser() {
   const { isAuthenticated, getIdTokenClaims } = useLogto()
+  const authMode = useAuthMode()
   return useQuery({
-    queryKey: ['auth', 'current-user'],
+    queryKey: ['auth', 'current-user', authMode],
     queryFn: async () => {
+      if (authMode === 'local') return LOCAL_USER
       const claims = await getIdTokenClaims()
       if (!claims) return null
       const user = toCurrentUser(claims)
       // 同步失败不影响登录态，只是后台用户列表里显示默认昵称
-      void syncProfile({ nickname: user.name, email: user.email, avatar: user.avatar }).catch(() => undefined)
+      const me = await syncProfile({ nickname: user.name, email: user.email, avatar: user.avatar }).catch(
+        () => null,
+      )
+      if (me?.role === 'admin') user.isAdmin = true
       return user
     },
-    enabled: isAuthenticated,
+    enabled: authMode === 'local' || (authMode === 'logto' && isAuthenticated),
     staleTime: Infinity,
   })
 }

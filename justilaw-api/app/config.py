@@ -51,6 +51,9 @@ LOGTO_APP_ID = _env("LOGTO_APP_ID", "")
 # 逗号分隔的 Logto 用户 ID（sub），视为管理员
 ADMIN_SUBS = {s.strip() for s in _env("ADMIN_SUBS", "").split(",") if s.strip()}
 
+# 前端构建产物目录：存在时由后端直接托管网页（本地一键部署，单端口访问）；不存在则只提供 API
+WEB_DIST_DIR = Path(_env("WEB_DIST_DIR", str(BASE_DIR.parent / "justilaw-web" / "dist")))
+
 # 数据持久化（JSON，演示规模足够；后续可换 SQLite/PG）
 DATA_DIR = Path(_env("DATA_DIR", str(BASE_DIR / "store")))
 UPLOAD_DIR = DATA_DIR / "uploads"
