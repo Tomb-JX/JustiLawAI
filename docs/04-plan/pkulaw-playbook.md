@@ -72,8 +72,27 @@
 | API / 自动化 | 个人中心无开放平台入口；**发现官方 MCP 产品 mcp.pkulaw.com**——若学院订阅含此产品，即为合规自动化的正道，优先确认 |
 | 检索 URL 模板 | 法规库实测：`/law/chl?Keywords=<词>&SearchKeywordType=Fulltext&MatchType=Exact`；站内提交 = `#txtSearch` 填词后调 `doSearch("Fulltext")`（SPA，无独立结果页跳转） |
 
+## 7. 法宝 MCP 接入（2026-10-15 已打通 ✅）
+
+**接入方式**：mcp.pkulaw.com 控制台的 Bearer Token（用户级 `~/.zcode/cli/config.json` → `mcp.servers`，**Token 只存本地配置，永不入库**；失效时到控制台重新生成）。ZCode 会话重启后自动连接 9 个服务：
+
+| 服务 | 端点 | 工具（实测） | 管线用途 |
+|---|---|---|---|
+| pkulaw-case-keyword | /mcp-case | `get_case_list`（标题/正文关键词，前 20 条，字段含案号/法院/标签/法官） | 金标目录、类案元数据 |
+| pkulaw-case-semantic-search | /mcp-case-search-service | `search_case` | 类案语义检索（M5 对照） |
+| pkulaw-law-keyword | /mcp-law | `get_law_list` | 规范库检索（G0.1） |
+| pkulaw-law-search | /mcp-law-search-service | `get_article` / `search_article` | 法条原文核对 |
+| pkulaw-law-item-keyword | /mcp-fatiao | `get_law_item_content`（如"刑法第2条"） | **M2 规范层取原文 + 时间效力** |
+| pkulaw-law-recognition | /law_recognition | `law_recognition` | 文书中法条识别溯源 |
+| pkulaw-case-number-recognition | /case_number_recognition | `anhao_recognition` | 案号识别溯源 |
+| pkulaw-citation-validator | /pku_citation_validator | `adjust_provisions` | **M6 说理校验器（红线 R2 法条精确率）** |
+| pkulaw-doc-link | /add-doc-link | `get_linked_content` | 法宝超链 |
+
+**使用纪律**：MCP 是官方合规通道，优先级高于网页导出——单点精确查询、法条原文核对、说理校验走 MCP；**批量成百上千件的文书导出仍走网页批量导出**（MCP 每次只回前 20 条，且积分/配额另计，页面上有"积分充值"）。协议注意：SSE 响应无 charset，requests 必须显式 `content.decode("utf-8")`（latin-1 误读会把多字节序列切成假换行）。
+
 ## 变更日志
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
 | 2026-10-15 | v0.1 | 初版：分工边界、侦察清单、五条检索式、导出 SOP、合规红线 | 模型组 |
+| 2026-10-15 | v0.2 | 侦察结果回填；§7 法宝 MCP 已打通（9 服务接入 ZCode 用户配置，实测 get_case_list 返回真实案例） | 模型组 |

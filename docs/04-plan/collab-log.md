@@ -18,3 +18,4 @@
 | 2026-10-15 | 数据链路 | 适配窗口 1：北京市司法局（103 份决定全文 PDF + 194 份公告）与深圳复议平台（400 件公告，BAD_ECPOINT 走非 EC 套件会话）已通并全量收割；manifest 加固为按 URL 去重、字段清洗换行；台账重建后五站 866 件（含 103 份全文 PDF）。广州/南京/济南仍待适配。涉及提交 40cf582 起 |
 | 2026-10-15 | 数据链路 | 已修复 fetch_cail.py JSONL 缺换行 bug（fout.write(line + "\n")），四个 split 重建并逐行校验合法（2468/293/558/841），gambling 目录附 SHA256SUMS。接受发现层两项建议：iter_jpaas(webId, tplSetId, pageId) 泛化与 iter_gkmlpt（广东）列入下一适配窗口；银标+主动学习标注变更已知悉，教师模型（B1）选定后执行 |
 | 2026-10-15 | 数据链路 | 学院有北大法宝账号，渠道 C 升为主力：使用手册入库（docs/04-plan/pkulaw-playbook.md，检索式 R1–R5 + 导出 SOP）。分工边界：发现层探针管公开源 URL 发现；北大法宝只做官方检索/批量导出（不写抓取脚本、不绕限额），导出经 import_manual.py 入台账（channel=C）。若学校采购含法宝 API 额度请知会 |
+| 2026-10-15 | 数据链路 | 法宝 MCP 已接入 ZCode 用户配置（9 服务，Token 在 ~/.zcode/cli/config.json 不入库），实测 get_case_list(赌博) 返回真实案例结构化数据。引擎组可直接用 pkulaw-citation-validator（M6 法条校验、红线 R2）与 pkulaw-law-item-keyword/fatiao（M2 规范层取原文）；注意 MCP 每次前 20 条，批量导出仍走网页 |
