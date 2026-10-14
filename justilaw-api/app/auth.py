@@ -1,7 +1,12 @@
-"""鉴权：Logto OIDC access token（JWT）校验 + 本地用户建档（对齐 api-contract.md §1.3）。
+"""鉴权：Logto OIDC JWT 校验 + 本地用户建档（对齐 api-contract.md §1.3）。
 
-- 配置了 LOGTO_ENDPOINT 与 LOGTO_API_RESOURCE：每个请求必须携带有效 JWT，按 sub 自动建档
-- 未配置：单用户本地模式，所有请求视为本地管理员（便于离线开发与演示）
+两种启用模式（配置了 LOGTO_ENDPOINT 才启用鉴权）：
+- resource 模式：LOGTO_API_RESOURCE 已配 → 校验面向 API 的 access token（Logto 付费功能）
+- idtoken 模式：只配了 LOGTO_APP_ID → 前端直传 ID Token，按 aud=app_id 校验。
+  Logto 免费版无法创建 API Resource 时的等效保护：签名（JWKS）/iss/aud/exp 全验，
+  权衡是 ID Token 同时面向客户端，适合小规模部署，升级 Pro 后切回 resource 模式只需加一个环境变量。
+
+未配置 LOGTO_ENDPOINT：单用户本地模式，所有请求视为本地管理员（便于离线开发与演示）。
 """
 from __future__ import annotations
 
@@ -11,8 +16,10 @@ from . import config
 from .resp import err
 from .store import find, now, uid, users_db
 
-AUTH_ENABLED = bool(config.LOGTO_ENDPOINT and config.LOGTO_API_RESOURCE)
-ISSUER = f"{config.LOGTO_ENDPOINT}/oidc"
+AUTH_ENABLED = bool(config.LOGTO_ENDPOINT)
+ISSUER = f"{config.LOGTO_ENDPOINT.rstrip('/')}/oidc"
+# resource 模式校 aud=API Resource；idtoken 模式校 aud=应用 client_id
+AUDIENCE = config.LOGTO_API_RESOURCE or config.LOGTO_APP_ID
 LOCAL_SUB = "local"
 
 _jwks_client = None
@@ -69,7 +76,7 @@ def current_user(request: Request) -> dict:
         claims = jwt.decode(
             token, key,
             algorithms=["ES384", "ES256", "RS256"],
-            audience=config.LOGTO_API_RESOURCE,
+            audience=AUDIENCE,
             issuer=ISSUER,
         )
     except jwt.ExpiredSignatureError:
@@ -77,7 +84,9 @@ def current_user(request: Request) -> dict:
     except Exception as e:
         raise _unauthorized(f"token 无效：{e}")
 
-    user = _upsert_user(claims["sub"], set((claims.get("scope") or "").split()))
+    # roles 数组在 ID Token 里（UserScope.Roles），scope 字符串在 access token 里
+    scopes = set((claims.get("scope") or "").split()) | set(claims.get("roles") or [])
+    user = _upsert_user(claims["sub"], scopes)
     if user.get("status") == "disabled":
         raise HTTPException(403, detail=err(40300, "账号已被禁用"))
     return user

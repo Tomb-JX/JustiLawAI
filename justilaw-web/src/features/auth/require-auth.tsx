@@ -8,7 +8,7 @@ import { useSignIn } from './use-auth'
 
 /** 路由守卫：未登录跳 /login，并把 Logto token 注入 api 层 */
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { isAuthenticated, isLoading, getAccessToken } = useLogto()
+  const { isAuthenticated, isLoading, getAccessToken, getIdToken } = useLogto()
   const signIn = useSignIn()
   const location = useLocation()
   const returnTo = `${location.pathname}${location.search}`
@@ -20,8 +20,11 @@ export function RequireAuth({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) return
-    // 未配置 API Resource 时拿不到面向后端的 JWT，宁可不带也不误传 ID Token
-    setAccessTokenGetter(API_RESOURCE ? () => getAccessToken(API_RESOURCE) : undefined)
+    // 未配置 API Resource（Logto 免费版）时拿不到面向后端的 JWT，退而直传 ID Token：
+    // 后端按 aud=appId 用 JWKS 验签，等效保护（见后端 auth.py 的 idtoken 模式说明）
+    setAccessTokenGetter(
+      API_RESOURCE ? () => getAccessToken(API_RESOURCE) : async () => (await getIdToken()) ?? undefined,
+    )
     setUnauthorizedHandler(() => {
       // 并发请求同时 401 时只发起一次重新登录
       if (reauthingRef.current) return
@@ -32,7 +35,7 @@ export function RequireAuth({ children }: { children: ReactNode }) {
       setAccessTokenGetter(undefined)
       setUnauthorizedHandler(undefined)
     }
-  }, [isAuthenticated, getAccessToken, signIn])
+  }, [isAuthenticated, getAccessToken, getIdToken, signIn])
 
   // Logto 在取 token 等异步操作期间也会置 isLoading，已登录时不能因此卸载整个应用
   if (!isAuthenticated) {

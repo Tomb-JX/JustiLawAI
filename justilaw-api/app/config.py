@@ -43,9 +43,11 @@ DEFAULT_CHAT_MODEL = _env("DEFAULT_CHAT_MODEL", "ollama/qwen3.5:9b")
 DEFAULT_EMBED_MODEL = _env("DEFAULT_EMBED_MODEL", "ollama/bge-m3")
 
 # 鉴权（Logto OIDC，见 docs/02-design/api-contract.md §1.3）。
-# 两项都配置才启用 JWT 校验；否则为单用户本地模式，所有请求视为本地管理员。
+# LOGTO_ENDPOINT 配置即启用鉴权：优先 resource 模式（LOGTO_API_RESOURCE，Pro 功能）；
+# 免费版用 idtoken 模式（LOGTO_APP_ID）：前端直传 ID Token，按 aud=client_id 校验。
 LOGTO_ENDPOINT = _env("LOGTO_ENDPOINT", "").rstrip("/")
 LOGTO_API_RESOURCE = _env("LOGTO_API_RESOURCE", "")
+LOGTO_APP_ID = _env("LOGTO_APP_ID", "")
 # 逗号分隔的 Logto 用户 ID（sub），视为管理员
 ADMIN_SUBS = {s.strip() for s in _env("ADMIN_SUBS", "").split(",") if s.strip()}
 
