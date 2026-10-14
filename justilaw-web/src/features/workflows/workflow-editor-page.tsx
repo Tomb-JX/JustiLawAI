@@ -39,6 +39,9 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getWorkflow, listDatasets, listModels, updateWorkflow } from '@/api'
+import { USE_MOCK } from '@/api/client'
+import { streamWorkflowRun } from '@/api/sse'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -363,7 +366,8 @@ function NameInput({ node }: { node: Node }) {
 
 function Editor({ id }: { id: string }) {
   const { data: workflow, isLoading } = useQuery({ queryKey: ['workflows', id], queryFn: () => getWorkflow(id) })
-  const { data: models } = useQuery({ queryKey: ['models'], queryFn: listModels })
+  const { data: allModels } = useQuery({ queryKey: ['models'], queryFn: listModels })
+  const models = allModels?.filter((m) => (m.capabilities ?? ['completion']).includes('completion'))
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
   const qc = useQueryClient()
   const reactFlow = useReactFlow()
@@ -375,8 +379,13 @@ function Editor({ id }: { id: string }) {
   const [logs, setLogs] = useState<RunLogEntry[]>([])
   const [running, setRunning] = useState(false)
   const [showLogs, setShowLogs] = useState(false)
+  const [answer, setAnswer] = useState('')
+  const [runError, setRunError] = useState('')
+  const [inputsOpen, setInputsOpen] = useState(false)
+  const [inputValues, setInputValues] = useState<Record<string, string>>({})
   const initialized = useRef(false)
   const cancelRef = useRef(false)
+  const abortRef = useRef<AbortController | null>(null)
 
   // 加载完成后初始化画布（必须在 effect 中，渲染期调用 useNodesState 的 setter 不生效）
   useEffect(() => {
@@ -444,19 +453,67 @@ function Editor({ id }: { id: string }) {
     },
   })
 
-  const startRun = async () => {
+  const startVars = useMemo(() => {
+    const start = nodes.find((n) => (n.data as { nodeType: NodeType }).nodeType === 'start')
+    const vars = (start?.data as { config?: { vars?: { name: string; label: string }[] } } | undefined)?.config?.vars
+    return (vars ?? []).filter((v) => v.name)
+  }, [nodes])
+
+  const patchLog = (entry: Partial<RunLogEntry> & { node_id: string }) =>
+    setLogs((prev) => prev.map((l) => (l.node_id === entry.node_id ? { ...l, ...entry } : l)))
+
+  const startRun = () => {
     if (running || nodes.length === 0) return
+    // 真实执行需要开始节点的输入变量值；模拟模式不需要
+    if (!USE_MOCK && startVars.length) setInputsOpen(true)
+    else void executeRun({})
+  }
+
+  const executeRun = async (inputs: Record<string, string>) => {
+    setInputsOpen(false)
     cancelRef.current = false
     setRunning(true)
     setShowLogs(true)
+    setAnswer('')
+    setRunError('')
     setLogs(nodes.map((n) => ({ node_id: n.id, name: (n.data as { name: string }).name, status: 'waiting' })))
-    await runWorkflowSimulation(
-      nodes as unknown as WorkflowNode[],
-      edges as unknown as WorkflowEdge[],
-      (entry) =>
-        setLogs((prev) => prev.map((l) => (l.node_id === entry.node_id ? { ...l, ...entry } : l))),
-      () => cancelRef.current,
-    )
+    try {
+      if (USE_MOCK) {
+        await runWorkflowSimulation(
+          nodes as unknown as WorkflowNode[],
+          edges as unknown as WorkflowEdge[],
+          patchLog,
+          () => cancelRef.current,
+        )
+        return
+      }
+      const ctrl = new AbortController()
+      abortRef.current = ctrl
+      // 试运行当前画布（含未保存的修改）
+      await streamWorkflowRun(
+        id,
+        { inputs, dsl: { nodes, edges } },
+        (event, data) => {
+          if (event === 'workflow') patchLog(data as unknown as RunLogEntry)
+          else if (event === 'message') setAnswer((prev) => prev + String(data.delta ?? ''))
+          else if (event === 'error') throw new Error(String(data.message ?? '运行失败'))
+        },
+        ctrl.signal,
+      )
+    } catch (e) {
+      if (!abortRef.current?.signal.aborted) {
+        setRunError((e as Error).message)
+        toast.error((e as Error).message)
+      }
+    } finally {
+      abortRef.current = null
+      setRunning(false)
+    }
+  }
+
+  const stopRun = () => {
+    cancelRef.current = true
+    abortRef.current?.abort()
     setRunning(false)
   }
 
@@ -493,10 +550,7 @@ function Editor({ id }: { id: string }) {
               variant="outline"
               size="sm"
               className="gap-1.5"
-              onClick={() => {
-                cancelRef.current = true
-                setRunning(false)
-              }}
+              onClick={stopRun}
             >
               <Square className="h-3 w-3 fill-current" />
               停止
@@ -586,33 +640,79 @@ function Editor({ id }: { id: string }) {
 
         {/* 运行日志抽屉 */}
         {showLogs && (
-          <div className="absolute inset-x-6 bottom-4 z-10 max-h-64 overflow-hidden rounded-xl border bg-card shadow-xl">
+          <div className="absolute inset-x-6 bottom-4 z-10 max-h-80 overflow-hidden rounded-xl border bg-card shadow-xl">
             <div className="flex items-center justify-between border-b px-4 py-2">
               <span className="text-xs font-semibold">试运行日志</span>
               <button className="text-muted-foreground hover:text-foreground" onClick={() => setShowLogs(false)}>
                 <X className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div ref={logsRef} className="scrollbar-thin max-h-48 space-y-1 overflow-y-auto p-3">
+            <div ref={logsRef} className="scrollbar-thin max-h-64 space-y-1 overflow-y-auto p-3">
               {logs.map((l) => (
                 <div key={l.node_id} className="flex items-center gap-2 rounded-lg bg-muted/40 px-3 py-1.5 text-xs">
                   {l.status === 'running' && <Loader2 className="h-3 w-3 animate-spin text-primary" />}
                   {l.status === 'succeeded' && <Check className="h-3 w-3 text-emerald-500" />}
+                  {l.status === 'failed' && <X className="h-3 w-3 text-destructive" />}
+                  {l.status === 'skipped' && <span className="h-3 w-3 rounded-full bg-muted-foreground/30" />}
                   {l.status === 'waiting' && <span className="h-3 w-3 rounded-full border border-muted-foreground/40" />}
                   <span className="font-medium">{l.name}</span>
-                  {l.elapsed !== undefined && (
-                    <span className="text-muted-foreground">✓ {l.elapsed}ms</span>
-                  )}
+                  {l.elapsed !== undefined && <span className="text-muted-foreground">{l.elapsed}ms</span>}
                   {l.output && <span className="truncate text-muted-foreground">{l.output}</span>}
                 </div>
               ))}
-              {logs.every((l) => l.status === 'succeeded') && (
-                <p className="px-3 pt-1 text-xs text-emerald-600">✓ 全部节点执行完成（模拟）</p>
+              {!running &&
+                !runError &&
+                logs.length > 0 &&
+                logs.every((l) => l.status === 'succeeded' || l.status === 'skipped') && (
+                  <p className="px-3 pt-1 text-xs text-emerald-600">
+                    ✓ 全部节点执行完成{USE_MOCK ? '（模拟）' : ''}
+                  </p>
+                )}
+              {runError && <p className="px-3 pt-1 text-xs text-destructive">{runError}</p>}
+              {answer && (
+                <div className="mt-2 whitespace-pre-wrap rounded-lg border bg-background px-3 py-2 text-xs leading-relaxed">
+                  {answer}
+                </div>
               )}
             </div>
           </div>
         )}
       </div>
+
+      {/* 试运行输入 */}
+      <Dialog open={inputsOpen} onOpenChange={setInputsOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>试运行输入</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {startVars.map((v) => (
+              <div key={v.name} className="space-y-1.5">
+                <label className="text-sm font-medium">{v.label || v.name}</label>
+                <Textarea
+                  value={inputValues[v.name] ?? ''}
+                  onChange={(e) => setInputValues((prev) => ({ ...prev, [v.name]: e.target.value }))}
+                  className="min-h-[80px]"
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setInputsOpen(false)}>
+              取消
+            </Button>
+            <Button
+              className="gap-1.5"
+              onClick={() =>
+                void executeRun(Object.fromEntries(startVars.map((v) => [v.name, inputValues[v.name] ?? ''])))
+              }
+            >
+              <Play className="h-3.5 w-3.5" />
+              运行
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

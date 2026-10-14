@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { CornerDownLeft, FileText, Loader2, Paperclip, Square, Sparkles, X } from 'lucide-react'
+import { toast } from 'sonner'
 import { listPrompts, uploadFile } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
@@ -77,9 +78,11 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
     setUploading(true)
     try {
       for (const f of Array.from(files)) {
-        const res = await uploadFile(f.name, f.size)
+        const res = await uploadFile(f)
         setAttachments((prev) => [...prev, res])
       }
+    } catch (e) {
+      toast.error(`附件上传失败：${(e as Error).message}`)
     } finally {
       setUploading(false)
       if (fileRef.current) fileRef.current.value = ''

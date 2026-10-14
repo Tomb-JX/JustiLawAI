@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useLogto, type IdTokenClaims } from '@logto/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { syncProfile } from '@/api'
 import { signInRedirectUri, signOutRedirectUri } from './logto-config'
 
 const RETURN_TO_KEY = 'justilaw-auth-return-to'
@@ -84,14 +85,18 @@ function toCurrentUser(claims: IdTokenClaims): CurrentUser {
   }
 }
 
-/** 当前登录用户（来自 ID Token claims，本地解析，无网络请求） */
+/** 当前登录用户（来自 ID Token claims，本地解析）；每次会话顺带把资料同步到后端一次 */
 export function useCurrentUser() {
   const { isAuthenticated, getIdTokenClaims } = useLogto()
   return useQuery({
     queryKey: ['auth', 'current-user'],
     queryFn: async () => {
       const claims = await getIdTokenClaims()
-      return claims ? toCurrentUser(claims) : null
+      if (!claims) return null
+      const user = toCurrentUser(claims)
+      // 同步失败不影响登录态，只是后台用户列表里显示默认昵称
+      void syncProfile({ nickname: user.name, email: user.email, avatar: user.avatar }).catch(() => undefined)
+      return user
     },
     enabled: isAuthenticated,
     staleTime: Infinity,

@@ -9,6 +9,7 @@ import {
   HardDrive,
   Loader2,
   Plus,
+  RefreshCw,
   Server,
   Trash2,
   X,
@@ -18,9 +19,13 @@ import {
   addProvider,
   addProviderModel,
   deleteProvider,
+  getModelSettings,
+  listModels,
   listProviders,
   pingProvider,
+  refreshProvider,
   removeProviderModel,
+  setModelSettings,
   updateProvider,
 } from '@/api'
 import { Badge } from '@/components/ui/badge'
@@ -34,7 +39,9 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/common/misc'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import type { ModelInfo, ModelProvider } from '@/types/api'
 
 const CAP_LABELS: Record<string, string> = {
   completion: '对话',
@@ -94,6 +101,15 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
     onSuccess: invalidate,
   })
 
+  const refreshMut = useMutation({
+    mutationFn: () => refreshProvider(provider.id),
+    onSuccess: (p) => {
+      invalidate()
+      toast.success(`已同步 ${p.models.length} 个模型`)
+    },
+    onError: (e) => toast.error(`同步失败：${(e as Error).message}`),
+  })
+
   const meta = TYPE_META[provider.type] ?? TYPE_META.openai_compat
   const Icon = meta.icon
 
@@ -117,6 +133,18 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          {provider.type === 'ollama' && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 gap-1 text-xs"
+              onClick={() => refreshMut.mutate()}
+              disabled={refreshMut.isPending}
+            >
+              <RefreshCw className={`h-3 w-3 ${refreshMut.isPending ? 'animate-spin' : ''}`} />
+              同步模型
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -221,6 +249,64 @@ function ProviderCard({ provider }: { provider: ModelProvider }) {
   )
 }
 
+const hasCap = (m: ModelInfo, cap: string) => (m.capabilities ?? ['completion']).includes(cap)
+
+/** 默认模型：对话未选模型时、知识库新建时使用 */
+function DefaultModelsCard() {
+  const qc = useQueryClient()
+  const { data: models } = useQuery({ queryKey: ['models'], queryFn: listModels })
+  const { data: settings } = useQuery({ queryKey: ['model-settings'], queryFn: getModelSettings })
+  const saveMut = useMutation({
+    mutationFn: setModelSettings,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['model-settings'] })
+      toast.success('默认模型已更新')
+    },
+    onError: (e) => toast.error((e as Error).message),
+  })
+
+  const rows = [
+    { key: 'default_chat_model' as const, label: '默认对话模型', cap: 'completion', hint: '对话、工作流 LLM 节点未指定模型时使用' },
+    { key: 'default_embed_model' as const, label: '默认嵌入模型', cap: 'embedding', hint: '新建知识库时绑定；已有知识库更换需重建索引' },
+  ]
+
+  return (
+    <div className="mt-6 rounded-2xl border bg-card p-4 shadow-sm">
+      <div className="flex items-center gap-2 text-sm font-semibold">
+        <Brain className="h-4 w-4 text-primary" />
+        默认模型
+      </div>
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        {rows.map((r) => {
+          const options = models?.filter((m) => hasCap(m, r.cap)) ?? []
+          return (
+            <div key={r.key} className="space-y-1.5">
+              <label className="text-xs font-medium">{r.label}</label>
+              <Select
+                value={settings?.[r.key] ?? ''}
+                onValueChange={(v) => saveMut.mutate({ [r.key]: v })}
+                disabled={!options.length}
+              >
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder={options.length ? '选择模型' : '暂无可用模型'} />
+                </SelectTrigger>
+                <SelectContent>
+                  {options.map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name} · {m.provider_name ?? m.provider}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground">{r.hint}</p>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 export default function ProvidersPage() {
   const { data: providers, isLoading } = useQuery({ queryKey: ['providers'], queryFn: listProviders })
   const [open, setOpen] = useState(false)
@@ -256,6 +342,8 @@ export default function ProvidersPage() {
             接入自定义 API
           </Button>
         </div>
+
+        <DefaultModelsCard />
 
         {isLoading ? (
           <PageLoading />

@@ -144,6 +144,8 @@ export interface Dataset {
   description?: string
   chunk_config: { max_length: number; overlap: number }
   retrieval_config: { top_k: number; score_threshold: number }
+  /** 建库时绑定的嵌入模型（平台模型 ID），更换需重建索引 */
+  embed_model?: string
   doc_count: number
   created_at: string
 }
@@ -194,6 +196,11 @@ export interface ModelProvider {
     capabilities: string[]
     default_params: { temperature: number; top_p: number; max_tokens: number }
   }[]
+}
+
+export interface ModelSettings {
+  default_chat_model: string | null
+  default_embed_model: string | null
 }
 
 export interface Prompt {

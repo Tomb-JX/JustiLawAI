@@ -7,6 +7,7 @@ import {
   FileText,
   Library,
   Loader2,
+  RefreshCw,
   Save,
   Search,
   Trash2,
@@ -19,6 +20,7 @@ import {
   hitTesting,
   listChunks,
   listDocuments,
+  reindexDataset,
   updateChunk,
   updateDataset,
   uploadDocument,
@@ -30,6 +32,7 @@ import { PageLoading } from '@/components/common/misc'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
+import { EmbedModelSelect } from './embed-model-select'
 import { formatBytes } from '@/lib/utils'
 import type { DocumentStatus } from '@/types/api'
 
@@ -58,11 +61,13 @@ function DocumentTab({ datasetId }: { datasetId: string }) {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['documents', datasetId] })
 
   const uploadMut = useMutation({
-    mutationFn: (file: File) => uploadDocument(datasetId, file.name, file.size),
-    onSuccess: () => {
-      toast.success('已上传，解析中…')
+    mutationFn: (file: File) => uploadDocument(datasetId, file),
+    onSuccess: (doc) => {
+      if (doc?.status === 'failed') toast.error(`${doc.filename}：${doc.error ?? '上传失败'}`)
+      else toast.success('已上传，解析中…')
       invalidate()
     },
+    onError: (e) => toast.error(`上传失败：${(e as Error).message}`),
   })
 
   const deleteMut = useMutation({
@@ -272,6 +277,7 @@ function SettingsTab({ datasetId }: { datasetId: string }) {
   const [overlap, setOverlap] = useState(50)
   const [topK, setTopK] = useState(5)
   const [threshold, setThreshold] = useState(0.6)
+  const [embedModel, setEmbedModel] = useState<string>()
   const [initialized, setInitialized] = useState(false)
 
   // 表单初始值随数据填充（仅一次）
@@ -282,6 +288,7 @@ function SettingsTab({ datasetId }: { datasetId: string }) {
     setOverlap(dataset.chunk_config.overlap)
     setTopK(dataset.retrieval_config.top_k)
     setThreshold(dataset.retrieval_config.score_threshold)
+    setEmbedModel(dataset.embed_model)
     setInitialized(true)
   }
 
@@ -297,6 +304,16 @@ function SettingsTab({ datasetId }: { datasetId: string }) {
       qc.invalidateQueries({ queryKey: ['datasets'] })
       toast.success('设置已保存')
     },
+    onError: (e) => toast.error((e as Error).message),
+  })
+
+  const reindexMut = useMutation({
+    mutationFn: () => reindexDataset(datasetId, embedModel),
+    onSuccess: (r) => {
+      qc.invalidateQueries({ queryKey: ['datasets'] })
+      toast.success(`索引已重建：${r.chunk_count} 个分段`)
+    },
+    onError: (e) => toast.error((e as Error).message),
   })
 
   if (!dataset) return null
@@ -356,6 +373,28 @@ function SettingsTab({ datasetId }: { datasetId: string }) {
             onChange={(e) => setThreshold(Number(e.target.value))}
             className="bg-background"
           />
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground">分段参数只对之后上传的文档生效</p>
+      <div className="space-y-1.5 rounded-xl border p-3">
+        <label className="text-sm font-medium">嵌入模型</label>
+        <EmbedModelSelect value={embedModel} onChange={setEmbedModel} />
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-[11px] text-muted-foreground">
+            当前：{dataset.embed_model ?? '默认嵌入模型'}。更换模型需重建全部向量
+          </p>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 shrink-0 gap-1 text-xs"
+            disabled={reindexMut.isPending}
+            onClick={() => {
+              if (confirm('将用所选嵌入模型重新向量化全部分段，确认继续？')) reindexMut.mutate()
+            }}
+          >
+            <RefreshCw className={`h-3 w-3 ${reindexMut.isPending ? 'animate-spin' : ''}`} />
+            重建索引
+          </Button>
         </div>
       </div>
       <Button className="gap-1.5" onClick={() => saveMut.mutate()} disabled={saveMut.isPending || !name.trim()}>

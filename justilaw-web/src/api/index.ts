@@ -10,6 +10,7 @@ import type {
   ModelDist,
   ModelInfo,
   ModelProvider,
+  ModelSettings,
   Message,
   Prompt,
   UsagePoint,
@@ -111,11 +112,24 @@ export async function listDocuments(datasetId: string): Promise<Document[]> {
   return (await http.get(`/datasets/${datasetId}/documents`)) as Document[]
 }
 
-export async function uploadDocument(datasetId: string, filename: string, size: number): Promise<Document> {
-  if (USE_MOCK) return mockApi.uploadDocument(datasetId, filename, size)
+export async function uploadDocument(datasetId: string, file: File): Promise<Document> {
+  if (USE_MOCK) return mockApi.uploadDocument(datasetId, file.name, file.size)
   const form = new FormData()
-  form.append('file', new Blob([filename]), filename)
-  return (await http.post(`/datasets/${datasetId}/documents`, form)) as Document
+  form.append('file', file, file.name)
+  // 后端按契约返回 Document[]（支持一次多文件）
+  const docs = (await http.post(`/datasets/${datasetId}/documents`, form)) as Document[]
+  return docs[0]
+}
+
+export async function reindexDataset(
+  datasetId: string,
+  embedModel?: string,
+): Promise<{ chunk_count: number; embed_model: string }> {
+  if (USE_MOCK) return mockApi.reindexDataset(datasetId, embedModel)
+  return (await http.post(`/datasets/${datasetId}/reindex`, { embed_model: embedModel })) as {
+    chunk_count: number
+    embed_model: string
+  }
 }
 
 export async function deleteDocument(documentId: string): Promise<void> {
@@ -185,6 +199,16 @@ export async function listModels(): Promise<ModelInfo[]> {
   return (await http.get('/models')) as ModelInfo[]
 }
 
+export async function getModelSettings(): Promise<ModelSettings> {
+  if (USE_MOCK) return mockApi.getModelSettings()
+  return (await http.get('/settings/models')) as ModelSettings
+}
+
+export async function setModelSettings(patch: Partial<ModelSettings>): Promise<ModelSettings> {
+  if (USE_MOCK) return mockApi.setModelSettings(patch)
+  return (await http.put('/settings/models', patch)) as ModelSettings
+}
+
 export async function pingModel(id: string): Promise<{ latency_ms: number }> {
   if (USE_MOCK) return mockApi.pingModel(id)
   return (await http.post(`/models/${encodeURIComponent(id)}/ping`)) as { latency_ms: number }
@@ -214,6 +238,11 @@ export async function deleteProvider(id: string): Promise<void> {
   await http.delete(`/providers/${id}`)
 }
 
+export async function refreshProvider(id: string): Promise<ModelProvider> {
+  if (USE_MOCK) return mockApi.refreshProvider(id)
+  return (await http.post(`/providers/${id}/refresh`)) as ModelProvider
+}
+
 export async function pingProvider(id: string): Promise<{ latency_ms: number }> {
   if (USE_MOCK) return mockApi.pingModel(id)
   return (await http.post(`/providers/${id}/ping`)) as { latency_ms: number }
@@ -232,13 +261,10 @@ export async function removeProviderModel(providerId: string, modelId: string): 
   await http.delete(`/providers/${providerId}/models/${encodeURIComponent(modelId)}`)
 }
 
-export async function uploadFile(
-  filename: string,
-  size: number,
-): Promise<{ file_id: string; filename: string; size: number }> {
-  if (USE_MOCK) return mockApi.uploadFile(filename, size)
+export async function uploadFile(file: File): Promise<{ file_id: string; filename: string; size: number }> {
+  if (USE_MOCK) return mockApi.uploadFile(file.name, file.size)
   const form = new FormData()
-  form.append('file', new Blob([filename]), filename)
+  form.append('file', file, file.name)
   return (await http.post('/files', form)) as { file_id: string; filename: string; size: number }
 }
 
@@ -255,6 +281,14 @@ export async function createPrompt(body: { name: string; content: string; catego
 export async function deletePrompt(id: string): Promise<void> {
   if (USE_MOCK) return mockApi.deletePrompt(id)
   await http.delete(`/prompts/${id}`)
+}
+
+/* ============ 当前用户 ============ */
+
+/** 登录后把 ID Token 中的昵称/邮箱/头像同步到后端（access token 不含这些资料） */
+export async function syncProfile(profile: { nickname?: string; email?: string; avatar?: string }): Promise<void> {
+  if (USE_MOCK) return
+  await http.put('/users/me', profile)
 }
 
 /* ============ 管理后台 ============ */

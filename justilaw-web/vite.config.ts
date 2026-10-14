@@ -14,7 +14,7 @@ export default defineConfig({
     // 后端联调时启用代理（Mock 模式下不生效）
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

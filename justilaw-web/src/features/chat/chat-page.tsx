@@ -5,16 +5,14 @@ import {
   Bot,
   Check,
   Gavel,
-  Library,
   MessagesSquare,
   Menu,
   ScrollText,
-  FileSearch,
   X,
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { createConversation, getAgent } from '@/api'
+import { createConversation, getAgent, listAgents } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -28,10 +26,19 @@ import type { Agent, Message } from '@/types/api'
 
 /* ---------- 空状态（未选会话） ---------- */
 
+const CATEGORY_ICONS: Record<string, typeof Bot> = {
+  法律咨询: MessagesSquare,
+  司法辅助: Gavel,
+  合同文书: ScrollText,
+}
+
 function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const setPrefill = useChatStore((s) => s.setPrefill)
+  // 快捷入口取已发布的智能体，而不是写死 ID（Mock 与真实后端的 ID 不同）
+  const { data: agents } = useQuery({ queryKey: ['agents'], queryFn: listAgents, enabled: !agent })
+  const quickAgents = (agents ?? []).filter((a) => a.status === 'published').slice(0, 6)
 
   const createMut = useMutation({
     mutationFn: (title: string) => createConversation({ title, agent_id: agentId }),
@@ -74,25 +81,21 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
         </div>
       ) : (
         <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {[
-            { id: 'a_1001', name: '法律咨询助手', icon: MessagesSquare },
-            { id: 'a_1002', name: '判决预测', icon: Gavel },
-            { id: 'a_1003', name: '类案检索', icon: FileSearch },
-            { id: 'a_1004', name: '法条解释', icon: ScrollText },
-            { id: 'a_1005', name: '合同审查', icon: Library },
-            { id: 'a_1006', name: '文书起草', icon: Bot },
-          ].map(({ id, name, icon: Icon }) => (
-            <Button
-              key={id}
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => navigate(`/chat?agentId=${id}`)}
-            >
-              <Icon className="h-3.5 w-3.5" />
-              {name}
-            </Button>
-          ))}
+          {quickAgents.map((a) => {
+            const Icon = CATEGORY_ICONS[a.category] ?? Bot
+            return (
+              <Button
+                key={a.id}
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => navigate(`/chat?agentId=${a.id}`)}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {a.name}
+              </Button>
+            )
+          })}
         </div>
       )}
     </div>

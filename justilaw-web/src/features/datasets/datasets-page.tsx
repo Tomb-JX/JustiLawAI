@@ -15,6 +15,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/common/misc'
 import { Textarea } from '@/components/ui/textarea'
+import { EmbedModelSelect } from './embed-model-select'
 
 export default function DatasetsPage() {
   const navigate = useNavigate()
@@ -22,20 +23,24 @@ export default function DatasetsPage() {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [embedModel, setEmbedModel] = useState<string>()
 
   const { data: datasets, isLoading } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['datasets'] })
 
   const createMut = useMutation({
-    mutationFn: () => createDataset({ name: name.trim(), description: description.trim() }),
+    mutationFn: () =>
+      createDataset({ name: name.trim(), description: description.trim(), embed_model: embedModel }),
     onSuccess: () => {
       invalidate()
       toast.success('知识库已创建')
       setOpen(false)
       setName('')
       setDescription('')
+      setEmbedModel(undefined)
     },
+    onError: (e) => toast.error((e as Error).message),
   })
 
   const deleteMut = useMutation({
@@ -130,6 +135,11 @@ export default function DatasetsPage() {
               placeholder="描述（可选）"
               className="min-h-[72px]"
             />
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">嵌入模型</label>
+              <EmbedModelSelect value={embedModel} onChange={setEmbedModel} />
+              <p className="text-[11px] text-muted-foreground">建库后更换需在「设置」中重建索引</p>
+            </div>
             <p className="text-xs text-muted-foreground">
               分段与检索参数创建后可在「设置」Tab 中调整
             </p>

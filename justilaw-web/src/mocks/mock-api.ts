@@ -28,6 +28,8 @@ import type {
   DocumentStatus,
   ModelDist,
   ModelInfo,
+  ModelProvider,
+  ModelSettings,
   Message,
   Prompt,
   UsagePoint,
@@ -41,6 +43,25 @@ function sortConversations(list: Conversation[]): Conversation[] {
       b.last_message_at.localeCompare(a.last_message_at),
   )
 }
+
+/* 供应商 / 默认模型（内存态） */
+const mockProviders: ModelProvider[] = [
+  {
+    id: 'justilaw',
+    name: 'JustiLawAI（演示）',
+    type: 'openai_compat',
+    base_url: 'https://api.justilaw.ai/v1',
+    api_key: '',
+    enabled: true,
+    models: models.map((m) => ({
+      id: m.id,
+      name: m.name,
+      capabilities: m.capabilities ?? ['completion'],
+      default_params: m.default_params,
+    })),
+  },
+]
+const mockModelSettings: ModelSettings = { default_chat_model: models[0]?.id ?? null, default_embed_model: null }
 
 const sleep = () => delay(120 + Math.random() * 260)
 
@@ -336,6 +357,88 @@ export const mockApi = {
   async pingModel(_id: string): Promise<{ latency_ms: number }> {
     await delay(300)
     return { latency_ms: 40 + Math.floor(Math.random() * 160) }
+  },
+
+  async getModelSettings(): Promise<ModelSettings> {
+    await delay(60)
+    return { ...mockModelSettings }
+  },
+
+  async setModelSettings(patch: Partial<ModelSettings>): Promise<ModelSettings> {
+    await delay(80)
+    Object.assign(mockModelSettings, patch)
+    return { ...mockModelSettings }
+  },
+
+  async listProviders(): Promise<ModelProvider[]> {
+    await sleep()
+    return mockProviders.map((p) => ({ ...p, models: [...p.models] }))
+  },
+
+  async addProvider(body: { name: string; base_url: string; api_key?: string }): Promise<ModelProvider> {
+    await delay(120)
+    const p: ModelProvider = {
+      id: uid('custom'),
+      name: body.name,
+      type: 'openai_compat',
+      base_url: body.base_url.replace(/\/+$/, ''),
+      api_key: body.api_key ? `********${body.api_key.slice(-4)}` : '',
+      enabled: true,
+      models: [],
+    }
+    mockProviders.push(p)
+    return p
+  },
+
+  async updateProvider(id: string, patch: Partial<ModelProvider>): Promise<ModelProvider> {
+    await delay(80)
+    const p = mockProviders.find((x) => x.id === id)
+    if (!p) throw new Error('供应商不存在')
+    Object.assign(p, patch)
+    return p
+  },
+
+  async deleteProvider(id: string): Promise<void> {
+    await delay(80)
+    const idx = mockProviders.findIndex((p) => p.id === id)
+    if (idx >= 0) mockProviders.splice(idx, 1)
+  },
+
+  async refreshProvider(id: string): Promise<ModelProvider> {
+    await delay(200)
+    const p = mockProviders.find((x) => x.id === id)
+    if (!p) throw new Error('供应商不存在')
+    return p
+  },
+
+  async addProviderModel(
+    providerId: string,
+    model: { id?: string; name: string; capabilities?: string[] },
+  ): Promise<ModelInfo> {
+    await delay(80)
+    const p = mockProviders.find((x) => x.id === providerId)
+    if (!p) throw new Error('供应商不存在')
+    const entry = {
+      id: `${providerId}/${model.id ?? model.name}`,
+      name: model.name,
+      capabilities: model.capabilities ?? ['completion'],
+      default_params: { temperature: 0.7, top_p: 0.9, max_tokens: 2048 },
+    }
+    p.models = [...p.models.filter((m) => m.id !== entry.id), entry]
+    return { ...entry, provider: p.id, provider_name: p.name }
+  },
+
+  async removeProviderModel(providerId: string, modelId: string): Promise<void> {
+    await delay(80)
+    const p = mockProviders.find((x) => x.id === providerId)
+    if (p) p.models = p.models.filter((m) => m.id !== modelId)
+  },
+
+  async reindexDataset(datasetId: string, embedModel?: string): Promise<{ chunk_count: number; embed_model: string }> {
+    await delay(800)
+    const ds = datasets.find((d) => d.id === datasetId)
+    if (ds && embedModel) ds.embed_model = embedModel
+    return { chunk_count: 0, embed_model: embedModel ?? ds?.embed_model ?? '' }
   },
 
   async uploadFile(filename: string, size: number): Promise<{ file_id: string; filename: string; size: number }> {

@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eraser, Library, RotateCcw, SlidersHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
-import { clearMessages, getDataset, listConversations, listDatasets, listModels } from '@/api'
+import { clearMessages, getDataset, getModelSettings, listConversations, listDatasets, listModels } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -56,16 +56,21 @@ export function ChatHeader({
 }) {
   const qc = useQueryClient()
   const { data: conversations } = useQuery({ queryKey: ['conversations'], queryFn: listConversations })
-  const { data: models } = useQuery({ queryKey: ['models'], queryFn: listModels })
+  const { data: allModels } = useQuery({ queryKey: ['models'], queryFn: listModels })
+  const { data: modelSettings } = useQuery({ queryKey: ['model-settings'], queryFn: getModelSettings })
+  // 嵌入模型不能用于对话
+  const models = allModels?.filter((m) => (m.capabilities ?? ['completion']).includes('completion'))
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
 
   const { model, setModel, params, setParams, resetParams, thinking, setThinking, ragEnabled, ragDatasetId, setRag } =
     useSettingsStore()
 
-  // 首次进入：默认选第一个模型
+  // 未选择或已失效（模型被删除/停用）时，回退到平台默认对话模型
   useEffect(() => {
-    if (models?.length && !model) setModel(models[0].id)
-  }, [models, model, setModel])
+    if (!models?.length || models.some((m) => m.id === model)) return
+    const fallback = models.find((m) => m.id === modelSettings?.default_chat_model) ?? models[0]
+    setModel(fallback.id)
+  }, [models, model, modelSettings, setModel])
 
   const currentModel = models?.find((m) => m.id === model)
   const conversation = conversations?.find((c) => c.id === conversationId)

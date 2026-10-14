@@ -7,7 +7,7 @@ import type { WorkflowEdge, WorkflowNode } from '@/types/api'
 export interface RunLogEntry {
   node_id: string
   name: string
-  status: 'waiting' | 'running' | 'succeeded' | 'failed'
+  status: 'waiting' | 'running' | 'succeeded' | 'failed' | 'skipped'
   elapsed?: number
   output?: string
 }

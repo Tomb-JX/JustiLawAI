@@ -13,6 +13,44 @@ export type ChatEventName =
   | 'done'
   | 'error'
 
+type EventHandler = (name: ChatEventName, data: Record<string, unknown>) => void
+
+/** POST 一个 SSE 接口并按事件名分发；onEvent 抛出的异常会终止整个流。 */
+async function postSSE(path: string, body: unknown, onEvent: EventHandler, signal: AbortSignal): Promise<void> {
+  await fetchEventSource(`${http.defaults.baseURL}${path}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
+    body: JSON.stringify(body),
+    signal,
+    openWhenHidden: true, // 页面切后台不中断生成
+    async onopen(res) {
+      if (res.ok) return
+      if (res.status === 401) notifyUnauthorized()
+      // 非 2xx 时后端返回 { code, message } 错误包
+      const detail = await res
+        .json()
+        .then((j: { message?: string }) => j.message)
+        .catch(() => undefined)
+      throw new Error(detail ?? `SSE 连接失败：HTTP ${res.status}`)
+    },
+    onmessage(ev) {
+      if (!ev.data) return
+      let data: Record<string, unknown>
+      try {
+        data = JSON.parse(ev.data)
+      } catch {
+        return // 非 JSON 数据忽略
+      }
+      // 不能放进上面的 try：error 事件需要抛出以终止流
+      onEvent((ev.event || 'message') as ChatEventName, data)
+    },
+    // 抛错以终止（默认行为是无限重连）
+    onerror(err) {
+      throw err
+    },
+  })
+}
+
 /**
  * 对话补全（SSE 流式）。
  * Mock 模式：由本地模拟器逐事件推送（含中断支持）；
@@ -20,35 +58,21 @@ export type ChatEventName =
  */
 export async function streamChatCompletion(
   body: ChatCompletionRequest,
-  onEvent: (name: ChatEventName, data: Record<string, unknown>) => void,
+  onEvent: EventHandler,
   signal: AbortSignal,
 ): Promise<void> {
   if (USE_MOCK) {
     return mockChatStream(body, onEvent, signal)
   }
+  await postSSE('/chat/completions', body, onEvent, signal)
+}
 
-  const url = `${http.defaults.baseURL}/chat/completions`
-  await fetchEventSource(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...(await getAuthHeaders()) },
-    body: JSON.stringify(body),
-    signal,
-    openWhenHidden: true, // 页面切后台不中断生成
-    async onopen(res) {
-      if (res.status === 401) notifyUnauthorized()
-      if (!res.ok) throw new Error(`SSE 连接失败：HTTP ${res.status}`)
-    },
-    onmessage(ev) {
-      if (!ev.data) return
-      try {
-        onEvent((ev.event || 'message') as ChatEventName, JSON.parse(ev.data))
-      } catch {
-        // 非 JSON 数据忽略
-      }
-    },
-    // 抛错以终止（默认行为是无限重连）
-    onerror(err) {
-      throw err
-    },
-  })
+/** 工作流试运行（真实模式）：workflow 事件逐节点回报，message 为最终结果。 */
+export async function streamWorkflowRun(
+  workflowId: string,
+  body: { inputs: Record<string, string>; dsl?: unknown },
+  onEvent: EventHandler,
+  signal: AbortSignal,
+): Promise<void> {
+  await postSSE(`/workflows/${workflowId}/run`, body, onEvent, signal)
 }

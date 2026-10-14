@@ -117,6 +117,8 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
                   payload: data.payload as MessageCard['payload'],
                 },
               })
+            } else if (name === 'tool_call' && data.status === 'failed') {
+              toast.warning(String(data.message ?? '工具调用失败'))
             } else if (name === 'error') {
               throw new Error(String(data.message ?? '生成失败'))
             }

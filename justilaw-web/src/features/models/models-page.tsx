@@ -47,9 +47,7 @@ export default function ModelsPage() {
           <PageLoading />
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">
-            {models
-              ?.filter((m) => (m.capabilities ?? ['completion']).includes('completion'))
-              .map((m) => (
+            {models?.map((m) => (
                 <div key={m.id} className="rounded-2xl border bg-card p-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -91,7 +89,7 @@ export default function ModelsPage() {
             模型能力标签
           </div>
           对话 / 视觉 / 工具 / 思维链 / 嵌入。带「思维链」的模型可在对话参数面板开启深度思考；
-          「嵌入」模型用于知识库向量化（当前：bge-m3）。
+          「嵌入」模型用于知识库向量化，默认嵌入模型可在「模型服务」页设置。
         </div>
       </div>
     </div>
