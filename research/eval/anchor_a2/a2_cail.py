@@ -202,6 +202,67 @@ def cmd_baselines():
         csv.writer(f).writerows(rows)
 
 
+# ---------- 门禁 A2 判定框架：5 × 5 折重复分层交叉验证（门禁文档 §4 A2 v0.3） ----------
+
+CV_SEEDS = (11, 22, 33, 44, 55)
+CV_RESULTS = HERE / "cv_results.json"
+
+
+def cv_folds(ids: list[str], labels: list[int]):
+    """固定的 25 个划分（5 个种子 × 5 折）。任何系统都在完全相同的划分上评估，才能逐折配对。"""
+    from sklearn.model_selection import StratifiedKFold
+    for seed in CV_SEEDS:
+        for k, (tr, te) in enumerate(StratifiedKFold(5, shuffle=True, random_state=seed).split(ids, labels)):
+            yield f"s{seed}-f{k}", tr, te
+
+
+def text_system(kind: str):
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import Pipeline
+    from sklearn.svm import LinearSVC
+    clf = LinearSVC(C=0.3) if kind == "svm" else LogisticRegression(C=3.0, max_iter=3000)
+    return Pipeline([("tfidf", TfidfVectorizer(analyzer="char", ngram_range=(1, 3), sublinear_tf=True,
+                                               min_df=2, max_features=200_000)), ("clf", clf)])
+
+
+def cmd_cv():
+    from sklearn.metrics import f1_score
+    cases, _ = load_cases()
+    pool = read_split("train") + read_split("valid")          # 封存的测试部分不参与
+    y = np.array([cases[i]["cls"] for i in pool])
+    X = [cases[i]["fact"] for i in pool]
+    results = json.loads(CV_RESULTS.read_text("utf-8")) if CV_RESULTS.exists() else {}
+    for name in ("B-majority", "B4-tfidf-svm", "B4-tfidf-lr"):
+        if name in results:
+            continue
+        folds = {}
+        for fid, tr, te in cv_folds(pool, list(y)):
+            if name == "B-majority":
+                pred = np.full(len(te), Counter(y[tr]).most_common(1)[0][0])
+            else:
+                model = text_system("svm" if "svm" in name else "lr").fit([X[i] for i in tr], y[tr])
+                pred = model.predict([X[i] for i in te])
+            folds[fid] = {"acc": float((pred == y[te]).mean()),
+                          "ma_f": float(f1_score(y[te], pred, average="macro", zero_division=0)),
+                          "n_train": len(tr), "n_test": len(te)}
+        results[name] = folds
+        CV_RESULTS.write_text(json.dumps(results, ensure_ascii=False, indent=1), "utf-8")
+        accs = [f["acc"] for f in folds.values()]
+        mafs = [f["ma_f"] for f in folds.values()]
+        print(f"{name:<14} 25 折 Acc {np.mean(accs) * 100:.2f} ± {np.std(accs, ddof=1) * 100:.2f}   "
+              f"Ma-F {np.mean(mafs) * 100:.2f} ± {np.std(mafs, ddof=1) * 100:.2f}")
+
+
+def compare_cv(system: str, baseline: str, metric: str = "acc") -> dict:
+    """逐折配对 + 修正 t 检验（Nadeau & Bengio 2003）。"""
+    res = json.loads(CV_RESULTS.read_text("utf-8"))
+    a, b = res[system], res[baseline]
+    diffs = [a[f][metric] - b[f][metric] for f in a]
+    f0 = next(iter(a.values()))
+    return M.corrected_resampled_ttest(diffs, f0["n_train"], f0["n_test"])
+
+
 # ---------- 探针：结构化要素是否有增益（正则粗抽，仅用于诊断，不进入产品） ----------
 
 _NUM = r"(\d+(?:\.\d+)?)\s*(万)?\s*余?\s*元"
@@ -276,4 +337,4 @@ def cmd_probe():
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
-    {"prepare": cmd_prepare, "baselines": cmd_baselines, "probe": cmd_probe}[sys.argv[1]]()
+    {"prepare": cmd_prepare, "baselines": cmd_baselines, "probe": cmd_probe, "cv": cmd_cv}[sys.argv[1]]()
