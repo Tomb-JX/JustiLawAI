@@ -7,7 +7,7 @@ import { listModels, pingModel } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/common/misc'
-import { OllamaSetupDialog, useSetupTarget } from './ollama-setup'
+import { OllamaSetupDialog, SETUP_LABELS, useSetupTargets, type SetupTarget } from './ollama-setup'
 
 const CAP_LABELS: Record<string, string> = {
   completion: '对话',
@@ -19,8 +19,8 @@ const CAP_LABELS: Record<string, string> = {
 
 export default function ModelsPage() {
   const { data: models, isLoading } = useQuery({ queryKey: ['models'], queryFn: listModels })
-  const setupTarget = useSetupTarget()
-  const [setupOpen, setSetupOpen] = useState(false)
+  const setupTargets = useSetupTargets()
+  const [setupTarget, setSetupTarget] = useState<SetupTarget>()
 
   const pingMut = useMutation({
     mutationFn: pingModel,
@@ -54,15 +54,29 @@ export default function ModelsPage() {
             <Plug className="h-8 w-8 text-muted-foreground" />
             <p className="mt-3 text-sm font-medium">还没有可用模型</p>
             <p className="mt-1 max-w-sm text-xs text-muted-foreground">
-              {setupTarget === 'browser'
+              {setupTargets[0] === 'browser'
                 ? '可以连接你电脑上的 Ollama，模型在本机运行；服务器模型由管理员配置。'
                 : '检测 Ollama 并一键下载推荐模型，或在「模型服务配置」接入 OpenAI 兼容 API。'}
             </p>
-            <Button size="sm" className="mt-4 gap-1.5" onClick={() => setSetupOpen(true)}>
-              <Plug className="h-3.5 w-3.5" />
-              {setupTarget === 'browser' ? '连接我电脑上的 Ollama' : '连接模型'}
-            </Button>
-            <OllamaSetupDialog open={setupOpen} onOpenChange={setSetupOpen} target={setupTarget} />
+            <div className="mt-4 flex flex-wrap justify-center gap-2">
+              {setupTargets.map((t, i) => (
+                <Button
+                  key={t}
+                  size="sm"
+                  variant={i === 0 ? 'default' : 'outline'}
+                  className="gap-1.5"
+                  onClick={() => setSetupTarget(t)}
+                >
+                  <Plug className="h-3.5 w-3.5" />
+                  {setupTargets.length === 1 && t === 'server' ? '连接模型' : SETUP_LABELS[t].replace('…', '')}
+                </Button>
+              ))}
+            </div>
+            <OllamaSetupDialog
+              open={!!setupTarget}
+              onOpenChange={(v) => !v && setSetupTarget(undefined)}
+              target={setupTarget ?? 'browser'}
+            />
           </div>
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2">

@@ -5,6 +5,7 @@
  * - target="browser"：浏览器直连用户电脑上的 Ollama（公网站点）。检测 / 拉取都由浏览器直接完成
  */
 import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useQueryClient } from '@tanstack/react-query'
 import { Check, Download, ExternalLink, Loader2, MonitorSmartphone, RefreshCw, Server } from 'lucide-react'
 import { toast } from 'sonner'
@@ -32,11 +33,26 @@ import {
 
 export type SetupTarget = 'server' | 'browser'
 
-/** 向导目标：单机部署或管理员 → 配置服务端 Ollama；公网普通用户 → 浏览器直连自己电脑上的 Ollama */
-export function useSetupTarget(): SetupTarget {
+/**
+ * 当前用户可用的接入方式（第一个为默认）：
+ * - 单机部署：服务端就是本机，只有 server
+ * - 公网管理员：server（配置服务器上的 Ollama）+ browser（自己电脑上的 Ollama）
+ * - 公网普通用户：只有 browser，服务器模型由管理员配置
+ */
+export function useSetupTargets(): SetupTarget[] {
   const authMode = useAuthMode()
   const { data: user } = useCurrentUser()
-  return authMode === 'local' || user?.isAdmin ? 'server' : 'browser'
+  if (authMode === 'local') return ['server']
+  return user?.isAdmin ? ['server', 'browser'] : ['browser']
+}
+
+export function useSetupTarget(): SetupTarget {
+  return useSetupTargets()[0]
+}
+
+export const SETUP_LABELS: Record<SetupTarget, string> = {
+  server: '连接 / 下载服务器模型…',
+  browser: '使用我电脑上的 Ollama…',
 }
 
 interface Recommended {
@@ -81,6 +97,21 @@ function Steps({ step }: { step: number }) {
   )
 }
 
+/** Ollama 拉取状态 → 中文（pulling <digest> / verifying sha256 digest / writing manifest / success） */
+function pullStatusText(status?: string): string {
+  if (!status) return '准备中…'
+  if (status.startsWith('pulling manifest')) return '获取模型清单…'
+  if (status.startsWith('pulling')) return '下载中…'
+  if (status.startsWith('verifying')) return '校验文件…'
+  if (status.startsWith('writing') || status.startsWith('removing')) return '写入中…'
+  if (status === 'success') return '完成'
+  return status
+}
+
+function fmtGB(n: number) {
+  return `${(n / 1e9).toFixed(n >= 1e10 ? 0 : 1)} GB`
+}
+
 function ProgressBar({ p }: { p?: PullProgress }) {
   const pct = p?.total ? Math.min(100, Math.round(((p.completed ?? 0) / p.total) * 100)) : undefined
   return (
@@ -92,8 +123,12 @@ function ProgressBar({ p }: { p?: PullProgress }) {
         />
       </div>
       <div className="flex justify-between text-[11px] text-muted-foreground">
-        <span className="truncate">{p?.status ?? '准备中…'}</span>
-        {pct !== undefined && <span>{pct}%</span>}
+        <span className="truncate">{pullStatusText(p?.status)}</span>
+        {pct !== undefined && p?.total && (
+          <span>
+            {fmtGB(p.completed ?? 0)} / {fmtGB(p.total)} · {pct}%
+          </span>
+        )}
       </div>
     </div>
   )
@@ -278,6 +313,18 @@ export function OllamaSetup({ target, onDone }: { target: SetupTarget; onDone?: 
         <div className="space-y-3">
           <p className="text-xs text-muted-foreground">
             已连接 Ollama{url ? `（${url}）` : ''}。下载推荐模型，或直接使用已有模型。模型只需下载一次。
+            {!pulling && (
+              <button
+                className="ml-1 text-primary hover:underline"
+                onClick={() => {
+                  setStatus('unknown')
+                  setError(null)
+                  setStep(0)
+                }}
+              >
+                更换地址
+              </button>
+            )}
           </p>
           {needed.map((r) => {
             const ok = installed.some((n) => sameModel(n, r.name))
@@ -360,21 +407,31 @@ export function OllamaSetupDialog({
   onOpenChange: (v: boolean) => void
   target: SetupTarget
 }) {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const isLocalDeploy = useAuthMode() === 'local'
+  // 「开始对话」：不在对话页时（如模型服务页）顺带跳过去
+  const done = () => {
+    onOpenChange(false)
+    if (!location.pathname.startsWith('/chat')) navigate('/chat')
+  }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {target === 'browser' ? <MonitorSmartphone className="h-4 w-4" /> : <Server className="h-4 w-4" />}
-            {target === 'browser' ? '使用我电脑上的 Ollama' : '连接 Ollama 模型'}
+            {target === 'browser' ? '使用我电脑上的 Ollama' : isLocalDeploy ? '连接 Ollama 模型' : '配置服务器上的 Ollama'}
           </DialogTitle>
           <DialogDescription>
             {target === 'browser'
               ? '模型在你自己的电脑上运行，对话内容不经过第三方模型服务。'
-              : '把本机或服务器上的 Ollama 接入平台，全程三步。'}
+              : isLocalDeploy
+                ? '检测本机的 Ollama 并下载推荐模型，全程三步。'
+                : '服务器使用的 Ollama 对所有用户生效（仅管理员可配置）。'}
           </DialogDescription>
         </DialogHeader>
-        {open && <OllamaSetup target={target} onDone={() => onOpenChange(false)} />}
+        {open && <OllamaSetup target={target} onDone={done} />}
       </DialogContent>
     </Dialog>
   )

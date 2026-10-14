@@ -33,10 +33,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // 后端联调时启用代理（Mock 模式下不生效）
+    // 后端联调时启用代理（Mock 模式下不生效）；JUSTILAW_API 可改代理目标，如并行跑多个后端时
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.JUSTILAW_API ?? 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },

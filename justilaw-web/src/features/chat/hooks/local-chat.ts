@@ -24,6 +24,7 @@ export async function streamLocalChatCompletion(
   let reasoning = ''
   let usage: { prompt_tokens: number; completion_tokens: number } | undefined
   let status: 'done' | 'aborted' | 'error' = 'done'
+  let failure = ''
   try {
     for await (const d of streamLocalChat(
       baseUrl,
@@ -45,17 +46,20 @@ export async function streamLocalChatCompletion(
     }
   } catch (e) {
     status = signal.aborted ? 'aborted' : 'error'
-    if (!signal.aborted && e instanceof TypeError) {
-      throw new Error('无法连接你电脑上的 Ollama：请确认 Ollama 已打开，或在模型下拉中重新连接本机模型')
-    }
-    throw e
+    const err =
+      !signal.aborted && e instanceof TypeError
+        ? new Error('无法连接你电脑上的 Ollama：请确认 Ollama 已打开，或在模型下拉中重新连接本机模型')
+        : (e as Error)
+    failure = err.message
+    throw err
   } finally {
     // 中止/出错也要落库已生成的部分，与服务端推理的行为一致
     await chatCommit({
       conversation_id: req.conversation_id,
       assistant_id: prep.assistant_id,
       model: req.model,
-      content,
+      // 失败且没有任何输出时把原因写进消息，刷新后也能看到为什么没有回答
+      content: content || (status === 'error' ? `（生成失败：${failure}）` : ''),
       reasoning: reasoning || undefined,
       status,
       usage,
