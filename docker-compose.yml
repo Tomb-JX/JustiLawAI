@@ -1,0 +1,19 @@
+# JustiLawAI 单机部署（Docker）：docker compose up -d 后打开 http://127.0.0.1:8000
+# 前提：宿主机已安装并打开 Ollama。模型在网页的「模型连接向导」里一键下载。
+services:
+  justilaw:
+    build: .
+    image: justilaw-local
+    ports:
+      - "127.0.0.1:8000:8000"   # 只监听本机；单机模式免登录，不要直接暴露到局域网 / 公网
+    environment:
+      # 宿主机上的 Ollama；Linux 需要下面的 extra_hosts 才能解析这个名字
+      OLLAMA_BASE_URL: http://host.docker.internal:11434
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - justilaw-data:/data      # 会话、知识库、向量等运行数据
+    restart: unless-stopped
+
+volumes:
+  justilaw-data:
