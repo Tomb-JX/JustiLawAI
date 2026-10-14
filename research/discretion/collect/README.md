@@ -42,4 +42,6 @@
 - **浙江专栏**：列表是 JS 壳，真实数据经 `/api-gateway/jpaas-publish-server/front/page/build/unit` 的 **GET**（POST 报"不支持的HTTP方法"）；页面脚本里的 `count` 不可信（显示 1335 实为 58），以"返回空页"为准。
 - **湖南**：对 Python TLS 握手报 SSL 错误（curl 可通），适配需降 cipher 或换 http。
 - **CAIL2018**：官方仓库（thunlp/CAIL 及子模块）不含数据，用本地压缩包（`research/data/raw/CAIL2018_ALL_DATA.zip`，哈希见 manifest）；罪名直接存名称（如 `"赌博"`），不需要 accu.txt 映射。
+- **深圳 sf.sz.gov.cn**：服务端 ECC 握手与 Python OpenSSL 不兼容（`BAD_ECPOINT`，curl 可通）——用 `session(ciphers=NO_EC_CIPHERS)` 的纯 RSA 套件会话；翻页文件名从 `index_2.html` 起（index_1 不存在）；公告标题全部相同，文件名必须拼 URL 里的 post_id。
+- **北京司法局 sfj.beijing.gov.cn**：easysite CMS，翻页是 `ff08cf81-{n}.html`（totalpage=109）；栏目混有法考/采购通知，按标题含"复议/京政复"过滤；页内搜索组件也叫 `id="content"`，正文提取必须匹配 `class="Pub" id="content"`（已固化在 extract_html_text）。
 - **信用中国**（渠道 E）：JS 盾（412 + jsluid 挑战），纯 HTTP 无法合规通过，走真实浏览器采集。

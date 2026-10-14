@@ -21,5 +21,5 @@ shandong,省司法厅,山东,候选,,https://sft.shandong.gov.cn/,,,
 jiangsu,省司法厅,江苏,候选,,https://sft.jiangsu.gov.cn/,,,
 henan,省司法厅,河南,候选,,https://sft.henan.gov.cn/,,,
 hubei,省司法厅,湖北,候选,,https://sft.hubei.gov.cn/,,,
-sz,复议平台,广东深圳,已通,iter_sz,https://sf.sz.gov.cn/szsxzfywsfwpt/ggsd/,易讯CMS,正确域名sf.sz.gov.cn；BAD_ECPOINT走非EC套件；公告含文号/案由/结果；标题同名需post_id区分
+sz,复议平台,广东深圳,已通,iter_sz,https://sf.sz.gov.cn/szsxzfywsfwpt/ggsd/,易讯CMS,正确域名sf.sz.gov.cn；BAD_ECPOINT走非EC套件；公告含文号/案由/结果；标题同名需post_id区分；已收400件公告（20页全量）
 chengdu,市司法局,四川成都,候选,,https://www.chengdu.gov.cn/,,治安处罚基数大

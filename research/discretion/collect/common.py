@@ -121,10 +121,20 @@ def manifest_load() -> list[dict]:
 
 
 def manifest_add(row: dict) -> str:
-    """追加一行台账，返回分配的 id；同 source+sha256 已存在则原样返回其 id。"""
+    """追加一行台账，返回分配的 id；同渠道同来源 URL 已存在则原样返回其 id。
+
+    去重按 (channel, source_url_or_ref)：同一 URL 两次抓到的正文字节可能有微差
+    （页面动态内容），按哈希去重会造成重复登记。字段值清洗换行防 CSV 断行。
+    """
+    for k, v in list(row.items()):
+        if isinstance(v, str):
+            row[k] = v.replace("\r", " ").replace("\n", " ").strip()
     rows = manifest_load()
     for r in rows:
-        if r["source_url_or_ref"] == row.get("source_url_or_ref") and r["sha256"] == row.get("sha256"):
+        if (
+            r["channel"] == row.get("channel")
+            and r["source_url_or_ref"] == row.get("source_url_or_ref")
+        ):
             return r["id"]
     prefix = row.get("channel") or "X"
     seq = sum(1 for r in rows if r["id"].startswith(f"{prefix}-")) + 1
