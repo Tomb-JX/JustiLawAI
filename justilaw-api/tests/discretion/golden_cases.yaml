@@ -1,0 +1,252 @@
+# 规范层黄金用例（门禁 G0.2）
+# 状态：模型组草拟，待法律组逐条确认预期结果并签字。签字前用例仍可修改；签字后修改须登记偏离日志。
+# 格式：
+#   facts: 规范层 Facts 字段；金额写 {min, max}
+#   expect:
+#     law: 适用的法律
+#     allows / forbids: [档次, 拘留天数, 罚款元]，断言该处罚组合在 / 不在合法处罚空间内（0 表示不处该种处罚）
+#     effects / no_effects: 修正情节效果（从轻、减轻、不予处罚、从宽、从重）
+#     executable: {档次: true/false/null}，null 表示需人工判断
+#     review: 需人工复核提示中应出现的文字
+#     temporal: 时间效力说明中应出现的文字
+#     referral: 涉刑提示 [{item, status}]
+#     stake: 赌资门槛判断的 status
+signoff:
+  status: 待签字
+  signed_by: []
+  signed_at: null
+
+cases:
+  - id: GC-01
+    desc: 2026 年行为，新法一般档为"五日以下拘留或者一千元以下罚款"，二者择一
+    facts: {behavior_date: 2026-03-01, decision_date: 2026-03-05, behavior_type: 参与赌博}
+    expect:
+      law: psal-2025
+      allows: [[一般, 5, 0], [一般, 1, 0], [一般, 0, 1000], [情节严重, 15, 5000], [情节严重, 10, 1000]]
+      forbids: [[一般, 5, 1000], [一般, 6, 0], [一般, 0, 1001], [一般, 0, 0], [情节严重, 9, 1000], [情节严重, 10, 0], [情节严重, 0, 3000], [情节严重, 16, 5000]]
+
+  - id: GC-02
+    desc: 2025 年行为与决定，旧法罚款上限 500 元 / 3000 元
+    facts: {behavior_date: 2025-06-01, decision_date: 2025-06-10, behavior_type: 参与赌博}
+    expect:
+      law: psal-2012
+      allows: [[一般, 0, 500], [情节严重, 15, 3000], [情节严重, 10, 500]]
+      forbids: [[一般, 0, 501], [情节严重, 10, 3001], [情节严重, 10, 499]]
+
+  - id: GC-03
+    desc: 行为在新法施行前、决定在施行后，新法罚款更重 → 从旧
+    facts: {behavior_date: 2025-12-20, decision_date: 2026-01-10, behavior_type: 为赌博提供条件}
+    expect:
+      law: psal-2012
+      temporal: 适用行为时法
+      forbids: [[一般, 0, 800]]
+
+  - id: GC-04
+    desc: 跨施行日且原文认定"情节轻微"：新法可减轻或不予处罚但罚款上限更高，轻重互有高低 → 默认从旧并提示人工确认
+    facts: {behavior_date: 2025-12-20, decision_date: 2026-01-10, behavior_type: 参与赌博, minor_circumstance: 情节轻微}
+    expect:
+      law: psal-2012
+      review: [轻重互有高低]
+      forbids: [[一般, 0, 0]]
+
+  - id: GC-05
+    desc: 不满十四周岁，不予处罚
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 13}
+    expect:
+      law: psal-2025
+      effects: [不予处罚]
+      allows: [[一般, 0, 0], [情节严重, 0, 0]]
+      forbids: [[一般, 1, 0], [一般, 0, 100], [情节严重, 10, 1000]]
+
+  - id: GC-06
+    desc: 十五周岁（新法）：从轻或减轻；一般档不执行拘留；情节严重档是否执行取决于影响是否恶劣
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 15}
+    expect:
+      law: psal-2025
+      effects: [从轻, 减轻]
+      executable: {一般: false, 情节严重: null}
+      review: [影响恶劣]
+
+  - id: GC-07
+    desc: 十五周岁但一年内二次以上违反治安管理（新法第二十三条第二款）→ 仍执行拘留
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 15, violations_last_year: 2}
+    expect:
+      law: psal-2025
+      executable: {一般: true, 情节严重: true}
+
+  - id: GC-08
+    desc: 十七周岁、初次违反治安管理 → 不执行拘留
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 17, first_offense: true}
+    expect:
+      law: psal-2025
+      executable: {一般: false}
+
+  - id: GC-09
+    desc: 十七周岁、是否初次不明 → 需人工判断
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 17}
+    expect:
+      law: psal-2025
+      executable: {一般: null}
+      review: [初次]
+
+  - id: GC-10
+    desc: 七十二周岁 → 不执行拘留
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 72}
+    expect:
+      law: psal-2025
+      executable: {一般: false}
+
+  - id: GC-11
+    desc: 怀孕（新法例外条款不涉及第四项）→ 情节严重也不执行拘留
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, age: 30, pregnant_or_nursing: true, violations_last_year: 3}
+    expect:
+      law: psal-2025
+      executable: {一般: false, 情节严重: false}
+
+  - id: GC-12
+    desc: 十五周岁（旧法，无例外条款）→ 情节严重也不执行拘留
+    facts: {behavior_date: 2025-05-01, decision_date: 2025-05-10, behavior_type: 参与赌博, age: 15, violations_last_year: 2}
+    expect:
+      law: psal-2012
+      executable: {一般: false, 情节严重: false}
+
+  - id: GC-13
+    desc: 主动投案并如实陈述（新法第二十条第五项）→ 从轻、减轻或不予处罚；情节严重档按公通字〔2007〕1号第四条第三项展开减轻
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, surrendered: true, truthful_statement: true}
+    expect:
+      law: psal-2025
+      effects: [从轻, 减轻, 不予处罚]
+      allows: [[情节严重, 9, 1000], [情节严重, 10, 999], [情节严重, 9, 500], [情节严重, 12, 0], [情节严重, 0, 0], [一般, 0, 0]]
+      forbids: [[情节严重, 0, 2000], [情节严重, 0, 500]]
+      review: [覆盖范围]
+
+  - id: GC-14
+    desc: 旧法主动投案并如实陈述（第十九条）→ 减轻或不予处罚，没有"从轻"
+    facts: {behavior_date: 2025-05-01, decision_date: 2025-05-03, behavior_type: 参与赌博, surrendered: true, truthful_statement: true}
+    expect:
+      law: psal-2012
+      effects: [减轻, 不予处罚]
+      no_effects: [从轻]
+      allows: [[情节严重, 9, 500], [情节严重, 10, 499], [一般, 0, 0]]
+
+  - id: GC-15
+    desc: 旧法只认定"情节轻微"（非特别轻微）→ 不构成第十九条减轻情节
+    facts: {behavior_date: 2025-05-01, decision_date: 2025-05-03, behavior_type: 参与赌博, minor_circumstance: 情节轻微}
+    expect:
+      law: psal-2012
+      no_effects: [减轻, 不予处罚]
+      forbids: [[一般, 0, 0]]
+
+  - id: GC-16
+    desc: 旧法认定"情节特别轻微" → 可不予处罚
+    facts: {behavior_date: 2025-05-01, decision_date: 2025-05-03, behavior_type: 参与赌博, minor_circumstance: 情节特别轻微}
+    expect:
+      law: psal-2012
+      effects: [减轻, 不予处罚]
+      allows: [[一般, 0, 0]]
+
+  - id: GC-17
+    desc: 新法：十个月前受过治安处罚 → 一年以内，从重
+    facts: {behavior_date: 2026-06-01, behavior_type: 参与赌博, last_prior_penalty_date: 2025-08-01}
+    expect:
+      law: psal-2025
+      effects: [从重]
+
+  - id: GC-18
+    desc: 旧法：十个月前受过治安处罚 → 超过六个月，不从重
+    facts: {behavior_date: 2025-08-01, decision_date: 2025-08-05, behavior_type: 参与赌博, last_prior_penalty_date: 2024-10-01}
+    expect:
+      law: psal-2012
+      no_effects: [从重]
+
+  - id: GC-19
+    desc: 旧法：四个月前受过治安处罚 → 六个月内，从重
+    facts: {behavior_date: 2025-08-01, decision_date: 2025-08-05, behavior_type: 参与赌博, last_prior_penalty_date: 2025-04-01}
+    expect:
+      law: psal-2012
+      effects: [从重]
+
+  - id: GC-20
+    desc: 新法认错认罚（第二十一条）→ 可以从宽，但不改变处罚空间
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, truthful_statement: true, admits_and_accepts: true}
+    expect:
+      law: psal-2025
+      effects: [从宽]
+      no_effects: [减轻, 不予处罚]
+      forbids: [[一般, 0, 0]]
+      review: [从宽]
+
+  - id: GC-21
+    desc: 新法只有"主动消除或者减轻违法后果"一项即构成第二十条情节
+    facts: {behavior_date: 2026-03-01, behavior_type: 为赌博提供条件, remedied_consequence: true}
+    expect:
+      law: psal-2025
+      effects: [从轻, 减轻, 不予处罚]
+
+  - id: GC-22
+    desc: 旧法须"主动消除后果并取得谅解"两项同时具备
+    facts: {behavior_date: 2025-05-01, decision_date: 2025-05-03, behavior_type: 为赌博提供条件, remedied_consequence: true, victim_forgiveness: false}
+    expect:
+      law: psal-2012
+      no_effects: [减轻, 不予处罚]
+
+  - id: GC-23
+    desc: 抽头渔利 6000 元 → 达到聚众赌博提示门槛（门槛待核验）
+    facts: {behavior_date: 2026-03-01, behavior_type: 为赌博提供条件, commission: {min: 6000, max: 6000}}
+    expect:
+      law: psal-2025
+      referral: [{item: commission, status: 达到}]
+
+  - id: GC-24
+    desc: 累计赌资 4 万至 6 万元 → 可能达到涉刑门槛
+    facts: {behavior_date: 2026-03-01, behavior_type: 为赌博提供条件, cumulative_stake: {min: 40000, max: 60000}}
+    expect:
+      law: psal-2025
+      referral: [{item: cumulative_stake, status: 可能达到}]
+
+  - id: GC-25
+    desc: 行为类型为开设赌场 → 提示可能涉刑
+    facts: {behavior_date: 2026-03-01, behavior_type: 开设赌场}
+    expect:
+      law: psal-2025
+      referral: [{item: behavior_type, status: 行为类型为开设赌场}]
+
+  - id: GC-26
+    desc: 参与赌博但目标省份裁量基准未录入 → 赌资较大门槛未知，不作猜测
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, region: "330100", personal_stake: {min: 300, max: 300}}
+    expect:
+      law: psal-2025
+      stake: 门槛未知
+
+  - id: GC-27
+    desc: 决定日期早于新法施行 → 旧法
+    facts: {behavior_date: 2025-10-01, decision_date: 2025-12-31, behavior_type: 参与赌博}
+    expect:
+      law: psal-2012
+      temporal: 均适用
+
+  - id: GC-28
+    desc: 出于他人胁迫或者诱骗（新法）→ 第二十条情节
+    facts: {behavior_date: 2026-03-01, behavior_type: 参与赌博, coerced_or_lured: true}
+    expect:
+      law: psal-2025
+      effects: [从轻, 减轻, 不予处罚]
+
+  - id: GC-29
+    desc: 教唆他人参与（新法第二十二条第二项）→ 从重
+    facts: {behavior_date: 2026-03-01, behavior_type: 为赌博提供条件, instigated_others: true}
+    expect:
+      law: psal-2025
+      effects: [从重]
+
+  - id: GC-30
+    desc: 示例案情：茶楼经营者提供场所并收台费，七个月前因赌博受过拘留，认错认罚
+    facts: {behavior_date: 2026-03-12, behavior_type: 为赌博提供条件, last_prior_penalty_date: 2025-08-01,
+            truthful_statement: true, admits_and_accepts: true, commission: {min: 800, max: 800},
+            onsite_stake_total: {min: 4600, max: 4600}, participant_count: 3}
+    expect:
+      law: psal-2025
+      effects: [从重, 从宽]
+      no_effects: [减轻]
+      allows: [[一般, 5, 0], [情节严重, 15, 5000]]
+      forbids: [[一般, 0, 0]]

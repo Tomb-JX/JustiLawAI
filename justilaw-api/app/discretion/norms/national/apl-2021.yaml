@@ -1,0 +1,21 @@
+# 中华人民共和国行政处罚法（2021 年修订）——时间效力规则
+law_id: apl-2021
+title: 中华人民共和国行政处罚法（2021年修订）
+effective_from: 2021-07-15
+effective_to: null
+source:
+  url: https://zh.wikisource.org/wiki/中华人民共和国行政处罚法
+  publisher: 维基文库（转载，待对照官方文本）
+  retrieved: 2026-10-15
+verification:
+  status: 待核验
+  checked_by: []
+  checked_at: null
+
+articles:
+  "37": "实施行政处罚，适用违法行为发生时的法律、法规、规章的规定。但是，作出行政处罚决定时，法律、法规、规章已被修改或者废止，且新的规定处罚较轻或者不认为是违法的，适用新的规定。"
+
+temporal_rule:
+  article: "37"
+  default: 行为时法
+  exception: 决定时新法处罚较轻或者不认为是违法的，适用新法

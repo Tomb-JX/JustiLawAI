@@ -1,0 +1,60 @@
+# 解释性文件与计算规则
+# text 为空的条目尚未取得原文：引擎只用其结构化参数做内部判断，说理中不得引用（门禁红线 R2）。
+documents:
+  - doc_id: gtz-2007-1
+    title: 公安机关执行《中华人民共和国治安管理处罚法》有关问题的解释（二）
+    number: 公通字〔2007〕1号
+    source:
+      url: https://www.055110.com/law/1/12804.html
+      publisher: 律法网（转载，待对照官方文本）
+      retrieved: 2026-10-15
+    verification:
+      status: 待核验
+      note: 依据 2005 年版条文编号（第十二、十四、十九条）制定，在 2025 年修订后是否继续适用须法律组确认
+    articles:
+      "4": "违反治安管理行为人具有《治安管理处罚法》第十二条、第十四条、第十九条减轻处罚情节的，按下列规定适用：（一）法定处罚种类只有一种，在该法定处罚种类的幅度以下减轻处罚；（二）法定处罚种类只有一种，在该法定处罚种类的幅度以下无法再减轻处罚的，不予处罚；（三）规定拘留并处罚款的，在法定处罚幅度以下单独或者同时减轻拘留和罚款，或者在法定处罚幅度内单处拘留；（四）规定拘留可以并处罚款的，在拘留的法定处罚幅度以下减轻处罚；在拘留的法定处罚幅度以下无法再减轻处罚的，不予处罚。"
+      "5": "《治安管理处罚法》第二十一条第二项规定的\"初次违反治安管理\"，是指行为人的违反治安管理行为第一次被公安机关发现或者查处。"
+
+  - doc_id: gtz-2005-30
+    title: 公安部关于办理赌博违法案件适用法律若干问题的通知
+    number: 公通字〔2005〕30号
+    source: {url: null, publisher: 未取得原文, retrieved: null}
+    verification: {status: 待核验, note: 仅见于行政复议决定书引用}
+    articles: {}
+
+  - doc_id: spc-spp-2005-gambling
+    title: 最高人民法院、最高人民检察院关于办理赌博刑事案件具体应用法律若干问题的解释
+    number: 法释〔2005〕3号
+    source: {url: null, publisher: 未取得原文, retrieved: null}
+    verification: {status: 待核验, note: 门槛数值来自背景知识，取得原文前只用于提示"可能涉刑"}
+    articles: {}
+
+# 减轻处罚在合法处罚空间中的展开方式，对应 gtz-2007-1 第四条。
+# "或"（拘留或者罚款二选一）不在第四条覆盖范围内：引擎只给出"不予处罚"并标记需人工复核。
+mitigation_rules:
+  basis: gtz-2007-1#4
+  单一种类: 幅度以下减轻；无法再减轻的不予处罚
+  并处:
+    - {detention: below, fine: within}
+    - {detention: within, fine: below}
+    - {detention: below, fine: below}
+    - {detention: within, fine: none}
+  可以并处: 拘留幅度以下减轻；无法再减轻的不予处罚
+  或: 未覆盖
+
+calculation_rules:
+  - id: per_capita_stake
+    basis: gtz-2005-30#6
+    description: 个人投注数额无法确定时，按参赌财物总额除以参赌人数计算
+    verification: 待核验
+
+# 涉嫌犯罪的提示门槛（聚众赌博）。取得原文前只用于输出"可能涉刑、建议核查"，不作为认定依据。
+criminal_thresholds:
+  basis: spc-spp-2005-gambling#1
+  verification: 待核验
+  requires_organizing_at_least: 3
+  any_of:
+    commission: 5000
+    cumulative_stake: 50000
+    cumulative_participants: 20
+    abroad_organized_count: 10

@@ -1,0 +1,16 @@
+# 省级裁量基准模板（复制为 <行政区划代码>.yaml，如 330000.yaml）
+# 数额必须逐字取自官方基准原文并附文号；没有原文时保持 null，引擎会输出"门槛未知"而不是猜测。
+region: "000000"
+name: 模板
+documents:
+  - number: null            # 如：浙公通字〔2021〕12号
+    title: null
+    url: null
+    effective_from: null
+    effective_to: null
+    verification: {status: 待核验, checked_by: [], checked_at: null}
+    text: null              # 赌博条款相关原文
+stake_threshold:            # "赌资较大"
+  personal_min: null        # 个人赌资起点（元）
+  per_capita_min: null      # 人均赌资起点（元）
+serious_circumstances: []   # "情节严重"的列举情形（原文），由 M3 使用
