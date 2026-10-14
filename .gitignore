@@ -1,0 +1,28 @@
+# ===== 数据集（严禁入库：单文件超 GitHub 100MB 限制）=====
+CAIL2018_ALL_DATA.zip
+final_all_data/
+*.zip
+*.tar.gz
+
+# ===== 依赖与构建 =====
+node_modules/
+dist/
+build/
+
+# ===== 环境与密钥 =====
+.env
+.env.*.local
+*.pem
+*.key
+
+# ===== 日志与临时文件 =====
+*.log
+.cache/
+.temp/
+
+# ===== 编辑器与工具会话 =====
+.zcode/
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
