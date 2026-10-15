@@ -50,6 +50,27 @@ def test_article_70_quote_alone_is_not_gambling():
     assert gambling_status("行政复议决定书", text, "复议") == "否"
 
 
+def test_prior_record_is_not_gambling():
+    # 醉驾决定书里写着前科"曾因赌博被拘留"（M4 辛集、五河）
+    text = ("被处罚人王某。违法前科：2024年05月因赌博被辛集市公安局行政拘留三日。"
+            "现查明：2025年01月04日，王某醉酒后驾驶小型轿车。根据道路交通安全法之规定，现决定罚款。")
+    assert gambling_status("辛集市公安局行政处罚决定书", text, "处罚决定") == "待定"
+    still = "违法经历：2015年1月因赌博被拘留十日。现查明：2024年，马某在家中以打麻将的方式进行赌博。"
+    assert gambling_status("行政处罚", still, "处罚决定") == "是"
+
+
+def test_unquoted_jurisdiction_clause_is_not_gambling():
+    text = ("申请人：沈某 被申请人：杭州市公安局萧山区分局。由违法行为人居住地公安机关管辖更为适宜的，可以由违法行为人"
+            "居住地公安机关管辖，但是涉及卖淫、嫖娼、赌博、毒品的案件除外。本案系消防违法。")
+    assert gambling_status("案号：杭萧政复〔2021〕311号", text, "复议") == "待定"
+
+
+def test_enforcement_measure_report_and_news_types():
+    assert classify("毕某等人赌博案行政强制结果", "证据保全决定书编号：当公(太)证保决字〔2022〕276号 当事人姓名：毕某") == "强制措施"
+    assert classify("温岭市公安局2024年度行政执法统计年报", "共计罚没收入……加大了对黄赌等案件的执法力度") == "法规清单"
+    assert classify("应急响应等级刚下调，他们顶风作案！抓！", "派出所接报，有人在聚众赌博，民警赶赴现场") == "新闻案例"
+
+
 def test_truncated_police_case_is_pending():
     text = "申请人：沈某 被申请人：杭州市公安局拱墅区分局。申请人不服行罚决字[2023]×号《行政处罚决定书》……"
     assert gambling_status("行政复议决定书", text, "复议") == "待定"

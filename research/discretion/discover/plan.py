@@ -36,25 +36,30 @@ class Query:
     window: str | None = None
     feature: str | None = None
     depth: int = 0
+    site: str | None = None      # 逐站精扫：行内 site:<县级主域名>（M0 T9：含子域），替代 site:gov.cn
+    recency: str | None = None   # 覆盖模板的 recency（每周增量用 week）
 
     @property
     def qid(self) -> str:
-        return f"{self.template}|r={self.region or '*'}|t={self.window or '*'}|f={self.feature or '*'}"
+        base = f"{self.template}|r={self.region or '*'}|t={self.window or '*'}|f={self.feature or '*'}"
+        return base + (f"|s={self.site}" if self.site else "") + (f"|rc={self.recency}" if self.recency else "")
+
+    def effective_recency(self, cfg: dict) -> str | None:
+        return self.recency or cfg["_templates"][self.template].get("recency")
 
     def text(self, cfg: dict) -> str:
         t = cfg["_templates"][self.template]
         words = [*t["terms"], self.feature, self.region]
-        return " ".join(w for w in words if w) + f" site:{cfg['api']['site_suffix']}"
+        return " ".join(w for w in words if w) + f" site:{self.site or cfg['api']['site_suffix']}"
 
     def body(self, cfg: dict) -> dict:
-        t = cfg["_templates"][self.template]
         body: dict = {
             "messages": [{"role": "user", "content": self.text(cfg)}],
             "search_source": "baidu_search_v2",
             "resource_type_filter": [{"type": "web", "top_k": cfg["api"]["top_k"]}],
         }
-        if t.get("recency"):
-            body["search_recency_filter"] = t["recency"]
+        if self.effective_recency(cfg):
+            body["search_recency_filter"] = self.effective_recency(cfg)
         if self.window:
             body["search_filter"] = {"range": {"page_time": dict(cfg["split"]["windows"][self.window])}}
         return body
@@ -67,7 +72,7 @@ def body_key(body: dict) -> str:
 
 
 def seeds(cfg: dict, templates: list[str] | None = None, regions: list[str] | None = None) -> list[Query]:
-    ids = templates or list(cfg["_templates"])
+    ids = templates or [i for i, t in cfg["_templates"].items() if not t.get("sweep")]
     unknown = [i for i in ids if i not in cfg["_templates"]]
     if unknown:
         raise ValueError(f"未知模板：{unknown}（见 queries.yaml）")
@@ -83,15 +88,28 @@ DIM_FIELD = {"regions": "region", "windows": "window", "features": "feature"}
 def split(q: Query, cfg: dict) -> list[Query]:
     """按 queries.yaml split.order 固定下一个未固定的维度；全部固定后返回空（叶子，再满也不拆）。
     带 recency 的模板跳过时间窗（recency 与 page_time 不叠加）。"""
+    if q.site:
+        return []  # 逐站查询顶到 50 条不再拆分，交给 L4 整栏收割（设计 §3.2 第 5 步）
     sp = cfg["split"]
     child = replace(q, depth=q.depth + 1)
     for dim in sp.get("order", ["features", "windows", "regions"]):
         field = DIM_FIELD[dim]
-        if dim == "windows" and cfg["_templates"][q.template].get("recency"):
+        if dim == "windows" and q.effective_recency(cfg):
             continue
         if getattr(q, field) is None:
             return [replace(child, **{field: v}) for v in sp[dim]]
     return []
+
+
+def seeds_incremental(cfg: dict, recency: str = "week") -> list[Query]:
+    """每周增量：所有常规模板改用 recency=week（设计 §3.3 增量模式）。"""
+    return [Query(t, recency=recency) for t, tpl in cfg["_templates"].items() if not tpl.get("sweep")]
+
+
+def seeds_sweep(cfg: dict, sites: list[str]) -> list[Query]:
+    """逐站精扫：每个县级主域名配每个 sweep 模板各一条（设计 §3.2 第二段）。"""
+    sw = [t for t, tpl in cfg["_templates"].items() if tpl.get("sweep")]
+    return [Query(t, site=s) for s in sites for t in sw]
 
 
 def main() -> None:

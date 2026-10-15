@@ -34,6 +34,10 @@ CITATION_PATTERNS = [
     re.compile(r"第[一二三四五六七八九十百零\d]+条[^“”\"]{0,20}?[“\"][^”\"]{0,400}[”\"]"),
     re.compile(r"以营利为目的[，,]?为赌博提供条件的[，,]?或者参与赌博赌资较大的[^。]*。?"),
     re.compile(r"[^。]{0,40}赌具、赌资[^。]{0,60}收缴[^。]*。?"),
+    # 管辖条款（常不加引号引用）：「……但是涉及卖淫、嫖娼、赌博、毒品的案件除外」（M4 萧山复议误报）
+    re.compile(r"但是?涉及[^。]{0,40}?案件除外[”\"]?"),
+    # 前科/违法经历：其他案件的决定书里写着"曾因赌博被拘留"（M4 辛集醉驾、五河误报），剔到"现查明"为止
+    re.compile(r"(?:违法(?:犯罪)?经历|违法前科|前科情况|前科)[：:].*?(?=现查明|经查|$)"),
 ]
 GAMBLING = re.compile(r"赌博|赌资|参赌|聚赌|开设赌场|抽头|炸金花|推饼|六合彩|牛牛|押宝|赌具|涉赌|麻将|斗地主.{0,10}输赢")
 PERSON = re.compile(r"违法行为人|被处罚人|行政相对人|现查明|违法事实|处罚事由")
@@ -44,7 +48,7 @@ DOC_NO = re.compile(
     r"\s*[〔\[［【(（]\s*(20\d{2})\s*[〕\]］】)）]\s*第?\s*[\d*]{1,6}\s*号)"
 )
 LAW_TITLE = re.compile(r"法(?:\(|（|$)|条例|规定|办法|意见|通知|通告|公告|清单|目录|制度|裁量基准|基准|标准|指引|细则"
-                       r"|解读|解释|答复|报告|部令|事项")
+                       r"|解读|解释|答复|报告|部令|事项|年报|统计|总结")
 
 
 def clean(text: str) -> str:
@@ -60,7 +64,7 @@ def strip_citations(text: str) -> str:
 
 def classify(title: str, content: str) -> str:
     """类型判定的先后顺序就是优先级：
-    诉讼/刑事文书 → 复议 → 法规清单 → 不予处罚 → 结果表 → 汇总 → 新闻 → 单篇处罚 → 其他。"""
+    诉讼/刑事文书 → 复议 → 强制措施 → 法规清单 → 不予处罚 → 结果表 → 汇总 → 新闻 → 单篇处罚 → 其他。"""
     t, c = clean(title), clean(content)
     both = t + c
     # 具体案件的硬特征（"违法行为人"不算：法规条文里也常出现，如公安部令"违法行为人居住地"）
@@ -69,6 +73,8 @@ def classify(title: str, content: str) -> str:
         return "诉讼刑事文书"
     if re.search(r"复议决定|复决|政复|府复|行复", t) or (re.search(r"复议决定书|复决字|政复|府复", c[:200]) and "被申请人" in c):
         return "复议"
+    if re.search(r"行政强制结果|证据保全|强制措施|扣押决定", t) or ("证保决字" in c and "行罚决字" not in both):
+        return "强制措施"  # 证据保全、扣押等：有赌博案情但没有处罚结果，不作交付（M4 当涂）
     if LAW_TITLE.search(t) and not case_marks:
         return "法规清单"  # 裁量基准、实施办法、法律解读、部令等：标题像规范文件且正文没有具体案件
     if re.search(r"不予(?:行政)?处罚决定", t) or (re.search(r"不予(?:行政)?处罚决定书", c) and case_marks):
@@ -80,7 +86,8 @@ def classify(title: str, content: str) -> str:
     enumerated = bool(re.search(r"[2２]、\s*违法行为人", c))
     if enumerated or len(decisions) >= 3 or (len(decisions) == 2 and re.search(r"汇总|月份|季度|信息公开|案例", t)):
         return "处罚汇总"  # 单篇决定常引用前案文号，两个文号不足以判为汇总
-    if not case_marks and re.search(r"严打|专项|警方|通报|捣毁|打掉|以案释法|普法|典型案例|行动|守护|平安|查处|拘留|抓获|破获|逢赌必抓", t):
+    if not case_marks and re.search(r"严打|专项|警方|通报|捣毁|打掉|以案释法|普法|典型案例|行动|守护|平安|查处|拘留|抓获|破获|逢赌必抓"
+                                     r"|抓|顶风|作案|[！!]", t):
         return "新闻案例"
     if case_marks or PERSON.search(c) or "处罚决定书" in t or re.search(r"赌博案|处罚案例", t):
         return "处罚决定"
@@ -199,15 +206,21 @@ def write_domains(cands: list[dict], path: Path) -> int:
     return len(rows)
 
 
-def main() -> None:
-    root = data_root()
+def run_triage(root: Path, domains_csv: Path = DOMAINS_CSV) -> tuple[list[dict], Path, dict]:
+    """合并全部批次命中 → 分诊 → 去重 → 写当日交付目录与域名库。返回 (候选, 交付目录, 统计)。"""
     hits = merge_hits(root / "runs")
     cands = dedupe_by_doc_no([triage_hit(h) for h in hits])
     out_dir = root / "out" / datetime.now().strftime("%Y%m%d")
     stats = write_outputs(cands, out_dir)
-    n_domains = write_domains(cands, DOMAINS_CSV)
+    stats.update(hits=len(hits), candidates=len(cands), domains=write_domains(cands, domains_csv))
+    return cands, out_dir, stats
+
+
+def main() -> None:
+    cands, out_dir, stats = run_triage(data_root())
+    hits, n_domains = stats["hits"], stats["domains"]
     table = Counter((c["doc_type"], c["gambling"]) for c in cands)
-    print(f"合并命中 {len(hits)} 条 → 去重后 {len(cands)} 条；域名 {n_domains} 个")
+    print(f"合并命中 {hits} 条 → 去重后 {len(cands)} 条；域名 {n_domains} 个")
     for (dt, g), n in sorted(table.items(), key=lambda kv: (-kv[1])):
         print(f"  {dt:<6} 赌博={g}  {n}")
     print(f"交付 urls.tsv {stats['deliver']} 条，规范候选 {stats['norms']} 条 → {out_dir}")

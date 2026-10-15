@@ -337,6 +337,52 @@ def latest_out(root: Path) -> Path:
     return outs[-1]
 
 
+def group_hosts(hosts: list[str]) -> dict[str, list[str]]:
+    """同一县的 www. / 裸域名 / zwfw. 归为一组（M3 实测魏县 www. 失败、裸域名成功）。"""
+    groups: dict[str, list[str]] = defaultdict(list)
+    for h in hosts:
+        groups[re.sub(r"^(www|zwfw)\.", "", h)].append(h)
+    return groups
+
+
+def expand_hosts(hosts: list[str], cands: list[dict], doms: dict[str, dict], per_host: int = 12,
+                 verbose: bool = True) -> list[dict]:
+    """逐组尝试主机，第一个定位成功（ok）的为准；都不成功时保留最后一个的诊断行。"""
+    fetch = Fetcher(per_host)
+    rows = []
+    for members in group_hosts(hosts).values():
+        got: list[dict] = []
+        for h in members:
+            d = doms.get(h, {})
+            got = expand_host(h, cands, d.get("publisher", ""), int(d.get("n_target", 0) or 0), fetch)
+            if got and got[0]["status"] == "ok":
+                break
+        if verbose:
+            for r in got:
+                print(f"{r['status']:<16} {r.get('cms_family',''):<13} {r['domain']:<28} {r.get('est_items','')!s:>6} "
+                      f"{r.get('gambling_titles','')!s:>7}  {r.get('entry_url','')}", flush=True)
+        rows += got
+    return rows
+
+
+def write_columns(rows: list[dict], out_dir: Path, name: str = "columns.csv") -> Path:
+    path = out_dir / name
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=COLUMN_FIELDS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    sums = out_dir / "SHA256SUMS"
+    lines = [l for l in sums.read_text(encoding="utf-8").splitlines() if not l.endswith(name)] if sums.exists() else []
+    lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {name}")
+    sums.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+def load_domains(path: Path = DOMAINS_CSV) -> dict[str, dict]:
+    with open(path, encoding="utf-8", newline="") as f:
+        return {r["host"]: r for r in csv.DictReader(f)}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="栏目扩展：生成 columns.csv")
     ap.add_argument("--min-target", type=int, default=5, help="只扩展 domains.csv 里 n_target ≥ 该值的主机")
@@ -346,40 +392,12 @@ def main() -> None:
 
     out_dir = latest_out(data_root())
     cands = [json.loads(x) for x in (out_dir / "candidates.jsonl").read_text(encoding="utf-8").splitlines()]
-    with open(DOMAINS_CSV, encoding="utf-8", newline="") as f:
-        doms = {r["host"]: r for r in csv.DictReader(f)}
+    doms = load_domains()
     hosts = [h for h in args.hosts.split(",") if h] or [h for h, r in doms.items() if int(r["n_target"]) >= args.min_target]
-    # 同一县的 www. / 裸域名 / zwfw. 归为一组：依次尝试，第一个定位成功的为准（M3 实测魏县 www. 失败、裸域名成功）
-    groups: dict[str, list[str]] = defaultdict(list)
-    for h in hosts:
-        groups[re.sub(r"^(www|zwfw)\.", "", h)].append(h)
-
-    fetch = Fetcher(args.per_host)
-    rows = []
-    for members in groups.values():
-        got = []
-        for h in members:
-            d = doms.get(h, {})
-            got = expand_host(h, cands, d.get("publisher", ""), int(d.get("n_target", 0) or 0), fetch)
-            if got and got[0]["status"] == "ok":
-                break
-        for r in got:
-            print(f"{r['status']:<16} {r.get('cms_family',''):<13} {r['domain']:<28} {r.get('est_items','')!s:>6} "
-                  f"{r.get('gambling_titles','')!s:>7}  {r.get('entry_url','')}", flush=True)
-        rows += got
-    picked = list(groups)
-
-    path = out_dir / "columns.csv"
-    with open(path, "w", encoding="utf-8", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=COLUMN_FIELDS, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(rows)
-    sums = out_dir / "SHA256SUMS"
-    lines = [l for l in sums.read_text(encoding="utf-8").splitlines() if not l.endswith("columns.csv")] if sums.exists() else []
-    lines.append(f"{hashlib.sha256(path.read_bytes()).hexdigest()}  columns.csv")
-    sums.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    rows = expand_hosts(hosts, cands, doms, args.per_host)
+    path = write_columns(rows, out_dir)
     ok = [r for r in rows if r["status"] == "ok"]
-    print(f"\n主机 {len(picked)} 个 → 定位到栏目 {len(ok)} 个，估算条目合计 {sum(int(r['est_items']) for r in ok)} → {path}")
+    print(f"\n主机组 {len(group_hosts(hosts))} 个 → 定位到栏目 {len(ok)} 个，估算条目合计 {sum(int(r['est_items']) for r in ok)} → {path}")
 
 
 if __name__ == "__main__":
