@@ -216,7 +216,9 @@ def score_list_page(html: str, base: str, seed_shapes: set[str],
 class Fetcher:
     def __init__(self, per_host: int, interval: float = 1.5):
         import requests
+        import urllib3
 
+        urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)  # 不少县级站证书不全，按设计 verify=False 只读公开页
         self.s = requests.Session()
         self.s.trust_env = False
         self.s.headers.update({"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",

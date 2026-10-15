@@ -22,7 +22,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Callable
 
@@ -141,11 +141,17 @@ def weekly(*, root: Path, client: Client | None, search_budget: int, sweep_budge
     state_dir = root / "state"
     state_dir.mkdir(parents=True, exist_ok=True)
     stamp = today.strftime("%Y%m%d")
+    run_tag = datetime.now().strftime("%H%M%S")
     offline = client is None
 
     def batch(name: str, queries, budget_n: int):
         budget = None if offline else Budget(budget_n, budget_n * PRICE_CNY, daily_cap, ledger)
-        out = root / "runs" / f"weekly-{stamp}-{name}"
+        # 批次目录必须唯一：同一天多次运行时只带日期会互相覆盖命中文件（2026-10-15 实际发生，已从缓存恢复）
+        out = root / "runs" / f"weekly-{stamp}-{run_tag}-{name}"
+        k = 1
+        while out.exists():
+            k += 1
+            out = root / "runs" / f"weekly-{stamp}-{run_tag}-{name}-{k}"
         s = run(queries, cfg, cache=cache, budget=budget, client=client, offline=offline, max_depth=1,
                 out_dir=out, seen_path=root / "seen_urls.txt")
         return s, read_csv(out / "queries.csv")
@@ -187,12 +193,15 @@ def weekly(*, root: Path, client: Client | None, search_budget: int, sweep_budge
     master, changed = merge_columns(read_csv(master_path), fresh)
     write_columns(master, state_dir, "columns_master.csv")
     write_columns(master, out_dir, "columns.csv")
-    write_columns(changed, out_dir, "columns_new.csv")
+    changed_today, _ = merge_columns(read_csv(out_dir / "columns_new.csv"), changed)  # 当天累计
+    write_columns(changed_today, out_dir, "columns_new.csv")
     # 6 增量交付
     urls = read_csv(out_dir / "urls.tsv", delimiter="\t")
     delivered = set(delivered_path.read_text(encoding="utf-8").splitlines())
     new_urls = new_items(urls, delivered, "url")
-    write_tsv(out_dir / "urls_new.tsv", new_urls, URL_FIELDS)
+    # 同一天多次运行共用一个交付目录：*_new 文件累加当天全部新增，不能被后一次覆盖（2026-10-15 实际发生）
+    earlier = read_csv(out_dir / "urls_new.tsv", delimiter="\t")
+    write_tsv(out_dir / "urls_new.tsv", earlier + new_items(new_urls, {r["url"] for r in earlier}, "url"), URL_FIELDS)
     if new_urls:
         with open(delivered_path, "a", encoding="utf-8") as f:
             f.writelines(r["url"] + "\n" for r in new_urls)

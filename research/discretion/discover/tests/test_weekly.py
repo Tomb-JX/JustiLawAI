@@ -122,3 +122,14 @@ def test_weekly_end_to_end_twice(tmp_path):
     assert r2["sites_swept"] == 0 and r2["hosts_expanded"] == 0 and r2["new_urls"] == 0
     log = list(csv.DictReader(open(tmp_path / "weekly-log.csv", encoding="utf-8")))
     assert len(log) == 2
+    # 同一天两次运行不能覆盖彼此的批次目录（2026-10-15 的事故）：第一次的精扫命中必须还在
+    sweep_dirs = sorted((tmp_path / "discover" / "runs").glob("weekly-20261019-*-sweep*"))
+    assert len(sweep_dirs) == 1 and (sweep_dirs[0] / "hits.jsonl").stat().st_size > 0
+    inc_dirs = sorted((tmp_path / "discover" / "runs").glob("weekly-20261019-*-inc*"))
+    assert len(inc_dirs) == 2  # 第二次重跑走缓存，另起目录，不覆盖第一次
+    # 同一天第二次运行没有新增，但当天的 urls_new.tsv 仍须保留第一次的全部新增（2026-10-15 的事故）
+    out_dir = sorted((tmp_path / "discover" / "out").iterdir())[-1]
+    kept = list(csv.DictReader(open(out_dir / "urls_new.tsv", encoding="utf-8"), delimiter="\t"))
+    assert len(kept) == r1["new_urls"]
+    cols = list(csv.DictReader(open(out_dir / "columns_new.csv", encoding="utf-8")))
+    assert len(cols) == r1["new_columns_ok"]
