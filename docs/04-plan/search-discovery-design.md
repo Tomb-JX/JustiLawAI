@@ -195,6 +195,28 @@
 4. 估算栏目规模：只抓栏目第一页，统计条目数、标题里赌博词的占比和总页数（不下载正文）。
 5. 生成 `columns.csv` 候选行（§6）。**栏目里赌博文书不少于 20 篇**才建议数据链路写适配器；属于 jpaas、gkmlpt 家族的，只需要把参数交给数据链路的"家族适配器"（建议数据链路把 `iter_zhejiang` 泛化为 `iter_jpaas(webId, tplSetId, pageId)`，并新增 `iter_gkmlpt(base, sid)`）。
 
+**M3 实现与实测**（2026-10-15，`expand.py`，只抓公开页，每主机 ≤12 次请求、间隔 ≥1.5s，不保存页面）：
+
+- **栏目定位与 CMS 无关**：候选页来自面包屑、"详情页 → 列表页"的 URL 变形（`xzzfcon-467-*` → `xzzflist-467-more.html`，`zhifa_show.php?cid=&id=` → `zhifa.php?cid=`，`getXzzfIndexInfo.do` → `listXzzfIndex.do`）、文书页和首页上含样例路径词或"处罚/公示"字样的链接（可再跳一层，覆盖图片链接入口），最后才试上级目录。对每个候选页统计与样例"同形"的链接，**得分 = 同形条目数 × 同形占全页链接的比例**，首页因此被压低。
+- **严格形状**：路径里的短类目号保留，只归一长编号和日期目录。定兴的公安（467）与审计局（426）是同构的两个列表，宽松形状会把它们混在一起；有严格同形条目的页面得分 ×3。
+- **样例按主栏目选**：取该主机赌博文书里严格形状最常见的那一类，避免像博湖那样落进"公示公告"大杂烩。
+- **状态**：`ok`（严格同形、条目标题像处罚决定的比例 ≥0.5）；`mixed`（像列表但纯度低，需人工确认）；`weak_match`；`js_shell`（动态平台，交给家族适配器）；`list_not_found`；`doc_*`（文书页被拒）。
+- **实测结果**（已知赌博文书 ≥3 篇的 18 个县）：**8 个栏目 `ok`，估算约 6,850 条**。
+
+| 县 | 栏目入口 | 估算条目 | 本页标题含赌博 | 说明 |
+|---|---|---|---|---|
+| 河北定兴 | `xzzflist-467-more.html` | 641 | 24/25 | **公安专栏**，几乎全是赌博处罚 |
+| 河北辛集 | `html/xzcf/` | 1,747 | 24/30 | 行政处罚栏，赌博占多数 |
+| 内蒙古敖汉旗 | 公安局"行政处罚事项"（TRS） | 300 | 标题为人名 | 公安专栏 |
+| 新疆塔城 | `zfxxgk/fdzdgknr/cfqz` | 769 | — | 各部门处罚混合 |
+| 新疆博湖 | `xjbhx/c109939/` | 960 | 6/15 | 各部门公示混合 |
+| 河北蠡县 | `xzzf/listXzzfIndex.do` | 395 | — | 各部门执法公示 |
+| 广西大新 | `xxgk/zdxxgk/xzzfysp/xzzf/` | 1,020 | — | 各部门处罚混合 |
+| 广西环江 | `xxgk/sgs/` | 1,020 | — | 双公示混合 |
+
+  `js_shell` 6 个：宝安（gkmlpt，可用 `iter_gkmlpt`）、五河（安徽政务公开 public 平台）、乐清（大汉 jcms）、张家港、徽州、定安。`mixed` 2 个：清河（落在首页）、魏县（落在"行政执法"总栏）。`list_not_found` 1 个：红塔（玉溪 Java 平台 `newzfxxgkUnderControl.jspx`，动态加载）。这 9 个需要数据链路人工看一眼。
+- **混合栏目整栏收割后，必须先跑赌博筛选**（三态判定，与 `triage.py` 同规则），不能直接当赌博样本。
+
 ## 4. 产量与预算估算
 
 | 阶段 | 调用量 | 费用（超出免费额度后按 ¥0.036/次） |
@@ -230,7 +252,7 @@ url	title	doc_type	doc_no	publisher	host	year	law_article	gambling	priority	quer
 **`columns.csv`**（候选栏目）
 
 ```
-column_id,domain,region_code,cms_family,entry_url,params_json,est_items,est_gambling,sample_urls,found_from
+column_id,domain,publisher,cms_family,entry_url,params_json,items_on_page,est_pages,est_items,gambling_titles,penalty_purity,strict_items,known_targets,status,sample_urls,found_from
 ```
 
 - `params_json` 示例：jpaas 写 `{"webId":"3558","tplSetId":"…","pageId":"1229150592"}`；gkmlpt 写 `{"base":"https://www.yunan.gov.cn/yfyagaj/gkmlpt","sid":"766261"}`。
@@ -247,7 +269,7 @@ research/discretion/discover/        （入库，只由发现层写）
   plan.py               L1 规划器（✅ M1）
   search.py             L2 执行器：缓存、预算、限速（✅ M1）
   triage.py             L3 分诊（✅ M2）
-  expand.py             L4 栏目扩展与 CMS 指纹（M3）
+  expand.py             L4 栏目扩展与 CMS 指纹（✅ M3）
   domains.csv           域名库（✅ M2，由 triage.py 生成）
   tests/                单测（38 项，不联网）
   run-log.csv           每批执行汇总：日期、调用数、费用、新 URL 数、新栏目数（入库，用于数据卡）
@@ -266,7 +288,7 @@ $JUSTILAW_DATA_DIR/discover/          （仓库外）
 | **M0** 探针 | 拿到 API Key，运行 `probe_qianfan.py` | ✅ 已完成（10 次调用）：首轮结论见 §2.1，第二轮见 §2.2；分片定为 §3.2 两段式，时间维与单县枚举均可用 |
 | **M1** 规划 + 执行 | `queries.yaml`、`plan.py`、`search.py`；粗粒度一轮 | ✅ 缓存可重放（M0 探针回放 0 次调用）；`run-log.csv` 有记录；预算闸门有单测。实际只跑了 36 次调用的小批（§2.3），粗粒度全量一轮留到 M4 例行化 |
 | **M2** 分诊 + 域名库 | `triage.py`、`domains.csv`；首批 `urls.tsv` 交付 | ✅ 首批 304 条交付到 `discover/out/20261015/`；抽查 50 条：类型 94%、赌博 96%（§3.4）。门槛原定抽 100 条，首轮按 50 条执行，下批交付时补抽 |
-| **M3** 栏目扩展 | `expand.py`、jpaas 和 gkmlpt 指纹；首批 `columns.csv` 交付 | ≥10 个"赌博文书 ≥20 篇"的栏目交给数据链路 |
+| **M3** 栏目扩展 | `expand.py`、jpaas 和 gkmlpt 指纹；首批 `columns.csv` 交付 | ✅ 18 个县 → 8 个 `ok` 栏目（约 6,850 条，定兴 641 条公安专栏、辛集 1,747 条），另 9 个需人工确认（§3.6）；51 项单测 |
 | **M4** 例行化 | 每周增量 + 饱和拆分第二轮 | 并入[运维计划](./crawler-ops.md) §4 的周一窗口 |
 
 ## 10. 需要人来做的决定和操作
@@ -295,3 +317,4 @@ $JUSTILAW_DATA_DIR/discover/          （仓库外）
 | 2026-10-15 | v0.2 | 写入 M0 首轮实测（§2.1）：行内 `site:gov.cn` 有效、`match.site` 只认完整主机名且严格限定、绝对日期报错、改写影响可忽略、摘录约 1,000 字可直接分诊；分片定为两段式（§3.2）；分诊改为以摘录为主；补充摘录含个人信息的处理（§5）；探针增加第二轮 T7–T10 | 模型组 |
 | 2026-10-15 | v0.3 | 写入 M0 第二轮（§2.2）：recency 严格、`page_time` 日期表达式基本有效；行内 `site:` 可限定单县且含子域；单县顶到 50 条即升级 L4 整栏收割；发现红塔区为 2026 年第八十二条案件集中来源。M0 完成 | 模型组 |
 | 2026-10-15 | v0.4 | 写入 M1 实测（§2.3）：省名召回差，拆分顺序改为特征词 → 时间 → 省名；玩法词叠在长检索式上被压成 0 条，特征词只保留实测有效的，新增短模板 `zjh`。M2 分诊上线：赌博三态、类型判定顺序、抽查 94%/96%（§3.4）；`urls.tsv` 字段按实际实现更新（§6）；M1、M2 完成 | 模型组 |
+| 2026-10-15 | v0.5 | M3 栏目扩展上线（§3.6）：与 CMS 无关的列表页定位（同形链接计分、详情→列表 URL 变形、路径词跟链、严格形状保留类目号、主栏目样例）；8 个栏目可收割、约 6,850 条；`columns.csv` 字段按实现更新（§6）。M3 完成 | 模型组 |
