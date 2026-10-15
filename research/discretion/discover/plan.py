@@ -72,11 +72,12 @@ def body_key(body: dict) -> str:
 
 
 def seeds(cfg: dict, templates: list[str] | None = None, regions: list[str] | None = None) -> list[Query]:
-    ids = templates or [i for i, t in cfg["_templates"].items() if not t.get("sweep")]
+    ids = templates or [i for i, t in cfg["_templates"].items() if not (t.get("sweep") or t.get("targeted"))]
     unknown = [i for i in ids if i not in cfg["_templates"]]
     if unknown:
         raise ValueError(f"未知模板：{unknown}（见 queries.yaml）")
-    bad = [r for r in regions or [] if r not in cfg["split"]["regions"]]
+    cities = {c for cs in cfg.get("targets", {}).values() for c in cs}
+    bad = [r for r in regions or [] if r not in cfg["split"]["regions"] and r not in cities]
     if bad:
         raise ValueError(f"未知区域：{bad}（只接受 queries.yaml split.regions 中的省级名称）")
     return [Query(t, region=r) for t in ids for r in (regions or [None])]
@@ -103,7 +104,17 @@ def split(q: Query, cfg: dict) -> list[Query]:
 
 def seeds_incremental(cfg: dict, recency: str = "week") -> list[Query]:
     """每周增量：所有常规模板改用 recency=week（设计 §3.3 增量模式）。"""
-    return [Query(t, recency=recency) for t, tpl in cfg["_templates"].items() if not tpl.get("sweep")]
+    return [Query(t, recency=recency) for t, tpl in cfg["_templates"].items()
+            if not (tpl.get("sweep") or tpl.get("targeted"))]
+
+
+def seeds_targeted(cfg: dict, provinces: list[str]) -> list[Query]:
+    """定向扩面：目标省的每个地级市 × 每个 targeted 模板（地级市名写进检索式，替代省名）。"""
+    unknown = [p for p in provinces if p not in cfg.get("targets", {})]
+    if unknown:
+        raise ValueError(f"queries.yaml targets 里没有：{unknown}")
+    tpls = [t for t, tpl in cfg["_templates"].items() if tpl.get("targeted")]
+    return [Query(t, region=c) for p in provinces for c in cfg["targets"][p] for t in tpls]
 
 
 def seeds_sweep(cfg: dict, sites: list[str]) -> list[Query]:

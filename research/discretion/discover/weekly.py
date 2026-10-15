@@ -135,7 +135,10 @@ def bootstrap_from_previous(root: Path, state_dir: Path, expand_state: dict) -> 
 def weekly(*, root: Path, client: Client | None, search_budget: int, sweep_budget: int, max_sites: int,
            daily_cap: int, expand_min_target: int, resweep_days: int, today: date,
            domains_csv: Path = DOMAINS_CSV, weekly_log: Path | None = WEEKLY_LOG,
-           expand_fn: Callable[..., list[dict]] = expand_hosts) -> dict:
+           expand_fn: Callable[..., list[dict]] = expand_hosts, search_queries: list | None = None,
+           site_filter: Callable[[str], bool] | None = None, prefix: str = "weekly") -> dict:
+    """一轮发现流水线。默认是每周例行；定向扩面（targeted.py）传入自己的搜索种子、
+    精扫选站条件和批次前缀，复用同一套分诊、精扫、扩展与增量交付。"""
     cfg = load_config()
     cache, ledger = Cache(root / "cache"), Ledger(root / "ledger.csv")
     state_dir = root / "state"
@@ -147,11 +150,11 @@ def weekly(*, root: Path, client: Client | None, search_budget: int, sweep_budge
     def batch(name: str, queries, budget_n: int):
         budget = None if offline else Budget(budget_n, budget_n * PRICE_CNY, daily_cap, ledger)
         # 批次目录必须唯一：同一天多次运行时只带日期会互相覆盖命中文件（2026-10-15 实际发生，已从缓存恢复）
-        out = root / "runs" / f"weekly-{stamp}-{run_tag}-{name}"
+        out = root / "runs" / f"{prefix}-{stamp}-{run_tag}-{name}"
         k = 1
         while out.exists():
             k += 1
-            out = root / "runs" / f"weekly-{stamp}-{run_tag}-{name}-{k}"
+            out = root / "runs" / f"{prefix}-{stamp}-{run_tag}-{name}-{k}"
         s = run(queries, cfg, cache=cache, budget=budget, client=client, offline=offline, max_depth=1,
                 out_dir=out, seen_path=root / "seen_urls.txt")
         return s, read_csv(out / "queries.csv")
@@ -163,12 +166,16 @@ def weekly(*, root: Path, client: Client | None, search_budget: int, sweep_budge
         seeded = [r["url"] for r in read_csv(prev[-1], delimiter="\t")] if prev else []
         delivered_path.write_text("".join(u + "\n" for u in seeded), encoding="utf-8")
     # 1 增量搜索
-    inc, _ = batch("inc", seeds_incremental(cfg, "week"), search_budget)
+    inc, _ = batch("inc", search_queries if search_queries is not None else seeds_incremental(cfg, "week"),
+                   search_budget)
     # 2 分诊（刷新域名库，供精扫选站）
     run_triage(root, domains_csv)
     # 3 逐站精扫
     sweep_state = load_json(state_dir / "sweep_state.json")
-    sites = pick_sweep_sites(load_domains(domains_csv), sweep_state, today, max_sites, resweep_days=resweep_days)
+    doms_all = load_domains(domains_csv)
+    if site_filter is not None:
+        doms_all = {h: r for h, r in doms_all.items() if site_filter(registrable_site(h) or h)}
+    sites = pick_sweep_sites(doms_all, sweep_state, today, max_sites, resweep_days=resweep_days)
     sw, sw_rows = batch("sweep", seeds_sweep(cfg, sites), sweep_budget) if sites else ({"api_calls": 0}, [])
     results = sweep_results(sw_rows)
     for s, r in results.items():
@@ -214,12 +221,13 @@ def weekly(*, root: Path, client: Client | None, search_budget: int, sweep_budge
         "new_columns_ok": sum(r.get("status") == "ok" for r in changed), "candidates": tstats["candidates"],
         "deliverable_urls": len(urls), "new_urls": len(new_urls), "domains": tstats["domains"],
     }
-    report = [f"# 发现层周报 {today.isoformat()}", "", "| 项 | 数 |", "|---|---|"]
+    report = [f"# 发现层{'周报' if prefix == 'weekly' else '运行报告（' + prefix + '）'} {today.isoformat()}", "",
+              "| 项 | 数 |", "|---|---|"]
     report += [f"| {k} | {v} |" for k, v in row.items() if k != "date"]
     report += ["", f"顶格（转整栏收割）的县：{'、'.join(saturated) or '无'}",
                f"本周新增或变化的栏目：{len(changed)}（见 columns_new.csv）",
                f"增量搜索停止原因：{inc.get('stop_reason') or '无'}；精扫停止原因：{sw.get('stop_reason') or '无'}"]
-    (out_dir / "weekly_report.md").write_text("\n".join(report) + "\n", encoding="utf-8")
+    (out_dir / f"{prefix}_report.md").write_text("\n".join(report) + "\n", encoding="utf-8")
     if weekly_log is not None:
         new = not weekly_log.exists()
         with open(weekly_log, "a", encoding="utf-8", newline="") as f:
