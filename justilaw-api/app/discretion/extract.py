@@ -320,6 +320,11 @@ def extract(fact: str, target: str | None = None, *, base_url: str = "http://127
     t0 = time.time()
     with httpx.Client(timeout=timeout, trust_env=False) as c:
         r = c.post(f"{base_url}/api/chat", json=payload)
+        if r.status_code == 500 and "repeat" in r.text:
+            # 温度 0 的贪心解码遇到乱码等异常输入时会陷入重复循环（Ollama 报 token repeat limit）；
+            # 只在这种情况下用小温度 + 重复惩罚重试一次，正常案例仍保持温度 0、结果可复现
+            payload["options"].update(temperature=0.3, repeat_penalty=1.15, seed=0)
+            r = c.post(f"{base_url}/api/chat", json=payload)
         r.raise_for_status()
         j = r.json()
     raw = j["message"]["content"]

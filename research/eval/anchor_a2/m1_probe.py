@@ -143,7 +143,10 @@ def cmd_evaluate():
     y_tr, y_va = np.array([c["cls"] for c in tr]), np.array([c["cls"] for c in va])
     E_tr = np.array([element_vector(_load_elements(c["id"]), c) for c in tr])
     E_va = np.array([element_vector(_load_elements(c["id"]), c) for c in va])
-    print(f"训练 {len(tr)} 件、验证 {len(va)} 件（均已抽取要素）")
+    # 训练集中取值少于 2 种的列（例如整列都没抽到）没有信息，梯度提升树也无法分箱，去掉
+    keep = [j for j in range(E_tr.shape[1]) if len(set(E_tr[~np.isnan(E_tr[:, j]), j])) >= 2]
+    E_tr, E_va = E_tr[:, keep], E_va[:, keep]
+    print(f"训练 {len(tr)} 件、验证 {len(va)} 件（均已抽取要素）；要素特征 {len(keep)} 列")
 
     text = Pipeline([("tfidf", TfidfVectorizer(analyzer="char", ngram_range=(1, 3), sublinear_tf=True,
                                                min_df=2, max_features=200_000)),
@@ -173,6 +176,86 @@ def cmd_evaluate():
               f"CAIL {r['cail_log']:.2f}  相对 T：{cmp['diff'] * 100:+.2f} [{cmp['ci_low'] * 100:+.2f}, {cmp['ci_high'] * 100:+.2f}]")
 
 
+def cmd_diagnose():
+    """在全部已抽取案例上做 5×5 折重复交叉验证，比较多种模型形式，判断要素是否真的不如文本。
+
+    两类模型形式：
+    - 分类：10 个区间当作互不相关的类别
+    - 有序回归：预测 log(1+月数)，再按区间边界映射回类别（利用区间的大小顺序，方差更小）
+    """
+    import numpy as np
+    from sklearn.ensemble import HistGradientBoostingClassifier, HistGradientBoostingRegressor
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.linear_model import LogisticRegression, Ridge
+    from sklearn.model_selection import KFold
+    from sklearn.pipeline import Pipeline
+
+    import metrics as M  # noqa: E402
+
+    cases, _ = A2.load_cases()
+    ids = [i for i in A2.read_split("train") + A2.read_split("valid") if (OUT / f"{i}.json").exists()]
+    cs = [cases[i] for i in ids]
+    y = np.array([c["cls"] for c in cs])
+    logm = np.log1p([c["months"] for c in cs])
+    texts = [c["fact"] for c in cs]
+    E = np.array([element_vector(_load_elements(c["id"]), c) for c in cs])
+
+    def tfidf():
+        return TfidfVectorizer(analyzer="char", ngram_range=(1, 3), sublinear_tf=True, min_df=2, max_features=200_000)
+
+    def clean(Etr, Ete):
+        keep = [j for j in range(Etr.shape[1]) if len(set(Etr[~np.isnan(Etr[:, j]), j])) >= 2]
+        return Etr[:, keep], Ete[:, keep]
+
+    def to_cls(pred_logm):
+        return np.array([A2.pt_cls(m) for m in np.expm1(pred_logm)])
+
+    reg_hgb = dict(max_iter=400, learning_rate=0.04, max_leaf_nodes=7, min_samples_leaf=40,
+                   l2_regularization=1.0, early_stopping=True, validation_fraction=0.15, random_state=A2.SEED)
+
+    def systems(tr, te):
+        out = {}
+        # 文本：分类 / 有序回归
+        lr = Pipeline([("t", tfidf()), ("m", LogisticRegression(C=3.0, max_iter=3000))]).fit([texts[i] for i in tr], y[tr])
+        out["T 分类(LR)"] = lr.predict([texts[i] for i in te])
+        rg = Pipeline([("t", tfidf()), ("m", Ridge(alpha=1.0))]).fit([texts[i] for i in tr], logm[tr])
+        t_reg_te = rg.predict([texts[i] for i in te])
+        out["T 有序回归(Ridge)"] = to_cls(t_reg_te)
+        # 要素：分类 / 有序回归（强正则的梯度提升树）
+        Etr, Ete = clean(E[tr], E[te])
+        out["E 分类(HGB)"] = HistGradientBoostingClassifier(**reg_hgb).fit(Etr, y[tr]).predict(Ete)
+        out["E 有序回归(HGB)"] = to_cls(HistGradientBoostingRegressor(**reg_hgb).fit(Etr, logm[tr]).predict(Ete))
+        # 要素 + 文本：文本回归的折外预测作为一个特征（在训练折内部再做 5 折，避免泄漏）
+        oof = np.zeros(len(tr))
+        for itr, ite in KFold(5, shuffle=True, random_state=A2.SEED).split(tr):
+            m = Pipeline([("t", tfidf()), ("m", Ridge(alpha=1.0))]).fit([texts[tr[i]] for i in itr], logm[tr][itr])
+            oof[ite] = m.predict([texts[tr[i]] for i in ite])
+        Xtr, Xte = np.column_stack([Etr, oof]), np.column_stack([Ete, t_reg_te])
+        out["E+T 有序回归(HGB)"] = to_cls(HistGradientBoostingRegressor(**reg_hgb).fit(Xtr, logm[tr]).predict(Xte))
+        return out
+
+    folds: dict[str, dict] = {}
+    for fid, tr, te in A2.cv_folds(ids, list(y)):
+        for name, pred in systems(tr, te).items():
+            folds.setdefault(name, {})[fid] = {
+                "acc": float((pred == y[te]).mean()),
+                "cail": M.cail_log_score([cases[ids[i]]["months"] for i in te],
+                                         [float(np.median([c["months"] for c in cs if c["cls"] == p] or [6])) for p in pred]),
+                "n_train": len(tr), "n_test": len(te)}
+        print(".", end="", flush=True)
+    print(f"\n{len(ids)} 件，5×5 折")
+    base = "T 分类(LR)"
+    for name, fr in folds.items():
+        accs = [f["acc"] for f in fr.values()]
+        line = f"{name:<18} Acc {np.mean(accs) * 100:6.2f} ± {np.std(accs, ddof=1) * 100:4.2f}  CAIL {np.mean([f['cail'] for f in fr.values()]):6.2f}"
+        if name != base:
+            d = [fr[k]["acc"] - folds[base][k]["acc"] for k in fr]
+            t = M.corrected_resampled_ttest(d, fr[next(iter(fr))]["n_train"], fr[next(iter(fr))]["n_test"])
+            line += f"  相对 {base}：{t['mean_diff'] * 100:+.2f}（修正 t 检验 单侧 p = {t['p_value']:.3f}）"
+        print(line)
+    (HERE / "m1_diagnose.json").write_text(json.dumps(folds, ensure_ascii=False, indent=1), "utf-8")
+
+
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")
     cmd = sys.argv[1]
@@ -185,3 +268,5 @@ if __name__ == "__main__":
         cmd_report()
     elif cmd == "evaluate":
         cmd_evaluate()
+    elif cmd == "diagnose":
+        cmd_diagnose()
