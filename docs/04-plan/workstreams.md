@@ -22,7 +22,7 @@
 |---|---|---|
 | 数据链路 | `research/discretion/collect/**`、`docs/04-plan/data-collection.md` | 只有数据链路写 |
 | 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`research/papers/**`、`docs/05-research/**`、`docs/02-design/gambling-discretion-engine.md` | 只有引擎写 |
-| 发现层 | `research/discretion/discover/**`、`docs/04-plan/search-discovery-design.md`、`docs/04-plan/manual-collection-guide.md` | 只有发现层写；不写 `collect/`，经交付文件（设计 §6）与数据链路对接 |
+| 发现层 | `research/discretion/discover/**`、`research/discretion/harvest/**`、`docs/04-plan/search-discovery-design.md`、`docs/04-plan/web-harvest-design.md`、`docs/04-plan/manual-collection-guide.md` | 只有发现层写；不写 `collect/`。公开网页的收割与解析（`harvest/`）在数据链路主攻北大法宝期间由发现层承担（2026-10-15），台账用独立的 `harvest/manifest_web.csv`（id 前缀 W-），与 `collect/manifest.csv` 并列 |
 | 共享 | `.gitignore`、`README.md`、`docs/README.md`、`research/README.md`、`justilaw-api/requirements.txt`、`docs/04-plan/milestones.md`、本文件 | 小改动、单独提交；提交前在[协作记录](./collab-log.md)留一行 |
 | 平台其他代码 | `justilaw-api/app/**`（discretion 以外）、`justilaw-web/**`、`launcher/**`、`ops/**` | 引擎接入平台时只做最小改动（注册路由、开关、卡片），单独提交 |
 
