@@ -8,7 +8,7 @@
   限速    两次请求间隔 ≥ --min-interval 秒；429/5xx/网络异常指数退避重试，最多 3 次（每次尝试都计入预算）。
   拆分    结果数 ≥ top_k 视为被截断，按 plan.split() 下钻，深度上限 --max-depth；到达上限仍满的记为 saturated_unsplit。
 
-用法（仓库根目录；联网运行需环境变量 QIANFAN_API_KEY）：
+用法（仓库根目录；联网运行需 QIANFAN_API_KEY——进程环境变量，或用 setx 设的 Windows 用户级环境变量）：
   python research/discretion/discover/search.py import-probe <M0 探针输出目录>   # 把探针响应灌进缓存
   python research/discretion/discover/search.py run --templates fy70,cf82 --offline   # 只用缓存，离线回放
   python research/discretion/discover/search.py run --templates fy70,cf70 --regions 浙江,河北 --budget 10
@@ -44,6 +44,21 @@ RUN_LOG_FIELDS = [
 QUERY_FIELDS = ["qid", "depth", "source", "status", "error", "n", "gov", "gambling", "saturated", "children"]
 
 Transport = Callable[[dict, str], "tuple[int, dict]"]
+
+
+def api_key() -> str | None:
+    """先读当前进程环境变量；没有时读 Windows 用户级环境变量（注册表 HKCU\\Environment）。
+    setx 写入的变量要重启应用才进入新进程的环境，直接读注册表可免重启。Key 不落任何文件。"""
+    key = os.environ.get("QIANFAN_API_KEY")
+    if key or sys.platform != "win32":
+        return key
+    import winreg
+
+    try:
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as k:
+            return winreg.QueryValueEx(k, "QIANFAN_API_KEY")[0] or None
+    except OSError:
+        return None
 
 
 def data_root() -> Path:
@@ -294,9 +309,9 @@ def main() -> None:
     queries = seeds(cfg, templates, regions)
     client = budget = None
     if not args.offline:
-        key = os.environ.get("QIANFAN_API_KEY")
+        key = api_key()
         if not key:
-            sys.exit("缺少环境变量 QIANFAN_API_KEY；只想回放缓存请加 --offline")
+            sys.exit("缺少 QIANFAN_API_KEY（进程环境变量或 Windows 用户级环境变量）；只想回放缓存请加 --offline")
         client = Client(key, min_interval=args.min_interval)
         budget = Budget(args.budget, args.max_cost, args.daily_cap, Ledger(root / "ledger.csv"))
     batch = args.batch or datetime.now().strftime("%Y%m%d-%H%M%S") + ("-offline" if args.offline else "")
@@ -306,7 +321,7 @@ def main() -> None:
     for k, v in summary.items():
         print(f"{k}: {v}")
     print(f"明细 → {out_dir}")
-    if not args.offline:
+    if summary["api_calls"]:  # 纯缓存回放不记入批次日志（日志统计的是真实花费与新增）
         append_run_log(RUN_LOG, {"date": datetime.now().strftime("%Y-%m-%d"), "batch": batch, "mode": "online",
                                  "templates": args.templates or "全部", "regions": args.regions or "全国",
                                  "max_depth": args.max_depth, **summary})

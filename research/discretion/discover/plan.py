@@ -1,8 +1,9 @@
 """发现层 L1 查询规划器：模板 → 种子查询 → 饱和拆分（设计 §3.1–3.2）。
 
 一个查询由「模板 + 三个拆分维度（区域 / 时间窗 / 特征词）」唯一确定。种子查询只固定模板
-（可选固定区域）；执行器发现结果顶到 top_k 时调用 split()，按 区域 → 时间 → 特征词 的顺序
-固定下一个尚未固定的维度。带 recency 的模板（如新法近一年）不做时间拆分。
+（可选固定区域）；执行器发现结果顶到 top_k 时调用 split()，按 queries.yaml 的 split.order
+（默认 特征词 → 时间窗 → 省名）固定下一个尚未固定的维度。带 recency 的模板（如新法近一年）不做时间拆分。
+M1 实测：省名写进检索式会漏掉正文不写省名的县级文书，所以省名放在最后。
 
 用法（查看将要发出的种子查询，不调用 API）：
   python research/discretion/discover/plan.py --templates fy70,cf82 --regions 浙江,河北
@@ -76,16 +77,20 @@ def seeds(cfg: dict, templates: list[str] | None = None, regions: list[str] | No
     return [Query(t, region=r) for t in ids for r in (regions or [None])]
 
 
+DIM_FIELD = {"regions": "region", "windows": "window", "features": "feature"}
+
+
 def split(q: Query, cfg: dict) -> list[Query]:
-    """固定下一个未固定的维度；全部固定后返回空（叶子，再满也不拆）。"""
+    """按 queries.yaml split.order 固定下一个未固定的维度；全部固定后返回空（叶子，再满也不拆）。
+    带 recency 的模板跳过时间窗（recency 与 page_time 不叠加）。"""
     sp = cfg["split"]
     child = replace(q, depth=q.depth + 1)
-    if q.region is None:
-        return [replace(child, region=r) for r in sp["regions"]]
-    if q.window is None and not cfg["_templates"][q.template].get("recency"):
-        return [replace(child, window=w) for w in sp["windows"]]
-    if q.feature is None:
-        return [replace(child, feature=f) for f in sp["features"]]
+    for dim in sp.get("order", ["features", "windows", "regions"]):
+        field = DIM_FIELD[dim]
+        if dim == "windows" and cfg["_templates"][q.template].get("recency"):
+            continue
+        if getattr(q, field) is None:
+            return [replace(child, **{field: v}) for v in sp[dim]]
     return []
 
 

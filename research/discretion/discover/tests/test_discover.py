@@ -73,21 +73,22 @@ def test_body_key_ignores_dict_order():
     assert body_key({"a": 1, "b": [1, 2]}) == body_key({"b": [1, 2], "a": 1})
 
 
-def test_split_order_region_then_time_then_feature():
+def test_split_follows_configured_order():
+    assert CFG["split"]["order"] == ["features", "windows", "regions"]
     q = Query("fy70")
     lvl1 = split(q, CFG)
-    assert len(lvl1) == len(CFG["split"]["regions"]) and all(c.region and c.depth == 1 for c in lvl1)
+    assert {c.feature for c in lvl1} == set(CFG["split"]["features"]) and all(c.depth == 1 for c in lvl1)
     lvl2 = split(lvl1[0], CFG)
     assert {c.window for c in lvl2} == set(CFG["split"]["windows"])
     assert "page_time" in lvl2[0].body(CFG)["search_filter"]["range"]
     lvl3 = split(lvl2[0], CFG)
-    assert {c.feature for c in lvl3} == set(CFG["split"]["features"])
+    assert {c.region for c in lvl3} == set(CFG["split"]["regions"])
     assert split(lvl3[0], CFG) == []
 
 
 def test_recency_template_skips_time_split():
-    child = split(Query("cf82", region="浙江"), CFG)
-    assert child and all(c.feature and c.window is None for c in child)
+    child = split(Query("cf82", feature="麻将"), CFG)
+    assert child and all(c.region and c.window is None for c in child)
 
 
 def test_seeds_reject_unknown():
@@ -99,7 +100,7 @@ def test_seeds_reject_unknown():
 
 def test_query_ids_unique_across_tree():
     ids = {q.qid for q in split(Query("fy70"), CFG)}
-    assert len(ids) == len(CFG["split"]["regions"])
+    assert len(ids) == len(CFG["split"]["features"])
 
 
 # ---------- search ----------
@@ -122,7 +123,7 @@ def test_saturated_query_splits_until_max_depth(tmp_path):
     cache, client, budget, _ = make(tmp_path, tr)
     s = run([Query("fy70")], CFG, cache=cache, budget=budget, client=client, offline=False, max_depth=1,
             out_dir=tmp_path / "r", seen_path=tmp_path / "seen.txt")
-    assert len(tr.calls) == 1 + len(CFG["split"]["regions"])
+    assert len(tr.calls) == 1 + len(CFG["split"]["features"])
     assert s["saturated_unsplit"] == 0
 
 
@@ -212,5 +213,5 @@ def test_offline_replay_of_m0_probe(tmp_path):
     hits = [json.loads(x) for x in (tmp_path / "r" / "hits.jsonl").read_text(encoding="utf-8").splitlines()]
     assert len(hits) == s["unique_urls"] >= 60  # T2 50 条 + T8 23 条，去重后
     assert all(h["url"].split("/")[2].endswith("gov.cn") for h in hits)
-    # fy70 顶到 50 条 → 拆分出各省子查询，离线缓存里没有，记为 miss
-    assert s["cache_misses"] == len(CFG["split"]["regions"])
+    # fy70 顶到 50 条 → 按特征词拆出子查询，离线缓存里没有，记为 miss
+    assert s["cache_misses"] == len(CFG["split"]["features"])

@@ -1,0 +1,4 @@
+date,batch,mode,templates,regions,max_depth,queries_done,cache_hits,api_calls,est_cost_cny,results,unique_urls,new_urls,gambling_snippets,saturated_unsplit,errors,deferred,stop_reason
+2026-10-15,m1-coarse-national,online,全部,全国,0,7,2,5,0.18,293,231,231,174,5,0,0,
+2026-10-15,m1-coarse-provinces,online,"fy70,cf70,zfgs","浙江,河北,河南,广东",0,12,0,12,0.432,463,344,292,148,7,0,0,
+2026-10-15,m1-feature-split,online,"fy70,cf70",全国,1,18,2,16,0.576,421,246,93,215,6,0,0,
