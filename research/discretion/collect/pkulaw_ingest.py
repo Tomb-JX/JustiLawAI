@@ -827,6 +827,7 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
             "law_version_raw": lv_raw,
             "parse_warnings": warns,
         },
+        "event_key": event_key_of(parsed["authority"], facts),
         "event_hint": {"authority": parsed["authority"], "decision_date": parsed["decision_date"],
                        "doc_seq": _doc_seq(parsed["doc_no"])},
     }
@@ -904,9 +905,23 @@ def build_judgment_doc_record(parsed: dict, *, manifest_id: str = "", harvest_da
             "sentence": j["sentence"],
             "parse_warnings": warns,
         },
+        "event_key": event_key_of(j["court"], parsed["facts"]),
         "event_hint": {"authority": j["court"], "behavior_date": parsed["behavior_date_in_facts"] or "",
                        "doc_seq": _doc_seq(parsed["doc_no"])},
     }
+
+
+def event_key_of(authority: str, facts: str) -> str:
+    """事件指纹：机关 + 事实段首个日期 + 赌资金额集合。
+
+    同一次集中查处的多名当事人会各出一份决定书，这三项相同（实测：一次抓赌 5–8 份），
+    门禁 §7 要求按事件分组划分，所以交付记录必须带这个键；批次报告也用它算"篇数→事件数"折算率。
+    """
+    f = facts or ""
+    dates = re.findall(r"(\d{4}年\d{1,2}月\d{1,2}日)", f)
+    money = re.findall(r"(?:赌资|资金|款)[^\d]{0,6}([\d,]+)\s*元", f) or re.findall(r"([\d,]{2,})\s*元", f)
+    money_key = ",".join(sorted(set(money))) if money else "-"
+    return f"{authority}|{dates[0] if dates else '-'}|{money_key}"
 
 
 def tier_of(*, has_facts: bool, has_outcome: bool, gambling: bool, in_scope: bool) -> dict:
@@ -1236,6 +1251,8 @@ def cmd_docs(args) -> None:
         "counts": dict(counters),
         "tier": dict(Counter(r["quality"].get("tier", "?") for r in records)),
         "facts_len_median": facts_len[len(facts_len) // 2] if facts_len else 0,
+        "unique_events": len({r.get("event_key", "") for r in records}),
+        "event_yield": round(len({r.get("event_key", "") for r in records}) / max(len(records), 1), 3),
         "has_amount_ratio": round(sum(1 for r in records if r["quality"]["has_amount"]) / max(len(records), 1), 3),
         "missing_decision_date_ratio": round(
             sum(1 for r in records if not r["decision_date"]) / max(len(records), 1), 3),
@@ -1258,6 +1275,7 @@ def cmd_docs(args) -> None:
     report(f"  质量提示：{ {k: v for k, v in counters.items() if k.startswith('warn:')} }")
     report(f"  批次指标：事实段中位 {stats['facts_len_median']} 字｜含金额 {stats['has_amount_ratio']:.0%}"
            f"｜缺决定日期 {stats['missing_decision_date_ratio']:.0%}")
+    report(f"  事件产出：{stats['unique_events']} 个独立事件 / {len(records)} 篇（折算率 {stats['event_yield']:.0%}）")
     report(f"  产出目录：{out}（含 SHA256SUMS）")
 
 
