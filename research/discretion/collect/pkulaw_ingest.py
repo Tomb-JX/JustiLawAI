@@ -178,9 +178,10 @@ SEGMENT_KEYS = ("text_facts", "text_evidence", "text_reasoning", "text_decision"
 def doc_no_norm(doc_no: str) -> str:
     """规格 v0.2 §1.1 的文号规范化——与 research/discretion/harvest/deid.py 同源实现。"""
     s = re.sub(r"\s", "", doc_no or "")
-    s = re.sub(r"[〔\[［【(（](20\d{2})[〕\]］】)）]", r"〔\1〕", s)
+    s = re.sub(r"[〔\[［【(（﹝](20\d{2})[〕\]］】)）﹞]", r"〔\1〕", s)
     return s.translate(str.maketrans({"(": "（", ")": "）", "[": "〔", "]": "〕",
-                                      "［": "〔", "］": "〕", "【": "〔", "】": "〕"}))
+                                      "［": "〔", "］": "〕", "【": "〔", "】": "〕",
+                                      "﹝": "〔", "﹞": "〕"}))
 
 
 def doc_no_hash(doc_no: str) -> str:
@@ -881,7 +882,7 @@ NARRATIVE_FACTS = re.compile(r"现查明[:：]?\s*(.*?)(?=以上事实有|以上
 NARRATIVE_EVIDENCE = re.compile(r"(?:以上|上述)事实有(.*?)(?=根据|依照|依据|现决定|$)", re.S)
 NARRATIVE_DECISION = re.compile(r"(?:根据|依照|依据)[^。]{0,120}?之规定[，,]?\s*(?:现)?决定[:：]?\s*(.*?)(?=被处罚人|如不服|当事人|本决定|$)", re.S)
 NARRATIVE_BASIS = re.compile(r"((?:根据|依照|依据)[^。]{0,120}?之规定)")
-DOC_NO_RE = re.compile(r"[（(]?[\u4e00-\u9fa5][公检法执][\u4e00-\u9fa5]{0,4}?[（(][^）)]{1,8}[）)][^\s，。]{0,24}?字[〔\[（(]?\s*\d{4}\s*[〕\]）)]?\s*第?\s*\d+\s*号")
+DOC_NO_RE = re.compile(r"[（(]?[\u4e00-\u9fa5][公检法执][\u4e00-\u9fa5]{0,4}?[（(][^）)]{1,8}[）)][^\s，。]{0,24}?字[〔\[（(﹝]?\s*\d{4}\s*[〕\]）)﹞]?\s*第?\s*\d+\s*号")
 SUBJECT_RE = re.compile(r"(?:违法行为人|被处罚人|违法嫌疑人)[：:]?\s*([\u4e00-\u9fa5*＊xX×]{2,12})")
 
 

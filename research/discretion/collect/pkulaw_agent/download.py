@@ -191,6 +191,28 @@ def _visible_clicks(page, pat, *, limit: int = 6) -> list:
     return els
 
 
+def _distinct_clicks(page, pat, *, limit: int = 6) -> list:
+    """同 _visible_clicks，但按包围盒去重（实测菜单项常有嵌套同名节点，重复点击会各空等一轮）。"""
+    els = _visible_clicks(page, pat, limit=limit)
+    if len(els) <= 1:
+        return els
+    boxes: set = set()
+    out: list = []
+    for el in els:
+        try:
+            bb = el.bounding_box()
+        except Exception:  # noqa: BLE001
+            bb = None
+        key = (round(bb["x"]), round(bb["y"]), round(bb["width"]), round(bb["height"])) \
+            if bb else None
+        if key is not None and key in boxes:
+            continue
+        if key is not None:
+            boxes.add(key)
+        out.append(el)
+    return out
+
+
 def _wait_for_file(page, sink: DownloadSink, before: int, timeout_s: float) -> bool:
     for _ in range(int(timeout_s * 2)):
         page.wait_for_timeout(500)
@@ -215,7 +237,7 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
 
     # ① 格式项已可见（菜单本来就开着）→ 直接点，长等
     for pat in fmts:
-        for el in _visible_clicks(page, pat):
+        for el in _distinct_clicks(page, pat):
             try:
                 el.click(timeout=5000)
             except Exception:  # noqa: BLE001
@@ -224,7 +246,7 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
                 return True
     # ② 展开菜单：只点第一个可见的"下载"，短等（菜单出现即走，不等满）
     for pat in _OPENER_PATTERNS:
-        els = _visible_clicks(page, pat, limit=2)
+        els = _distinct_clicks(page, pat, limit=2)
         if not els:
             continue
         try:
@@ -236,7 +258,7 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
         break  # 只试一个展开器一次（旧逻辑在这里空等 25s×按钮数）
     # ③ 菜单已开 → 逐个格式项点（长等；auto 时 Word 无响应自动轮到 PDF）
     for pat in fmts:
-        for el in _visible_clicks(page, pat):
+        for el in _distinct_clicks(page, pat):
             try:
                 el.click(timeout=5000)
             except Exception:  # noqa: BLE001
@@ -245,7 +267,7 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
                 return True
     # ④ 兜底：导出 / TXT（长等）
     for pat in _TAIL_PATTERNS:
-        for el in _visible_clicks(page, pat):
+        for el in _distinct_clicks(page, pat):
             try:
                 el.click(timeout=5000)
             except Exception:  # noqa: BLE001

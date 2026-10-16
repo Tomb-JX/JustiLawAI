@@ -72,9 +72,15 @@ class RunState:
             f.write(json.dumps(rec, ensure_ascii=False) + "\n")
 
     def seen_set(self) -> set[str]:
-        """批内去重集合：正文哈希 + 规范化文号（含历史行）。"""
+        """批内去重集合：正文哈希 + 规范化文号，**仅取终态行**（downloaded/skipped/validated）。
+
+        修复（2026-10-16）：此前把 error 行也算进 seen，导致重试的件被自己上一轮的失败记录
+        误判为"文号重复（本批）"而跳过。
+        """
         seen: set[str] = set()
         for r in self.rows:
+            if r.get("status") not in TERMINAL:
+                continue
             if r.get("text_sha256"):
                 seen.add(r["text_sha256"])
             k = _key_of(r)

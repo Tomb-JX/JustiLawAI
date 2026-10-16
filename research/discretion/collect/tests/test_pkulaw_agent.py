@@ -612,7 +612,16 @@ def test_run_state_resume_and_seen(tmp_path):
     assert st2.get({"doc_no": "B〔2026〕2号"})["status"] == "error"
     seen = st2.seen_set()
     assert "s1" in seen and "A〔2026〕1号" in seen
+    # error 行不进 seen（否则重试会被自己的失败记录当"文号重复"跳过）
+    assert "B〔2026〕2号" not in seen
     assert run_mod.TERMINAL == {"downloaded", "skipped", "validated"}
+
+
+def test_doc_no_norm_white_corner_brackets():
+    import pkulaw_ingest as ingest
+    assert ingest.doc_no_norm("东公(井)决字﹝2026﹞第0101号") == "东公（井）决字〔2026〕第0101号"
+    m = ingest.DOC_NO_RE.search("东公(井)决字﹝2026﹞第0101号 现查明")
+    assert m and "0101" in m.group(0)
 
 
 def test_verify_download_magic_and_ext(tmp_path):
