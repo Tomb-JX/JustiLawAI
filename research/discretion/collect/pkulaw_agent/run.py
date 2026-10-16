@@ -148,6 +148,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
     in_sha = hashlib.sha256(jobs_path.read_bytes()).hexdigest()[:16]
     loop_t0 = time.monotonic()
     this_run: list[dict] = []  # 本次运行处理的件（计时统计只算这些）
+    consec_errors = 0  # 连续失败计数（断路器：防窗口被关/被拦时空转扫完整个队列）
 
     for i, job in enumerate(jobs, 1):
         if resume and not force:
@@ -193,12 +194,22 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             logger("  ⛔ 安全验证页：整批停止（不绕过；人工完成后 --resume 续跑）")
             break
         except Exception as exc:  # noqa: BLE001 —— 单件失败不拖垮批次
-            rec.update(status="error", reason=f"打开失败：{type(exc).__name__}: {str(exc)[:150]}",
+            closed = "TargetClosed" in type(exc).__name__ or "TargetClosed" in str(exc)
+            rec.update(status="error",
+                       reason=("浏览器窗口已被关闭（重新运行命令会自动新开窗口并 --resume 续跑）"
+                               if closed else
+                               f"打开失败：{type(exc).__name__}: {str(exc)[:150]}"),
                        timing={"item_s": round(time.monotonic() - t0, 1)})
             counters["errors"] += 1
-            reasons["open_failed"] += 1
+            reasons["window_closed" if closed else "open_failed"] += 1
             this_run.append(rec)
             state.put(rec)
+            consec_errors += 1
+            if consec_errors >= 5:
+                logger("⛔ 连续 5 件失败（窗口被关/被拦/会话失效）：批次停止。"
+                       "处理后重跑 --resume 续跑。")
+                counters["breaker_stopped"] = 1
+                break
             continue
         if len(text) < 150:  # 实测有 269–284 字的合法简易处罚决定（2026-10-16），门槛从 300 下调；
                              # 真正的"未加载"页正文 <100；质量仍由六校验的 narrative/facts 把关
@@ -208,6 +219,12 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             reasons["too_short"] += 1
             this_run.append(rec)
             state.put(rec)
+            consec_errors += 1
+            if consec_errors >= 5:
+                logger("⛔ 连续 5 件失败（窗口被关/被拦/会话失效）：批次停止。"
+                       "处理后重跑 --resume 续跑。")
+                counters["breaker_stopped"] = 1
+                break
             continue
 
         probe = probe_text(text)
@@ -282,6 +299,15 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
         }
         this_run.append(rec)
         state.put(rec)
+        if rec.get("status") == "error":
+            consec_errors += 1
+            if consec_errors >= 5:
+                logger("⛔ 连续 5 件失败（窗口被关/被拦/会话失效）：批次停止。"
+                       "处理后重跑 --resume 续跑。")
+                counters["breaker_stopped"] = 1
+                break
+        else:
+            consec_errors = 0
 
     elapsed = time.monotonic() - loop_t0
     item_times = [r["timing"]["item_s"] for r in this_run
