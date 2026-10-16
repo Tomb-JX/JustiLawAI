@@ -223,7 +223,7 @@ def _wait_for_file(page, sink: DownloadSink, before: int, timeout_s: float) -> b
 
 def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "auto",
                    menu_wait_s: float = 4.0, probe_wait_s: float = 3.0,
-                   grace_s: float = 15.0) -> bool:
+                   grace_s: float = 15.0, budget_s: float = 20.0) -> bool:
     """点击"下载"直到收到文件；菜单项按 fmt 偏好（auto=Word 优先回退 PDF）。
 
     实测修正轨迹（2026-10-16，分步计时定位）：
@@ -237,11 +237,12 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
     import time as _t
 
     before = sink.count()
-    cands = report_candidates(page)
-    print(f"  [UI] 页面上的下载类按钮候选：{cands or '（未识别到）'}")
-    fmts = _fmt_patterns(fmt)
+    deadline = _t.monotonic() + budget_s  # 总预算：防"每个候选都点一遍仍无文件"的病态件拖长（实测 47s→预算 20s）
 
     def _click(el, tag: str, wait: float) -> bool:
+        if _t.monotonic() >= deadline:
+            print(f"  [计时] {tag}: 预算用尽，跳过")
+            return False
         tc = _t.monotonic()
         try:
             el.click(timeout=5000)
@@ -249,9 +250,13 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
             return False
         click_s = _t.monotonic() - tc
         w0 = _t.monotonic()
-        got = _wait_for_file(page, sink, before, wait)
+        got = _wait_for_file(page, sink, before, min(wait, max(0.5, deadline - _t.monotonic())))
         print(f"  [计时] {tag}: click={click_s:.1f}s wait={_t.monotonic() - w0:.1f}s got={got}")
         return got
+
+    cands = report_candidates(page)
+    print(f"  [UI] 页面上的下载类按钮候选：{cands or '（未识别到）'}")
+    fmts = _fmt_patterns(fmt)
 
     # ① 格式项已可见（菜单本来就开着）→ 短探；撞到死元素立刻换下一个
     for pat in fmts:
@@ -276,11 +281,13 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
         for el in _distinct_clicks(page, pat):
             if _click(el, f"兜底{pat.pattern[:12]}", probe_wait_s):
                 return True
-    # ⑤ 宽限：所有点击都没文件——等一次长超时（慢导出兜底）
-    w0 = _t.monotonic()
-    got = _wait_for_file(page, sink, before, grace_s)
-    print(f"  [计时] 宽限: wait={_t.monotonic() - w0:.1f}s got={got}")
-    return got
+    # ⑤ 宽限：所有点击都没文件——等一次长超时（慢导出兜底；预算内才等）
+    if _t.monotonic() < deadline:
+        w0 = _t.monotonic()
+        got = _wait_for_file(page, sink, before, min(grace_s, max(0.5, deadline - _t.monotonic())))
+        print(f"  [计时] 宽限: wait={_t.monotonic() - w0:.1f}s got={got}")
+        return got
+    return False
 
 
 def manual_capture(session, sink: DownloadSink, *, prompt: str, timeout_s: int = 600,
