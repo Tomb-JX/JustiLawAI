@@ -75,6 +75,7 @@ def probe_text(text: str) -> dict:
     return {
         "form": form,
         "is_narrative": bool(facts),
+        "facts_len": len(facts),
         "table_rows_hit": rows_hit,
         "has_amount": ingest.has_amount(facts),
         "pklaw_id": parsed.get("pkulaw_id", "") or ingest.pkulaw_id_from_text(text),

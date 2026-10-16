@@ -1,19 +1,22 @@
-"""法宝作业台命令行入口（M0–M3）。
+"""法宝作业台命令行入口（M0–M5）。
 
 用法（任选其一，建议直接运行本文件）：
-  doctor                                   环境自检（不联网）
-  login [--timeout 600]                    打开真窗口手动登录并固化 profile
+  doctor                                   环境自检（不联网；含 profile 锁、session.json、CDP 探测）
+  serve [--port 9222]                      长驻窗口：一个浏览器跑完所有命令（CDP 接管，不闪断）
+  login [--hold]                           稳定登录：窗口在登录成功前不会关闭；成功后写 session.json
   recon [--tag 20261016] [--seconds 0]     登录后捕获 XHR（脱敏）+ 回放固化响应字段
   cluster --lib apy [--dim CategoryNew]    拉筛选维度与 id 映射
   call --path … --body …                   任意 API 直调（agent 探索用）
   search --plan plan.json                  检索（分页/饱和拆分）→ results.jsonl
-  search --template                        打印作业单模板
   fetch --run <run_dir> [--ingest]         零配额抓正文 → .txt + 形态预探（可接着走解析链）
-  download --run <run_dir> [--manual]     勾选/逐条 → 下载文件（自动，--manual 人工兜底）
-  download --ui-search --term 抽头         库页检索后当页勾选→下载（--pages N 翻页）
+  download --run <run_dir> [--manual]      勾选/逐条 → 下载文件（自动，--manual 人工兜底）
+  jobs from-mcp --cache <缓存目录> --out j.jsonl   MCP 结果（含原文链接）→ 作业单（0 积分）
+  jobs from-csv --csv worklist.csv --out j.jsonl   清洗清单 → 作业单
+  run --jobs j.jsonl [--dry-run] [--cap 30]        打开→抓正文→六校验→（通过才）限额下载→报告
   harvest --plan plan.json                 一条命令串完 search→fetch[→download]
 
-红线（design §3）：不绕验证码/风控；单账号人类节奏；下载消耗配额，必须 --cap；凭据与 profile 不进仓库。
+边界（design §3 / 协调 2026-10-16 21:24）：只用站内检索/浏览/导出功能；遇验证码或风控停下由人处理，
+不绕过；单账号；请求间隔 ≥1.5s；下载显式 --cap 且不超账户限额；凭据与 profile 不进仓库、不入对话。
 """
 
 from __future__ import annotations
@@ -21,7 +24,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 if __package__ in (None, ""):
@@ -62,29 +67,106 @@ def cmd_doctor(a: argparse.Namespace) -> int:
     profile = sess.profile_dir()
     print(f"数据目录: {root}  {'可写' if os.access(root, os.W_OK) else '不存在或不可写'}")
     print(f"浏览器 profile: {profile}  {'已存在（可能已登录过）' if profile.exists() else '未创建'}")
+    locks = sess.profile_lock_files(profile)
+    if locks:
+        print(f"profile 锁文件: {locks}（Chrome 正在使用或异常残留；启动失败先关掉残留 Chrome）")
+    info = sess.load_session_info()
+    print(f"session.json: {json.dumps(info, ensure_ascii=False) if info else '无（还没跑过 login）'}")
+    v = sess.cdp_probe(sess.DEFAULT_CDP_PORT)
+    print(f"CDP 端口 {sess.DEFAULT_CDP_PORT}: "
+          + ("在（serve 运行中——命令会自动接管该窗口，不新开不闪断）"
+             if v else "未开（正常；需要单窗口长驻可跑 serve）"))
     return 0
+
+
+def _wait_tick(s, seconds: float) -> None:
+    """驱动 Playwright 事件循环的等待（页面被关时退回真睡眠）。"""
+    try:
+        s.page.wait_for_timeout(int(seconds * 1000))
+    except Exception:  # noqa: BLE001
+        time.sleep(seconds)
+
+
+def _find_browser(name: str) -> str:
+    for p in BROWSER_PATHS.get(name, []):
+        if Path(p).exists():
+            return p
+    return ""
 
 
 # ---- login ----
 def cmd_login(a: argparse.Namespace) -> int:
-    with sess.Session(browser=a.browser) as s:
-        s.open_entry(a.entry)
+    """稳定登录（v1.1）：窗口在登录成功前不会关闭；任何异常都不关窗；成功后写 session.json。
+
+    退出条件：登录成功且（--hold 保持 / --grace 秒后自动关）；--timeout 到点；用户关窗；Ctrl+C。
+    """
+    hold = a.hold if a.hold is not None else sys.stdin.isatty()
+    with sess.Session(browser=a.browser, cdp_port=a.cdp_port) as s:
+        try:
+            s.open_entry(a.entry)
+        except sess.SecurityChallenge as exc:
+            print(f"{exc}\n（窗口保持打开：请在窗口中人工完成验证，工具会继续等待。）")
         tok = s.token()
         if tok:
             print(f"检测到已有登录态：{sess.mask_token(tok)}  到期约 {sess.jwt_exp_hint(tok) or '未知'}")
         else:
-            print("未检测到登录态。请在打开的浏览器窗口中完成登录（账号密码 / 微信扫码 / 验证码均可）。")
-        tok = tok or s.wait_for_login(a.timeout)
+            print("未检测到登录态。已打开稳定登录窗口——请在此窗口中完成登录")
+            print("（账号密码 / 微信扫码 / 验证码均可；窗口在登录成功前不会关闭，每 3 秒自动检测）。")
         api = api_mod.PkulawApi(s)
-        try:
-            api.verify_login(a.lib)
-        except PermissionError:
-            print("token 已存在但校验失败（可能已过期）——请在窗口中重新登录，继续等待……")
-            s.wait_for_login(a.timeout, poll_s=3)
-            api.verify_login(a.lib)
-        print(f"登录成功：{sess.mask_token(tok)}  到期约 {sess.jwt_exp_hint(tok) or '未知'}")
-        print(f"登录态已保存在 profile：{sess.profile_dir()}")
-        print("提示：保持账号单会话使用；出现安全验证页时按页面提示人工完成即可（工具不绕过）。")
+        deadline = time.time() + a.timeout if a.timeout and a.timeout > 0 else None
+        ok = False
+        while not ok:
+            if s.page_closed():
+                print("浏览器窗口已被关闭。若已完成登录可直接重跑任意命令；否则重跑 login。")
+                return 3
+            tok = s.token()
+            if not tok:
+                _wait_tick(s, 3)
+                if deadline and time.time() > deadline:
+                    print("已到 --timeout 上限（窗口保持打开 30 秒；完成后重跑 login 即可）。")
+                    _wait_tick(s, 30)
+                    return 2
+                continue
+            try:
+                api.verify_login(a.lib)
+                ok = True
+            except PermissionError:
+                print("token 已存在但校验失败（多为过期）——请在窗口中重新登录，继续等待……")
+                _wait_tick(s, 3)
+            except sess.SecurityChallenge:
+                print("页面处于安全验证：请在窗口中按提示人工完成（工具不绕过），继续等待……")
+                _wait_tick(s, 5)
+            except Exception as exc:  # noqa: BLE001
+                print(f"校验暂时失败（{type(exc).__name__}: {exc}）……20 秒后自动重试；窗口保持打开。")
+                _wait_tick(s, 20)
+            if deadline and time.time() > deadline and not ok:
+                print("已到 --timeout 上限（窗口保持打开 30 秒）。")
+                _wait_tick(s, 30)
+                return 2
+        tok = s.token()
+        info = {"checked_at": time.strftime("%Y-%m-%d %H:%M"),
+                "token_exp": sess.jwt_exp_hint(tok), "lib_ok": a.lib,
+                "account": s.account_hint(), "mode": s.mode}
+        sess.save_session_info(**info)
+        print(f"✅ 登录成功：{sess.mask_token(tok)}  到期约 {info['token_exp'] or '未知'}"
+              f"  机构线索：{info['account'] or '（未读到）'}")
+        print("登录态已固化（profile）+ session.json 已更新；后续命令免登录。")
+        if hold:
+            if sys.stdin.isatty():
+                try:
+                    input("窗口保持打开——完成其他操作后回终端按回车关闭窗口（或 Ctrl+C）…")
+                except EOFError:
+                    pass
+            else:
+                print("窗口保持打开中（agent 模式；Ctrl+C 或关闭窗口结束本命令）")
+                try:
+                    while not s.page_closed():
+                        _wait_tick(s, 15)
+                except KeyboardInterrupt:
+                    pass
+        else:
+            print(f"窗口将在 {a.grace} 秒后自动关闭（--hold 可保持窗口）")
+            _wait_tick(s, a.grace)
         return 0
 
 
@@ -351,6 +433,70 @@ def cmd_harvest(a: argparse.Namespace) -> int:
     return 0
 
 
+# ---- serve：长驻窗口 ----
+def cmd_serve(a: argparse.Namespace) -> int:
+    """一个浏览器跑完所有命令：本命令启动长驻 Chrome（CDP 端口），其它命令自动接管。"""
+    prof = sess.profile_dir()
+    prof.mkdir(parents=True, exist_ok=True)
+    if sess.cdp_probe(a.port):
+        print(f"已有 serve 在运行（127.0.0.1:{a.port}）——直接用即可；要另开一个请改 --port。")
+        return 0
+    exe = _find_browser(a.browser)
+    if not exe:
+        print(f"未找到 {a.browser} 可执行文件；检查安装或用 --browser msedge。")
+        return 1
+    url = sess.LIB_ENTRY.get(a.entry, sess.LIB_ENTRY["apy"])
+    cmd = [exe, f"--user-data-dir={prof}", f"--remote-debugging-port={a.port}",
+           "--no-first-run", "--no-default-browser-check", url]
+    print(f"启动长驻窗口：{exe}")
+    print(f"  profile：{prof}")
+    print(f"  CDP：http://127.0.0.1:{a.port}")
+    proc = subprocess.Popen(cmd)
+    for _ in range(30):
+        if sess.cdp_probe(a.port):
+            break
+        time.sleep(1)
+    if not sess.cdp_probe(a.port):
+        print("30 秒内 CDP 未就绪。若本机已有同 profile 的 Chrome 在跑，新进程会并入旧实例且不带调试端口"
+              "——请先全部关闭，再重跑 serve。")
+        return 1
+    print("✅ 就绪。请在此窗口中完成登录（如未登录）。此后所有命令将自动接管此窗口，不再新开、不会闪断。")
+    print("（本进程运行 = 窗口保持；Ctrl+C 结束本进程——浏览器会继续运行，可手动使用或关闭。）")
+    try:
+        while proc.poll() is None:
+            time.sleep(3)
+        print("浏览器窗口已关闭，serve 退出。")
+    except KeyboardInterrupt:
+        print("\nserve 已结束（浏览器保持运行；需要关闭请手动关窗）。")
+    return 0
+
+
+# ---- jobs：作业单 ----
+def cmd_jobs(a: argparse.Namespace) -> int:
+    from pkulaw_agent.jobs import jobs_from_csv, jobs_from_mcp
+    if a.jobs_cmd == "from-mcp":
+        stats = jobs_from_mcp(Path(a.cache), out=Path(a.out), year=a.year, law=a.law,
+                              organ=a.organ)
+    elif a.jobs_cmd == "from-csv":
+        stats = jobs_from_csv(Path(a.csv), out=Path(a.out), year=a.year)
+    else:
+        print("未知子命令：jobs {from-mcp|from-csv}")
+        return 1
+    print(json.dumps(stats, ensure_ascii=False, indent=2))
+    return 0
+
+
+# ---- run：作业流水线 ----
+def cmd_run(a: argparse.Namespace) -> int:
+    from pkulaw_agent.run import run_jobs
+    with sess.Session(browser=a.browser, cdp_port=a.cdp_port) as s:
+        _ensure_login(s, a.timeout)
+        run_jobs(s, Path(a.jobs), out_dir=Path(a.out) if a.out else None,
+                 cap=a.cap, dry_run=a.dry_run, resume=not a.no_resume, force=a.force,
+                 min_interval=a.interval, window_spec=a.window, min_facts=a.min_facts)
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(prog="pkulaw_agent")
@@ -359,11 +505,16 @@ def main(argv: list[str] | None = None) -> int:
 
     sub.add_parser("doctor", help="环境自检（不联网）")
 
-    p = sub.add_parser("login", help="打开真窗口手动登录并固化 profile")
+    p = sub.add_parser("login", help="稳定登录：登录成功前窗口不会关闭；成功后写 session.json")
     p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
     p.add_argument("--entry", default="apy", choices=sorted(sess.LIB_ENTRY))
     p.add_argument("--lib", default="apy", choices=sorted(api_mod.LIBS), help="用哪个库校验权限")
-    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--timeout", type=int, default=0, help="秒；0=不限（默认等你在窗口里完成登录）")
+    p.add_argument("--hold", action=argparse.BooleanOptionalAction, default=None,
+                   help="登录成功后保持窗口（默认：交互终端保持；非交互 4 秒后自动关）")
+    p.add_argument("--grace", type=int, default=4, help="成功后自动关窗等待秒数（非 hold 时）")
+    p.add_argument("--cdp-port", type=int, default=sess.DEFAULT_CDP_PORT,
+                   help="检测到 serve 长驻窗口时直接接管（0=不接管，总是自启）")
 
     p = sub.add_parser("recon", help="登录后捕获 XHR（脱敏），固化端点与字段")
     p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
@@ -450,13 +601,47 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
     p.add_argument("--timeout", type=int, default=600)
 
+    p = sub.add_parser("serve", help="长驻窗口：一个浏览器跑完所有命令（CDP 接管，不闪断）")
+    p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
+    p.add_argument("--entry", default="apy", choices=sorted(sess.LIB_ENTRY))
+    p.add_argument("--port", type=int, default=sess.DEFAULT_CDP_PORT)
+
+    p = sub.add_parser("jobs", help="作业单：MCP 缓存 / 清洗清单 → jobs.jsonl")
+    jsub = p.add_subparsers(dest="jobs_cmd", required=True)
+    p = jsub.add_parser("from-mcp", help="读 MCP 调用层缓存生成作业单（0 积分，缓存免费）")
+    p.add_argument("--cache", required=True,
+                   help="如 $DATA/engine/pkulaw_mcp/cache/pkulaw-enforcement-doc_mcp")
+    p.add_argument("--out", required=True)
+    p.add_argument("--year", default="", help="按处罚日期年份过滤，如 2026")
+    p.add_argument("--law", default="", choices=["", "新法"], help="law=新法 只留 2025修订/第82条")
+    p.add_argument("--organ", default="", help="机关名包含过滤")
+    p = jsub.add_parser("from-csv", help="读清洗清单（含「原文链接」列）生成作业单")
+    p.add_argument("--csv", required=True)
+    p.add_argument("--out", required=True)
+    p.add_argument("--year", default="")
+
+    p = sub.add_parser("run", help="跑作业：打开→抓正文→六校验→（通过才）限额下载→报告")
+    p.add_argument("--jobs", required=True, help="jobs.jsonl")
+    p.add_argument("--out", default="", help="输出目录（缺省=作业单所在目录）")
+    p.add_argument("--cap", type=int, default=30, help="本次最多下载件数（配额红线）")
+    p.add_argument("--dry-run", action="store_true", help="只校验不下载")
+    p.add_argument("--no-resume", action="store_true", help="不跳过已完成件（默认跳过）")
+    p.add_argument("--force", action="store_true", help="忽略历史状态全部重做")
+    p.add_argument("--interval", type=float, default=2.0)
+    p.add_argument("--window", default="", help="年份窗，如 2026 或 2025:2026（处罚日期与正文年份）")
+    p.add_argument("--min-facts", type=int, default=50, help="叙述式事实段最小字数")
+    p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
+    p.add_argument("--timeout", type=int, default=600)
+    p.add_argument("--cdp-port", type=int, default=sess.DEFAULT_CDP_PORT)
+
     a = ap.parse_args(argv)
     if a.data_dir:
         os.environ["JUSTILAW_DATA_DIR"] = a.data_dir
     handler = {"doctor": cmd_doctor, "login": cmd_login, "recon": cmd_recon,
                "cluster": cmd_cluster, "call": cmd_call,
                "search": cmd_search, "fetch": cmd_fetch,
-               "download": cmd_download, "harvest": cmd_harvest}[a.cmd]
+               "download": cmd_download, "harvest": cmd_harvest,
+               "serve": cmd_serve, "jobs": cmd_jobs, "run": cmd_run}[a.cmd]
     try:
         return handler(a)
     except sess.LoginRequired as exc:

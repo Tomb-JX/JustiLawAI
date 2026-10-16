@@ -13,8 +13,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pkulaw_agent import api as api_mod  # noqa: E402
+from pkulaw_agent import jobs as jobs_mod  # noqa: E402
 from pkulaw_agent import recon as recon_mod  # noqa: E402
+from pkulaw_agent import run as run_mod  # noqa: E402
 from pkulaw_agent import session as sess  # noqa: E402
+from pkulaw_agent import validators as val_mod  # noqa: E402
 
 # ---------------- recon ----------------
 
@@ -345,3 +348,215 @@ def test_download_patterns_cover_menu_items():
     from pkulaw_agent.download import DOWNLOAD_TEXT
     assert DOWNLOAD_TEXT.search("下载")
     assert DOWNLOAD_TEXT.search("导出目录")
+
+
+# ---------------- session v1.1：session.json / CDP 探测 ----------------
+
+def test_session_json_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.setenv("JUSTILAW_DATA_DIR", str(tmp_path))
+    sess.save_session_info(checked_at="2026-10-16 22:00", lib_ok="apy")
+    sess.save_session_info(account="河海大学")
+    info = sess.load_session_info()
+    assert info["checked_at"] == "2026-10-16 22:00"
+    assert info["account"] == "河海大学" and info["lib_ok"] == "apy"
+    assert (tmp_path / "session.json").exists()
+
+
+def test_cdp_probe_closed_port_returns_empty():
+    assert sess.cdp_probe(1, timeout_s=0.2) == {}
+
+
+def test_profile_lock_files_reports_names(tmp_path):
+    (tmp_path / "lockfile").write_text("x", encoding="utf-8")
+    assert sess.profile_lock_files(tmp_path) == ["lockfile"]
+    assert sess.profile_lock_files(tmp_path / "nonexist") == []
+
+
+# ---------------- validators：六项校验 ----------------
+
+def test_check_doc_no_fullwidth_and_brackets():
+    ok, _ = val_mod.check_doc_no("土公（沟）行罚决字〔2026〕527号",
+                                 "土公(沟)行罚决字〔2026〕527号")
+    assert ok  # 全/半角括号归一后一致
+    ok, _ = val_mod.check_doc_no("", "苏公字〔2022〕1号")
+    assert not ok  # 页面没取到文号 → 不通过
+    ok, note = val_mod.check_doc_no("任意", "")
+    assert ok and "跳过" in note  # 作业无文号 → 跳过比对
+
+
+def test_check_gambling_excludes_tobacco():
+    assert val_mod.check_gambling("现查明：甲参与赌博，查获赌资 1000 元")[0]
+    ok, note = val_mod.check_gambling("以营利为目的违法储存烟草制品香烟")
+    assert not ok and "烟草" in note
+    assert not val_mod.check_gambling("该文书记载了其他违法行为")[0]
+
+
+def test_check_year_ignores_law_version_marks():
+    job = {"punishment_date": "2026.09.03"}
+    assert val_mod.check_year(job, "正文无日期", (2026, 2026))[0]
+    assert not val_mod.check_year({"punishment_date": "2025.12.01"},
+                                  "2025年1月1日实施", (2026, 2026))[0]
+    assert not val_mod.check_year({}, "根据2025年修订的治安管理处罚法", (2026, 2026))[0]
+    assert not val_mod.check_year({}, "依据(2025修订)第82条", (2026, 2026))[0]
+    assert val_mod.check_year({}, "于2026年6月6日实施赌博行为", (2026, 2026))[0]
+    assert val_mod.check_year({}, "任意", None)[0]  # 不限窗
+
+
+def test_check_narrative_and_masked():
+    assert not val_mod.check_narrative({"form": "table", "facts_len": 200})[0]
+    assert not val_mod.check_narrative({"form": "narrative", "facts_len": 10})[0]
+    assert val_mod.check_narrative({"form": "narrative", "facts_len": 80})[0]
+    assert not val_mod.check_masked("决定对其处罚款 xx 元")[0]
+    assert not val_mod.check_masked("查获赌资＊元、赌具一批")[0]
+    assert not val_mod.check_masked("罚款人民币□□□元")[0]
+    assert val_mod.check_masked("处罚款五百元整；王xx（男，45岁）到场")[0]  # 人名 xx 不误报
+
+
+def test_check_dedupe_manifest_and_seen():
+    ok, note = val_mod.check_dedupe("土公（沟）行罚决字〔2026〕527号", "s1",
+                                    manifest_ids={"土公（沟）行罚决字〔2026〕527号"},
+                                    seen=set())
+    assert not ok and "台账" in note
+    ok, note = val_mod.check_dedupe("新文号〔2026〕1号", "s1", manifest_ids=set(),
+                                    seen={"s1"})
+    assert not ok and "正文重复" in note
+    ok, _ = val_mod.check_dedupe("新文号〔2026〕2号", "s2", manifest_ids=set(), seen={"s1"})
+    assert ok
+
+
+def test_validate_article_pass_then_mask_fail():
+    job = {"doc_no": "土公（沟）行罚决字〔2026〕527号", "punishment_date": "2026.09.03"}
+    probe = {"doc_no": "土公（沟）行罚决字〔2026〕527号", "form": "narrative",
+             "facts_len": 120}
+    text = ("土公（沟）行罚决字〔2026〕527号 现查明：2026年1月5日，甲参与赌博，"
+            "现场查获赌资 1000 元。根据《中华人民共和国治安管理处罚法》(2025修订)"
+            "第八十二条之规定，给予处罚。") * 3
+    val = val_mod.validate_article(job, text=text, probe=probe, text_sha="sha-x",
+                                   window=(2026, 2026), manifest_ids=set(), seen=set())
+    assert val["pass"], val["fails"]
+    assert set(val["checks"]) == {"doc_no", "gambling", "year", "narrative", "masked", "dedupe"}
+    text2 = text.replace("1000 元", "xx 元")
+    val2 = val_mod.validate_article(job, text=text2, probe=probe, text_sha="sha-y",
+                                    window=(2026, 2026), manifest_ids=set(), seen=set())
+    assert not val2["pass"] and any(f.startswith("masked:") for f in val2["fails"])
+
+
+def test_parse_window():
+    assert val_mod.parse_window("2026") == (2026, 2026)
+    assert val_mod.parse_window("2025-07:2026") == (2025, 2026)
+    assert val_mod.parse_window("") is None
+
+
+# ---------------- jobs：作业单 ----------------
+
+def _fake_mcp_cache(tmp_path: Path) -> Path:
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    f1 = {"path": "/pkulaw-enforcement-doc/mcp", "tool": "search_enforcement",
+          "arguments": {"queryText": "现场查获赌资"}, "fetched_at": "2026-10-16T20:18:29",
+          "structured": {"message": "查询成功", "total": 3, "data": [
+              {"title": "王xx行政处罚(土公（沟）行罚决字〔2026〕527号)",
+               "documentNo": "土公（沟）行罚决字〔2026〕527号",
+               "punishOrgan": "土默特右旗公安局", "punishmentDate": "2026.09.03",
+               "accordingLaw": ["中华人民共和国治安管理处罚法(2025修订)第82条"],
+               "url": "https://www.pkulaw.com/apy/aaa.html?way=mcp"},
+              {"title": "旧案", "documentNo": "龙公（开）行罚决字〔2025〕437号",
+               "punishOrgan": "龙口市公安局", "punishmentDate": "2025.12.01",
+               "accordingLaw": ["中华人民共和国治安管理处罚法(2012修正)第70条"],
+               "url": "https://www.pkulaw.com/apy/bbb.html?way=mcp"},
+              {"title": "无链接条目", "documentNo": "X公（行）行罚决字〔2026〕001号",
+               "punishOrgan": "某局", "punishmentDate": "2026.01.05",
+               "accordingLaw": ["中华人民共和国治安管理处罚法(2025修订)第82条"],
+               "url": ""}]}}
+    (cache / "f1.json").write_text(json.dumps(f1, ensure_ascii=False), encoding="utf-8")
+    f2 = {"path": "/pkulaw-enforcement-doc/mcp", "tool": "search_enforcement",
+          "arguments": {"queryText": "参赌人员"}, "fetched_at": "2026-10-16T20:18:31",
+          "structured": {"message": "查询成功", "total": 1, "data": [
+              {"title": "重复件（另一检索词命中）",
+               "documentNo": "土公（沟）行罚决字〔2026〕527号",
+               "punishOrgan": "土默特右旗公安局", "punishmentDate": "2026.09.03",
+               "accordingLaw": ["中华人民共和国治安管理处罚法(2025修订)第82条"],
+               "url": "https://www.pkulaw.com/apy/aaa2.html?way=mcp"}]}}
+    (cache / "f2.json").write_text(json.dumps(f2, ensure_ascii=False), encoding="utf-8")
+    (cache / "other.json").write_text(json.dumps({"structured": {"data": "非列表"}}),
+                                      encoding="utf-8")
+    return cache
+
+
+def test_jobs_from_mcp_filters_and_dedup(tmp_path):
+    cache = _fake_mcp_cache(tmp_path)
+    out = tmp_path / "jobs.jsonl"
+    stats = jobs_mod.jobs_from_mcp(cache, out=out, year="2026", law="新法")
+    jobs = [json.loads(x) for x in out.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert stats["jobs"] == 1
+    assert jobs[0]["doc_no"] == "土公（沟）行罚决字〔2026〕527号"
+    assert jobs[0]["law"] == "新法" and jobs[0]["source"] == "mcp"
+    meta = json.loads((tmp_path / "jobs.meta.json").read_text(encoding="utf-8"))
+    assert meta["cache_rows"] == 4 and meta["filters"]["year"] == "2026"
+    assert meta["skipped_no_url"] == 1
+    # 无过滤：2025 旧案进入；无链接条目被剔除；重复文号去重
+    stats2 = jobs_mod.jobs_from_mcp(cache, out=tmp_path / "j2.jsonl")
+    assert stats2["jobs"] == 2
+    stats3 = jobs_mod.jobs_from_mcp(cache, out=tmp_path / "j3.jsonl", organ="土默特")
+    assert stats3["jobs"] == 1
+
+
+def test_jobs_from_csv_year_filter_and_skip_nourl(tmp_path):
+    csv_path = tmp_path / "w.csv"
+    csv_path.write_text(
+        "发文案号,标题,处罚机关,公布日期,处罚种类,依据法条,原文链接,叙述式,已下全文\n"
+        "A〔2026〕1号,标题A,某局,2026.01.05,罚款,治安管理处罚法(2025修订)第82条,"
+        "https://www.pkulaw.com/apy/a.html,是,\n"
+        "B〔2025〕2号,标题B,某局,2025.03.01,罚款,治安管理处罚法(2012修正)第70条,"
+        "https://www.pkulaw.com/apy/b.html,是,\n"
+        "C〔2026〕3号,标题C,某局,2026.02.02,罚款,治安管理处罚法(2025修订)第82条,,是,\n",
+        encoding="utf-8-sig")
+    out = tmp_path / "jobs.jsonl"
+    stats = jobs_mod.jobs_from_csv(csv_path, out=out, year="2026")
+    jobs = [json.loads(x) for x in out.read_text(encoding="utf-8").splitlines() if x.strip()]
+    assert stats["jobs"] == 1 and jobs[0]["doc_no"] == "A〔2026〕1号"
+    assert jobs[0]["law"] == "新法"
+    meta = json.loads((tmp_path / "jobs.meta.json").read_text(encoding="utf-8"))
+    assert len(meta["csv_sha256"]) == 16
+
+
+# ---------------- run：状态机与下载完整性 ----------------
+
+def test_run_state_resume_and_seen(tmp_path):
+    st = run_mod.RunState(tmp_path / "run.jsonl")
+    st.put({"doc_no": "A〔2026〕1号", "url": "u1", "status": "downloaded",
+            "text_sha256": "s1"})
+    st.put({"doc_no": "B〔2026〕2号", "url": "u2", "status": "error"})
+    st2 = run_mod.RunState(tmp_path / "run.jsonl")  # 重开 = 续跑视角
+    assert st2.get({"doc_no": "A〔2026〕1号"})["status"] == "downloaded"
+    assert st2.get({"doc_no": "B〔2026〕2号"})["status"] == "error"
+    seen = st2.seen_set()
+    assert "s1" in seen and "A〔2026〕1号" in seen
+    assert run_mod.TERMINAL == {"downloaded", "skipped", "validated"}
+
+
+def test_verify_download_magic_and_ext(tmp_path):
+    good = tmp_path / "a.doc"
+    good.write_bytes(b"\xd0\xcf\x11\xe0" + b"0" * 100)
+    assert run_mod.verify_download(good)[0]
+    html = tmp_path / "b.doc"
+    html.write_bytes(b"<html><body>x</body></html>")
+    assert not run_mod.verify_download(html)[0]
+    empty = tmp_path / "c.docx"
+    empty.write_bytes(b"")
+    assert not run_mod.verify_download(empty)[0]
+    exe = tmp_path / "d.exe"
+    exe.write_bytes(b"MZ" + b"0" * 20)
+    assert not run_mod.verify_download(exe)[0]
+    assert not run_mod.verify_download(tmp_path / "missing.doc")[0]
+
+
+def test_load_manifest_ids_extracts_docnos(tmp_path):
+    m = tmp_path / "manifest.csv"
+    m.write_text(
+        "id,title,notes\n"
+        "P-1,张xx行政处罚(稀公（民）行罚决字〔2026〕311号)(FBM-CLI.ALE.49354610),批次A\n",
+        encoding="utf-8-sig")
+    ids = run_mod.load_manifest_ids(m)
+    assert "稀公（民）行罚决字〔2026〕311号" in ids
+    assert run_mod.load_manifest_ids(tmp_path / "none.csv") == set()

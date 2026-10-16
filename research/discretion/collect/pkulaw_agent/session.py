@@ -14,10 +14,12 @@ import base64
 import json
 import os
 import time
+import urllib.request
 from pathlib import Path
 from typing import Any
 
 BASE = "https://www.pkulaw.com"
+DEFAULT_CDP_PORT = 9222
 LIB_ENTRY = {
     "apy": f"{BASE}/penalty?way=topGuid",   # 行政执法库
     "pfnl": f"{BASE}/case?way=topGuid",     # 司法案例库
@@ -36,6 +38,42 @@ def data_dir() -> Path:
 
 def profile_dir() -> Path:
     return data_dir() / "browser-profile" / "pkulaw"
+
+
+def session_info_path() -> Path:
+    return data_dir() / "session.json"
+
+
+def load_session_info() -> dict:
+    p = session_info_path()
+    try:
+        return json.loads(p.read_text(encoding="utf-8")) if p.exists() else {}
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def save_session_info(**fields: Any) -> None:
+    """登录健康信息（仓库外；只存非敏感字段）。"""
+    info = load_session_info()
+    info.update({k: v for k, v in fields.items()})
+    session_info_path().write_text(json.dumps(info, ensure_ascii=False, indent=2),
+                                   encoding="utf-8")
+
+
+def cdp_probe(port: int = DEFAULT_CDP_PORT, timeout_s: float = 1.0) -> dict:
+    """探测本机 CDP 端口（serve 长驻窗口）。未开返回 {}。"""
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/json/version",
+                                    timeout=timeout_s) as r:
+            return json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def profile_lock_files(prof: Path | None = None) -> list[str]:
+    """profile 目录里的锁文件（Chrome 正在使用/异常残留的线索，仅作诊断）。"""
+    prof = prof or profile_dir()
+    return [n for n in ("lockfile", "SingletonLock", "SingletonCookie") if (prof / n).exists()]
 
 
 class LoginRequired(RuntimeError):
@@ -74,15 +112,18 @@ class Session:
     """
 
     def __init__(self, browser: str = "chrome", data_dir_: Path | None = None,
-                 slow_extra_ms: int = 0) -> None:
+                 slow_extra_ms: int = 0, cdp_port: int = DEFAULT_CDP_PORT) -> None:
         if browser not in BROWSERS:
             raise ValueError(f"browser 只能是 {BROWSERS}")
         self.browser = browser
         self.root = data_dir_ or data_dir()
         self.slow_extra_ms = slow_extra_ms
+        self.cdp_port = cdp_port  # 0 = 不探测 CDP，总是自启窗口
         self._pw = None
         self._ctx = None
         self._page = None
+        self._browser = None
+        self._mode = "launch"
 
     # ---- 生命周期 ----
     def __enter__(self) -> "Session":
@@ -91,6 +132,18 @@ class Session:
         prof = self.root / "browser-profile" / "pkulaw"
         prof.mkdir(parents=True, exist_ok=True)
         self._pw = sync_playwright().start()
+        if self.cdp_port and cdp_probe(self.cdp_port):
+            try:  # serve 长驻窗口中 → 直接接管（不开新窗、不动用户正在看的页面）
+                self._browser = self._pw.chromium.connect_over_cdp(
+                    f"http://127.0.0.1:{self.cdp_port}")
+                self._ctx = (self._browser.contexts[0] if self._browser.contexts
+                             else self._browser.new_context(accept_downloads=True))
+                self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+                self._mode = "cdp"
+                return self
+            except Exception as exc:  # noqa: BLE001 —— 接管失败退回自启
+                print(f"（CDP 接管失败，退回自启窗口：{exc}）")
+                self._browser = None
         try:
             self._ctx = self._pw.chromium.launch_persistent_context(
                 user_data_dir=str(prof),
@@ -103,20 +156,33 @@ class Session:
             )
         except Exception as exc:  # noqa: BLE001
             self._pw.stop()
+            locks = profile_lock_files(prof)
             raise RuntimeError(
                 f"浏览器启动失败（{self.browser}）：{exc}\n"
-                f"提示：若上次运行异常退出，检查是否还有残留的 Chrome 进程占用 profile：{prof}"
+                f"提示：profile 锁文件：{locks or '无'}；若也有 Chrome 在跑请先关闭，"
+                f"或改用 `serve` 长驻模式。profile：{prof}"
             ) from exc
+        self._mode = "launch"
         self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
         return self
 
     def __exit__(self, *exc: Any) -> None:
-        for closer in (self._ctx, self._pw):
-            try:
-                if closer is not None:
-                    closer.close() if closer is self._ctx else closer.stop()
-            except Exception:  # noqa: BLE001
-                pass
+        try:
+            if self._mode == "cdp":
+                pass  # 接管模式：只断开驱动，不关闭用户的浏览器窗口
+            elif self._ctx is not None:
+                self._ctx.close()
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            if self._pw is not None:
+                self._pw.stop()
+        except Exception:  # noqa: BLE001
+            pass
+
+    @property
+    def mode(self) -> str:
+        return self._mode
 
     @property
     def page(self):
@@ -158,6 +224,22 @@ class Session:
             return (self.page.evaluate(_TOKEN_JS) or "").strip()
         except Exception:  # noqa: BLE001
             return ""
+
+    def account_hint(self) -> str:
+        """从页面读机构/账号线索（尽力而为，失败返空）。"""
+        js = ("() => { const m = document.body ? document.body.innerText.match("
+              "/(?:机构|单位|账号)[:：]?\\s*([\\u4e00-\\u9fa5A-Za-z0-9（）()]{2,30})/) : null;"
+              " return m ? m[1] : ''; }")
+        try:
+            return (self.page.evaluate(js) or "").strip()
+        except Exception:  # noqa: BLE001
+            return ""
+
+    def page_closed(self) -> bool:
+        try:
+            return bool(self._page is None or self._page.is_closed())
+        except Exception:  # noqa: BLE001
+            return True
 
     def wait_for_login(self, timeout_s: int = 600, poll_s: int = 2) -> str:
         """轮询登录态；期间用户可在可见窗口中手动登录（账号密码/微信/验证码均可）。

@@ -20,37 +20,52 @@ python research/discretion/collect/pkulaw_agent/__main__.py doctor   # 自检
 - 为什么要**真窗口**：headless 会被站点防护直接拦掉（实测返回"567 访问安全验证"），
   真窗口的正常访问才是合规姿势——工具**不做指纹伪装、不做挑战绕过**。
 
-## 1. 命令总览（9 个）
+## 1. 命令总览（12 个）
 
 | 命令 | 一句话 | 联网 | 下载配额 | 需要登录 |
 |---|---|---|---|---|
-| `doctor` | 环境自检 | 否 | 0 | 否 |
-| `login` | 开真窗口，人工登录一次，固化 profile | 是 | 0 | — |
+| `doctor` | 环境自检（含 profile 锁 / session.json / CDP 探测） | 否 | 0 | 否 |
+| `serve` | **长驻窗口**：一个浏览器跑完所有命令（CDP 接管，不闪断） | 否 | 0 | — |
+| `login` | 稳定登录：**登录成功前窗口不会关闭**，成功后写 `session.json` | 是 | 0 | — |
 | `recon` | 捕获一次真实操作（检索/详情/下载）的请求，固化字段 | 是 | 0 | 是 |
 | `cluster` | 拉筛选维度与 id 映射（如"江苏省"对应什么值） | 是 | 0 | 是 |
 | `call` | 任意 API 直调（探索/对账用） | 是 | 0 | 是 |
 | `search` | 按作业单检索：分页、饱和拆分、去重 → `results.jsonl` | 是 | 0 | 是 |
 | `fetch` | 逐条开详情页抓正文 → `.txt` + 形态预探（可直连解析链） | 是 | **0** | 是 |
 | `download` | 下载文件：逐条 / 结果页勾选 / 库页检索；可人工兜底 | 是 | **有** | 是 |
+| `jobs` | **作业单**：MCP 缓存（含原文链接，0 积分）/ 清洗清单 → `jobs.jsonl` | 否 | 0 | 否 |
+| `run` | **作业流水线**：打开→抓正文→**六项校验**→（通过才）限额下载→断点/报告 | 是 | **有** | 是 |
 | `harvest` | 一条命令串完 `search→fetch[→download]` | 是 | 视步骤 | 是 |
 
-通用参数：`--data-dir`（覆盖数据目录）、`--browser`、`--timeout`（等登录秒数，默认 600）。
+通用参数：`--data-dir`（覆盖数据目录）、`--browser`、`--timeout`。
 退出码：`0` 成功；`2` 未登录/登录过期；`3` 撞上安全验证页（需人工在窗口完成验证后重跑）；`130` 手动中断（进度已落盘，可续）。
 
 ## 2. 命令详解
 
 ### doctor — 环境自检
-不联网、不开窗口。检查 Python / playwright / Chrome / Edge / 数据目录可写 / profile 是否已存在。
-第一次拿到机器或换机器先跑它。
+不联网、不开窗口。检查 Python / playwright / Chrome / Edge / 数据目录可写 / profile 与锁文件 /
+`session.json` / CDP 端口（serve 是否在跑）。第一次拿到机器或换机器先跑它。
 
-### login — 登录一次，之后免登录
+### serve — 长驻窗口（v1.1）
 ```bash
-... __main__.py login [--timeout 600] [--browser chrome]
+... __main__.py serve [--port 9222] [--entry apy]
 ```
-打开执法库入口页并轮询登录态（`localStorage.access_token`）。**账号密码/微信扫码/图形验证码都由你在窗口里完成**——
-工具不代填、不存密码。成功后打印打码 token 与到期时间（JWT `exp`），登录态写入持久 profile
-（`$DATA/browser-profile/pkulaw/`，仓库外），此后 `search`/`fetch`/`download` 直接复用。
-若窗口里显示"安全验证"页：按页面提示人工完成，再重跑本命令。
+启动一个长驻 Chrome（同一 profile + CDP 调试端口），本进程运行 = 窗口保持。
+其它命令启动时会**先探测 CDP**：在 → 直接接管该窗口（不开新窗、不改变你看的页面）；
+不在 → 照常临时自启。批量作业建议全程 serve：**一个窗口跑完所有命令，不再有开/关闪断**。
+Ctrl+C 结束本进程不影响浏览器（窗口继续开着，可手动使用或关闭）。
+
+### login — 稳定登录（v1.1 重写）
+```bash
+... __main__.py login [--timeout 0] [--hold] [--grace 4]
+```
+登录态读页面**隐藏域 `#AccessToken`**（localStorage 可能为空，两处都读）；API 调用带
+`Authorization: Bearer <token>`。语义：
+- **登录成功前窗口不会关闭**（每 3 秒自动检测；任何校验异常都**不关窗**，只打印状态）；
+- 成功判据 = 读到 token **且**一次真校验（`verify_login`，1 次检索 0 配额）；
+- 成功后写 `session.json`（仓库外：时间/到期/机构线索），打印账号线索与到期时间；
+- `--hold`：成功后保持窗口（交互终端默认保持，回车关；非交互默认 4 秒后自动关）；
+- `--timeout 0`（默认）不设上限——慢慢登录；撞上安全验证页时按页面提示人工完成，工具等待不绕过。
 
 ### recon — 一次人工操作，固化全部字段
 ```bash
@@ -126,6 +141,33 @@ python research/discretion/collect/pkulaw_agent/__main__.py doctor   # 自检
 按作业单展开所有检索单元串行执行；`--steps` 里含 `download` 才动配额（每 run 上限取
 `plan.download.per_run`）。适合挂机跑一批：例如半日无人值守跑完"多词×多省×多窗"。
 
+### jobs — 作业单（v1.1）
+```bash
+# A. MCP 缓存 → 作业单（0 积分；行内自带原文链接，直达详情页）
+... __main__.py jobs from-mcp \
+    --cache $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/cache/pkulaw-enforcement-doc_mcp \
+    --year 2026 --law 新法 --out jobs/2026T-82.jsonl
+# B. 清洗候选清单（含「原文链接」列）→ 作业单
+... __main__.py jobs from-csv --csv "$JUSTILAW_DATA_DIR/inbox/pkulaw/2026T/worklist-清洗版-2026.csv" \
+    --out jobs/2026T-165.jsonl
+```
+产物 `jobs.jsonl`（doc_no/url/机关/日期/依据法条/law=新法标记）+ `jobs.meta.json`（计数、
+过滤条件、输入哈希）。无链接的条目会被剔除（无法执行）。
+
+### run — 作业流水线（v1.1 核心）
+```bash
+... __main__.py run --jobs jobs/2026T-82.jsonl --window 2026 [--dry-run] [--cap 30]
+```
+逐件：打开链接（零配额）→ 抓正文落 `fetch/docs/*.txt` → **六项原文校验**：
+`doc_no`（页面文号==作业文号）/ `gambling`（赌博要素词、非烟草）/ `year`（处罚日期或正文
+年份在窗内，排除"2025修订"字样）/ `narrative`（叙述式且事实段 ≥ `--min-facts`）/ `masked`
+（无 xx/＊/□ 式打码）/ `dedupe`（文号与正文哈希不与台账、本批重复）。
+**六项全过才点下载**（`--cap` 强制上限；文件落盘后做完整性检查），未过件分类留档。
+逐件状态写 `run.jsonl`（追加即刷盘）：`--resume`（默认开）跳过已完成，`--force` 全重做；
+撞上安全验证页整批停（红线），人工处理后 `--resume` 续跑。产物：`run_report.md`（计数 +
+失败原因分布 + 逐件表）、`run.json`、`downloads/`（通过件原件）。下载目录可直接接
+`import_manual.py --channel P` → `pkulaw_ingest` → `parsed1` → L2 构建。
+
 ## 3. 产物目录布局
 
 ```text
@@ -147,15 +189,19 @@ $JUSTILAW_DATA_DIR/                       # 默认 D:/02_Dev/Data/justilaw-resea
         └── downloaded.jsonl
 ```
 
-## 4. 首次联测清单（账号到手后照做）
+## 4. 首次联测清单（v1.1）
 
-1. `doctor` —— 环境就绪。
-2. `login` —— 窗口里登录；看到"登录成功 + 到期时间"。
-3. `recon --tag <日期>` —— 做三个动作（检索/详情/下载），回车；把 `recon-*.jsonl`、`replay-*.json` 发回给模型组。
-4. `search --plan …/example-js-2022.json` —— 核对 `run.json` 的命中总数与页面显示是否一致；
-   若字段名对不上，改作业单里的 `field_names`（不动代码）。
-5. `fetch --run <run_dir> --limit 10` —— 看 `extract.jsonl` 的形态分布与 `docs/` 里文本质量；
-   之后 `download --run <run_dir> --cap 2 --manual` 试两篇，确认文件能自动收下来。
+1. `doctor` —— 环境就绪（看 profile 锁 / session.json / CDP 三项）。
+2. `login` —— 窗口里登录；看到"✅ 登录成功 + 到期时间 + session.json 已更新"。
+   窗口在登录成功前不会关（旧版会闪关，已修）；之后随时 `doctor` 可看登录健康。
+3. `jobs from-csv --csv …/worklist-清洗版-2026.csv --out jobs/2026T-165.jsonl` —— 核对条数。
+4. `run --jobs jobs/2026T-165.jsonl --window 2026 --dry-run --limit?`（先 3 件：把作业单
+   切前 3 行）—— 看 `run_report.md`：六校验结论是否符合预期（打码件应被判 `masked`、
+   烟草件应被判 `gambling`、字段式应被判 `narrative`）。
+5. `run --jobs … --window 2026 --cap 10` —— 小批真下载；确认 `downloads/` 有文件、
+   `run_report.md` 与 `downloaded.jsonl` 对得上；再 `--resume` 续跑扩批。
+6. `search --plan …/example-js-2022.json` / `fetch --run <run_dir>` —— 老的检索→预探链路
+   照旧可用（需 recon 固化过字段）。
 
 ## 5. 故障排查
 
@@ -163,9 +209,12 @@ $JUSTILAW_DATA_DIR/                       # 默认 D:/02_Dev/Data/justilaw-resea
 |---|---|
 | 提示"安全验证"（退出码 3） | 在窗口里按页面提示人工完成验证，重跑命令；不绕过 |
 | 提示"[需登录]"（退出码 2） | `login`（登录态可能过期或被清理） |
+| login 窗口被关掉 | 说明是旧版行为，v1.1 起登录成功前不会关窗；若你手动关的窗口，重跑 `login` |
+| `serve` 起不来（CDP 未就绪） | 多半是本机已有同 profile 的 Chrome 在跑——先全部关闭再重跑 |
 | 找不到搜索框/下载按钮 | 日志会打印页面候选按钮；把日志发回，按实况补选择器；下载类操作可用 `--manual` 先绕过 |
 | `search` 命中数远大于收下的条数 | 正常（去重+单任务上限）；补 `split.values`（如年份）分批，或调大 `--limit` |
 | 触发风控（SecurityProtection/验证码） | 工具自动停止；按红线等待并在窗口里人工处理，当天降低批量 |
+| `run` 下载失败（未收到文件） | 看 `run_report.md` 原因；可在窗口中人工点一次下载，再 `--resume` 重跑该批 |
 | 下载的文件没出现 | 看 `downloaded.jsonl`；多半是页面按钮对不上 → 用 `--manual` |
 
 ## 6. 设计要点（为什么这么做）
@@ -179,6 +228,9 @@ $JUSTILAW_DATA_DIR/                       # 默认 D:/02_Dev/Data/justilaw-resea
 
 ## 7. 状态
 
-- 全部命令的**代码与单测就绪**（48 项），待账号联测一轮；
+- v1.1（2026-10-16 作业台开放后）：**会话稳定化**（登录永不自关 / `serve` 常驻 + CDP 接管 /
+  `session.json` / doctor 锁检测）、**作业流水线**（`jobs` + `run` 六校验限额下载 + 断点 + 报告）
+  已实现，单测 37 项（本文件所在目录 tests/test_pkulaw_agent.py）+ collect 全量 78 项全绿；待联测验证。
+- 全部命令的**代码与单测就绪**，账号联测进行中；
 - 网页版"字段式七字段"的排版需第一份真实抓取样本后适配解析器（叙述式判定已可靠）；
 - `report`（要素出现率核对）暂用既有 `research/eval/key_field_presence.py` 手工跑；自适应换词待做。
