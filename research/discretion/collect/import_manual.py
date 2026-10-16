@@ -2,10 +2,16 @@
 
 裁判文书网（需登录+验证码）与商用库（北大法宝/威科，需校内账号）不做自动抓取——
 在浏览器里按检索式人工导出（docx / html / pdf / csv / txt），
-把文件丢进 research/data/inbox/ 后运行本脚本完成：挪入 raw/manual/、
-算哈希、登记台账。文件名即标题（可含文号）。
+把文件丢进 research/data/inbox/ 后运行本脚本完成：挪入 raw/、算哈希、登记台账。
+文件名即标题（可含文号）；文件名里的法宝引证码（FBM-CLI.AP.…）直接作 source_url_or_ref，
+同一条记录重复导出（跨批次）自动去重不重复登记。
 
-用法（任意目录）：python import_manual.py [--channel C] [--region 浙江]
+用法（任意目录）：
+  python import_manual.py [--channel C] [--region 浙江]
+  # 按批次导入（推荐）：递归收集、跳过 Word 锁文件 ~$…，归位 raw/<批次>/
+  python import_manual.py --src "$JUSTILAW_DATA_DIR/inbox/pkulaw/20261016-南京50篇" \\
+      --dest-sub pkulaw/20261016-南京50篇 --source-type 处罚决定书 \\
+      --ref 法宝-行政执法库-南京50篇 --harvest-date 2026-10-16
 """
 
 from __future__ import annotations
@@ -28,44 +34,71 @@ def guess_title(stem: str) -> str:
     return re.sub(r"[_\s]+", " ", stem).strip()
 
 
+def pkulaw_id_from_stem(stem: str) -> str:
+    """文件名里的法宝引证码（FBM-CLI.AP.… / FBMCLI.C.…）→ 作 source_url_or_ref。"""
+    m = re.search(r"\(((?:FBM)?-?CLI(?:[.\-][A-Z]+)*\.\d+)\)", stem)
+    return m.group(1) if m else ""
+
+
+def collect_files(src: Path) -> list[Path]:
+    """收集可导入文件：递归；跳过 Word 锁文件（~$…）与隐藏文件（实测导出目录里常有）。"""
+    out: list[Path] = []
+    for p in sorted(src.rglob("*")):
+        if not p.is_file() or p.suffix.lower() not in ALLOWED:
+            continue
+        if p.name.startswith("~$") or p.name.startswith("."):
+            continue
+        out.append(p)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--channel", default="C")
     ap.add_argument("--region", default="")
     ap.add_argument("--source-type", default="判决书")
     ap.add_argument("--ref", default="", help="检索式或来源说明，写入 notes")
+    ap.add_argument("--src", default="", help="来源目录（默认 $DATA/inbox 顶层；给了就递归）")
+    ap.add_argument("--dest-sub", default="", help="raw/ 下目标子目录（可含批次名，如 pkulaw/南京50篇）")
+    ap.add_argument("--harvest-date", default="", help="下载日期（缺省用今天）")
     args = ap.parse_args()
 
-    if not INBOX.is_dir():
-        raise SystemExit(f"收件目录不存在：{INBOX}（请先创建并放入导出文件）")
-    DEST.mkdir(parents=True, exist_ok=True)
+    src = Path(args.src) if args.src else INBOX
+    if not src.is_dir():
+        raise SystemExit(f"来源目录不存在：{src}")
+    dest_dir = (RAW_DIR / args.dest_sub) if args.dest_sub else DEST
+    dest_dir.mkdir(parents=True, exist_ok=True)
 
-    files = [p for p in sorted(INBOX.iterdir()) if p.suffix.lower() in ALLOWED and p.is_file()]
+    files = collect_files(src)
     if not files:
-        raise SystemExit(f"收件目录里没有可导入的文件（支持 {'/'.join(sorted(ALLOWED))}）")
+        raise SystemExit(f"{src} 里没有可导入的文件（支持 {'/'.join(sorted(ALLOWED))}）")
 
-    n = 0
+    hdate = args.harvest_date or datetime.now().strftime("%Y-%m-%d")
+    n = moved = 0
     for p in files:
-        dest = DEST / p.name
+        dest = dest_dir / p.name
         if dest.exists():
             report(f"  跳过（已存在同名）：{p.name}")
             continue
         shutil.move(str(p), dest)
+        moved += 1
+        ref = pkulaw_id_from_stem(p.stem) or args.ref or "manual-export"
         manifest_add(
             {
                 "channel": args.channel,
                 "source_type": args.source_type,
-                "source_url_or_ref": args.ref or "manual-export",
+                "source_url_or_ref": ref,
                 "region": args.region,
                 "title": guess_title(p.stem),
                 "sha256": sha256_path(dest),
+                "harvest_date": hdate,
                 "harvest_by": "manual",
                 "status": "待筛选",
-                "notes": f"浏览器手动导出，导入于 {datetime.now():%Y-%m-%d %H:%M}",
+                "notes": f"浏览器手动导出；批次 {args.dest_sub or 'manual'}；导入于 {datetime.now():%Y-%m-%d %H:%M}",
             }
         )
         n += 1
-    report(f"导入完成：{n} 个文件 → {DEST}")
+    report(f"导入完成：登记 {n} 个文件（移动 {moved}）→ {dest_dir}")
 
 
 if __name__ == "__main__":

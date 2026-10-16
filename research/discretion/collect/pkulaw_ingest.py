@@ -1239,12 +1239,27 @@ def cmd_catalog(args) -> None:
         report(f"  {k}：{v}")
 
 
+def doc_files(root: Path) -> list[Path]:
+    """递归收集可解析文书；排除 Word 临时/锁文件（~$…，Word 打开文档时生成）与隐藏文件。
+
+    实测踩坑：导出目录里混有 `~$….doc`（Word 锁文件），不排除会被当文书解析。
+    """
+    out: list[Path] = []
+    for p in root.rglob("*"):
+        if not p.is_file() or p.suffix.lower() not in DOC_EXTS:
+            continue
+        if p.name.startswith("~$") or p.name.startswith("."):
+            continue
+        out.append(p)
+    return sorted(out)
+
+
 def cmd_docs(args) -> None:
     docs_dir = Path(args.docs)
     out = resolve_out(args.out, "docs", batch_tag(args.batch, args.harvest_date))
     out.mkdir(parents=True, exist_ok=True)
     guard_outputs(out, "docs", force=args.force, append=args.append)
-    files = sorted(p for p in docs_dir.rglob("*") if p.suffix.lower() in DOC_EXTS and p.is_file())
+    files = doc_files(docs_dir)
     if not files:
         raise SystemExit(f"{docs_dir} 下没有可解析的文书（{sorted(DOC_EXTS)}）")
 

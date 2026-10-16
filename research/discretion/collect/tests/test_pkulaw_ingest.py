@@ -430,6 +430,20 @@ def test_table_wrapped_narrative_form():
 
 # ---------------- 输出隔离与保护（2026-10-16 覆盖事故整改） ----------------
 
+def test_doc_files_excludes_word_temp_and_hidden(tmp_path):
+    """导出目录里常有 Word 锁文件（~$…doc）与隐藏文件，解析前必须排除。"""
+    import pkulaw_ingest as ing
+    (tmp_path / "真文书.doc").write_text("x", encoding="utf-8")
+    (tmp_path / "~$真文书.doc").write_text("lock", encoding="utf-8")   # Word 打开时生成的锁文件
+    (tmp_path / ".hidden.txt").write_text("x", encoding="utf-8")
+    (tmp_path / "笔记.csv").write_text("x", encoding="utf-8")           # 非文书扩展名
+    sub = tmp_path / "子目录"
+    sub.mkdir()
+    (sub / "另一份判决书.docx").write_text("x", encoding="utf-8")
+    assert [p.name for p in ing.doc_files(tmp_path)] == ["另一份判决书.docx", "真文书.doc"]
+
+
+
 def test_batch_tag_and_resolve_out(tmp_path, monkeypatch):
     import pkulaw_ingest as ing
     monkeypatch.setattr(ing, "DATA_DIR", tmp_path)
