@@ -333,6 +333,8 @@ def from_parsed1(rec: dict, resolver: Resolver) -> dict | None:
     extra = rec.get("extra") or {}
     oc = dict(rec.get("outcome") or {})
     oc.update(extra.get("outcome") or {})            # detention_items 等内部字段还原
+    # 依地方条例处罚的记录没有治安法版本 → 用顶层"未知"，避免按治安法上限误判（实测 P-550 罚款 4000）
+    oc["law_version"] = oc.get("law_version") or rec.get("law_version") or ""
     site = extra.get("site", "")                     # 网页来源（to_parsed1.py）带站点，区划与"同站同日"事件分组都靠它
     if rec.get("region") and rec.get("province"):    # 解析层已给区划（网页按站点表）的直接用，否则按机关名解析
         region = {"region_code": rec["region"], "level": extra.get("region_level", ""), "province": rec["province"],
@@ -373,7 +375,8 @@ def load_parsed_source(spec: str, resolver: Resolver) -> tuple[list[dict], str]:
         p = p / "records.jsonl"
     rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
     out = [got for r in rows if (got := from_parsed1(r, resolver)) is not None]
-    desc = f"{name}: {p}（{len(rows)} 条 → 范围内 {len(out)}）"
+    sha = hashlib.sha256(p.read_bytes()).hexdigest()[:12] if p.is_file() else "-"
+    desc = f"{name}: {p}（{len(rows)} 条 → 范围内 {len(out)}；sha256:{sha}）"
     print(f"[parsed] {desc}")
     return out, desc
 
@@ -418,13 +421,17 @@ def main() -> int:
         return 2
     adir.mkdir(parents=True, exist_ok=True)
     regions = load_regions()
+
+    def _in_sha(f: Path) -> str:
+        return hashlib.sha256(f.read_bytes()).hexdigest()[:12] if f.is_file() else "-"
+
     resolver = Resolver(load_table())
     scope, inputs = [], []
     if not any(s.split("=", 1)[0] == "web" for s in args.parsed):
         web_src = Path(args.web) if args.web else (root / "admin" / "web_cases.pre_deid.jsonl")
         src = [json.loads(l) for l in web_src.read_text(encoding="utf-8").splitlines() if l.strip()]
         scope = [r for r in src if r.get("in_scope")]
-        inputs.append(f"web: {web_src}（{len(src)} 条 → 范围内 {len(scope)}）")
+        inputs.append(f"web: {web_src}（{len(src)} 条 → 范围内 {len(scope)}；sha256:{_in_sha(web_src)}）")
     for spec in args.parsed:
         rows, desc = load_parsed_source(spec, resolver)
         inputs.append(desc)
