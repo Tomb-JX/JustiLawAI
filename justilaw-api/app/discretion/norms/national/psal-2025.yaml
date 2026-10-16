@@ -1,17 +1,23 @@
 # 中华人民共和国治安管理处罚法（2025 年修订）
 # 条文为逐字原文；结构化参数由模型组按原文录入，须经法律组双人核对签字（门禁 G0.1）后改为"已核验"。
+# source_check 是机器对照法宝原文的结果，不代替法律组签字。
 law_id: psal-2025
 title: 中华人民共和国治安管理处罚法（2025年修订）
 effective_from: 2026-01-01
 effective_to: null
 source:
-  url: https://www.news.cn/legal/20250627/c1e6a443860a4606b98fc23496e56c8d/c.html
-  publisher: 新华社受权发布
-  retrieved: 2026-10-15
+  url: https://www.pkulaw.com/chl/4a0675f698316d0fbdfb.html
+  publisher: 北大法宝（法规库）；初录自新华社受权发布稿
+  retrieved: 2026-10-16
 verification:
   status: 待核验
   checked_by: []
   checked_at: null
+source_check:
+  via: 北大法宝 MCP（法规与法条沿革；第二十一条为新增条文，用精准查找法条）
+  checked_at: 2026-10-16
+  result: 已录入的 8 条（第十二、十六、二十至二十三、八十二、一百四十四条）与法宝原文逐字一致
+  report: $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/norm_check/report.json
 
 articles:
   "12": "已满十四周岁不满十八周岁的人违反治安管理的，从轻或者减轻处罚；不满十四周岁的人违反治安管理的，不予处罚，但是应当责令其监护人严加管教。"

@@ -1,17 +1,22 @@
 # 中华人民共和国治安管理处罚法（2012 年修正）
-# 来源为二手转载站，法律组须对照国家法律法规数据库（flk.npc.gov.cn）核对后改为"已核验"。
+# 条文已对照北大法宝原文（source_check）；法律组双人核对签字（门禁 G0.1）后改为"已核验"。
 law_id: psal-2012
 title: 中华人民共和国治安管理处罚法（2012年修正）
 effective_from: 2013-01-01
 effective_to: 2025-12-31
 source:
-  url: https://www.elawcn.com/rule/2021/0727/887.html
-  publisher: 中国互联网法务网（转载，待对照官方文本）
-  retrieved: 2026-10-15
+  url: https://www.pkulaw.com/chl/1095cd22312af2f3bdfb.html
+  publisher: 北大法宝（法规库）；初录自中国互联网法务网转载
+  retrieved: 2026-10-16
 verification:
   status: 待核验
   checked_by: []
   checked_at: null
+source_check:
+  via: 北大法宝 MCP（法规与法条沿革，随 2025 版对应条一并返回）
+  checked_at: 2026-10-16
+  result: 已录入的 6 条（第十二、十六、十九、二十、二十一、七十条）与法宝原文逐字一致
+  report: $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/norm_check/report.json
 
 articles:
   "12": "已满十四周岁不满十八周岁的人违反治安管理的，从轻或者减轻处罚；不满十四周岁的人违反治安管理的，不予处罚，但是应当责令其监护人严加管教。"

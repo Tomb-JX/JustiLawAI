@@ -67,7 +67,7 @@
 | `circumstances.retaliation` | 是否对报案人、举报人、证人打击报复 |  |
 | `circumstances.obstructed_police` | 是否阻碍民警执行职务 |  |
 | `circumstances.minor_circumstance` | 原文明确认定的'情节轻微'或'情节特别轻微'（只记原文认定，不自行判断；2012 版减轻条件是'特别轻微'，2025 版是'轻微'） |  |
-| `circumstances.first_offense` | 是否初次违反治安管理 |  |
+| `circumstances.first_offense` | 是否初次违反治安管理：本次是第一次被公安机关发现或查处（公通字〔2007〕1号第五项）。曾有仍在追究时效内的违法、曾因不满十六周岁不执行拘留、曾经调解结案、曾被收容教养或劳动教养、曾被判处刑罚或免除刑事处罚的，都不算初次 |  |
 | `circumstances.violations_last_year` | 本次行为前一年内违反治安管理的次数 |  |
 | `person.age` | 行为时的周岁年龄 | 是 |
 | `person.pregnant_or_nursing` | 是否怀孕或哺乳自己不满一周岁的婴儿 |  |

@@ -177,7 +177,10 @@ class Circumstances(BaseModel):
     minor_circumstance: Extracted[MinorLevel] = Field(default_factory=Extracted,
         description="原文明确认定的'情节轻微'或'情节特别轻微'（只记原文认定，不自行判断；"
                     "2012 版减轻条件是'特别轻微'，2025 版是'轻微'）")
-    first_offense: Extracted[bool] = Field(default_factory=Extracted, description="是否初次违反治安管理")
+    first_offense: Extracted[bool] = Field(default_factory=Extracted,
+        description="是否初次违反治安管理：本次是第一次被公安机关发现或查处（公通字〔2007〕1号第五项）。"
+                    "曾有仍在追究时效内的违法、曾因不满十六周岁不执行拘留、曾经调解结案、"
+                    "曾被收容教养或劳动教养、曾被判处刑罚或免除刑事处罚的，都不算初次")
     violations_last_year: Extracted[int] = Field(default_factory=Extracted,
         description="本次行为前一年内违反治安管理的次数")
 

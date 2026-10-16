@@ -4,13 +4,18 @@ title: 中华人民共和国行政处罚法（2021年修订）
 effective_from: 2021-07-15
 effective_to: null
 source:
-  url: https://zh.wikisource.org/wiki/中华人民共和国行政处罚法
-  publisher: 维基文库（转载，待对照官方文本）
-  retrieved: 2026-10-15
+  url: https://www.pkulaw.com/chl/6add260f579ab541bdfb.html
+  publisher: 北大法宝（法规库）；初录自维基文库转载
+  retrieved: 2026-10-16
 verification:
   status: 待核验
   checked_by: []
   checked_at: null
+source_check:
+  via: 北大法宝 MCP（精准查找法条）
+  checked_at: 2026-10-16
+  result: 第三十七条与法宝原文（2021 修订，2021-07-15 施行）逐字一致
+  report: $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/norm_check/report.json
 
 articles:
   "37": "实施行政处罚，适用违法行为发生时的法律、法规、规章的规定。但是，作出行政处罚决定时，法律、法规、规章已被修改或者废止，且新的规定处罚较轻或者不认为是违法的，适用新的规定。"

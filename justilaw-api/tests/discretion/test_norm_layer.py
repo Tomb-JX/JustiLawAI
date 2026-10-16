@@ -55,7 +55,9 @@ def test_cite_returns_verbatim_text():
     assert lib.cite("psal-2025", "82").startswith("以营利为目的，为赌博提供条件的")
     assert "五百元以下罚款" in lib.cite("psal-2012", "70")
     assert lib.cite("apl-2021", "37").startswith("实施行政处罚，适用违法行为发生时的法律")
-    assert lib.cite("spc-spp-2005-gambling", "1") is None   # 未取得原文，不得引用
+    assert "抽头渔利数额累计达到5000元以上" in lib.cite("spc-spp-2005-gambling", "1")
+    assert "不属于“初次违反治安管理”" in lib.cite("gtz-2007-1", "5")   # 法宝原文补全的例外情形
+    assert lib.cite("gtz-2005-30", "1") is None   # 未取得原文，不得引用
 
 
 def test_basis_not_verified_until_signed():
