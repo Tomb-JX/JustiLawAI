@@ -194,7 +194,8 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             this_run.append(rec)
             state.put(rec)
             continue
-        if len(text) < 300:
+        if len(text) < 150:  # 实测有 269–284 字的合法简易处罚决定（2026-10-16），门槛从 300 下调；
+                             # 真正的"未加载"页正文 <100；质量仍由六校验的 narrative/facts 把关
             rec.update(status="error", reason=f"正文过短（{len(text)} 字，可能未加载或被限制）",
                        timing={"open_s": round(t_open - t0, 1), "item_s": round(time.monotonic() - t0, 1)})
             counters["errors"] += 1
