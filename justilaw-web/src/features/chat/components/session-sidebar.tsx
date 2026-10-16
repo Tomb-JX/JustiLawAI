@@ -57,7 +57,7 @@ export function SessionSidebar({ className }: { className?: string }) {
     mutationFn: () => createConversation({ title: '新对话' }),
     onSuccess: (conv) => {
       invalidate()
-      navigate(`/chat/${conv.id}`)
+      navigate(`/chat/${conv.id}`, { viewTransition: true })
     },
   })
 
@@ -75,6 +75,10 @@ export function SessionSidebar({ className }: { className?: string }) {
       toast.success('会话已删除')
     },
   })
+
+  const confirmDelete = (conv: Conversation) => {
+    if (confirm(`确认删除会话「${conv.title}」？删除后不可恢复。`)) deleteMut.mutate(conv.id)
+  }
 
   const groups = useMemo(() => {
     const kw = search.trim().toLowerCase()
@@ -137,7 +141,7 @@ export function SessionSidebar({ className }: { className?: string }) {
                 return (
                   <div
                     key={conv.id}
-                    onClick={() => navigate(`/chat/${conv.id}`)}
+                    onClick={() => navigate(`/chat/${conv.id}`, { viewTransition: true })}
                     className={cn(
                       'group flex cursor-pointer items-center gap-1 rounded-lg px-2.5 py-1.5 text-sm transition-colors',
                       active
@@ -182,7 +186,7 @@ export function SessionSidebar({ className }: { className?: string }) {
                           className="text-destructive focus:text-destructive"
                           onClick={(e) => {
                             e.stopPropagation()
-                            deleteMut.mutate(conv.id)
+                            confirmDelete(conv)
                           }}
                         >
                           <Trash2 />

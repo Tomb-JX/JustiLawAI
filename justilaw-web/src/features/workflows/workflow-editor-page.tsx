@@ -32,9 +32,11 @@ import {
   MessageSquare,
   Play,
   Save,
+  Send,
   Split,
   Square,
   Trash2,
+  Undo2,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -422,6 +424,12 @@ function Editor({ id }: { id: string }) {
 
   const selectedNode = nodes.find((n) => n.id === selectedId) ?? null
 
+  // 运行时给连线加流动动画（React Flow 内置 dashed 流动），可视化"数据在流"
+  const displayEdges = useMemo(
+    () => (running ? edges.map((e) => ({ ...e, animated: true })) : edges),
+    [edges, running],
+  )
+
   const updateSelectedConfig = (config: Record<string, unknown>) => {
     if (!selectedNode) return
     setNodes((nds) =>
@@ -450,6 +458,16 @@ function Editor({ id }: { id: string }) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['workflows'] })
       toast.success('工作流已保存')
+    },
+  })
+
+  // 发布 / 转为草稿（后端校验创建者权限；发布的流程对全部用户可见）
+  const statusMut = useMutation({
+    mutationFn: (status: 'published' | 'draft') => updateWorkflow(id, { status }),
+    onSuccess: (_d, status) => {
+      qc.invalidateQueries({ queryKey: ['workflows'] })
+      qc.invalidateQueries({ queryKey: ['workflows', id] })
+      toast.success(status === 'published' ? '已发布，所有用户可用' : '已转为草稿')
     },
   })
 
@@ -556,6 +574,29 @@ function Editor({ id }: { id: string }) {
               停止
             </Button>
           )}
+          {workflow.status === 'published' ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={statusMut.isPending}
+              onClick={() => statusMut.mutate('draft')}
+            >
+              <Undo2 className="h-3.5 w-3.5" />
+              取消发布
+            </Button>
+          ) : (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              disabled={statusMut.isPending}
+              onClick={() => statusMut.mutate('published')}
+            >
+              <Send className="h-3.5 w-3.5" />
+              发布
+            </Button>
+          )}
           <Button size="sm" className="gap-1.5" onClick={() => saveMut.mutate()} disabled={saveMut.isPending}>
             {saveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             保存
@@ -596,7 +637,7 @@ function Editor({ id }: { id: string }) {
         >
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={displayEdges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}

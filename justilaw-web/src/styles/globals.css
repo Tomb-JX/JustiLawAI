@@ -123,3 +123,235 @@
     opacity: 0;
   }
 }
+
+/* ============================================================
+   视觉效果层（详见 docs/02-design/frontend-design.md §12）
+   原则：全部走 transform/opacity/background-position 合成器属性，
+   不引入任何动画依赖；prefers-reduced-motion 全局降级。
+   ============================================================ */
+
+/* ---------- 文字流光（AI 思考/生成中的"活"感，Vercel AI SDK 同款范式） ---------- */
+.shimmer-text {
+  background: linear-gradient(
+    90deg,
+    hsl(var(--muted-foreground)) 0%,
+    hsl(var(--foreground)) 45%,
+    hsl(var(--muted-foreground)) 90%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: shimmer-sweep 1.8s linear infinite;
+}
+@keyframes shimmer-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* ---------- 骨架屏扫光（替代纯透明度脉冲） ---------- */
+.skeleton-shimmer {
+  position: relative;
+  overflow: hidden;
+  background: hsl(var(--muted));
+}
+.skeleton-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    hsl(var(--foreground) / 0.06),
+    transparent
+  );
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+@keyframes skeleton-sweep {
+  to {
+    transform: translateX(100%);
+  }
+}
+
+/* ---------- Aurora 极光背景（登录页 / 聊天欢迎页，纯装饰层） ---------- */
+.aurora {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* 内容顺序在最上层，装饰层必须 z-0 并由父级 relative 包裹 */
+  z-index: 0;
+}
+.aurora::before,
+.aurora::after {
+  content: '';
+  position: absolute;
+  width: 42rem;
+  height: 42rem;
+  border-radius: 9999px;
+  filter: blur(96px);
+  opacity: 0.35;
+  will-change: transform;
+}
+.aurora::before {
+  top: -12rem;
+  left: -8rem;
+  background: radial-gradient(closest-side, hsl(224 71% 40% / 0.5), transparent);
+  animation: aurora-drift 26s ease-in-out infinite alternate;
+}
+.aurora::after {
+  right: -12rem;
+  bottom: -14rem;
+  background: radial-gradient(closest-side, hsl(35 95% 55% / 0.4), transparent);
+  animation: aurora-drift 32s ease-in-out infinite alternate-reverse;
+}
+.dark .aurora::before {
+  opacity: 0.28;
+}
+.dark .aurora::after {
+  opacity: 0.22;
+}
+@keyframes aurora-drift {
+  from {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  to {
+    transform: translate3d(6rem, 3rem, 0) scale(1.15);
+  }
+}
+
+/* ---------- 毛玻璃卡片（只配合 aurora 等彩色底层使用；全站毛玻璃层 ≤ 2） ---------- */
+.glass {
+  background: hsl(var(--card) / 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid hsl(var(--border) / 0.6);
+}
+
+/* ---------- 光标聚光灯卡片（跟随鼠标的 radial 高光，Linear/Vercel 风格） ---------- */
+.spotlight-card {
+  position: relative;
+  /* --spot-x/y 由 onMouseMove 写入；未进入时高光隐藏 */
+}
+.spotlight-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  background: radial-gradient(
+    320px circle at var(--spot-x, 50%) var(--spot-y, 50%),
+    hsl(var(--primary) / 0.08),
+    transparent 65%
+  );
+  pointer-events: none;
+}
+.spotlight-card:hover::before {
+  opacity: 1;
+}
+
+/* ---------- 流光边框（conic 渐变旋转，仅用于焦点元素：生成中的输入框等） ---------- */
+@property --flow-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+.flow-border {
+  position: relative;
+}
+.flow-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(
+    from var(--flow-angle),
+    hsl(var(--border)),
+    hsl(var(--primary) / 0.9),
+    hsl(35 95% 55% / 0.7),
+    hsl(var(--border))
+  );
+  /* 中间镂空，只留 1px 边框环 */
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: flow-spin 2.6s linear infinite;
+  pointer-events: none;
+}
+@keyframes flow-spin {
+  to {
+    --flow-angle: 360deg;
+  }
+}
+
+/* ---------- 列表入场 stagger（配合 animationDelay 内联变量） ---------- */
+.stagger-item {
+  animation: fade-in-up 0.4s ease-out both;
+  animation-delay: var(--stagger-delay, 0ms);
+}
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---------- 路由切换 View Transitions（React Router viewTransition 触发，渐进增强） ---------- */
+::view-transition-old(root) {
+  animation: vt-fade-out 0.12s ease-out both;
+}
+::view-transition-new(root) {
+  animation: vt-fade-in 0.18s ease-out both;
+}
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+/* ---------- 全局动效降级：系统开启"减弱动态效果"时全部关闭 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text,
+  .skeleton-shimmer::after,
+  .aurora::before,
+  .aurora::after,
+  .flow-border::before,
+  .stagger-item,
+  .stream-caret::after,
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
+  }
+  .shimmer-text {
+    color: hsl(var(--muted-foreground));
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+  .stagger-item {
+    opacity: 1;
+    transform: none;
+  }
+  * {
+    scroll-behavior: auto !important;
+  }
+}

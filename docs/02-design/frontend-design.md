@@ -1,6 +1,6 @@
 # JustiLawAI 前端设计方案
 
-> 版本 v1.3 · 2026-10-14 · 配套文档：[API 契约](./api-contract.md) · [产品需求](../01-product/requirements.md) · [里程碑计划](../04-plan/milestones.md)
+> 版本 v1.4 · 2026-10-16 · 配套文档：[API 契约](./api-contract.md) · [产品需求](../01-product/requirements.md) · [里程碑计划](../04-plan/milestones.md)
 
 ## 1. 项目定位
 
@@ -306,6 +306,51 @@ justilaw-web/
 
 ---
 
+## 12. 视觉语言与动效规范（v1.4 新增）
+
+> 目标：在"类 ChatGPT 的简洁界面"基础上建立有辨识度的视觉语言。选型原则：**客户端渲染优先、零动画依赖、法律专业感优先于花哨**。
+> 效果算力全部发生在用户浏览器，服务端仅增加一次性静态资源下载（约 +5KB CSS），与 Ollama 推理瓶颈无关。
+
+### 12.1 效果清单与落点
+
+| 效果 | 实现（globals.css 效果层） | 落点 |
+|---|---|---|
+| 文字流光 Shimmer | `.shimmer-text`（渐变背景扫光） | 消息"深度思考中…"生成态 |
+| 骨架屏扫光 | `.skeleton-shimmer`（替代纯透明度脉冲） | `Skeleton` 组件、消息列表加载 |
+| Aurora 极光背景 | `.aurora`（两个 blur 渐变 blob 缓慢漂移） | 登录页、聊天欢迎页 |
+| 毛玻璃卡片 | `.glass`（backdrop-filter，全站 ≤ 2 层） | 登录卡片、欢迎页模型向导卡 |
+| 光标聚光灯卡片 | `.spotlight-card` + `SpotlightCard` 组件（CSS 变量跟随鼠标） | 智能体广场卡片、聊天欢迎页快捷入口 |
+| 流光边框 | `.flow-border`（conic-gradient 旋转，@property 驱动） | 生成中的对话输入框、知识库解析中的文档卡片 |
+| 列表入场 stagger | `.stagger-item` + 内联 `--stagger-delay` | 欢迎页推荐问题/快捷入口、智能体广场、Admin 统计卡 |
+| 数字滚动 | `CountUp` 组件（rAF easeOutCubic，IntersectionObserver 触发） | Admin 统计页 Bento 卡 |
+| Bento Grid | 纯 CSS grid 跨行跨列 | 聊天欢迎页快捷入口（首卡 2 列跨行）、Admin 统计页 |
+| 路由转场 | React Router `viewTransition` + `::view-transition-*` 淡入淡出 | 侧边导航、会话切换、卡片跳转（渐进增强，不支持的浏览器自动忽略） |
+| 连线流动 | React Flow `animated` 边 | 工作流试运行时（"数据在流"的可视暗示） |
+| 打字光标 | `.stream-caret`（已有，保留） | 流式消息输出 |
+
+效果原语组件集中于 `src/components/common/effects.tsx`（SpotlightCard / CountUp）；其余全部为 CSS 类，不引入任何动画依赖。
+
+### 12.2 性能护栏（硬性约定）
+
+1. **动画属性白名单**：只允许 `transform / opacity / background-position`（合成器属性），禁止 width/height/top/left 动画；
+2. **毛玻璃限量**：`backdrop-filter` 元素全站不超过 2 个固定层（当前：登录卡、欢迎页向导卡，均叠在 aurora 彩色底层上）；禁止列表卡片逐个 blur；
+3. **依赖预算**：效果类不新增 npm 依赖；首屏 JS 增量 > 50KB gz 的方案必须评审；
+4. **降级**：全局响应 `prefers-reduced-motion`——所有动画关闭、shimmer 退化为纯色文字（见 globals.css 末尾媒体查询）；
+5. **浏览器兼容**：`@property`（flow-border）与 View Transitions 均为渐进增强，不支持的浏览器得到静态边框/瞬时切换，无功能损失。
+
+### 12.3 服务器体量评估结论（选型依据）
+
+- 公网链路为单台 VPS + nginx（限流 10r/s，无 CDN）：效果全部为客户端渲染，服务端零新增计算；
+- 本次新增静态资源约 +5KB CSS + ~1KB JS（effects.tsx），已同步在 `ops/nginx-justilaw.conf` 开启 gzip（text/css、js、json、svg 等）；
+- 真正的容量瓶颈是宿主机 Ollama 推理（9B 模型）与 RAG 嵌入，与本层无关；
+- 明确不做（体积/算力/调性三杀）：Three.js 3D 场景、视频背景、全屏粒子引擎、中文 web 字体（MB 级）、neon 全屏发光。
+
+### 12.4 后续可选增强（第二档，需评审）
+
+Motion（Framer Motion）微交互、canvas-confetti 文书导出庆祝、Lottie 天平动画（登录页点睛）。引入前按护栏 3 评估包体。
+
+---
+
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
@@ -313,3 +358,4 @@ justilaw-web/
 | 2026-10-14 | v1.1 | M1 提前交付：Mock 改为内置模拟层（VITE_USE_MOCK）；代码高亮定为 rehype-highlight；登录/多用户按决策暂缓 | 前端组 |
 | 2026-10-14 | v1.2 | M1-M6 前端全量交付：新增编辑重发/附件/思维链、知识库 CRUD 与分段管理、智能体创建向导与发布流、React Flow 工作流画布（模拟试运行）、管理后台、Ctrl+K 命令面板 | 前端组 |
 | 2026-10-14 | v1.3 | 多用户登录接入 Logto（OIDC），替代自建账号密码 + JWT 方案；新增 /callback 路由 | 前端组 |
+| 2026-10-16 | v1.4 | 新增 §12 视觉语言与动效规范并全量落地：Shimmer 思考态/骨架扫光、登录页与欢迎页 Aurora + 毛玻璃、聚光灯卡片、流光边框（生成中输入框/解析中文档）、Bento 快捷入口与 Admin 统计卡、CountUp 数字滚动、View Transitions 路由转场、工作流运行时连线流动；配套 ops nginx 开启 gzip；全部零动画依赖、prefers-reduced-motion 全局降级 | 前端组 |

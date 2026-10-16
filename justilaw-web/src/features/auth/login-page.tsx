@@ -25,10 +25,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/40 px-4">
-      <div className="w-full max-w-sm rounded-2xl border bg-card p-8 shadow-sm">
+    <div className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
+      {/* Aurora 极光装饰层（纯 CSS，pointer-events 关闭） */}
+      <div className="aurora" aria-hidden />
+      <div className="glass relative z-10 w-full max-w-sm rounded-2xl p-8 shadow-xl shadow-primary/5">
         <div className="flex flex-col items-center text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary shadow-lg shadow-primary/30">
             <Scale className="h-6 w-6 text-primary-foreground" />
           </div>
           <h1 className="mt-4 text-xl font-bold tracking-tight">登录 JustiLawAI</h1>

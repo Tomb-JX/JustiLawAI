@@ -10,9 +10,10 @@ import {
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { createConversation, getAgent, listAgents } from '@/api'
+import { createConversation, deleteMessage, getAgent, listAgents, setMessageFeedback } from '@/api'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
+import { SpotlightCard } from '@/components/common/effects'
 import { OllamaSetup, useSetupTargets, type SetupTarget } from '@/features/models/ollama-setup'
 import { useChatModels } from '@/features/models/use-chat-models'
 import { cn } from '@/lib/utils'
@@ -62,8 +63,11 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
   }
 
   return (
-    <div className="flex flex-1 flex-col items-center justify-center px-6 pb-24">
-      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+    <div className="relative flex flex-1 flex-col items-center justify-center overflow-hidden px-6 pb-24">
+      {/* Aurora 极光装饰层 */}
+      <div className="aurora" aria-hidden />
+      <div className="relative z-10 flex flex-col items-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 shadow-lg shadow-primary/10">
         <MessagesSquare className="h-7 w-7 text-primary" />
       </div>
       <h2 className="mt-4 text-lg font-semibold">
@@ -74,7 +78,7 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
       </p>
 
       {needsSetup ? (
-        <div className="mt-6 w-full max-w-lg rounded-2xl border bg-card p-5 text-left shadow-sm">
+        <div className="glass mt-6 w-full max-w-lg rounded-2xl p-5 text-left shadow-sm">
           <div className="mb-1 text-sm font-semibold">
             {setupTarget === 'browser' ? '先连接你电脑上的 Ollama 模型' : '先连接一个模型'}
           </div>
@@ -95,35 +99,54 @@ function ChatWelcome({ agent, agentId }: { agent?: Agent; agentId?: string }) {
         </div>
       ) : agent?.suggested_questions && agent.suggested_questions.length > 0 ? (
         <div className="mt-6 grid w-full max-w-xl gap-2">
-          {agent.suggested_questions.map((q) => (
+          {agent.suggested_questions.map((q, i) => (
             <button
               key={q}
               onClick={() => void startWith(q)}
-              className="rounded-xl border bg-card px-4 py-2.5 text-left text-sm text-foreground/90 shadow-sm transition-colors hover:border-primary/40 hover:bg-accent"
+              style={{ '--stagger-delay': `${i * 60}ms` } as React.CSSProperties}
+              className="stagger-item rounded-xl border bg-card px-4 py-2.5 text-left text-sm text-foreground/90 shadow-sm transition-colors hover:border-primary/40 hover:bg-accent"
             >
               {q}
             </button>
           ))}
         </div>
       ) : (
-        <div className="mt-6 flex flex-wrap justify-center gap-2">
-          {quickAgents.map((a) => {
+        /* Bento 快捷入口：首个智能体大卡（2 列跨行），其余小卡 */
+        <div className="mt-6 grid w-full max-w-xl grid-cols-2 gap-2.5 sm:grid-cols-3">
+          {quickAgents.map((a, i) => {
             const Icon = CATEGORY_ICONS[a.category] ?? Bot
             return (
-              <Button
+              <SpotlightCard
                 key={a.id}
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
-                onClick={() => navigate(`/chat?agentId=${a.id}`)}
+                onClick={() => navigate(`/chat?agentId=${a.id}`, { viewTransition: true })}
+                style={{ '--stagger-delay': `${i * 50}ms` } as React.CSSProperties}
+                className={cn(
+                  'stagger-item flex cursor-pointer flex-col gap-2 rounded-xl border bg-card p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md',
+                  i === 0 && 'col-span-2 sm:row-span-2 sm:p-4',
+                )}
               >
-                <Icon className="h-3.5 w-3.5" />
-                {a.name}
-              </Button>
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
+                  <Icon className="h-4 w-4 text-primary" />
+                </div>
+                <div>
+                  <div className={cn('truncate font-medium', i === 0 ? 'text-sm' : 'text-xs')}>
+                    {a.name}
+                  </div>
+                  <p
+                    className={cn(
+                      'mt-0.5 text-muted-foreground',
+                      i === 0 ? 'line-clamp-3 text-xs leading-relaxed' : 'line-clamp-1 text-[11px]',
+                    )}
+                  >
+                    {a.description}
+                  </p>
+                </div>
+              </SpotlightCard>
             )
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -137,6 +160,7 @@ function ConversationView({
   conversationId: string
   agent?: Agent
 }) {
+  const qc = useQueryClient()
   const { send, stop, regenerate, editAndResend, isStreaming } = useChatStream(conversationId, agent?.id)
   const { data: messages, isLoading } = useQuery({
     queryKey: ['messages', conversationId],
@@ -170,6 +194,30 @@ function ConversationView({
     if (stick.current) viewportRef.current?.scrollTo({ top: viewportRef.current.scrollHeight })
   }, [messages?.length, draft?.content, draft?.status])
 
+  // 消息反馈（点赞/点踩落库）：乐观更新，失败后以服务端为准回滚
+  const feedbackMut = useMutation({
+    mutationFn: ({ msg, rating }: { msg: Message; rating: 'up' | 'down' | null }) =>
+      setMessageFeedback(conversationId, msg.id, rating),
+    onMutate: ({ msg, rating }) => {
+      qc.setQueryData<Message[]>(['messages', conversationId], (old) =>
+        (old ?? []).map((m) => (m.id === msg.id ? { ...m, feedback: rating } : m)),
+      )
+    },
+    onError: () => qc.invalidateQueries({ queryKey: ['messages', conversationId] }),
+  })
+
+  // 删除单条消息：乐观移除，成功后刷新会话列表（last_message_at 可能变化）
+  const deleteMut = useMutation({
+    mutationFn: (msg: Message) => deleteMessage(conversationId, msg.id),
+    onMutate: (msg) => {
+      qc.setQueryData<Message[]>(['messages', conversationId], (old) =>
+        (old ?? []).filter((m) => m.id !== msg.id),
+      )
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['conversations'] }),
+    onError: () => qc.invalidateQueries({ queryKey: ['messages', conversationId] }),
+  })
+
   const list = messages ?? []
   const lastAssistantIdx = draft ? -1 : list.length - 1
 
@@ -197,8 +245,8 @@ function ConversationView({
         <div className="mx-auto max-w-3xl space-y-5">
           {isLoading ? (
             <div className="space-y-3">
-              <div className="ml-auto h-10 w-1/2 animate-pulse rounded-lg bg-muted" />
-              <div className="h-24 w-3/4 animate-pulse rounded-lg bg-muted" />
+              <div className="ml-auto h-10 w-1/2 skeleton-shimmer rounded-lg" />
+              <div className="h-24 w-3/4 skeleton-shimmer rounded-lg" />
             </div>
           ) : (
             <>
@@ -209,6 +257,8 @@ function ConversationView({
                     isLastAssistant={i === lastAssistantIdx && m.role === 'assistant'}
                     onRegenerate={regenerate}
                     onEdit={m.role === 'user' ? startEdit : undefined}
+                    onFeedback={m.role === 'assistant' ? (rating) => feedbackMut.mutate({ msg: m, rating }) : undefined}
+                    onDelete={() => deleteMut.mutate(m)}
                   />
                   {editing?.id === m.id && (
                     <div className="ml-auto mt-2 w-[82%] rounded-xl border bg-card p-2.5 shadow-sm">

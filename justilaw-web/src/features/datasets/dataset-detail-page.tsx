@@ -33,12 +33,12 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { EmbedModelSelect } from './embed-model-select'
-import { formatBytes } from '@/lib/utils'
+import { cn, formatBytes } from '@/lib/utils'
 import type { DocumentStatus } from '@/types/api'
 
 const statusBadge: Record<DocumentStatus, { label: string; cls: string }> = {
   queued: { label: '排队中', cls: 'bg-secondary text-secondary-foreground' },
-  parsing: { label: '解析中', cls: 'bg-amber-500/10 text-amber-600 animate-pulse' },
+  parsing: { label: '解析中', cls: 'bg-amber-500/10 text-amber-600' },
   completed: { label: '已完成', cls: 'bg-emerald-500/10 text-emerald-600' },
   failed: { label: '失败', cls: 'bg-destructive/10 text-destructive' },
 }
@@ -110,8 +110,15 @@ function DocumentTab({ datasetId }: { datasetId: string }) {
           documents?.map((doc) => {
             const s = statusBadge[doc.status]
             const expanded = activeDoc === doc.id
+            const active = doc.status === 'parsing' || doc.status === 'queued'
             return (
-              <div key={doc.id} className="rounded-xl border bg-card shadow-sm">
+              <div
+                key={doc.id}
+                className={cn(
+                  'rounded-xl border bg-card shadow-sm',
+                  active && 'flow-border border-transparent',
+                )}
+              >
                 <div className="flex items-center gap-3 px-4 py-3">
                   <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
                   <button

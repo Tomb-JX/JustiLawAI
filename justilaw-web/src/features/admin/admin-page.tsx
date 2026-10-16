@@ -10,16 +10,19 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Bot, ShieldCheck, Users } from 'lucide-react'
+import { Activity, Bot, Brain, ShieldCheck, UserCog, Users } from 'lucide-react'
 import { toast } from 'sonner'
-import { getModelDist, getUsageStats, listAdminUsers, listAgents, setUserStatus, updateAgent } from '@/api'
+import { getModelDist, getUsageStats, listAdminUsers, listAgents, setUserRole, setUserStatus, updateAgent } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { CountUp } from '@/components/common/effects'
 import { PageLoading } from '@/components/common/misc'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useCurrentUser } from '@/features/auth/use-auth'
 
 function UsersTab() {
   const qc = useQueryClient()
+  const { data: me } = useCurrentUser()
   const { data: users, isLoading } = useQuery({ queryKey: ['admin-users'], queryFn: listAdminUsers })
   const statusMut = useMutation({
     mutationFn: ({ id, status }: { id: string; status: 'active' | 'disabled' }) => setUserStatus(id, status),
@@ -28,6 +31,15 @@ function UsersTab() {
       toast.success('用户状态已更新')
     },
   })
+  const roleMut = useMutation({
+    mutationFn: ({ id, role }: { id: string; role: 'user' | 'admin' }) => setUserRole(id, role),
+    onSuccess: (_d, vars) => {
+      qc.invalidateQueries({ queryKey: ['admin-users'] })
+      toast.success(vars.role === 'admin' ? '已设为管理员' : '已设为普通用户')
+    },
+  })
+
+  const isSelf = (u: { logto_id?: string }) => !!me && u.logto_id === me.id
 
   if (isLoading) return <PageLoading />
 
@@ -69,18 +81,31 @@ function UsersTab() {
                   {u.status === 'active' ? '正常' : '已禁用'}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs"
-                  disabled={u.role === 'admin'}
-                  onClick={() =>
-                    statusMut.mutate({ id: u.id, status: u.status === 'active' ? 'disabled' : 'active' })
-                  }
-                >
-                  {u.status === 'active' ? '禁用' : '启用'}
-                </Button>
+              <td className="px-4 py-3">
+                <div className="flex justify-end gap-1.5">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 gap-1 text-xs"
+                    disabled={isSelf(u) || roleMut.isPending}
+                    title={isSelf(u) ? '不能修改自己的角色' : undefined}
+                    onClick={() => roleMut.mutate({ id: u.id, role: u.role === 'admin' ? 'user' : 'admin' })}
+                  >
+                    <UserCog className="h-3 w-3" />
+                    {u.role === 'admin' ? '设为用户' : '设为管理员'}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    disabled={u.role === 'admin'}
+                    onClick={() =>
+                      statusMut.mutate({ id: u.id, status: u.status === 'active' ? 'disabled' : 'active' })
+                    }
+                  >
+                    {u.status === 'active' ? '禁用' : '启用'}
+                  </Button>
+                </div>
               </td>
             </tr>
           ))}
@@ -148,9 +173,46 @@ function ReviewTab() {
 function StatsTab() {
   const { data: usage } = useQuery({ queryKey: ['usage-stats'], queryFn: getUsageStats })
   const { data: dist } = useQuery({ queryKey: ['model-dist'], queryFn: getModelDist })
+  const { data: agents } = useQuery({ queryKey: ['agents'], queryFn: listAgents })
+
+  const total14d = (usage ?? []).reduce((s, p) => s + p.calls, 0)
+  const topModel = (dist ?? [])[0]
+  const published = (agents ?? []).filter((a) => a.status === 'published').length
+
+  const statCards = [
+    { label: '近 14 日模型调用', value: total14d, sub: '全部对话与工作流 LLM 节点', icon: Activity },
+    { label: '最常用模型', value: topModel?.value ?? 0, sub: topModel ? topModel.name : '暂无调用', icon: Brain },
+    {
+      label: '平台智能体',
+      value: agents?.length ?? 0,
+      sub: `其中 ${published} 个已发布到广场`,
+      icon: Bot,
+    },
+  ]
 
   return (
-    <div className="grid gap-4 lg:grid-cols-5">
+    <div className="space-y-4">
+      {/* Bento 统计卡 */}
+      <div className="grid gap-4 sm:grid-cols-3">
+        {statCards.map((s, i) => (
+          <div
+            key={s.label}
+            style={{ '--stagger-delay': `${i * 60}ms` } as React.CSSProperties}
+            className="stagger-item rounded-2xl border bg-card p-4 shadow-sm"
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">{s.label}</span>
+              <s.icon className="h-4 w-4 text-primary/70" />
+            </div>
+            <div className="mt-2 text-2xl font-bold tabular-nums">
+              <CountUp value={s.value} />
+            </div>
+            <p className="mt-1 truncate text-[11px] text-muted-foreground">{s.sub}</p>
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-5">
       <div className="rounded-2xl border bg-card p-4 shadow-sm lg:col-span-3">
         <div className="mb-3 text-sm font-medium">近 14 日调用量</div>
         <div className="h-64">
@@ -197,6 +259,7 @@ function StatsTab() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ import {
   RefreshCw,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   User,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -52,6 +53,9 @@ interface MessageItemProps {
   isLastAssistant?: boolean
   onRegenerate?: () => void
   onEdit?: (message: Message) => void
+  /** 点赞/点踩；再次点击同一项为取消（FR-C5 反馈落库） */
+  onFeedback?: (rating: 'up' | 'down' | null) => void
+  onDelete?: () => void
 }
 
 export const MessageItem = memo(function MessageItem({
@@ -60,6 +64,8 @@ export const MessageItem = memo(function MessageItem({
   isLastAssistant,
   onRegenerate,
   onEdit,
+  onFeedback,
+  onDelete,
 }: MessageItemProps) {
   const [copied, setCopied] = useState(false)
   const [showReasoning, setShowReasoning] = useState(false)
@@ -67,6 +73,7 @@ export const MessageItem = memo(function MessageItem({
   const deferredContent = useDeferredValue(message.content)
   const isUser = message.role === 'user'
   const attachments = 'attachments' in message ? message.attachments : undefined
+  const feedback = 'feedback' in message ? message.feedback : undefined
 
   const copy = async () => {
     await navigator.clipboard.writeText(message.content)
@@ -97,12 +104,17 @@ export const MessageItem = memo(function MessageItem({
               </div>
             )}
             <div className="mt-1 flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100">
-              <Button variant="ghost" size="icon" className="h-6.5 h-7 w-7" onClick={copy}>
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={copy}>
                 {copied ? <Check className="h-3 w-3 text-emerald-600" /> : <Copy className="h-3 w-3" />}
               </Button>
               {onEdit && (
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(message)}>
                   <Pencil className="h-3 w-3" />
+                </Button>
+              )}
+              {onDelete && (
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               )}
             </div>
@@ -130,7 +142,11 @@ export const MessageItem = memo(function MessageItem({
                 className="flex items-center gap-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 <Brain className="h-3 w-3" />
-                {streaming && !message.content ? '深度思考中…' : `深度思考（点击${showReasoning ? '收起' : '展开'}）`}
+                {streaming && !message.content ? (
+                  <span className="shimmer-text font-medium">深度思考中…</span>
+                ) : (
+                  `深度思考（点击${showReasoning ? '收起' : '展开'}）`
+                )}
               </button>
               {showReasoning && (
                 <div className="mt-1.5 rounded-lg border bg-muted/40 p-2.5 text-xs leading-relaxed text-muted-foreground">
@@ -156,22 +172,31 @@ export const MessageItem = memo(function MessageItem({
                   <RefreshCw className="h-3.5 w-3.5" />
                 </Button>
               )}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => toast.success('已记录反馈，感谢！')}
-              >
-                <ThumbsUp className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7"
-                onClick={() => toast.success('已记录反馈，感谢！')}
-              >
-                <ThumbsDown className="h-3.5 w-3.5" />
-              </Button>
+              {onFeedback && (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn('h-7 w-7', feedback === 'up' && 'text-primary')}
+                    onClick={() => onFeedback(feedback === 'up' ? null : 'up')}
+                  >
+                    <ThumbsUp className={cn('h-3.5 w-3.5', feedback === 'up' && 'fill-current')} />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn('h-7 w-7', feedback === 'down' && 'text-destructive')}
+                    onClick={() => onFeedback(feedback === 'down' ? null : 'down')}
+                  >
+                    <ThumbsDown className={cn('h-3.5 w-3.5', feedback === 'down' && 'fill-current')} />
+                  </Button>
+                </>
+              )}
+              {onDelete && (
+                <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDelete}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              )}
               {'usage' in message && message.usage && (
                 <span className="ml-1 text-[11px] text-muted-foreground">
                   {message.usage.prompt_tokens + message.usage.completion_tokens} tokens

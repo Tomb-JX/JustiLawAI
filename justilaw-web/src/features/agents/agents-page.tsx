@@ -6,7 +6,9 @@ import { listAgents } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { SpotlightCard } from '@/components/common/effects'
 import { PageLoading } from '@/components/common/misc'
+import { isMine, useCurrentUser } from '@/features/auth/use-auth'
 import { cn } from '@/lib/utils'
 
 export default function AgentsPage() {
@@ -16,6 +18,7 @@ export default function AgentsPage() {
   const [category, setCategory] = useState('全部')
 
   const { data: agents, isLoading } = useQuery({ queryKey: ['agents'], queryFn: listAgents })
+  const { data: user } = useCurrentUser()
 
   const categories = useMemo(
     () => ['全部', ...Array.from(new Set((agents ?? []).map((a) => a.category)))],
@@ -24,7 +27,7 @@ export default function AgentsPage() {
 
   const filtered = (agents ?? []).filter((a) => {
     if (scope === 'market' && (a.status !== 'published' || a.scope !== 'public')) return false
-    if (scope === 'mine' && a.created_by !== 'u_me') return false
+    if (scope === 'mine' && !isMine(a.created_by, user?.id)) return false
     return (
       (category === '全部' || a.category === category) &&
       (!keyword || a.name.includes(keyword) || a.description.includes(keyword))
@@ -107,11 +110,12 @@ export default function AgentsPage() {
           </div>
         ) : (
           <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filtered.map((a) => (
-              <div
+            {filtered.map((a, i) => (
+              <SpotlightCard
                 key={a.id}
-                onClick={() => navigate(`/agents/${a.id}`)}
-                className="group flex cursor-pointer flex-col rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
+                onClick={() => navigate(`/agents/${a.id}`, { viewTransition: true })}
+                style={{ '--stagger-delay': `${Math.min(i, 8) * 45}ms` } as React.CSSProperties}
+                className="stagger-item group flex cursor-pointer flex-col rounded-2xl border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md"
               >
                 <div className="flex items-start gap-3">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10">
@@ -155,7 +159,7 @@ export default function AgentsPage() {
                     开始对话
                   </Button>
                 </div>
-              </div>
+              </SpotlightCard>
             ))}
           </div>
         )}

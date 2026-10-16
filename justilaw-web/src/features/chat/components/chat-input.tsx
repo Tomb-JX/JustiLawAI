@@ -103,7 +103,12 @@ export function ChatInput({ onSend, onStop, streaming }: ChatInputProps) {
       <div className="mx-auto max-w-3xl">
         <Popover open={promptOpen && matched.length > 0} onOpenChange={setPromptOpen}>
           <PopoverAnchor asChild>
-            <div className="rounded-2xl border bg-card p-2.5 shadow-sm focus-within:ring-2 focus-within:ring-ring">
+            <div
+              className={cn(
+                'rounded-2xl border bg-card p-2.5 shadow-sm transition-shadow focus-within:ring-2 focus-within:ring-ring',
+                streaming && 'flow-border border-transparent',
+              )}
+            >
               {/* 附件列表 */}
               {(attachments.length > 0 || uploading) && (
                 <div className="flex flex-wrap gap-1.5 px-1 pb-2">

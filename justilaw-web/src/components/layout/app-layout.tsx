@@ -18,6 +18,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/common/misc'
 import { UserMenu } from '@/features/auth/user-menu'
+import { useCurrentUser } from '@/features/auth/use-auth'
 import { useTheme } from '@/hooks/useTheme'
 import { cn } from '@/lib/utils'
 
@@ -34,16 +35,19 @@ const navItems = [
   { to: '/models', label: '模型', icon: Cpu },
   { to: '/providers', label: '模型服务', icon: Server },
   { to: '/workflows', label: '工作流', icon: Workflow },
-  { to: '/admin', label: '管理后台', icon: ShieldCheck },
+  { to: '/admin', label: '管理后台', icon: ShieldCheck, adminOnly: true },
 ]
 
 function NavList({ onNavigate }: { onNavigate?: () => void }) {
+  const { data: user } = useCurrentUser()
+  const items = navItems.filter((i) => !i.adminOnly || user?.isAdmin)
   return (
     <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
-      {navItems.map(({ to, label, icon: Icon }) => (
+      {items.map(({ to, label, icon: Icon }) => (
         <NavLink
           key={to}
           to={to}
+          viewTransition
           onClick={onNavigate}
           className={({ isActive }) =>
             cn(
