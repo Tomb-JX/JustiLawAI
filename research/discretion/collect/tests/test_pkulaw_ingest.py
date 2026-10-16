@@ -17,7 +17,9 @@ from pkulaw_ingest import (  # noqa: E402
     catalog_stats,
     cn2int,
     cn_num_to_arabic_article,
+    is_narrative,
     outcome_from,
+    parse_any_doc,
     parse_articles,
     parse_catalog,
     parse_date,
@@ -121,7 +123,7 @@ def test_catalog_parse(tmp_path):
 
 
 def test_pkulaw_id_from_name():
-    assert pkulaw_id_from_name(DOC_NAME) == "FBM-CLI.ALE.47644244"
+    assert pkulaw_id_from_name(DOC_NAME) == "CLI.ALE.47644244"   # 统一去掉 FBM- 前缀
     assert pkulaw_id_from_name("没有引证号.doc") == ""
 
 
@@ -164,7 +166,7 @@ def test_case_catalog_parse(tmp_path):
 
 def test_enforcement_doc_meta_and_table():
     p = parse_enforcement_doc(DOC_TEXT, filename=DOC_NAME)
-    assert p["pkulaw_id"] == "FBM-CLI.ALE.47644244"
+    assert p["pkulaw_id"] == "CLI.ALE.47644244"
     assert p["doc_no"] == "某公(某新)行罚决字〔2025〕00289号"
     assert p["subject"] == "张*三"
     assert p["authority"] == "某县公安局"
@@ -235,6 +237,60 @@ def test_record_serializable_and_schema_keys():
     for key in ("id", "source_type", "source_ref", "harvest_date", "deidentified", "behavior_date",
                 "decision_date", "authority", "region", "text_facts", "text_decision", "outcome", "review"):
         assert key in rec, key
+
+
+# 复刻「法宝行政执法库」的叙述式决定书（河北/山东等地公示形态；人名与号码全部虚构）
+NARRATIVE_TEXT = """　　某县公安局公安行政处罚决定书
+某公（天）行罚决字〔2024〕0325号
+　　违法行为人张某某，男，1990年1月1日出生，户籍地某省某县。
+　　现查明：2024年4月18日12时40分，在某县某村李某某家，张某某同王某某等人以打麻将的方式进行赌博，现场查获赌博资金共计3078元。
+　　以上事实有询问笔录、接处警视频等证据证实。
+　　根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对张某某行政拘留十日，并处罚款伍佰元整。
+　　被处罚人如不服本决定，可以在收到本决定书之日起六十日内向某县人民政府申请行政复议。
+某县公安局
+二〇二四年四月十九日
+
+©北大法宝：（www.pkulaw.com）专业提供法律信息、法学知识和法律软件领域各类解决方案。
+原文链接：https://www.pkulaw.com/apy/0000bdfb.html
+【法宝引证码】CLI.ALE.50000001
+1/1下载日期：2026-10-16
+"""
+
+
+def test_narrative_doc_parsed_as_facts():
+    """叙述式决定书必须被识别成含事实的形态（A 类），而不是当字段式公示（B 类）。"""
+    p = parse_any_doc(NARRATIVE_TEXT, filename="某公（天）行罚决字〔2024〕0325号(FBM-CLI.ALE.50000001).doc")
+    assert p["form"] == "叙述式"
+    assert p["pkulaw_id"] == "CLI.ALE.50000001"          # 引证码（正文里的，文件名去掉 FBM- 前缀）
+    assert "以打麻将的方式进行赌博" in p["facts"]
+    assert "询问笔录" in p["evidence"]
+    assert "行政拘留十日" in p["decision"]
+
+    rec = build_record(p, harvest_date="2026-10-16")
+    assert rec["source_type"] == "处罚决定书"            # 有事实 → A 类
+    assert rec["segmented"] is True
+    assert rec["text_facts"] and rec["text_evidence"] and rec["text_decision"]
+    assert rec["behavior_date"] == "2024-04-18"          # 事实段首个日期
+    assert rec["decision_date"] == "2024-04-19"          # 落款日期
+    oc = rec["outcome"]
+    assert oc["type"] == "拘留并处罚款" and oc["detention_days"] == 10 and oc["fine"] == 500
+    assert oc["articles"] == ["治安管理处罚法第七十条"] and oc["law_version"] == "旧法"
+    assert rec["quality"]["outcome_only"] is False
+    assert rec["quality"]["form"] == "叙述式"
+    assert rec["quality"]["has_amount"] is True          # 事实段有"赌资"
+
+
+def test_narrative_detection_and_public_form_fallback():
+    """没有"现查明"的仍是字段式公示；两者不能判错。"""
+    assert is_narrative(NARRATIVE_TEXT) is True
+    assert is_narrative(DOC_TEXT) is False
+    assert parse_any_doc(DOC_TEXT, filename=DOC_NAME)["form"] == "字段式公示"
+
+
+def test_pkulaw_id_from_text_when_filename_renamed():
+    """文件被改名时，靠正文里的【法宝引证码】兜底。"""
+    p = parse_any_doc(NARRATIVE_TEXT, filename="无名文件.doc")
+    assert p["pkulaw_id"] == "CLI.ALE.50000001"
 
 
 # 复刻「司法案例库」判决书记录（29 字段、法宝已分段；人名等全部虚构）

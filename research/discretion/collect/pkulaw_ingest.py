@@ -319,9 +319,96 @@ def _meta_value(body: str, label: str) -> str:
 
 
 def pkulaw_id_from_name(name: str) -> str:
-    """文件名里的法宝引证码：'…(FBM-CLI.ALE.47644244).doc' → 'FBM-CLI.ALE.47644244'。"""
-    m = re.search(r"\(([A-Z]{3}-[A-Z]+(?:\.[A-Z]+)*\.\d+)\)", name)
+    """文件名里的法宝引证码：'…(FBM-CLI.ALE.47644244).doc' → 'CLI.ALE.47644244'。
+
+    文件名带 FBM- 前缀、文档正文末尾写的是 'CLI.ALE.…'（实测），统一成后者作主键。
+    """
+    m = re.search(r"\((?:FBM-)?(CLI(?:\.[A-Z]+)+\.\d+)\)", name)
     return m.group(1) if m else ""
+
+
+def pkulaw_id_from_text(text: str) -> str:
+    """文档正文里的法宝引证码：【法宝引证码】CLI.ALE.47644244（导出文件被改名时靠它）。"""
+    m = re.search(r"【法宝引证码】\s*((?:FBM-)?CLI(?:\.[A-Z]+)+\.\d+)", text)
+    if not m:
+        return ""
+    return m.group(1).removeprefix("FBM-")
+
+
+# ---------- 叙述式处罚决定书（法宝执法库的常见形态，含事实） ----------
+
+NARRATIVE_FACTS = re.compile(r"现查明[:：]?\s*(.*?)(?=以上事实有|以上事实|上述事实|根据|依照|依据|$)", re.S)
+NARRATIVE_EVIDENCE = re.compile(r"(?:以上|上述)事实有(.*?)(?=根据|依照|依据|现决定|$)", re.S)
+NARRATIVE_DECISION = re.compile(r"(?:根据|依照|依据)[^。]{0,120}?之规定[，,]?\s*(?:现)?决定[:：]?\s*(.*?)(?=被处罚人|如不服|当事人|本决定|$)", re.S)
+NARRATIVE_BASIS = re.compile(r"((?:根据|依照|依据)[^。]{0,120}?之规定)")
+DOC_NO_RE = re.compile(r"[（(]?\s*[\u4e00-\u9fa5]{1,6}?[公检法执][（(][^）)]{1,8}[）)][^\s，。]{0,24}?字[〔\[（(]?\s*\d{4}\s*[〕\]）)]?\s*第?\s*\d+\s*号")
+SUBJECT_RE = re.compile(r"(?:违法行为人|被处罚人|违法嫌疑人)[：:]?\s*([\u4e00-\u9fa5*＊xX×]{2,12})")
+
+
+def is_narrative(text: str) -> bool:
+    """叙述式（含"现查明"事实段）还是字段式公示表——决定走哪套解析。"""
+    return bool(re.search(r"现查明|经查明|查明[:：]", text or "")) and "|处罚结果" not in (text or "")
+
+
+def parse_narrative_doc(text: str, *, filename: str = "") -> dict:
+    """叙述式公安行政处罚决定书 → 与 parse_enforcement_doc 同构的字典（多出 facts/evidence/decision）。
+
+    标准形态（河北/山东等地公示的全文）：
+      违法行为人李xx，男，……身份证号……
+      现查明：2024年4月18日12时40分，在××县××村朱xx家同王xx等人以打麻将的方式进行赌博，现场查获赌博资金共计3078元。
+      以上事实有询问笔录、接处警视频等证据证实。
+      根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对李xx行政拘留十日，并处罚款伍佰元整。
+      被处罚人如不服本决定，可以在收到本决定书之日起六十日内申请行政复议。
+      ××县公安局  二〇二四年四月十九日
+    """
+    body = re.split(r"©\s*北大法宝|\(c\)\s*北大法宝", text)[0]
+    body = re.split(r"【法宝引证码】", body)[0]
+    src_url = ""
+    m = re.search(r"原文链接[:：]\s*(https?://\S+)", text)
+    if m:
+        src_url = m.group(1).strip()
+
+    facts_m = NARRATIVE_FACTS.search(body)
+    facts = re.sub(r"\s+", " ", facts_m.group(1)).strip() if facts_m else ""
+    ev_m = NARRATIVE_EVIDENCE.search(body)
+    evidence = re.sub(r"\s+", " ", ev_m.group(1)).strip() if ev_m else ""
+    dec_m = NARRATIVE_DECISION.search(body)
+    decision = re.sub(r"\s+", " ", dec_m.group(1)).strip() if dec_m else ""
+    if not decision:                      # 兜底：拿"决定"之后到文末之间最像处罚的一句
+        m2 = re.search(r"(?:现)?决定(.*?)(?=被处罚人|如不服|$)", body, re.S)
+        decision = re.sub(r"\s+", " ", m2.group(1)).strip() if m2 else ""
+
+    doc_no_m = DOC_NO_RE.search(body)
+    return {
+        "pkulaw_id": pkulaw_id_from_name(filename) or pkulaw_id_from_text(text),
+        "form": "叙述式",
+        "doc_no": doc_no_m.group(0).strip() if doc_no_m else "",
+        "subject": (SUBJECT_RE.search(body).group(1) if SUBJECT_RE.search(body) else ""),
+        "authority": "",
+        "region_text": "",
+        "publish_date": "",
+        "decision_date": parse_date(body[-200:]) or parse_date(body),
+        "penalty_kinds": "",
+        "fine_note": "",
+        "basis_text": (NARRATIVE_BASIS.search(body).group(1) if NARRATIVE_BASIS.search(body) else decision),
+        "basis_meta": "",
+        "result_text": decision,
+        "subject_matter": "赌博" if "赌博" in body else "",
+        "source_url": src_url,
+        "body": body.strip(),
+        "facts": facts,
+        "evidence": evidence,
+        "reasoning": "",
+        "decision": decision,
+        "behavior_date_in_facts": parse_date(facts),
+    }
+
+
+def parse_any_doc(text: str, *, filename: str = "") -> dict:
+    """按形态分派：叙述式（有"现查明"）走叙述式解析，否则按字段式公示表解析。"""
+    if is_narrative(text):
+        return parse_narrative_doc(text, filename=filename)
+    return parse_enforcement_doc(text, filename=filename)
 
 
 def parse_enforcement_doc(text: str, *, filename: str = "") -> dict:
@@ -343,7 +430,8 @@ def parse_enforcement_doc(text: str, *, filename: str = "") -> dict:
         table[label] = (mm.group(1).strip() if mm else "")
 
     return {
-        "pkulaw_id": pkulaw_id_from_name(filename),
+        "pkulaw_id": pkulaw_id_from_name(filename) or pkulaw_id_from_text(text),
+        "form": "字段式公示",
         "doc_no": table.get("行政处罚决定书文号") or meta.get("发文案号", ""),
         "subject": table.get("被处罚对象") or meta.get("行政相对人", ""),
         "authority": table.get("处罚机关") or meta.get("执法机关", ""),
@@ -358,6 +446,11 @@ def parse_enforcement_doc(text: str, *, filename: str = "") -> dict:
         "subject_matter": table.get("处罚事由", ""),
         "source_url": src_url,
         "body": body.strip(),
+        # 字段式公示没有这些段落（判决书、叙述式决定才有）——统一键名，便于 build_record 共用
+        "facts": "",
+        "evidence": "",
+        "reasoning": "",
+        "decision": table.get("处罚结果", ""),
     }
 
 
@@ -438,22 +531,46 @@ def outcome_from(result_text: str, penalty_kinds: str, fine_note: str = "") -> d
     }
 
 
+def has_amount(facts: str) -> bool:
+    """事实段里有没有金额——信息完整度（规格 §2）与 D6 分流都靠它。
+
+    规则与 harvest/parse.py 的 has_amount 保持一致（跨工作流不 import，靠同规则对齐）：
+    金额词 + 25 字内出现数字，或直接出现"数字元"。
+    """
+    f = facts or ""
+    return bool(re.search(rf"(赌资|赌注|输赢|抽头|抽水|筹码|充值|台费|彩金|获利|好处费|底注|封顶)[^。]{{0,25}}?({NUM})", f)
+                or re.search(rf"({NUM})元", f))
+
+
 def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
                  catalog_row: dict | None = None) -> dict:
-    """解析结果 → data-spec v0.1 §1 的交付记录（脱敏前，deidentified=false）。"""
+    """解析结果 → data-spec v0.1 §1 的交付记录（脱敏前，deidentified=false）。
+
+    两种形态共用：字段式公示（无事实 → 结果-only 层）与叙述式决定书（有"现查明"事实 → 金标候选）。
+    """
     articles, law_version = parse_articles(parsed["basis_text"], parsed["basis_meta"])
-    oc = outcome_from(parsed["result_text"], parsed["penalty_kinds"], parsed["fine_note"])
+    oc = outcome_from(parsed["result_text"] or parsed.get("decision", ""),
+                      parsed["penalty_kinds"], parsed["fine_note"])
     oc["articles"] = articles
     oc["law_version"] = law_version
     lv_raw = law_version_raw(parsed["basis_meta"], parsed["basis_text"])
+    if parsed.get("form") == "叙述式" and not oc["articles"]:
+        # 叙述式的法条写在"根据《…》第X条之规定"里（在"现决定"之前），取法条与版本
+        oc["articles"] = penalty_articles(parsed["body"], "")
+    if not oc["law_version"]:                    # 没有版本字样时按条文推：70 条=旧法、82 条=新法
+        joined = "".join(oc["articles"])
+        if "第八十二条" in joined:
+            oc["law_version"] = "新法"
+        elif "第七十条" in joined:
+            oc["law_version"] = "旧法"
 
-    facts = ""  # 执法公示摘要没有违法事实；判决书解析器落地后此字段才有值
+    facts = parsed.get("facts", "")
     warns = []
     if not facts:
         warns.append("facts_missing")
     if not oc["type"]:
         warns.append("outcome_not_parsed")
-    if not articles:
+    if not articles and not oc["articles"]:
         warns.append("articles_not_parsed")
     cat_fine = (catalog_row or {}).get("罚没总金额_元")
     try:
@@ -466,32 +583,32 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
     return {
         "id": manifest_id,                       # 台账 id（由 import_manual/manifest 分配）
         "pkulaw_id": parsed["pkulaw_id"],        # 法宝引证码：稳定主键，去重与复下都靠它
-        "source_type": "执法公示",
-        "source_ref": f"文号哈希待生成（D3）｜原文链接见台账",  # D3 建议 B：交付不直接写 URL
+        "source_type": "处罚决定书" if facts else "执法公示",
+        "source_ref": "文号哈希待生成（D3）｜原文链接见台账",
         "doc_no": parsed["doc_no"],
         "harvest_date": harvest_date or datetime.now().strftime("%Y-%m-%d"),
-        "deidentified": False,                   # 法宝已遮挡人名，但仍须 R6 扫描 + 人工确认
-        "behavior_date": None,                   # 硬缺口：执法公示不发行为日期
+        "deidentified": False,                   # 走脱敏 SOP + R6 后才能置"是"
+        "behavior_date": parsed.get("behavior_date_in_facts") or None,
         "decision_date": parsed["decision_date"],
         "authority": parsed["authority"],
         "region": parsed["region_text"],
         "text_full": parsed["body"],
-        "segmented": False,
+        "segmented": bool(facts),
         "text_facts": facts,
-        "text_evidence": "",
-        "text_reasoning": "",
-        "text_decision": parsed["result_text"],
+        "text_evidence": parsed.get("evidence", ""),
+        "text_reasoning": parsed.get("reasoning", ""),
+        "text_decision": parsed.get("decision", "") or parsed["result_text"],
         "text_review": "",
         "outcome": oc,
         "review": {"result": "无", "changed_outcome": ""},
         "quality": {
-            "has_amount": bool(facts),           # 事实段里的金额才算（CAIL 教训：这是信息完整度）
+            "form": parsed.get("form", ""),      # 叙述式 / 字段式公示（分省形态不同，实测）
+            "has_amount": has_amount(facts),
             "has_outcome": bool(oc["type"]),
             "outcome_only": not facts,           # True → 只能进结果-only 层（D6）
-            "law_version_raw": lv_raw,           # 法宝原文写法（2012修正 / 2025修订），备查
+            "law_version_raw": lv_raw,
             "parse_warnings": warns,
         },
-        # 事件分组提示（门禁 §7 防泄漏）：同机关 + 同决定日 + 文号连号多为同一次查处
         "event_hint": {"authority": parsed["authority"], "decision_date": parsed["decision_date"],
                        "doc_seq": _doc_seq(parsed["doc_no"])},
     }
@@ -656,7 +773,7 @@ def build_judgment_record(record: dict, *, manifest_id: str = "", harvest_date: 
                    "case_grade": "／".join(record.get("CaseGrade") or []),
                    "category": "／".join(record.get("Category") or [])},
         "quality": {
-            "has_amount": bool(re.search(r"赌资|抽头|渔利|违法所得|罚款\s*[\d一二三四五六七八九十百千]", facts)),
+            "has_amount": has_amount(facts),
             "has_outcome": bool(oc["type"]),
             "outcome_only": False,
             "plaintiff_claims": record.get("PlaintiffClaims") or "",   # 原告主张（不入模型输入，留作出题）
@@ -720,7 +837,7 @@ def cmd_docs(args) -> None:
     records, counters, sha_lines = [], Counter(), []
     for p in files:
         text, how = doc_to_text(p)
-        parsed = parse_enforcement_doc(text, filename=p.name)
+        parsed = parse_any_doc(text, filename=p.name)     # 自动分派：叙述式 / 字段式公示
         cat = by_no.get(parsed["doc_no"])
         sha = sha256_path(p)
         rec = build_record(parsed, manifest_id=id_by_sha.get(sha, ""), harvest_date=args.harvest_date,
@@ -730,10 +847,23 @@ def cmd_docs(args) -> None:
             rec["quality"]["parse_warnings"].append("not_in_manifest")  # 先跑 import_manual.py 入库
         records.append(rec)
         counters["total"] += 1
+        counters[f"form:{rec['quality']['form']}"] += 1
         counters["in_worklist" if cat else "not_in_worklist"] += 1
-        for w in rec["quality"]["parse_warnings"]:
-            counters[f"warn:{w.split(':')[0]}"] += 1
         sha_lines.append(f"{sha}  {p.name}")
+
+    # 同一文号的重复条目（法宝同一条记录常有两个标题变体）只留一条
+    seen, uniq = set(), []
+    for r in records:
+        key = r["doc_no"] or r["pkulaw_id"]
+        if key in seen:
+            counters["duplicated"] += 1
+            continue
+        seen.add(key)
+        uniq.append(r)
+    records = uniq
+    for r in records:
+        for w in r["quality"]["parse_warnings"]:
+            counters[f"warn:{w.split(':')[0]}"] += 1
 
     cases = [r for r in records if not r["quality"]["outcome_only"]]
     only = [r for r in records if r["quality"]["outcome_only"]]
@@ -781,9 +911,10 @@ def cmd_docs(args) -> None:
     }
     (out / "pkulaw_ingest.stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    report(f"解析 {len(records)} 份文书（文本来源 {dict(Counter(r['quality']['text_source'] for r in records))}）")
-    report(f"  结果-only（无事实，D6）：{len(only)} → admin_outcomes_only.jsonl")
-    report(f"  有事实（金标候选）：{len(cases)} → admin_cases.jsonl")
+    forms = dict(Counter(r["quality"]["form"] for r in records))
+    report(f"解析 {len(records)} 份文书（形态 {forms}；文本来源 {dict(Counter(r['quality']['text_source'] for r in records))}）")
+    report(f"  有事实（金标候选，A 类主力）：{len(cases)} → admin_cases.jsonl")
+    report(f"  无事实（结果-only，B 类，D6）：{len(only)} → admin_outcomes_only.jsonl")
     report(f"  处罚类型分布：{stats['outcome_types']}")
     report(f"  法律版本分布：{stats['law_versions']}")
     report(f"  质量提示：{ {k: v for k, v in counters.items() if k.startswith('warn:')} }")
