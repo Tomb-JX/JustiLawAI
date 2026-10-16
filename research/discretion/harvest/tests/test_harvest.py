@@ -139,6 +139,25 @@ def test_page_templates():
     assert "https://www.x.gov.cn/zfxxgk/cfqz_{n}" in page_templates(nxt, "https://www.x.gov.cn/zfxxgk/cfqz")
 
 
+def test_ocr_normalize_joins_wrapped_lines_and_fixes_chars():
+    from ocr import normalize
+
+    raw = "现查明2025年8月，吴xx参与网络赌博，赌资95000兀。\n根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对吴xx行政拘\n留十日，并处罚款壹仟元整。\n执行方式和期限……"
+    out = normalize(raw)
+    assert "95000元" in out and "行政拘留十日" in out
+    assert "\n根据" in out and "\n执行方式" in out  # 段首锚点前的换行保留
+
+
+def test_outcome_falls_back_to_execution_clause():
+    # OCR 漏掉"留三日。"短行：决定段断在"行政拘"，执行句里仍有"执行行政拘留三日"
+    text = ("某公（网）行罚决字〔2025〕0601号\n违法行为人巨x。现查明：2025年7月，巨x参与网络赌博，赌资523元。\n"
+            "以上事实有询问笔录等证据证实。\n根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对巨x行政拘\n"
+            "执行方式和期限由某县公安局送某县拘留所执行行政拘留三日。\n被处罚人如不服本决定，可以申请行政复议。")
+    c = parse_page({**page(), "ocr": True}, text)[0]
+    assert c["outcome"]["type"] == "拘留" and c["outcome"]["detention_days"] == 3
+    assert c["outcome"].get("from_execution_clause") and c["outcome"]["law_version"] == "旧法" and c["ocr"]
+
+
 def test_filter_titles():
     mixed = [("u1", "辛集市交通运输局行政处罚决定书冀0181交罚"), ("u2", "辛集市公安局辛公(张)行罚决字〔2023〕0305号"),
              ("u3", "辛环罚决〔2026〕0036号"), ("u4", "关于赌博案件的处罚")]

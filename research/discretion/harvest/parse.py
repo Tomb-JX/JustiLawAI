@@ -207,6 +207,14 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
                full: str, segmented: bool, review_result: str = "", decision_date: str = "", authority: str = "",
                doc_type: str, outcome_text: str = "") -> dict:
     oc = outcome_from(outcome_text or decision, reasoning)
+    if not oc["type"]:
+        # 兜底：决定段抽不出结果时，用"执行方式和期限"一句（OCR 常漏掉"留三日。"这类短行，但执行句里会重复拘留天数和罚款）
+        m = re.search(r"执行方式[^。]*。", full)
+        if m:
+            fb = outcome_from(m.group(0))
+            if fb["type"]:
+                fb["articles"], fb["law_version"] = oc["articles"], oc["law_version"]
+                oc = {**fb, "from_execution_clause": True}
     no = DOC_NO.findall(full)
     dates = re.findall(r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?", facts or "")
     title = base.get("title", "")
@@ -247,7 +255,7 @@ def last_date(text: str) -> str:
 def parse_page(page: dict, text: str) -> list[dict]:
     base = {"page_id": page["page_id"], "id": page.get("manifest_id", ""), "source_ref": page["url"],
             "harvest_date": page["fetched_at"][:10], "site": page["site"], "title": page.get("title", ""),
-            "publisher": page.get("publisher", "")}
+            "publisher": page.get("publisher", ""), "ocr": bool(page.get("ocr"))}
     body_len = len(re.sub(r"\s", "", re.sub(r"附件[:：].*", "", text)))
     if body_len < 200 and page.get("attachment_files"):
         # 正文只有扫描件或 PDF（定兴 2025 年起即如此）：先建占位案例，OCR 后再解析
@@ -307,7 +315,11 @@ def main() -> None:
     for p in pages.values():
         if p["status"] != "ok":
             continue
-        cases += parse_page(p, (hdir / p["text_path"]).read_text(encoding="utf-8"))
+        ocr_path = hdir / "ocr" / f"{p['page_id']}.txt"
+        if ocr_path.exists():  # 扫描件页面：用 OCR 文本解析（ocr.py 产出）
+            cases += parse_page({**p, "ocr": True}, ocr_path.read_text(encoding="utf-8"))
+        else:
+            cases += parse_page(p, (hdir / p["text_path"]).read_text(encoding="utf-8"))
     out_dir = root / "admin"
     out_dir.mkdir(parents=True, exist_ok=True)
     with open(out_dir / "web_cases.pre_deid.jsonl", "w", encoding="utf-8") as f:
@@ -323,6 +335,7 @@ def main() -> None:
         "law_version_in_scope": dict(Counter(c["outcome"]["law_version"] or "未知" for c in scope)),
         "warnings_in_scope": dict(Counter(w for c in scope for w in c["parse_warnings"])),
         "needs_ocr": sum(bool(c.get("needs_ocr")) for c in cases),
+        "ocr_cases": sum(bool(c.get("ocr")) for c in cases), "ocr_in_scope": sum(bool(c.get("ocr")) for c in scope),
     }
     (out_dir / "web_cases.stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
     print(json.dumps(stats, ensure_ascii=False, indent=1))
