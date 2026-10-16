@@ -506,3 +506,28 @@ def test_civil_judgment_marked_out_of_scope():
     rec = build_record(parse_any_doc(civil, filename="某民事案(FBMCLI.C.1).doc"))
     assert rec["source_type"] == "民事判决书"
     assert rec["quality"]["in_scope"] is False
+
+
+def test_worklist_from_mcp_response(tmp_path):
+    """MCP 检索结果 → 工作清单：同文号两个标题变体去重，标「叙述式=是」。"""
+    import json as _json
+    resp = {"structured": {"total": 2, "data": [
+        {"title": "某甲赌博案(某公(某)行罚决字[2025]001号)", "documentNo": "某公(某)行罚决字[2025]001号",
+         "punishOrgan": "某某县公安局", "punishmentDate": "2025.01.02",
+         "punishmentType": ["行政拘留"], "accordingLaw": ["中华人民共和国治安管理处罚法(2012修正)第70条"],
+         "url": "https://www.pkulaw.com/apy/xbdfb.html?way=mcp"},
+        {"title": "某某县公安局行政处罚决定书某公(某)行罚决字[2025]001号", "documentNo": "某公(某)行罚决字[2025]001号",
+         "punishOrgan": "某某县公安局", "punishmentDate": "2025.01.02"},
+    ]}}
+    src = tmp_path / "r.json"
+    src.write_text(_json.dumps(resp, ensure_ascii=False), encoding="utf-8")
+    from pkulaw_ingest import cmd_worklist
+    class A:  # 模拟 argparse 命名空间
+        pass
+    a = A(); a.src, a.out = str(src), str(tmp_path / "out")
+    cmd_worklist(a)
+    import csv as _csv
+    rows = list(_csv.DictReader(open(tmp_path / "out" / "worklist.csv", encoding="utf-8")))
+    assert len(rows) == 1                                   # 同文号去重
+    assert rows[0]["发文案号"] == "某公(某)行罚决字[2025]001号"
+    assert rows[0]["叙述式"] == "是" and "?way=mcp" not in rows[0]["原文链接"]

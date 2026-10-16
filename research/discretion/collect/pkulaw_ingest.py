@@ -1219,10 +1219,16 @@ def cmd_docs(args) -> None:
         done = sum(1 for r in rows if r.get("已下全文") == "是")
         report(f"  工作清单已回写：{done}/{len(rows)} 条已下全文 ← {args.worklist}")
 
+    facts_len = sorted(len(r["text_facts"]) for r in records)
     stats = {
         "schema_version": SCHEMA_VERSION,
         "parsed_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "counts": dict(counters),
+        "tier": dict(Counter(r["quality"].get("tier", "?") for r in records)),
+        "facts_len_median": facts_len[len(facts_len) // 2] if facts_len else 0,
+        "has_amount_ratio": round(sum(1 for r in records if r["quality"]["has_amount"]) / max(len(records), 1), 3),
+        "missing_decision_date_ratio": round(
+            sum(1 for r in records if not r["decision_date"]) / max(len(records), 1), 3),
         "outcome_only": len(only),
         "with_facts": len(cases),
         "outcome_types": dict(Counter(r["outcome"]["type"] or "未解析" for r in records)),
@@ -1240,6 +1246,8 @@ def cmd_docs(args) -> None:
     report(f"  处罚类型分布：{stats['outcome_types']}")
     report(f"  法律版本分布：{stats['law_versions']}")
     report(f"  质量提示：{ {k: v for k, v in counters.items() if k.startswith('warn:')} }")
+    report(f"  批次指标：事实段中位 {stats['facts_len_median']} 字｜含金额 {stats['has_amount_ratio']:.0%}"
+           f"｜缺决定日期 {stats['missing_decision_date_ratio']:.0%}")
     report(f"  产出目录：{out}（含 SHA256SUMS）")
 
 
@@ -1334,6 +1342,63 @@ def cmd_cases(args) -> None:
     report("  注意：判决书含**真名**，交付前必须脱敏 + R6（deidentified=false）")
 
 
+def cmd_worklist(args) -> None:
+    """MCP 行政执法检索结果（JSON/JSONL/目录）→ 工作清单。
+
+    用途：用"叙述式短语"检索出的结果**天然只含含事实的文书**，把它们落成文号清单，
+    下载时按文号逐条勾选（网页一次最多 50 篇），下完用 `docs --worklist` 回写"已下全文"。
+    """
+    src = Path(args.src)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    files = sorted(src.rglob("*")) if src.is_dir() else [src]
+    files = [f for f in files if f.suffix.lower() in {".json", ".jsonl"}]
+    if not files:
+        raise SystemExit(f"{src} 下没有 .json/.jsonl")
+
+    rows: dict[str, dict] = {}
+    for f in files:
+        text = f.read_text(encoding="utf-8")
+        items: list[dict] = []
+        if f.suffix.lower() == ".jsonl":
+            items = [json.loads(l) for l in text.splitlines() if l.strip()]
+        else:
+            d = json.loads(text)
+            if isinstance(d, dict) and "structured" in d:
+                d = d["structured"] or {}
+            if isinstance(d, dict) and "data" in d:
+                items = d["data"] or []
+            elif isinstance(d, dict) and "Data" in d:
+                items = d["Data"] or []
+            elif isinstance(d, list):
+                items = d
+        for r in items:
+            no = (r.get("documentNo") or r.get("文号") or "").strip()
+            if not no or no in rows:                     # 同一文号在库里常有两个标题变体，按文号去重
+                continue
+            rows[no] = {
+                "发文案号": no,
+                "标题": (r.get("title") or "")[:60],
+                "处罚机关": r.get("punishOrgan") or "",
+                "公布日期": r.get("punishmentDate") or "",
+                "处罚种类": "／".join(r.get("punishmentType") or []),
+                "依据法条": "／".join(r.get("accordingLaw") or []),
+                "原文链接": (r.get("url") or "").replace("?way=mcp", ""),
+                "叙述式": "是",                              # 命中叙述式短语 ⇒ 已知含事实
+                "已下全文": "",
+            }
+    dest = out / "worklist.csv"
+    with open(dest, "w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(next(iter(rows.values())).keys()) if rows else ["发文案号"])
+        w.writeheader()
+        for r in rows.values():
+            w.writerow(r)
+    report(f"工作清单：{len(rows)} 个文号（去重后）→ {dest}")
+    if rows:
+        report(f"  日期跨度：{min(r['公布日期'] for r in rows.values())} ~ {max(r['公布日期'] for r in rows.values())}")
+        report(f"  机关数：{len({r['处罚机关'] for r in rows.values()})}")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="北大法宝导出 → 结构化数据（data-spec v0.1）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -1349,6 +1414,10 @@ def main() -> None:
     d.add_argument("--harvest-date", default="")
     d.add_argument("--out", default=str(DATA_DIR / "admin"))
     d.set_defaults(func=cmd_docs)
+    wl = sub.add_parser("worklist", help="MCP 行政执法检索结果 → 工作清单（含'已知含事实'标记）")
+    wl.add_argument("--src", required=True, help="MCP 响应 JSON/JSONL 或目录（含缓存目录）")
+    wl.add_argument("--out", default=str(DATA_DIR / "pkulaw"))
+    wl.set_defaults(func=cmd_worklist)
     c2 = sub.add_parser("cases", help="司法案例记录（MCP 响应/JSONL）→ 判决书规格 JSONL")
     c2.add_argument("--src", required=True, help="MCP 响应 JSON、JSONL 或目录")
     c2.add_argument("--worklist", default="", help="司法案例库目录 worklist.csv（按案件字号 join）")
