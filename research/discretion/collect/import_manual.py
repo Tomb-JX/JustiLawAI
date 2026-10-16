@@ -40,6 +40,18 @@ def pkulaw_id_from_stem(stem: str) -> str:
     return m.group(1) if m else ""
 
 
+def check_pkulaw_channel(files: list[Path], channel: str) -> str:
+    """护栏：带法宝引证码的文件应登 channel=P（契约 W/B/P/C；C=采购、P=法宝）。
+
+    返回提示语（空串表示无提示）；实测 2026-10-16 漏传 --channel P 把 47 行登成了 C-*。
+    """
+    hit = sum(1 for p in files if pkulaw_id_from_stem(p.stem))
+    if hit and channel != "P":
+        return (f"注意：{hit}/{len(files)} 个文件名含法宝引证码，但 channel={channel}"
+                f"（契约里 P=法宝、C=采购）——法宝导出请用 --channel P")
+    return ""
+
+
 def collect_files(src: Path) -> list[Path]:
     """收集可导入文件：递归；跳过 Word 锁文件（~$…）与隐藏文件（实测导出目录里常有）。"""
     out: list[Path] = []
@@ -74,6 +86,9 @@ def main() -> None:
     files = collect_files(src)
     if not files:
         raise SystemExit(f"{src} 里没有可导入的文件（支持 {'/'.join(sorted(ALLOWED))}）")
+    hint = check_pkulaw_channel(files, args.channel)
+    if hint:
+        report(hint)
 
     hdate = args.harvest_date or datetime.now().strftime("%Y-%m-%d")
     n = moved = 0

@@ -142,7 +142,9 @@ def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
         "review": rv,
         "quality": {"ocr": bool(rec.get("ocr")), "completeness": rec.get("completeness") or {},
                     "parse_warnings": warns, "ambiguous_persons": d.ambiguous_persons,
-                    "age_uncertain": d.age_uncertain, "facts_contains_conclusion": "facts_contains_conclusion" in warns,
+                    "age_uncertain": d.age_uncertain,
+                    "facts_contains_conclusion": bool(rec.get("facts_contains_conclusion"))
+                    or "facts_contains_conclusion" in warns,
                     "subject_variants": d.subject_variants, "persons": len(set(d.persons.values())),
                     "deid_counts": d.counts, **internal},
     }
@@ -338,6 +340,7 @@ def from_parsed1(rec: dict, resolver: Resolver) -> dict | None:
         "review": rec.get("review") or {},
         "parse_warnings": list(q.get("parse_warnings") or []),
         "completeness": q.get("completeness") or {},
+        "facts_contains_conclusion": bool(q.get("facts_contains_conclusion")),
         "ocr": bool(q.get("ocr")),
         "_region": region_for_record(resolver, rec),
         "_site": "法宝:" + (rec.get("authority") or rec.get("province") or rec["id"]),
