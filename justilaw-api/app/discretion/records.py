@@ -219,8 +219,12 @@ def _check_outcome(rec: dict, layer: str) -> list[Issue]:
     expect = {"罚款": (False, True), "拘留": (True, False), "拘留并处罚款": (True, True),
               "不予处罚": (False, False), "不构成违法": (False, False), "警告": (False, False)}.get(t)
     if expect and ((days > 0) != expect[0] or (fine > 0) != expect[1]):
-        out.append(Issue("error", "outcome_inconsistent", "outcome",
-                         f"类型'{t}'与拘留 {days} 天、罚款 {fine} 元不符"))
+        # 源遮蔽豁免（法宝线 2026-10-17）：发布方把罚款额打码（"以**罚款**元"）、类型可定而数额缺失，
+        # 解析侧显式打 masked_amount 标记时接受 罚款/零额（P-715–717 实测）；未标记仍按原规则判错
+        masked = bool((rec.get("extra") or {}).get("outcome", {}).get("masked_amount"))
+        if not (masked and t == "罚款" and fine == 0 and days == 0):
+            out.append(Issue("error", "outcome_inconsistent", "outcome",
+                             f"类型'{t}'与拘留 {days} 天、罚款 {fine} 元不符"))
     if t == "警告":
         out.append(Issue("warn", "warning_not_in_article", "outcome.type",
                          "警告不在第七十条、第八十二条的罚则内，确认是否为减轻处罚"))

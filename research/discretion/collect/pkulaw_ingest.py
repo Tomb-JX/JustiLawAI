@@ -190,6 +190,19 @@ def doc_no_hash(doc_no: str) -> str:
     return hashlib.sha256(doc_no_norm(doc_no).encode("utf-8")).hexdigest()[:16]
 
 
+def clean_doc_no(v: str) -> str:
+    """文号字段清洗：表格单元格偶把后继文本并进来（实测仙桃/安陆表格式"…190号被处罚对象汤**…"，
+    28 件受影响）。先按 DOC_NO_RE 取标准形态；取不到则在第一个"号"处截断，保持原值兜底。"""
+    v = (v or "").strip()
+    if not v:
+        return ""
+    m = DOC_NO_RE.search(v)
+    if m:
+        return m.group(0).lstrip("（()").strip()
+    i = v.find("号")
+    return v[: i + 1] if 0 <= i <= 40 else v[:40]
+
+
 def subject_mention_of(rec: dict) -> str:
     """本人在正文中的原写法（供脱敏替换为"甲"）：决定表/元数据块/正文正则三路兜底。"""
     full = rec.get("text_full") or ""
@@ -274,6 +287,7 @@ def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]
         extra.setdefault("invalid_dates", {})["behavior_date"] = rec.get("behavior_date")
     if not d_ok:
         extra.setdefault("invalid_dates", {})["decision_date"] = rec.get("decision_date")
+    _prov = province_and_region(rec.get("region", ""), rec.get("authority", ""))
     out: dict = {
         "record_version": "parsed-1",
         "id": rec.get("id", ""),
@@ -290,8 +304,8 @@ def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]
         "behavior_date": b_date,
         "decision_date": d_date,
         "authority": rec.get("authority", ""),
-        "region": "",  # legacy 的 region 是省份名或区划名，不是区划代码；统一进 province，构建时再补代码
-        "province": rec.get("region") or province_of(rec.get("authority", "")),
+        "region": _prov[1],  # 直管县级市直接给代码；其余留空，构建时再补
+        "province": _prov[0],
         "law_version": oc.get("law_version") or "未知",
         "subject_mention": subject_mention_of(rec),
         "event_key": rec.get("event_key", ""),
@@ -438,6 +452,8 @@ CN = {"〇": 0, "零": 0, "一": 1, "壹": 1, "二": 2, "贰": 2, "两": 2, "三
       "五": 5, "伍": 5, "六": 6, "陆": 6, "七": 7, "柒": 7, "八": 8, "捌": 8, "九": 9, "玖": 9}
 UNIT = {"十": 10, "拾": 10, "百": 100, "佰": 100, "千": 1000, "仟": 1000}
 NUM = r"[\d,，.]+|[〇零一壹二贰两三叁四肆五伍六陆七柒八捌九玖十拾百佰千仟万]+"
+# 源文打码后的"罚款"形态（稀公实测："以**罚款**元"）——类型可定、数额缺失
+_MASKED_FINE = re.compile(r"罚款\s*(?:人民币)?\s*[xX×＊*ｘＸ]{2,}|以\s*[xX×＊*ｘＸ]{2,}\s*罚款")
 
 
 def cn2int(s: str) -> int | None:
@@ -544,6 +560,31 @@ def province_of(text: str) -> str:
     for p in PROVINCES:
         if p in (text or ""):
             return p
+    return ""
+
+
+# 省直管县级市/省直辖行政单位 → (省份, 区划代码)（实测：仙桃系 6 件因无法归省被构建判"④无区划"）
+DIRECT_ADMIN = {
+    "仙桃市": ("湖北省", "429004"), "潜江市": ("湖北省", "429005"),
+    "天门市": ("湖北省", "429006"), "神农架林区": ("湖北省", "429021"),
+    "济源市": ("河南省", "419001"),
+    "儋州市": ("海南省", "460400"), "文昌市": ("海南省", "469005"),
+    "琼海市": ("海南省", "469002"), "万宁市": ("海南省", "469006"),
+    "东方市": ("海南省", "469007"), "五指山市": ("海南省", "469001"),
+}
+
+
+def province_and_region(legacy_region: str, authority: str) -> tuple[str, str]:
+    """→ (省份名, 区划代码)。省直管县级市按 DIRECT_ADMIN 归省并给代码；其余 legacy 值按原样信任
+    （历史行为：legacy region 常是省名短写如"江苏"或区划名，构建时再解析），无值则按机关名取省。"""
+    r = (legacy_region or "").strip()
+    for key, (prov, code) in DIRECT_ADMIN.items():
+        short = key[:-1] if key.endswith(("市", "林区")) else key
+        if key in r or short in r or key in (authority or "") or short in (authority or ""):
+            return prov, code
+    if r:
+        return r, ""
+    return province_of(authority or ""), ""
     return ""
 
 
@@ -1127,7 +1168,8 @@ def parse_doc(text: str, *, filename: str = "") -> dict:
     table = table_cells(raw)
     bits = narrative_bits(raw)
 
-    doc_no = table.get("行政处罚决定书文号") or table.get("行政处罚标题") or meta.get("发文案号", "")
+    doc_no = clean_doc_no(table.get("行政处罚决定书文号") or table.get("行政处罚标题")
+                          or meta.get("发文案号", ""))
     if not doc_no:
         m = re.search(DOC_NO_RE, flat)
         doc_no = m.group(0).lstrip("（()").strip() if m else ""
@@ -1276,6 +1318,7 @@ def outcome_from(result_text: str, penalty_kinds: str, fine_note: str = "") -> d
     fines = [x for x in fines if x]
     days = (cn2int(merged.group(1)) if merged else None) or (det[0] if det else 0)
     fine = fines[0] if fines else 0
+    masked_amount = False
 
     if re.search(r"不予处罚|不予行政处罚", r):
         ptype = "不予处罚"
@@ -1289,6 +1332,10 @@ def outcome_from(result_text: str, penalty_kinds: str, fine_note: str = "") -> d
         ptype = "拘留"
     elif fine:
         ptype = "罚款"
+    elif re.search(r"罚款", r) and _MASKED_FINE.search(r):
+        # 源文把罚款额/处罚方式打码（实测稀公："以**罚款**元"）——类型可定、数额缺失，显式标记
+        ptype = "罚款"
+        masked_amount = True
     elif "警告" in r or "警告" in penalty_kinds:
         ptype = "警告"
     else:
@@ -1302,6 +1349,7 @@ def outcome_from(result_text: str, penalty_kinds: str, fine_note: str = "") -> d
         "detention_days": days,
         "detention_items": det,
         "fine": fine,
+        "masked_amount": masked_amount,
         "detention_not_executed": "是" if re.search(r"不执行(?:行政)?拘留|不送(?:达)?拘留所|依法不执行", r) else "否",
         "confiscation": confiscation,
         "articles": [],

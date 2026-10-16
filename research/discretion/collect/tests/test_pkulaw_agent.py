@@ -390,6 +390,53 @@ def test_ensure_serve_reuses_live_port(monkeypatch):
     assert _sess.ensure_serve(port=1, wait_s=1) is True  # 已有 CDP 直接复用，不拉起进程
 
 
+# ---------------- 2026-10-17 r5 交接修复（文号污染 / 直管县级市 / 打码金额） ----------------
+
+def test_clean_doc_no_truncates_table_bleed():
+    import pkulaw_ingest as ingest
+    polluted = "仙公（龙）行罚决字〔2026〕190号被处罚对象汤**处罚结果违法行为人"
+    assert ingest.clean_doc_no(polluted) == "仙公（龙）行罚决字〔2026〕190号"
+    clean = "土公（沟）行罚决字〔2026〕527号"
+    assert ingest.clean_doc_no(clean) == clean
+    titled = "王xx行政处罚(土公（沟）行罚决字〔2026〕527号)-北大法宝V6官网"
+    assert ingest.clean_doc_no(titled) == "土公（沟）行罚决字〔2026〕527号"
+    assert ingest.clean_doc_no("") == ""
+
+
+def test_province_and_region_direct_admin():
+    import pkulaw_ingest as ingest
+    assert ingest.province_and_region("仙桃市", "仙桃市公安局") == ("湖北省", "429004")
+    assert ingest.province_and_region("", "仙桃市公安局") == ("湖北省", "429004")  # 按机关名兜底
+    assert ingest.province_and_region("湖南省", "隆回县公安局") == ("湖南省", "")
+    # 机关名里带省名的按省级名匹配；不带省名的（格尔木）依赖 legacy region，无则留空
+    assert ingest.province_and_region("", "青海省格尔木市公安局") == ("青海省", "")
+    assert ingest.province_and_region("", "格尔木市公安局盐桥路派出所") == ("", "")
+
+
+def test_outcome_from_masked_fine():
+    import pkulaw_ingest as ingest
+    masked = ingest.outcome_from("对张**以**罚款**元。收缴物品：麻将**副。", "罚款、没收违法所得")
+    assert masked["type"] == "罚款" and masked["masked_amount"] is True and masked["fine"] == 0
+    normal = ingest.outcome_from("对王某某处罚款伍佰元", "")
+    assert normal["type"] == "罚款" and normal["masked_amount"] is False and normal["fine"] == 500
+    nopen = ingest.outcome_from("决定对李某某不予处罚", "")
+    assert nopen["type"] == "不予处罚" and nopen["masked_amount"] is False
+
+
+def test_r6_placeholder_mask_excluded():
+    """r6 误报修复：脱敏占位符+源遮蔽场所（"丁在**"）不算人名残留；真"姓+**"仍拦。"""
+    import sys as _sys
+    from pathlib import Path as _P
+    _sys.path.insert(0, str(_P("research/discretion/harvest")))
+    import r6_scan
+    hits = r6_scan.scan_text("副。2026年4月中旬，丁在**")
+    assert not [h for h in hits if h.cat == "person_masked" and h.hard]
+    hits2 = r6_scan.scan_text("违法行为人丁在强在赌博现场")  # 真名不由 person_masked 拦（另规则处理），此处仅确保不误伤
+    assert all(not (h.cat == "person_masked") for h in hits2)
+    hits3 = r6_scan.scan_text("被处罚对象丁**、戊**")
+    assert any(h.cat == "person_masked" and h.hard for h in hits3)  # 无介词的"姓+**"仍硬拦
+
+
 # ---------------- session v1.1：session.json / CDP 探测 ----------------
 
 def test_session_json_roundtrip(tmp_path, monkeypatch):

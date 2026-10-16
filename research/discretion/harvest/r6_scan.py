@@ -79,6 +79,11 @@ def _excluded(cat: str, text: str, m: re.Match) -> bool:
         if s.endswith("某") and re.match(r"(派出所|[乡镇村屯组路街巷号室厂店幢栋]|大街|大道|街道|社区|小区|行政村|麻将|棋牌|茶|宾馆|酒店|旅馆|商|超市|饭店|网吧)",
                                        text[m.end():]):
             return True
+        # "丁在**"：脱敏占位符（甲/乙丙丁…）后接介词再接遮蔽——"占位符+源遮蔽场所"的组合
+        # （仙桃批实测 P-737；占位符本身无隐私，其后"**"是源遮蔽而非人名残留）
+        if len(s) >= 2 and s[0] in ALIASES + ["甲", "某"] and \
+                text[m.start() + 1] in "在于是与和及因被将对向为以从到至前内外的了等":
+            return True
     if cat == "station_named":
         pre = m.group("pre")
         if pre.endswith("某") or pre[-1] in STATION_STOP + "了的" or pre.endswith(("辖区", "当地", "属地", "所在地", "我", "公安局", "分局")):
