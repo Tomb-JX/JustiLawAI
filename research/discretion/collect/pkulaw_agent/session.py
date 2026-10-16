@@ -194,7 +194,7 @@ class Session:
             try {
                 const resp = await fetch(path, {
                     method: 'POST',
-                    headers: {'Content-Type': 'application/json', 'Authorization': token},
+                    headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token},
                     body: JSON.stringify(body || {}),
                     signal: ctrl.signal,
                 });
