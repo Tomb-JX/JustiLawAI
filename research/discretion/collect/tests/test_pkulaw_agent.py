@@ -404,6 +404,21 @@ def test_dedup_page_text_collapses_artifacts():
     assert dedup_page_text(normal) == normal
 
 
+def test_fold_wrapped_lines_pdf_case():
+    """PDF 硬换行折回段落后，去伪影规则可正常生效（实测 527 号：截断前缀跨两行）。"""
+    import pkulaw_ingest as ingest
+    wrapped = ("2026年08月26日2时许，在内蒙古自治区土默特右旗威俊村北王永禄养猪院内，王2026年08\n"
+               "月26日2时许，在内蒙古自治区土默特右旗威俊村北王永禄养猪院内，王小乐招集张艳平、刘海玲、\n"
+               "吕俊兰等人用麻将以推对子形式进行赌博，王永禄提供赌博场地并开车送参赌人员张艳平、刘海玲等\n"
+               "人。\n小乐招集张艳平、刘海玲、吕俊兰等人用麻将以推对子形式进行赌博，王永禄提供赌博场地并\n"
+               "开车送参赌人员张艳平、刘海玲等人。\n以上事实有")
+    got = ingest.dedup_page_text(ingest._fold_wrapped_lines(wrapped))
+    assert got.count("2026年08月26日2时许") == 1
+    assert got.count("小乐招集") == 1
+    assert "以上事实有" in got  # 短标题行保留
+    assert ingest.dedup_page_text(got) == got  # 幂等
+
+
 # ---------------- validators：六项校验 ----------------
 
 def test_check_doc_no_fullwidth_and_brackets():

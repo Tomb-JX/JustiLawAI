@@ -159,38 +159,8 @@ def doc_no_from_title(title: str) -> str:
     return m.group(0).lstrip("（()").strip()
 
 
-def dedup_page_text(text: str) -> str:
-    """清理页面自身伪影（实测详情页 divFullText 的站点高亮/复制组件产物，三类）：
-    ① 整段精确重复（"…出生。…出生。"）；
-    ② 段内"截断前缀+全文"（"…养猪院内，王2026年08月26日…"）；
-    ③ 跨段碎片重复（全文之后又出现该句尾部、被拆成若干 <p>）。
-    ①②按行清理（保留完整副本），③按"连续行拼接若是其它整行的子串"判定并丢弃。"""
-    raw_lines = [l.strip() for l in (text or "").split("\n")]
-    lines: list[str] = []
-    for s in raw_lines:
-        if len(s) >= 24 and len(s) % 2 == 0 and s[: len(s) // 2] == s[len(s) // 2:]:
-            s = s[: len(s) // 2]  # ① 半段精确重复
-        if len(s) >= 40:
-            p = s.find(s[:20], 5)
-            if p > 0 and len(s) - p >= 12:
-                s = s[p:]  # ② 截断前缀：保留后一次完整副本
-        if s:
-            lines.append(s)
-    keep = [True] * len(lines)
-    for i in range(len(lines)):
-        for span in (1, 2, 3):
-            if i + span > len(lines) or not all(keep[i:i + span]):
-                break
-            seg = "".join(lines[i:i + span])
-            if len(seg) < 12:
-                continue
-            hit = any(k != i and len(o) >= max(2 * len(seg), 40) and seg in o
-                      for k, o in enumerate(lines) if not (i <= k < i + span))
-            if hit:  # ③ 跨段碎片：是其它整行的子串
-                for k in range(i, i + span):
-                    keep[k] = False
-                break
-    return "\n".join(l for l, k in zip(lines, keep) if k)
+# 去伪影（页内重复/截断前缀/跨段碎片）已下沉到解析内核，page 抓取与 PDF 导出件同一实现
+dedup_page_text = ingest.dedup_page_text
 
 
 def fetch_one(session, record: dict, docs_dir: Path, *, keep_other: bool = True) -> dict:

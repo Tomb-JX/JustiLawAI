@@ -621,8 +621,56 @@ def catalog_stats(rows: list[dict]) -> dict:
 
 # ---------- 文书文本获取 ----------
 
+def dedup_page_text(text: str) -> str:
+    """清理法宝**源文档**自带的重复伪影（page 抓取与 PDF 导出件同样出现，实测 2026-10-16）：
+    ① 整段精确重复（"…出生。…出生。"）；
+    ② 段内"截断前缀+全文"（"…养猪院内，王2026年08月26日…"）；
+    ③ 跨段碎片重复（全文之后又出现该句尾部、被拆成若干行）。
+    ①②按行清理（保留完整副本），③按"连续行拼接若是其它整行的子串"判定并丢弃。对干净文本幂等。"""
+    raw_lines = [l.strip() for l in (text or "").split("\n")]
+    lines: list[str] = []
+    for s in raw_lines:
+        if len(s) >= 24 and len(s) % 2 == 0 and s[: len(s) // 2] == s[len(s) // 2:]:
+            s = s[: len(s) // 2]  # ① 半段精确重复
+        if len(s) >= 40:
+            p = s.find(s[:20], 5)
+            if p > 0 and len(s) - p >= 12:
+                s = s[p:]  # ② 截断前缀：保留后一次完整副本
+        if s:
+            lines.append(s)
+    keep = [True] * len(lines)
+    for i in range(len(lines)):
+        for span in (1, 2, 3):
+            if i + span > len(lines) or not all(keep[i:i + span]):
+                break
+            seg = "".join(lines[i:i + span])
+            if len(seg) < 12:
+                continue
+            hit = any(k != i and len(o) >= max(len(seg) + 20, 40) and seg in o
+                      for k, o in enumerate(lines) if not (i <= k < i + span))
+            if hit:  # ③ 跨段碎片：是其它整行的子串
+                for k in range(i, i + span):
+                    keep[k] = False
+                break
+    return "\n".join(l for l, k in zip(lines, keep) if k)
+
+
+def _find_dup_spans(flat: str) -> list[tuple[int, int]]:  # pragma: no cover —— 保留供排查
+    """（诊断用）在拍平文本上找重复伪影的删除区间。生产路径请用 折行+dedup_page_text。"""
+    spans: list[tuple[int, int]] = []
+    for m in re.finditer(r"(.{20,300}?)\1", flat):
+        spans.append((m.end(1), m.end()))
+    return spans
+
+
 def doc_to_text(path: Path) -> tuple[str, str]:
-    """'.doc/.docx/.txt' → (文本, 取文本方式)。.doc 优先 antiword，退回 Word COM。"""
+    """'.doc/.docx/.pdf/.txt' → (文本, 取文本方式)；产出统一过去重伪影（幂等）。"""
+    text, how = _doc_to_text_raw(path)
+    return dedup_page_text(text), how
+
+
+def _doc_to_text_raw(path: Path) -> tuple[str, str]:
+    """.doc 优先 antiword，退回 Word COM；.pdf 走 PyMuPDF/pypdf 并还原元数据排版。"""
     suf = path.suffix.lower()
     if suf in {".txt", ".md"}:
         return path.read_text(encoding="utf-8", errors="replace"), "plain"
@@ -644,7 +692,65 @@ def doc_to_text(path: Path) -> tuple[str, str]:
         if text:
             return text, "word-com"
         raise RuntimeError(f"{path}: .doc 取文本失败（antiword 与本机 Word 都不可用）")
+    if suf == ".pdf":  # 法宝"下载PDF"导出件（作业台默认原件形态）
+        return _pdf_to_text(path), "pdf"
     raise ValueError(f"不支持的扩展名：{path.suffix}")
+
+
+def _pdf_to_text(path: Path) -> str:
+    """PDF 取文本：优先 PyMuPDF（fitz），退回 pypdf；还原元数据"值/标签"排版，再折行还原段落。"""
+    try:
+        import fitz  # PyMuPDF
+
+        with fitz.open(str(path)) as doc:
+            raw = "\n".join(page.get_text() for page in doc)
+    except Exception:  # noqa: BLE001 —— 退回 pypdf
+        from pypdf import PdfReader
+
+        reader = PdfReader(str(path))
+        raw = "\n".join((p.extract_text() or "") for p in reader.pages)
+    return _fold_wrapped_lines(_fix_label_after_value(raw))
+
+
+def _fold_wrapped_lines(text: str) -> str:
+    """PDF 按版面宽度硬换行；把未以句末标点结束的行并入下一行，使"段落≈一行"，
+    行级去伪影规则（dedup_page_text）才能生效（实测 527 号的"截断前缀"跨行）。"""
+    out: list[str] = []
+    buf = ""
+    for raw_line in (text or "").split("\n"):
+        s = raw_line.strip()
+        if not s:
+            if buf:
+                out.append(buf)
+                buf = ""
+            continue
+        buf = buf + s if buf else s
+        if s.endswith(("。", "！", "？", "；")):
+            out.append(buf)
+            buf = ""
+    if buf:
+        out.append(buf)
+    return "\n".join(out)
+
+
+def _fix_label_after_value(text: str) -> str:
+    """法宝 PDF 元数据页实测为两列排版、fitz 读序是"值在前、标签在后"（如 "公安\n主题分类："）。
+    还原为"标签：值"，meta_block/table_cells 才能正常解析。"""
+    lines = text.split("\n")
+    out: list[str] = []
+    i = 0
+    while i < len(lines):
+        cur = lines[i].strip()
+        nxt = lines[i + 1].strip() if i + 1 < len(lines) else ""
+        single_colon_tail = (nxt.endswith("：") and 2 <= len(nxt) <= 14
+                             and "：" not in nxt[:-1] and ":" not in nxt[:-1])
+        if cur and single_colon_tail and not cur.endswith("："):
+            out.append(f"{nxt}{cur}")
+            i += 2
+        else:
+            out.append(lines[i])
+            i += 1
+    return "\n".join(out)
 
 
 def _doc_via_word_com(path: Path) -> str:
