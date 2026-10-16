@@ -22,7 +22,7 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from common import DATA_DIR, RAW_DIR, manifest_add, report, sha256_path
+from common import DATA_DIR, RAW_DIR, manifest_add, registry_add, report, sha256_path
 
 INBOX = DATA_DIR / "inbox"
 DEST = RAW_DIR / "manual"
@@ -103,6 +103,10 @@ def main() -> None:
             }
         )
         n += 1
+    if n:
+        registry_add("L0", dest_dir, records=sum(1 for p in dest_dir.rglob("*") if p.is_file()),
+                     producer="collect/import_manual.py", status="现行",
+                     note=f"channel={args.channel}；批次 {args.dest_sub or 'manual'}")
     report(f"导入完成：登记 {n} 个文件（{"复制" if args.copy else "移动"} {moved}）→ {dest_dir}")
 
 

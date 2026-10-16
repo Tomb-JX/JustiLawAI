@@ -186,8 +186,12 @@ def registry_add(layer: str, path, *, records: int, producer: str,
     """向 $JUSTILAW_DATA_DIR/REGISTRY.csv 追加一行（文件不存在则写表头）。
 
     layer 对齐总览 §4 分层：L0 原始 / L1 解析（parsed-1）/ L1-legacy（工作副本）等；
-    status：现行 / 已取代 / 工作副本。
+    status：现行 / 已取代 / 工作副本。临时目录（测试等）不登记。
     """
+    sp = str(path)
+    import tempfile
+    if "pytest-of-" in sp or sp.startswith(tempfile.gettempdir()):
+        return
     row = {
         "layer": layer, "path": str(path), "records": records,
         "sha256": dir_digest(Path(path)), "producer": producer,
@@ -195,12 +199,12 @@ def registry_add(layer: str, path, *, records: int, producer: str,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "status": status, "note": note,
     }
-    # 同路径旧行标"已取代"（登记表语义：每个路径只有一个"现行"版本）
+    # 同路径旧行一律标"已取代"（每个路径只保留最后一个版本为现值）
     rows: list[dict] = []
     if REGISTRY.exists():
         with REGISTRY.open(encoding="utf-8-sig", newline="") as f:
             for r in csv.DictReader(f):
-                if r.get("path") == row["path"] and r.get("status") == "现行":
+                if r.get("path") == row["path"] and r.get("status") != "已取代":
                     r["status"] = "已取代"
                 rows.append(r)
     rows.append(row)

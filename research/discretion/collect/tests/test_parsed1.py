@@ -115,6 +115,8 @@ def test_cmd_parsed1_end_to_end(tmp_path, monkeypatch):
         encoding="utf-8")
 
     monkeypatch.setattr(ing, "DATA_DIR", tmp_path / "data")
+    import common
+    monkeypatch.setattr(common, "REGISTRY", tmp_path / "REGISTRY.csv")
     args = SimpleNamespace(sources=[str(legacy)], out="", batch="批A", force=False)
     ing.cmd_parsed1(args)
     out = tmp_path / "data" / "parsed" / "pkulaw" / "批A"

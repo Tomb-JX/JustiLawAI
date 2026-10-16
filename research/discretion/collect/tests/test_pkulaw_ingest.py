@@ -439,7 +439,7 @@ def test_record_rank_prefers_better_copy():
     assert ing.record_rank(l1_short) < ing.record_rank(l2) < ing.record_rank(l3)
 
 
-def test_cmd_merge_dedupes_across_batches(tmp_path):
+def test_cmd_merge_dedupes_across_batches(tmp_path, monkeypatch):
     """跨批合并：同键去重并择优；L1/L2/L3 分级写出；重复明细落 merge.stats.json。"""
     from types import SimpleNamespace
 
@@ -459,6 +459,8 @@ def test_cmd_merge_dedupes_across_batches(tmp_path):
         {"pkulaw_id": "CLI.ALE.3", "doc_no": "X民字〔2020〕3号",
          "quality": {"tier": "L3-范围外"}}])
     out = tmp_path / "M"
+    import common
+    monkeypatch.setattr(common, "REGISTRY", tmp_path / "REGISTRY.csv")
     args = SimpleNamespace(sources=[str(a), str(b)], out=str(out), batch="m1", force=False)
     ing.cmd_merge(args)
     kept = ing._read_jsonl(out / "admin_cases.jsonl")
