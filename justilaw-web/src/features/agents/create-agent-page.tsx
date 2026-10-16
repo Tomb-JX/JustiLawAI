@@ -1,12 +1,13 @@
-import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, Bot, Check, Library, MessagesSquare, Plus, X } from 'lucide-react'
+import { ArrowLeft, Bot, Check, Library, Loader2, MessagesSquare, Plus, X } from 'lucide-react'
 import { toast } from 'sonner'
-import { createAgent, listDatasets } from '@/api'
+import { createAgent, getAgent, listDatasets, updateAgent } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { PageLoading } from '@/components/common/misc'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
@@ -24,31 +25,59 @@ interface Draft {
 
 const STEPS = ['基本信息', '人设与提示词', '知识库挂载', '完成']
 
+const EMPTY_DRAFT: Draft = {
+  name: '',
+  category: '法律咨询',
+  description: '',
+  system_prompt:
+    '你是专业的法律智能助手。回答需引用具体法条，语言通俗，结尾给出行动建议，并声明"以上内容由 AI 生成，不构成法律意见"。',
+  opening_statement: '',
+  suggested_questions: [],
+  dataset_ids: [],
+}
+
+/** 创建 / 编辑二合一：路由带 agentId 即编辑模式，进入时以现有智能体预填表单 */
 export default function CreateAgentPage() {
   const navigate = useNavigate()
+  const { agentId } = useParams()
+  const isEdit = !!agentId
   const qc = useQueryClient()
   const [step, setStep] = useState(0)
-  const [draft, setDraft] = useState<Draft>({
-    name: '',
-    category: '法律咨询',
-    description: '',
-    system_prompt:
-      '你是专业的法律智能助手。回答需引用具体法条，语言通俗，结尾给出行动建议，并声明"以上内容由 AI 生成，不构成法律意见"。',
-    opening_statement: '',
-    suggested_questions: [],
-    dataset_ids: [],
-  })
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT)
   const [newQuestion, setNewQuestion] = useState('')
+  const hydrated = useRef(false)
 
   const { data: datasets } = useQuery({ queryKey: ['datasets'], queryFn: listDatasets })
+  const { data: agent, isLoading } = useQuery({
+    queryKey: ['agents', agentId],
+    queryFn: () => getAgent(agentId!),
+    enabled: isEdit,
+  })
+
+  // 编辑模式：数据到达后填充一次（之后用户改动不被覆盖）
+  useEffect(() => {
+    if (isEdit && agent && !hydrated.current) {
+      hydrated.current = true
+      setDraft({
+        name: agent.name,
+        category: agent.category,
+        description: agent.description,
+        system_prompt: agent.system_prompt,
+        opening_statement: agent.opening_statement ?? '',
+        suggested_questions: agent.suggested_questions ?? [],
+        dataset_ids: [...agent.dataset_ids],
+      })
+    }
+  }, [isEdit, agent])
 
   const set = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }))
 
-  const createMut = useMutation({
-    mutationFn: () => createAgent(draft),
+  const saveMut = useMutation({
+    mutationFn: () =>
+      isEdit ? updateAgent(agentId!, { ...draft, name: draft.name.trim() }) : createAgent(draft),
     onSuccess: (agent) => {
       qc.invalidateQueries({ queryKey: ['agents'] })
-      toast.success('智能体已创建，可在详情页发布')
+      toast.success(isEdit ? '智能体已保存' : '智能体已创建，可在详情页发布')
       navigate(`/agents/${agent.id}`)
     },
   })
@@ -86,8 +115,12 @@ export default function CreateAgentPage() {
             返回列表
           </button>
         </div>
-        <h1 className="mt-3 text-xl font-bold">创建智能体</h1>
-
+        <h1 className="mt-3 text-xl font-bold">{isEdit ? '编辑智能体' : '创建智能体'}</h1>
+        {isEdit && isLoading ? (
+          <div className="mt-10">
+            <PageLoading />
+          </div>
+        ) : (
         <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_320px]">
           {/* 左：分步表单 */}
           <div className="rounded-2xl border bg-card p-5 shadow-sm">
@@ -246,15 +279,19 @@ export default function CreateAgentPage() {
                 </div>
                 <h2 className="mt-3 text-lg font-semibold">「{draft.name || '未命名智能体'}」准备就绪</h2>
                 <p className="mx-auto mt-1.5 max-w-sm text-sm text-muted-foreground">
-                  将以草稿状态创建，你可以在详情页继续编辑并发布到广场
+                  {isEdit ? '确认无误后保存修改' : '将以草稿状态创建，你可以在详情页继续编辑并发布到广场'}
                 </p>
                 <Button
                   className="mt-5 gap-1.5"
-                  disabled={!draft.name.trim() || createMut.isPending}
-                  onClick={() => createMut.mutate()}
+                  disabled={!draft.name.trim() || saveMut.isPending}
+                  onClick={() => saveMut.mutate()}
                 >
-                  <Check className="h-4 w-4" />
-                  创建智能体
+                  {saveMut.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  {isEdit ? '保存修改' : '创建智能体'}
                 </Button>
               </div>
             )}
@@ -316,11 +353,12 @@ export default function CreateAgentPage() {
               )}
               <div className="mt-4 flex items-center gap-1 border-t pt-3 text-[11px] text-muted-foreground">
                 <MessagesSquare className="h-3 w-3" />
-                创建后可在详情页点击「开始对话」进行调试
+                {isEdit ? '保存后可在详情页继续调整或开始对话' : '创建后可在详情页点击「开始对话」进行调试'}
               </div>
             </div>
           </div>
         </div>
+        )}
       </div>
     </div>
   )

@@ -127,6 +127,8 @@ export function ChatHeader({
                 onClick={() => {
                   qc.setQueryData(['messages', conversationId], [])
                   void clearMessages(conversationId)
+                  // 清空后刷新会话列表（last_message_at 已变化）
+                  qc.invalidateQueries({ queryKey: ['conversations'] })
                   toast.success('上下文已清空，开启全新对话')
                 }}
               >

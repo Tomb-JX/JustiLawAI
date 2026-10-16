@@ -161,6 +161,20 @@ export const mockApi = {
     messages[conversationId] = []
   },
 
+  async deleteMessage(conversationId: string, messageId: string): Promise<void> {
+    await delay(60)
+    const list = messages[conversationId]
+    if (list) messages[conversationId] = list.filter((m) => m.id !== messageId)
+  },
+
+  async setMessageFeedback(conversationId: string, messageId: string, rating: 'up' | 'down' | null): Promise<void> {
+    await delay(60)
+    const m = (messages[conversationId] ?? []).find((x) => x.id === messageId)
+    if (!m) throw new Error('消息不存在')
+    if (rating) m.feedback = rating
+    else m.feedback = null
+  },
+
   /* ---- 智能体 ---- */
   async listAgents(): Promise<Agent[]> {
     await sleep()
@@ -190,6 +204,7 @@ export const mockApi = {
       scope: body.scope ?? 'private',
       status: 'draft',
       usage_count: 0,
+      // mock 内存库拿不到登录态：以 u_me 标记「本人创建」，配合 isMine() 判定归属
       created_by: 'u_me',
       created_at: nowISO(),
     }
@@ -511,6 +526,12 @@ export const mockApi = {
     await delay(80)
     const u = adminUsers.find((x) => x.id === id)
     if (u) u.status = status
+  },
+
+  async setUserRole(id: string, role: 'user' | 'admin'): Promise<void> {
+    await delay(80)
+    const u = adminUsers.find((x) => x.id === id)
+    if (u) u.role = role
   },
 
   async getUsageStats(): Promise<UsagePoint[]> {

@@ -120,6 +120,16 @@ async def delete_agent(aid: str, user: dict = Depends(current_user)):
 
 # ---------- 提示词（平台共享） ----------
 
+def _owned_prompt(pid: str, user: dict) -> dict:
+    """改/删提示词需要创建者或管理员；种子提示词（无 created_by）仅管理员可动。"""
+    p = find(prompts_db.data, id=pid)
+    if not p:
+        raise HTTPException(404, detail=err(40400, "提示词不存在"))
+    if p.get("created_by") != user["id"] and user["role"] != "admin":
+        raise HTTPException(403, detail=err(40300, "只能修改自己创建的提示词"))
+    return p
+
+
 @router.get("/prompts", dependencies=[Depends(current_user)])
 async def list_prompts():
     return ok(prompts_db.data)
@@ -137,11 +147,9 @@ async def create_prompt(body: dict, user: dict = Depends(current_user)):
     return ok(p)
 
 
-@router.patch("/prompts/{pid}", dependencies=[Depends(current_user)])
-async def update_prompt(pid: str, body: dict):
-    p = find(prompts_db.data, id=pid)
-    if not p:
-        raise HTTPException(404, detail=err(40400, "提示词不存在"))
+@router.patch("/prompts/{pid}")
+async def update_prompt(pid: str, body: dict, user: dict = Depends(current_user)):
+    p = _owned_prompt(pid, user)
     for k in ("name", "content", "category", "starred"):
         if k in body:
             p[k] = body[k]
@@ -149,8 +157,9 @@ async def update_prompt(pid: str, body: dict):
     return ok(p)
 
 
-@router.delete("/prompts/{pid}", dependencies=[Depends(current_user)])
-async def delete_prompt(pid: str):
+@router.delete("/prompts/{pid}")
+async def delete_prompt(pid: str, user: dict = Depends(current_user)):
+    _owned_prompt(pid, user)
     prompts_db.data = [p for p in prompts_db.data if p["id"] != pid]
     prompts_db.save()
     return ok(None)

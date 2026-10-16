@@ -90,6 +90,8 @@ export interface Message {
   attachments?: Attachment[]
   status: MessageStatus
   usage?: { prompt_tokens: number; completion_tokens: number }
+  /** 用户反馈：点赞 / 点踩 / 未反馈 */
+  feedback?: 'up' | 'down' | null
   created_at: string
 }
 
@@ -239,12 +241,16 @@ export interface Prompt {
   content: string
   category: string
   starred: boolean
+  /** 创建者（种子提示词无此字段）；删除/编辑仅创建者或管理员可操作 */
+  created_by?: string
 }
 
 // ---------- 管理后台 ----------
 
 export interface AdminUser {
   id: string
+  /** Logto 用户 sub；与前端当前用户的 id 同源，用于识别「自己」这一行 */
+  logto_id?: string
   username: string
   nickname: string
   role: 'user' | 'admin'

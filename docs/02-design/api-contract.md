@@ -166,9 +166,11 @@ PATCH  /conversations/{id}              { title?, pinned? }        → data: Con
 DELETE /conversations/{id}                                         → data: null
 GET    /conversations/{id}/messages                                → data: { list: Message[], next_cursor: null }
 DELETE /conversations/{id}/messages     （清空会话消息）            → data: null
+DELETE /conversations/{id}/messages/{mid}   （删除单条消息）        → data: null
+POST   /conversations/{id}/messages/{mid}/feedback { rating: 'up'|'down'|null } → data: { id, feedback }
 ```
 
-会话按 `owner_id` 隔离，访问他人会话返回 404（管理员除外）。
+会话按 `owner_id` 隔离，访问他人会话返回 404（管理员除外）。消息反馈（点赞/点踩）随 `Message.feedback` 下发，传 `null` 取消。
 
 ### 3.3 对话补全（核心，SSE 流式）
 
@@ -329,6 +331,7 @@ GET    /prompts                → data: Prompt[]（平台共享）
 POST   /prompts                { name, content, category? }
 PATCH  /prompts/{id}           { name?, content?, category?, starred? }
 DELETE /prompts/{id}
+        （PATCH/DELETE 仅创建者或管理员；种子提示词仅管理员可改删）
 
 GET    /admin/users 🔒         → data: (User & { username, agent_count })[]
 PATCH  /admin/users/{id} 🔒    { status?: 'active' | 'disabled', role?: 'user' | 'admin' }（不能禁用自己）
@@ -368,3 +371,4 @@ GET /health  → data: {
 | 2026-10-14 | v0.2 | 鉴权改为 Logto OIDC：移除 `/auth/register`、`/auth/login`；新增 §1.3 JWT 校验约定；`User` 增加 `logto_id`、`email` | 前端组 |
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
+| 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |

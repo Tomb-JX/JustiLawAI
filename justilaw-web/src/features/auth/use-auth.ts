@@ -2,6 +2,7 @@ import { useCallback } from 'react'
 import { useLogto, type IdTokenClaims } from '@logto/react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { syncProfile } from '@/api'
+import { USE_MOCK } from '@/api/client'
 import { useAuthMode } from './auth-mode'
 import { signInRedirectUri, signOutRedirectUri } from './logto-config'
 
@@ -114,4 +115,15 @@ export function useCurrentUser() {
     enabled: authMode === 'local' || (authMode === 'logto' && isAuthenticated),
     staleTime: Infinity,
   })
+}
+
+/**
+ * 资源归属判断（智能体/提示词等按 created_by 记 creator）：
+ * 真实后端记录真实用户 ID，与 CurrentUser.id（Logto sub）同源直接比对；
+ * mock 内存库拿不到登录态，以 'u_me' 标记「本人创建」，仅 mock 模式识别。
+ */
+export function isMine(createdBy: string | undefined, userId: string | undefined): boolean {
+  if (!createdBy) return false
+  if (userId && createdBy === userId) return true
+  return USE_MOCK && createdBy === 'u_me'
 }

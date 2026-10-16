@@ -5,7 +5,7 @@ import { setAccessTokenGetter, setUnauthorizedHandler } from '@/api/client'
 import { PageLoading } from '@/components/common/misc'
 import { useAuthMode } from './auth-mode'
 import { API_RESOURCE } from './logto-config'
-import { useSignIn } from './use-auth'
+import { useCurrentUser, useSignIn } from './use-auth'
 
 /** 路由守卫：未登录跳 /login，并把 Logto token 注入 api 层；单机模式直接放行 */
 export function RequireAuth({ children }: { children: ReactNode }) {
@@ -53,5 +53,17 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     return <Navigate to="/login" state={{ returnTo }} replace />
   }
 
+  return children
+}
+
+/** 管理员路由守卫：普通用户访问 /admin 时重定向回对话页（单机模式固定管理员） */
+export function RequireAdmin({ children }: { children: ReactNode }) {
+  const authMode = useAuthMode()
+  const { data: user, isLoading } = useCurrentUser()
+
+  if (authMode === 'loading' || (authMode !== 'local' && isLoading)) {
+    return <div className="h-screen"><PageLoading /></div>
+  }
+  if (!user?.isAdmin) return <Navigate to="/chat" replace />
   return children
 }

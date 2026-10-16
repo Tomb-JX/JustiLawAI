@@ -8,16 +8,19 @@ import {
   Library,
   MessagesSquare,
   Search,
+  Server,
   ShieldCheck,
   Sparkles,
   Workflow as WorkflowIcon,
 } from 'lucide-react'
 import { listAgents, listConversations, listDatasets } from '@/api'
+import { useCurrentUser } from '@/features/auth/use-auth'
 
 /** 全局命令面板（Ctrl/Cmd + K）：搜会话 / 智能体 / 知识库，或直接跳转 */
 export function CommandPalette() {
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const { data: user } = useCurrentUser()
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -71,8 +74,9 @@ export function CommandPalette() {
             { path: '/datasets', label: '知识库', icon: Library },
             { path: '/prompts', label: '提示词库', icon: Sparkles },
             { path: '/models', label: '模型管理', icon: Cpu },
+            { path: '/providers', label: '模型服务', icon: Server },
             { path: '/workflows', label: '工作流', icon: WorkflowIcon },
-            { path: '/admin', label: '管理后台', icon: ShieldCheck },
+            ...(user?.isAdmin ? [{ path: '/admin', label: '管理后台', icon: ShieldCheck }] : []),
           ].map(({ path, label, icon: Icon }) => (
             <Command.Item
               key={path}

@@ -15,14 +15,18 @@ import {
 import { Input } from '@/components/ui/input'
 import { PageLoading } from '@/components/common/misc'
 import { Textarea } from '@/components/ui/textarea'
+import { isMine, useCurrentUser } from '@/features/auth/use-auth'
 
 export default function PromptsPage() {
   const qc = useQueryClient()
+  const { data: user } = useCurrentUser()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [content, setContent] = useState('')
 
   const { data: prompts, isLoading } = useQuery({ queryKey: ['prompts'], queryFn: listPrompts })
+
+  const canDelete = (createdBy?: string) => isMine(createdBy, user?.id) || !!user?.isAdmin
 
   const createMut = useMutation({
     mutationFn: () => createPrompt({ name: name.trim(), content }),
@@ -72,14 +76,18 @@ export default function PromptsPage() {
                     <Badge variant="secondary">{p.category}</Badge>
                     {p.starred && <Badge variant="outline">常用</Badge>}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100"
-                    onClick={() => deleteMut.mutate(p.id)}
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                  </Button>
+                  {canDelete(p.created_by) && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 opacity-0 transition-opacity group-hover:opacity-100 max-lg:opacity-100"
+                      onClick={() => {
+                        if (confirm(`确认删除提示词「${p.name}」？`)) deleteMut.mutate(p.id)
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  )}
                 </div>
                 <pre className="mt-2 whitespace-pre-wrap font-sans text-xs leading-relaxed text-muted-foreground">
                   {p.content}

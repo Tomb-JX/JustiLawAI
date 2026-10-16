@@ -168,7 +168,14 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
     if (!conversationId) return
     const list = qc.getQueryData<Message[]>(['messages', conversationId]) ?? []
     const lastUser = [...list].reverse().find((m) => m.role === 'user')
-    if (lastUser) await send(lastUser.content, 'regenerate')
+    if (lastUser) {
+      // 附件随原用户消息一并重发，否则重新生成的回答会丢失附件上下文
+      await send(
+        lastUser.content,
+        'regenerate',
+        lastUser.attachments?.map((a) => ({ file_id: a.file_id, filename: a.filename })),
+      )
+    }
   }, [conversationId, qc, send])
 
   /** 编辑用户消息并重发：截断该消息之后的历史，以新内容重新请求 */
@@ -178,8 +185,9 @@ export function useChatStream(conversationId: string | undefined, agentId?: stri
       const list = qc.getQueryData<Message[]>(['messages', conversationId]) ?? []
       const idx = list.findIndex((m) => m.id === messageId)
       if (idx < 0) return
+      const attachments = list[idx].attachments?.map((a) => ({ file_id: a.file_id, filename: a.filename }))
       qc.setQueryData<Message[]>(['messages', conversationId], list.slice(0, idx))
-      await send(newContent, 'new')
+      await send(newContent, 'new', attachments)
     },
     [conversationId, qc, send],
   )

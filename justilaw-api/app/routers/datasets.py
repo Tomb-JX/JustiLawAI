@@ -17,9 +17,14 @@ from ..store import chunks_db, datasets_db, documents_db, find, now, save_upload
 router = APIRouter(dependencies=[Depends(current_user)])
 
 
-def _get_ds(ds_id: str) -> dict:
+def _visible_ds(ds: dict, user: dict) -> bool:
+    """知识库可见性：自己的 + 系统种子库对所有人可见，其余仅管理员（对齐智能体的可见性规则）。"""
+    return (ds.get("created_by") in (None, "u_system", user["id"]) or user["role"] == "admin")
+
+
+def _get_ds(ds_id: str, user: dict) -> dict:
     ds = find(datasets_db.data, id=ds_id)
-    if not ds:
+    if not ds or not _visible_ds(ds, user):
         raise HTTPException(404, detail=err(40400, "知识库不存在"))
     return ds
 
@@ -44,10 +49,10 @@ def _sync_doc_count(ds_id: str):
 # ---------- 知识库 ----------
 
 @router.get("/datasets")
-async def list_datasets():
+async def list_datasets(user: dict = Depends(current_user)):
     for ds in datasets_db.data:
         ds.setdefault("embed_model", dataset_embed_model(ds))
-    return ok(datasets_db.data)
+    return ok([ds for ds in datasets_db.data if _visible_ds(ds, user)])
 
 
 @router.post("/datasets")
@@ -72,15 +77,15 @@ async def create_dataset(body: dict, user: dict = Depends(current_user)):
 
 
 @router.get("/datasets/{ds_id}")
-async def get_dataset(ds_id: str):
-    ds = _get_ds(ds_id)
+async def get_dataset(ds_id: str, user: dict = Depends(current_user)):
+    ds = _get_ds(ds_id, user)
     ds.setdefault("embed_model", dataset_embed_model(ds))
     return ok(ds)
 
 
 @router.patch("/datasets/{ds_id}")
 async def update_dataset(ds_id: str, body: dict, user: dict = Depends(current_user)):
-    ds = _get_ds(ds_id)
+    ds = _get_ds(ds_id, user)
     _check_owner(ds, user)
     if body.get("embed_model") and body["embed_model"] != ds.get("embed_model"):
         if VectorStore(ds_id).size():
@@ -95,7 +100,7 @@ async def update_dataset(ds_id: str, body: dict, user: dict = Depends(current_us
 
 @router.delete("/datasets/{ds_id}")
 async def delete_dataset(ds_id: str, user: dict = Depends(current_user)):
-    ds = _get_ds(ds_id)
+    ds = _get_ds(ds_id, user)
     _check_owner(ds, user)
     removed_docs = {d["id"] for d in documents_db.data if d["dataset_id"] == ds_id}
     datasets_db.data = [d for d in datasets_db.data if d["id"] != ds_id]
@@ -143,7 +148,7 @@ async def _ingest(doc_id: str, file_path, ds_id: str):
 @router.post("/datasets/{ds_id}/documents")
 async def upload_documents(ds_id: str, background: BackgroundTasks,
                            file: list[UploadFile] = File(...), user: dict = Depends(current_user)):
-    ds = _get_ds(ds_id)
+    ds = _get_ds(ds_id, user)
     docs = []
     for f in file:
         name = f.filename or "untitled"
@@ -225,7 +230,7 @@ async def update_chunk(chunk_id: str, body: dict):
 @router.post("/datasets/{ds_id}/reindex")
 async def reindex_dataset(ds_id: str, body: dict | None = None, user: dict = Depends(current_user)):
     """用（新的）嵌入模型重建整个知识库的向量；分段内容与启停状态保留。"""
-    ds = _get_ds(ds_id)
+    ds = _get_ds(ds_id, user)
     _check_owner(ds, user)
     model = (body or {}).get("embed_model") or dataset_embed_model(ds)
     if not provider_store.model_info(model):
@@ -248,8 +253,8 @@ async def reindex_dataset(ds_id: str, body: dict | None = None, user: dict = Dep
 
 
 @router.post("/datasets/{ds_id}/hit-testing")
-async def hit_testing(ds_id: str, body: dict):
-    ds = _get_ds(ds_id)
+async def hit_testing(ds_id: str, body: dict, user: dict = Depends(current_user)):
+    ds = _get_ds(ds_id, user)
     query = (body.get("query") or "").strip()
     if not query:
         return ok({"items": []})

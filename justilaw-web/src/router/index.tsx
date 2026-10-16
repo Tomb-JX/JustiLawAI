@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageLoading } from '@/components/common/misc'
-import { RequireAuth } from '@/features/auth/require-auth'
+import { RequireAuth, RequireAdmin } from '@/features/auth/require-auth'
 import { CALLBACK_PATH } from '@/features/auth/logto-config'
 
 const ChatPage = lazy(() => import('@/features/chat/chat-page'))
@@ -38,6 +38,7 @@ export const router = createBrowserRouter([
       { path: 'chat/:conversationId?', element: page(<ChatPage />) },
       { path: 'agents', element: page(<AgentsPage />) },
       { path: 'agents/create', element: page(<CreateAgentPage />) },
+      { path: 'agents/:agentId/edit', element: page(<CreateAgentPage />) },
       { path: 'agents/:agentId', element: page(<AgentDetailPage />) },
       { path: 'datasets', element: page(<DatasetsPage />) },
       { path: 'datasets/:datasetId', element: page(<DatasetDetailPage />) },
@@ -46,7 +47,7 @@ export const router = createBrowserRouter([
       { path: 'providers', element: page(<ProvidersPage />) },
       { path: 'workflows', element: page(<WorkflowsPage />) },
       { path: 'workflows/:id/edit', element: page(<WorkflowEditorPage />) },
-      { path: 'admin', element: page(<AdminPage />) },
+      { path: 'admin', element: <RequireAdmin>{page(<AdminPage />)}</RequireAdmin> },
       { path: '*', element: page(<NotFound />) },
     ],
   },

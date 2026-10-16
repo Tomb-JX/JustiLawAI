@@ -57,6 +57,21 @@ export async function clearMessages(conversationId: string): Promise<void> {
   await http.delete(`/conversations/${conversationId}/messages`)
 }
 
+export async function deleteMessage(conversationId: string, messageId: string): Promise<void> {
+  if (USE_MOCK) return mockApi.deleteMessage(conversationId, messageId)
+  await http.delete(`/conversations/${conversationId}/messages/${messageId}`)
+}
+
+/** 消息点赞 / 点踩；rating 传 null 取消反馈 */
+export async function setMessageFeedback(
+  conversationId: string,
+  messageId: string,
+  rating: 'up' | 'down' | null,
+): Promise<void> {
+  if (USE_MOCK) return mockApi.setMessageFeedback(conversationId, messageId, rating)
+  await http.post(`/conversations/${conversationId}/messages/${messageId}/feedback`, { rating })
+}
+
 /* ============ 智能体 ============ */
 
 export async function listAgents(): Promise<Agent[]> {
@@ -349,6 +364,11 @@ export async function listAdminUsers(): Promise<AdminUser[]> {
 export async function setUserStatus(id: string, status: 'active' | 'disabled'): Promise<void> {
   if (USE_MOCK) return mockApi.setUserStatus(id, status)
   await http.patch(`/admin/users/${id}`, { status })
+}
+
+export async function setUserRole(id: string, role: 'user' | 'admin'): Promise<void> {
+  if (USE_MOCK) return mockApi.setUserRole(id, role)
+  await http.patch(`/admin/users/${id}`, { role })
 }
 
 export async function getUsageStats(): Promise<UsagePoint[]> {

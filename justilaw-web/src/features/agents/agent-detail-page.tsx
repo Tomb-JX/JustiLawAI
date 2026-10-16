@@ -16,11 +16,13 @@ import { deleteAgent, getAgent, listDatasets, updateAgent } from '@/api'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { PageLoading } from '@/components/common/misc'
+import { isMine, useCurrentUser } from '@/features/auth/use-auth'
 
 export default function AgentDetailPage() {
   const { agentId } = useParams()
   const navigate = useNavigate()
   const qc = useQueryClient()
+  const { data: user } = useCurrentUser()
   const { data: agent, isLoading } = useQuery({
     queryKey: ['agents', agentId],
     queryFn: () => getAgent(agentId!),
@@ -52,7 +54,7 @@ export default function AgentDetailPage() {
   if (!agent)
     return <div className="p-10 text-center text-sm text-muted-foreground">智能体不存在</div>
 
-  const isMine = agent.created_by === 'u_me'
+  const isMineAgent = isMine(agent.created_by, user?.id)
   const linkedDatasets = (datasets ?? []).filter((d) => agent.dataset_ids.includes(d.id))
 
   return (
@@ -85,9 +87,14 @@ export default function AgentDetailPage() {
             </div>
           </div>
           <div className="flex shrink-0 flex-wrap justify-end gap-2">
-            {isMine && (
+            {isMineAgent && (
               <>
-                <Button variant="outline" size="sm" className="gap-1" onClick={() => navigate('/agents/create')}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-1"
+                  onClick={() => navigate(`/agents/${agent.id}/edit`)}
+                >
                   <Pencil className="h-3.5 w-3.5" />
                   编辑
                 </Button>

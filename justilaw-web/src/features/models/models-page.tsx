@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Activity, Brain, Cpu, Eye, Plug, Server } from 'lucide-react'
+import { Activity, Brain, Cpu, Plug, Server } from 'lucide-react'
 import { toast } from 'sonner'
 import { listModels, pingModel } from '@/api'
 import { Badge } from '@/components/ui/badge'

@@ -72,3 +72,33 @@ async def clear_messages(cid: str, user: dict = Depends(current_user)):
     messages_db.data[cid] = []
     messages_db.save()
     return ok(None)
+
+
+@router.delete("/conversations/{cid}/messages/{mid}")
+async def delete_message(cid: str, mid: str, user: dict = Depends(current_user)):
+    """删除单条消息（重新生成前清理旧回复、用户撤回自己的提问等场景）。"""
+    _owned(cid, user)
+    msgs = messages_db.data.get(cid, [])
+    if not any(m["id"] == mid for m in msgs):
+        raise HTTPException(404, detail=err(40400, "消息不存在"))
+    messages_db.data[cid] = [m for m in msgs if m["id"] != mid]
+    messages_db.save()
+    return ok(None)
+
+
+@router.post("/conversations/{cid}/messages/{mid}/feedback")
+async def message_feedback(cid: str, mid: str, body: dict, user: dict = Depends(current_user)):
+    """消息点赞/点踩：rating ∈ up | down；传 null 取消（FR-C5 反馈数据落库）。"""
+    _owned(cid, user)
+    m = find(messages_db.data.get(cid, []), id=mid)
+    if not m:
+        raise HTTPException(404, detail=err(40400, "消息不存在"))
+    rating = body.get("rating")
+    if rating not in ("up", "down", None):
+        raise HTTPException(422, detail=err(42200, "rating 只能是 up / down / null"))
+    if rating:
+        m["feedback"] = rating
+    else:
+        m.pop("feedback", None)
+    messages_db.save()
+    return ok({"id": mid, "feedback": rating})
