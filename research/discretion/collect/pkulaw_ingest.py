@@ -300,8 +300,6 @@ def _doc_via_word_com(path: Path) -> str:
 
 # ---------- 处罚决定书公示（行政执法库）解析 ----------
 
-META_LABELS = ["主题分类", "处罚种类", "行政相对人", "执法级别", "执法机关", "执法地域",
-               "公布日期", "发文案号", "罚没情况", "执法依据"]
 TABLE_ROWS = ["行政处罚决定书文号", "被处罚对象", "处罚事由", "处罚依据", "处罚结果",
               "处罚决定日期", "处罚机关"]
 LAW_ALIAS = {"中华人民共和国治安管理处罚法": "治安管理处罚法", "治安管理处罚法": "治安管理处罚法"}
@@ -323,16 +321,32 @@ def pkulaw_id_from_name(name: str) -> str:
 
     文件名带 FBM- 前缀、文档正文末尾写的是 'CLI.ALE.…'（实测），统一成后者作主键。
     """
-    m = re.search(r"\((?:FBM-)?(CLI(?:\.[A-Z]+)+\.\d+)\)", name)
+    m = re.search(r"\((?:FBM)?-?(CLI(?:[.\-][A-Z]+)*\.\d+)\)", name)
     return m.group(1) if m else ""
+
+
+def last_date(text: str) -> str:
+    """全文最后一个日期——落款日期在文末（取窗口内首个日期会命中出生日期，实测踩过）。"""
+    best = None
+    for pat in (r"(\d{4})[.\-/年](\d{1,2})[.\-/月]?(\d{1,2})?",
+                r"([〇零一二三四五六七八九]{4})年([〇零一二三四五六七八九十]{1,3})月([〇零一二三四五六七八九十]{1,3})日"):
+        for m in re.finditer(pat, text or ""):
+            if best is None or m.start() > best.start():
+                best = m
+    if best is None:
+        return ""
+    groups = best.groups()
+    if groups[0] and groups[0][0].isdigit():
+        y, mo = groups[0], int(groups[1])
+        return f"{y}-{mo:02d}" + (f"-{int(groups[2]):02d}" if groups[2] else "")
+    y = groups[0].translate(str.maketrans("〇零一二三四五六七八九", "00123456789"))
+    return f"{y}-{(cn2int(groups[1]) or 0):02d}-{(cn2int(groups[2]) or 0):02d}"
 
 
 def pkulaw_id_from_text(text: str) -> str:
     """文档正文里的法宝引证码：【法宝引证码】CLI.ALE.47644244（导出文件被改名时靠它）。"""
-    m = re.search(r"【法宝引证码】\s*((?:FBM-)?CLI(?:\.[A-Z]+)+\.\d+)", text)
-    if not m:
-        return ""
-    return m.group(1).removeprefix("FBM-")
+    m = re.search(r"【法宝引证码】\s*(?:FBM)?-?(CLI(?:[.\-][A-Z]+)*\.\d+)", text)
+    return m.group(1) if m else ""
 
 
 # ---------- 叙述式处罚决定书（法宝执法库的常见形态，含事实） ----------
@@ -345,113 +359,294 @@ DOC_NO_RE = re.compile(r"[（(]?\s*[\u4e00-\u9fa5]{1,6}?[公检法执][（(][^�
 SUBJECT_RE = re.compile(r"(?:违法行为人|被处罚人|违法嫌疑人)[：:]?\s*([\u4e00-\u9fa5*＊xX×]{2,12})")
 
 
-def is_narrative(text: str) -> bool:
-    """叙述式（含"现查明"事实段）还是字段式公示表——决定走哪套解析。"""
-    return bool(re.search(r"现查明|经查明|查明[:：]", text or "")) and "|处罚结果" not in (text or "")
+def flatten(text: str) -> str:
+    """拍平：去掉表格竖线与**全部空白**。
 
-
-def parse_narrative_doc(text: str, *, filename: str = "") -> dict:
-    """叙述式公安行政处罚决定书 → 与 parse_enforcement_doc 同构的字典（多出 facts/evidence/decision）。
-
-    标准形态（河北/山东等地公示的全文）：
-      违法行为人李xx，男，……身份证号……
-      现查明：2024年4月18日12时40分，在××县××村朱xx家同王xx等人以打麻将的方式进行赌博，现场查获赌博资金共计3078元。
-      以上事实有询问笔录、接处警视频等证据证实。
-      根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对李xx行政拘留十日，并处罚款伍佰元整。
-      被处罚人如不服本决定，可以在收到本决定书之日起六十日内申请行政复议。
-      ××县公安局  二〇二四年四月十九日
+    表格换行会把词拆进不同单元格（实测"之|规定"、"民|国"），填充空格还会让 `{0,160}` 这类
+    长度窗口失效；中文文本不需要空格，所以抽取前一律拍平，正则才可靠。
     """
-    body = re.split(r"©\s*北大法宝|\(c\)\s*北大法宝", text)[0]
-    body = re.split(r"【法宝引证码】", body)[0]
+    return re.sub(r"\s+", "", (text or "").replace("|", " "))
+
+
+def table_cells(body: str) -> dict[str, str]:
+    """antiword 输出的表格 → {标签: 值}，**合并跨行续格**（续行的标签列是空的）。"""
+    out: dict[str, str] = {}
+    current = ""
+    for line in (body or "").splitlines():
+        stripped = line.strip()
+        if not stripped.startswith("|"):
+            continue
+        cells = [c.strip() for c in stripped.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        label, value = cells[0], " ".join(c for c in cells[1:] if c)
+        key = label or current
+        if not key:
+            continue
+        current = key
+        out[key] = flatten(out.get(key, "") + value)
+    return out
+
+
+# 三种落位（实测 d1/d2/d3/d4/d5/d6）：正文独立成篇 / 正文塞在表格"处罚结果"栏 / 只有摘要字段
+FACTS_PATTERNS = (
+    r"现查明[:：]?(.*?)(?=以上事实有|上述事实有|综上所述|行政处罚的种类和依据|根据|依照|依据|$)",
+    r"主要违法事实[:：]?(.*?)(?=行政处罚的种类和依据|以上事实有|综上所述|根据|依照|依据|$)",
+)
+EVIDENCE_PATTERN = r"(?:以上|上述)事实有(.*?)(?=根据|依照|依据|现决定|综上所述|$)"
+DECISION_PATTERN = r"(?:根据|依照|依据)[^。]{0,400}?之规定[，,]?(?:现)?决定[:：]?(.*?)(?=被处罚人|如不服|当事人|本决定|执行方式|履行方式|行政处罚的执行|$)"
+GAMBLING_MARK = re.compile(r"赌博|赌资|赌具|开设赌场|六合彩|麻将|牌九|比鸡|押宝|炸金花|老虎机|赌博机")
+
+
+def narrative_bits(text: str) -> dict:
+    """全文级抽取事实/证据/决定——**在拍平后的文本上做，三种落位通吃。"""
+    t = flatten(text)
+    facts = evidence = decision = ""
+    for pat in FACTS_PATTERNS:
+        m = re.search(pat, t, re.S)
+        if m and m.group(1).strip():
+            facts = m.group(1).strip()
+            break
+    m = re.search(EVIDENCE_PATTERN, t, re.S)
+    if m:
+        evidence = m.group(1).strip()
+    m = re.search(DECISION_PATTERN, t, re.S)
+    if m:
+        decision = m.group(1).strip()
+    return {"facts": facts, "evidence": evidence, "decision": decision, "has_facts": bool(facts)}
+
+
+def is_narrative(text: str) -> bool:
+    """有没有可抽的事实段（三种落位通吃）——决定走叙述式还是纯摘要解析。"""
+    return bool(narrative_bits(text)["has_facts"])
+
+
+META_LABELS = ["主题分类", "处罚种类", "行政相对人", "执法级别", "执法机关", "执法地域",
+               "公布日期", "发文案号", "罚没情况", "执法依据"]
+
+
+def meta_block(flat: str) -> dict:
+    """元数据块 10 项（法宝的结构化字段，位于文书开头；拍平后按"下一个字段名"截断）。"""
+    labels = "|".join(META_LABELS)
+    out: dict[str, str] = {}
+    for label in META_LABELS:
+        m = re.search(rf"{label}[:：](.*?)(?=(?:{labels})[:：]|行政处罚|原文链接|法宝引证码|$)", flat)
+        out[label] = m.group(1).strip() if m else ""
+    return out
+
+
+# ---------- 司法案例批量导出（判决书 .doc） ----------
+
+JUDG_META_LABELS = ["案由", "案号", "审理法官", "文书类型", "公开类型", "审理法院", "审结日期",
+                    "案件类型", "审理程序", "权责关键词", "刑罚"]
+JUDG_SECTIONS = re.compile(
+    r"(当事人|审理经过|公诉机关、抗诉机关指控|检察院指控|公诉机关指控|被告辩称|被告及其辩护人辩称|"
+    r"本院查明|经审理查明|本院认为|裁判结果|判决如下|落款)")
+SECTION_ALIAS = {"经审理查明": "本院查明", "检察院指控": "指控", "公诉机关指控": "指控",
+                 "公诉机关、抗诉机关指控": "指控", "被告及其辩护人辩称": "被告辩称",
+                 "判决如下": "裁判结果"}
+
+
+def parse_judgment_doc(text: str, *, filename: str = "") -> dict:
+    """判决书 .doc → 与 parse_doc 同构的字段（facts/evidence/decision/reasoning 四段齐）。"""
+    raw = re.split(r"©\s*北大法宝|\(c\)\s*北大法宝", text)[0]
+    flat = flatten(raw)
+    meta: dict[str, str] = {}
+    labels = "|".join(JUDG_META_LABELS)
+    for lab in JUDG_META_LABELS:
+        m = re.search(rf"{lab}[:：](.*?)(?=(?:{labels})[:：]|//|$)", flat)
+        meta[lab] = m.group(1).strip() if m else ""
+
+    sections = judgment_sections(raw)
+
+    facts = sections.get("本院查明") or sections.get("指控", "")
+    decision = sections.get("裁判结果", "") or meta.get("刑罚", "")
+    return {
+        "pkulaw_id": pkulaw_id_from_name(filename) or pkulaw_id_from_text(text),
+        "form": "判决书",
+        "doc_no": meta.get("案号", ""),
+        "subject": (re.search(r"(?:被告人|被告|原告)([\u4e00-\u9fa5某*]{1,8})", sections.get("当事人", "")) or
+                    re.search(r"([\u4e00-\u9fa5]{1,6}某)", flat[:80]) or
+                    re.search(r"(.+)", "")).group(1),
+        "authority": meta.get("审理法院", ""),
+        "region_text": "",
+        "publish_date": "",
+        "decision_date": parse_date(meta.get("审结日期", "")),
+        "penalty_kinds": "",
+        "fine_note": "",
+        "basis_text": decision,
+        "basis_meta": "",
+        "result_text": decision,
+        "subject_matter": meta.get("案由", ""),
+        "source_url": (re.search(r"原文链接[:：]\s*(https?://\S+)", text) or [None, ""])[1],
+        "body": raw.strip(),
+        "facts": facts,
+        "evidence": sections.get("证据", ""),
+        "reasoning": sections.get("本院认为", ""),
+        "decision": decision,
+        "behavior_date_in_facts": parse_date(facts) or None,
+        "gambling_hint": bool(GAMBLING_MARK.search(flat)),
+        "judgment": {
+            "case_type": meta.get("案件类型", ""),
+            "case_reason": meta.get("案由", ""),
+            "court": meta.get("审理法院", ""),
+            "closed_date": parse_date(meta.get("审结日期", "")),
+            "sentence": meta.get("刑罚", ""),
+            "keywords": meta.get("权责关键词", ""),
+            "procedure": meta.get("审理程序", ""),
+        },
+        "criminal_result": criminal_result(meta.get("刑罚", "") + decision),
+    }
+
+
+CRIM_RE = re.compile(r"(管制|拘役|有期徒刑)([\d〇零一二三四五六七八九十百]+)(年|个月)"
+                     r"(?:([\d〇零一二三四五六七八九十]+)个月)?|(无期徒刑|死刑)")
+FINE_RE = re.compile(r"罚金(?:人民币)?([\d,，.]+|[〇零一二三四五六七八九十百千万]+)元")
+
+
+def criminal_result(text: str) -> dict:
+    """刑事判决结果 → {主刑, 月数, 缓刑, 罚金}（v1 只作行刑边界统计，不进行政裁量训练）。"""
+    t = flatten(text)
+    m = CRIM_RE.search(t)
+    months = 0
+    main = ""
+    if m:
+        if m.group(5):                                   # 无期徒刑 / 死刑：没有月数
+            main = m.group(5)
+        else:
+            n = cn2int(m.group(2)) or 0
+            months = n * 12 if m.group(3) == "年" else n
+            if m.group(4):                               # "有期徒刑一年四个月" 的尾数
+                months += cn2int(m.group(4)) or 0
+            main = m.group(1)
+    f = FINE_RE.search(t)
+    return {
+        "main": main,
+        "months": months,
+        "suspended": bool(re.search(r"缓刑", t)),
+        "fine": (cn2int(f.group(1)) or 0) if f else 0,
+    }
+
+
+SECTION_NAMES = {"当事人", "审理经过", "公诉机关、抗诉机关指控", "检察院指控", "公诉机关指控",
+                 "被告辩称", "被告及其辩护人辩称", "本院查明", "经审理查明", "本院认为",
+                 "裁判结果", "判决如下", "落款"}
+
+
+def judgment_sections(raw: str) -> dict[str, str]:
+    """判决书正文 → {小节: 内容}，**按"标题独占一行"识别**。
+
+    拍平后做关键词切分会把正文里的"提及"当标题（实测：某判决里引用了"经审理查明"四字，
+    于是事实段只抽到 4 个字）。导出件里标题独占一行，所以按行判更稳。
+    """
+    out: dict[str, str] = {}
+    cur: str | None = None
+    buf: list[str] = []
+
+    def flush() -> None:
+        if cur and buf:
+            seg = flatten(" ".join(buf))
+            if len(seg) > len(out.get(cur, "")):
+                out[cur] = seg
+
+    for line in (raw or "").splitlines():
+        stripped = line.strip()
+        name = stripped.rstrip("：:").strip()
+        if name in SECTION_NAMES:
+            flush()
+            cur = SECTION_ALIAS.get(name, name)
+            buf = []
+        elif cur is not None:
+            buf.append(stripped)
+    flush()
+    return out
+
+
+def is_judgment_doc(text: str) -> bool:
+    flat = flatten(re.split(r"©\s*北大法宝", text)[0])
+    return bool(re.search(r"文书类型[:：]", flat) and re.search(r"审理法院[:：]", flat)
+                and re.search(r"案由[:：]", flat))
+
+
+def parse_doc(text: str, *, filename: str = "") -> dict:
+    """法宝文书（执法库）统一解析：元数据块 + 表格（可选）+ 全文事实段（可选）。
+
+    产出与旧接口同构的字段；`form` 标注落位形态，便于统计与排错：
+      叙述式-独立成篇 / 叙述式-结果栏内 / 字段式公示（无事实）
+    """
+    if is_judgment_doc(text):                     # 司法案例批量导出的判决书是另一套形态
+        return parse_judgment_doc(text, filename=filename)
+    raw = re.split(r"©\s*北大法宝|\(c\)\s*北大法宝", text)[0]
+    # 拍平只用页脚之前的正文：页脚里的「引证码 50000001 + 页码 1/1」连起来会被当成日期（实测踩过）
+    flat = flatten(raw)
     src_url = ""
     m = re.search(r"原文链接[:：]\s*(https?://\S+)", text)
     if m:
         src_url = m.group(1).strip()
 
-    facts_m = NARRATIVE_FACTS.search(body)
-    facts = re.sub(r"\s+", " ", facts_m.group(1)).strip() if facts_m else ""
-    ev_m = NARRATIVE_EVIDENCE.search(body)
-    evidence = re.sub(r"\s+", " ", ev_m.group(1)).strip() if ev_m else ""
-    dec_m = NARRATIVE_DECISION.search(body)
-    decision = re.sub(r"\s+", " ", dec_m.group(1)).strip() if dec_m else ""
-    if not decision:                      # 兜底：拿"决定"之后到文末之间最像处罚的一句
-        m2 = re.search(r"(?:现)?决定(.*?)(?=被处罚人|如不服|$)", body, re.S)
-        decision = re.sub(r"\s+", " ", m2.group(1)).strip() if m2 else ""
+    meta = meta_block(flat)
+    table = table_cells(raw)
+    bits = narrative_bits(raw)
 
-    doc_no_m = DOC_NO_RE.search(body)
+    doc_no = table.get("行政处罚决定书文号") or table.get("行政处罚标题") or meta.get("发文案号", "")
+    if not doc_no:
+        m = re.search(DOC_NO_RE, flat)
+        doc_no = m.group(0) if m else ""
+    authority = table.get("处罚机关") or meta.get("执法机关", "")
+    subject = table.get("被处罚对象") or meta.get("行政相对人", "")
+    if not subject:
+        m = re.search(r"(?:违法行为人|被处罚人)([\u4e00-\u9fa5*＊xX×]{1,12})", flat)
+        subject = m.group(1) if m else ""
+    if not authority:
+        m = re.search(r"([\u4e00-\u9fa5]{2,20}?(?:公安局|公安分局|分局|派出所))", flat)
+        authority = m.group(1) if m else ""
+
+    decision = bits["decision"]
+    result_text = table.get("处罚结果", "") or decision
+    if bits["has_facts"]:
+        form = "叙述式-独立成篇" if not table.get("处罚结果") else "叙述式-结果栏内"
+    else:
+        form = "字段式公示"
+
     return {
         "pkulaw_id": pkulaw_id_from_name(filename) or pkulaw_id_from_text(text),
-        "form": "叙述式",
-        "doc_no": doc_no_m.group(0).strip() if doc_no_m else "",
-        "subject": (SUBJECT_RE.search(body).group(1) if SUBJECT_RE.search(body) else ""),
-        "authority": "",
-        "region_text": "",
-        "publish_date": "",
-        "decision_date": parse_date(body[-200:]) or parse_date(body),
-        "penalty_kinds": "",
-        "fine_note": "",
-        "basis_text": (NARRATIVE_BASIS.search(body).group(1) if NARRATIVE_BASIS.search(body) else decision),
-        "basis_meta": "",
-        "result_text": decision,
-        "subject_matter": "赌博" if "赌博" in body else "",
+        "form": form,
+        "doc_no": doc_no,
+        "subject": subject,
+        "authority": authority,
+        "region_text": meta.get("执法地域", ""),
+        "publish_date": parse_date(meta.get("公布日期", "")),
+        "decision_date": parse_date(table.get("处罚决定日期", "")) or last_date(flat),
+        "penalty_kinds": meta.get("处罚种类", ""),
+        "fine_note": meta.get("罚没情况", ""),
+        "basis_text": table.get("处罚依据", "") or decision or flat,
+        "basis_meta": meta.get("执法依据", ""),
+        "result_text": result_text,
+        "subject_matter": table.get("处罚事由", "") or ("赌博" if GAMBLING_MARK.search(flat) else ""),
         "source_url": src_url,
-        "body": body.strip(),
-        "facts": facts,
-        "evidence": evidence,
-        "reasoning": "",
+        "body": raw.strip(),
+        "facts": bits["facts"],
+        "evidence": bits["evidence"],
+        "behavior_date_in_facts": parse_date(bits["facts"]) or None,
         "decision": decision,
-        "behavior_date_in_facts": parse_date(facts),
+        "gambling_hint": bool(GAMBLING_MARK.search(
+            flatten((raw.splitlines()[0] if raw.strip() else "") + doc_no
+                    + bits["facts"] + meta.get("罚没情况", "") + meta.get("处罚种类", "")))),
     }
 
 
 def parse_any_doc(text: str, *, filename: str = "") -> dict:
-    """按形态分派：叙述式（有"现查明"）走叙述式解析，否则按字段式公示表解析。"""
-    if is_narrative(text):
-        return parse_narrative_doc(text, filename=filename)
-    return parse_enforcement_doc(text, filename=filename)
+    """兼容旧调用名：统一走 parse_doc。"""
+    return parse_doc(text, filename=filename)
 
 
+# 旧名保留（判决书链路与外部脚本可能引用）
 def parse_enforcement_doc(text: str, *, filename: str = "") -> dict:
-    """行政执法库处罚决定书公示 → 元数据块 + 决定表 + 页脚链接。无事实、无行为日期。"""
-    # 去掉版权页脚（原文链接要单独留）
-    src_url = ""
-    m = re.search(r"原文链接[:：]\s*(https?://\S+)", text)
-    if m:
-        src_url = m.group(1).strip()
-    body = re.split(r"©\s*北大法宝", text)[0]
+    return parse_doc(text, filename=filename)
 
-    meta = {label: _meta_value(body, label) for label in META_LABELS}
 
-    table: dict[str, str] = {}
-    for label in TABLE_ROWS:
-        mm = re.search(rf"\|\s*{label}\s*\|\s*([^|]*)\|", body)
-        if not mm:
-            mm = re.search(rf"{label}\s*[:：]?\s*\|?\s*([^|\n]*)\|?", body)
-        table[label] = (mm.group(1).strip() if mm else "")
-
-    return {
-        "pkulaw_id": pkulaw_id_from_name(filename) or pkulaw_id_from_text(text),
-        "form": "字段式公示",
-        "doc_no": table.get("行政处罚决定书文号") or meta.get("发文案号", ""),
-        "subject": table.get("被处罚对象") or meta.get("行政相对人", ""),
-        "authority": table.get("处罚机关") or meta.get("执法机关", ""),
-        "region_text": meta.get("执法地域", ""),
-        "publish_date": parse_date(meta.get("公布日期", "")),
-        "decision_date": parse_date(table.get("处罚决定日期", "") or meta.get("公布日期", "")),
-        "penalty_kinds": meta.get("处罚种类", ""),
-        "fine_note": meta.get("罚没情况", ""),
-        "basis_text": table.get("处罚依据", ""),
-        "basis_meta": meta.get("执法依据", ""),      # 法宝结构化字段：带 2012修正/2025修订 版本字样
-        "result_text": table.get("处罚结果", ""),
-        "subject_matter": table.get("处罚事由", ""),
-        "source_url": src_url,
-        "body": body.strip(),
-        # 字段式公示没有这些段落（判决书、叙述式决定才有）——统一键名，便于 build_record 共用
-        "facts": "",
-        "evidence": "",
-        "reasoning": "",
-        "decision": table.get("处罚结果", ""),
-    }
+def parse_narrative_doc(text: str, *, filename: str = "") -> dict:
+    return parse_doc(text, filename=filename)
 
 
 def law_version_raw(*texts: str) -> str:
@@ -464,7 +659,7 @@ def law_version_raw(*texts: str) -> str:
     return ""
 
 
-def parse_articles(basis_text: str, version_text: str = "") -> tuple[list[str], str]:
+def parse_articles(basis_text: str, version_text: str = "", assume_law: str = "") -> tuple[list[str], str]:
     """→ (法条列表, 法律版本)。'《中华人民共和国治安管理处罚法》第七十条' → (['治安管理处罚法第七十条'], '旧法')。
 
     版本字样只在法宝结构化字段"执法依据"里（决定表的"处罚依据"没有），所以要单独传 version_text。
@@ -484,6 +679,10 @@ def parse_articles(basis_text: str, version_text: str = "") -> tuple[list[str], 
     if not arts and version_text:
         for m in re.finditer(r"第\s*([\d一二三四五六七八九十百零]+)\s*条", version_text):
             arts.append("治安管理处罚法" + cn_num_to_arabic_article("第" + m.group(1) + "条"))
+    if not arts and assume_law:
+        # 裸条号（实测 d4：处罚依据="第十一条、第八十二条"）——只在上下文能确定法律时补
+        for m in re.finditer(r"第\s*([\d一二三四五六七八九十百零]+)\s*条", basis_text or ""):
+            arts.append(assume_law + cn_num_to_arabic_article("第" + m.group(1) + "条"))
     return list(dict.fromkeys(arts)), law_version
 
 
@@ -493,7 +692,7 @@ def outcome_from(result_text: str, penalty_kinds: str, fine_note: str = "") -> d
     det = [cn2int(x) for x in re.findall(rf"(?:行政拘留|拘留)\s*({NUM})\s*[日天]", r)]
     det = [d for d in det if d]
     merged = re.search(rf"合并执行[^，。；;]*?({NUM})\s*[日天]", r)
-    fines = [cn2int(x) for x in re.findall(rf"罚款\s*(?:人民币)?\s*({NUM})\s*元", r) + re.findall(rf"罚款\s*({NUM})\s*元", fine_note)]
+    fines = [cn2int(x) for x in re.findall(rf"罚款\s*(?:人民币)?\s*({NUM})\s*[元圆圓]", r) + re.findall(rf"罚款\s*({NUM})\s*[元圆圓]", fine_note)]
     fines = [x for x in fines if x]
     days = (cn2int(merged.group(1)) if merged else None) or (det[0] if det else 0)
     fine = fines[0] if fines else 0
@@ -548,13 +747,20 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
 
     两种形态共用：字段式公示（无事实 → 结果-only 层）与叙述式决定书（有"现查明"事实 → 金标候选）。
     """
-    articles, law_version = parse_articles(parsed["basis_text"], parsed["basis_meta"])
-    oc = outcome_from(parsed["result_text"] or parsed.get("decision", ""),
+    if parsed.get("form") == "判决书":
+        return build_judgment_doc_record(parsed, manifest_id=manifest_id, harvest_date=harvest_date)
+    assume_law = "治安管理处罚法" if re.search(r"治安管理处罚法|赌博|赌资", parsed.get("body", "")) else ""
+    articles, law_version = parse_articles(parsed["basis_text"], parsed["basis_meta"], assume_law)
+    # 优先用"决定"段算处罚（表格结果栏是整篇长文时，会先命中"违法经历"里的旧拘留天数——实测 d6）
+    oc = outcome_from(parsed.get("decision") or parsed["result_text"] or parsed.get("body", ""),
                       parsed["penalty_kinds"], parsed["fine_note"])
+    if oc["detention_not_executed"] == "否" and re.search(
+            r"不执行(?:行政)?拘留|不送(?:达)?拘留所|依法不执行", parsed.get("body", "")):
+        oc["detention_not_executed"] = "是"      # 实测 d2："已满七十周岁…不送拘留所执行"
     oc["articles"] = articles
     oc["law_version"] = law_version
     lv_raw = law_version_raw(parsed["basis_meta"], parsed["basis_text"])
-    if parsed.get("form") == "叙述式" and not oc["articles"]:
+    if str(parsed.get("form", "")).startswith("叙述式") and not oc["articles"]:
         # 叙述式的法条写在"根据《…》第X条之规定"里（在"现决定"之前），取法条与版本
         oc["articles"] = penalty_articles(parsed["body"], "")
     if not oc["law_version"]:                    # 没有版本字样时按条文推：70 条=旧法、82 条=新法
@@ -610,6 +816,81 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
             "parse_warnings": warns,
         },
         "event_hint": {"authority": parsed["authority"], "decision_date": parsed["decision_date"],
+                       "doc_seq": _doc_seq(parsed["doc_no"])},
+    }
+
+
+def build_judgment_doc_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "") -> dict:
+    """判决书（司法案例批量导出的 .doc）→ data-spec v0.1 §1 记录（脱敏前）。
+
+    刑事判决 → `criminal` 块（主刑/月数/缓刑/罚金），只作行刑边界与后续扩展，不进行政裁量训练；
+    民事判决 → `quality.in_scope=False`（全文检索的已知噪声，cmd_docs 会跳过）；
+    行政判决 → 与 MCP 路径同义（原处罚在"本院查明"里复述，判决结论在"裁判结果"）。
+    """
+    j = parsed["judgment"]
+    cr = parsed["criminal_result"]
+    case_type, case_reason = j["case_type"], j["case_reason"]
+    is_criminal = "刑事" in case_type or "罪" in case_reason
+    is_civil = "民事" in case_type or "民事" in case_reason
+
+    warns = []
+    if not parsed["facts"]:
+        warns.append("facts_missing")
+    if not parsed["decision"]:
+        warns.append("decision_not_found")
+
+    oc = {"type": "", "detention_days": 0, "detention_items": [], "fine": 0,
+          "detention_not_executed": "否", "confiscation": "", "articles": [],
+          "law_version": "", "stated_circumstances": []}
+    review = {"result": "无", "changed_outcome": ""}
+    if is_criminal:
+        oc["type"] = "刑事判决"
+        oc["fine"] = cr["fine"]                       # 罚金（元）
+    elif not is_civil:
+        oc = outcome_from(parsed["facts"], "", "")     # 行政判决：原处罚在事实段里复述
+        oc["articles"] = penalty_articles(parsed["facts"], parsed["decision"])
+        joined = "".join(oc["articles"])
+        oc["law_version"] = "新法" if "第八十二条" in joined else ("旧法" if "第七十条" in joined else "")
+        r = parsed["decision"]
+        review["result"] = ("维持" if "驳回" in r else "撤销" if "撤销" in r else
+                           "变更" if "变更" in r else "确认违法" if "确认" in r and "违法" in r else "无")
+
+    return {
+        "id": manifest_id,
+        "pkulaw_id": parsed["pkulaw_id"],
+        "source_type": "刑事判决书" if is_criminal else ("民事判决书" if is_civil else "行政判决书"),
+        "source_ref": "案号哈希待生成（D3）｜原文链接见台账",
+        "doc_no": parsed["doc_no"],
+        "harvest_date": harvest_date or datetime.now().strftime("%Y-%m-%d"),
+        "deidentified": False,
+        "behavior_date": parsed["behavior_date_in_facts"],
+        "decision_date": j["closed_date"],
+        "authority": j["court"],
+        "region": province_of(j["court"]) or province_of(parsed["doc_no"]),
+        "court": j["court"],
+        "text_full": parsed["body"],
+        "segmented": True,
+        "text_facts": parsed["facts"],                 # 本院查明（或指控事实）
+        "text_evidence": parsed["evidence"],
+        "text_reasoning": "",
+        "text_decision": parsed["decision"],           # 裁判结果
+        "text_review": parsed["reasoning"],            # 本院认为
+        "outcome": oc,
+        "review": {**review, "judgment_date": j["closed_date"], "case_reason": case_reason,
+                   "case_type": case_type, "procedure": j["procedure"]},
+        "criminal": cr if is_criminal else None,
+        "quality": {
+            "form": "判决书",
+            "in_scope": not is_civil,                  # 民事判决是全文检索噪声，不进交付
+            "case_type": case_type,
+            "has_amount": has_amount(parsed["facts"]),
+            "has_outcome": bool(oc["type"]),
+            "outcome_only": False,
+            "keywords": j["keywords"],
+            "sentence": j["sentence"],
+            "parse_warnings": warns,
+        },
+        "event_hint": {"authority": j["court"], "behavior_date": parsed["behavior_date_in_facts"] or "",
                        "doc_seq": _doc_seq(parsed["doc_no"])},
     }
 
@@ -864,6 +1145,14 @@ def cmd_docs(args) -> None:
     for r in records:
         for w in r["quality"]["parse_warnings"]:
             counters[f"warn:{w.split(':')[0]}"] += 1
+
+    outside = [r for r in records if r["quality"].get("in_scope") is False]   # 民事判决（噪声）
+    if outside:
+        counters["skipped_out_of_scope"] = len(outside)
+        with open(out / "pkulaw_out_of_scope.jsonl", "w", encoding="utf-8") as f:
+            for r in outside:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        records = [r for r in records if r["quality"].get("in_scope") is not False]
 
     cases = [r for r in records if not r["quality"]["outcome_only"]]
     only = [r for r in records if r["quality"]["outcome_only"]]

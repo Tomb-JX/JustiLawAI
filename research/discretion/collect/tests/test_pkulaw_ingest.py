@@ -260,7 +260,7 @@ NARRATIVE_TEXT = """　　某县公安局公安行政处罚决定书
 def test_narrative_doc_parsed_as_facts():
     """叙述式决定书必须被识别成含事实的形态（A 类），而不是当字段式公示（B 类）。"""
     p = parse_any_doc(NARRATIVE_TEXT, filename="某公（天）行罚决字〔2024〕0325号(FBM-CLI.ALE.50000001).doc")
-    assert p["form"] == "叙述式"
+    assert p["form"].startswith("叙述式")            # 独立成篇形态
     assert p["pkulaw_id"] == "CLI.ALE.50000001"          # 引证码（正文里的，文件名去掉 FBM- 前缀）
     assert "以打麻将的方式进行赌博" in p["facts"]
     assert "询问笔录" in p["evidence"]
@@ -276,7 +276,7 @@ def test_narrative_doc_parsed_as_facts():
     assert oc["type"] == "拘留并处罚款" and oc["detention_days"] == 10 and oc["fine"] == 500
     assert oc["articles"] == ["治安管理处罚法第七十条"] and oc["law_version"] == "旧法"
     assert rec["quality"]["outcome_only"] is False
-    assert rec["quality"]["form"] == "叙述式"
+    assert rec["quality"]["form"].startswith("叙述式")
     assert rec["quality"]["has_amount"] is True          # 事实段有"赌资"
 
 
@@ -375,3 +375,134 @@ def test_judgment_no_facts_flags():
     assert rec["outcome"]["type"] == ""
     # 判决结论缺失时按"无"处理，不臆断为维持
     assert rec["review"]["result"] == "无"
+
+
+# 复刻「正文塞在表格"处罚结果"栏」形态（实测 d2 嵊泗 / d6 咸丰）：
+# 换行把词拆进不同单元格、续行标签列为空，且长文里含前科等干扰信息
+TABLE_WRAPPED_TEXT = """   柴某某为赌博提供条件案(某公(某)行罚决字[2025]00311号)
+    主题分类： 公安
+    处罚种类： 罚款、没收违法所得、没收非法财物 行政拘留
+    行政相对人： 柴某某
+    执法机关：某某县公安局某派出所
+    执法地域： 某县
+    公布日期：2025.12.30
+    发文案号：某公(某)行罚决字[2025]00311号
+    罚没情况：对柴某某为赌博提供条件罚款五百元
+    执法依据： 中华人民共和国治安管理处罚法(2012修正)第70条
+   |行政处罚决定书文号                      |某公(某)行罚决字[2025]00311号           |
+|被处罚对象                              |柴某某                                  |
+|处罚结果                                |主要违法事实： 2025年12月17日20时许，在 |
+|                                        |本县某镇某弄*号，违法行为人柴某实施为赌 |
+|                                        |博提供条件的违法行为。                  |
+|                                        |违法经历：2019年3月，因赌博被处以行政拘 |
+|                                        |留五日的行政处罚。                      |
+|                                        |行政处罚的种类和依据：根据《中华人民共和 |
+|                                        |国治安管理处罚法》第七十条之规定，决定给 |
+|                                        |予违法行为人柴某行政拘留十二日并处罚款五 |
+|                                        |百元的行政处罚，并收缴赌具"牌九"牌一副。 |
+|                                        |由于柴某已满七十周岁，根据《中华人民共和国|
+|                                        |治安管理处罚法》第二十一条第（三）项的规定 |
+|                                        |，对其不送拘留所执行。                  |
+|处罚决定日期                            |2025-12-30                              |
+|处罚机关                                |某某县公安局某派出所                    |
+"""
+
+
+def test_table_wrapped_narrative_form():
+    """正文在"处罚结果"栏：要抽出事实段，且拘留天数不能被前科的"五日"带偏。"""
+    p = parse_any_doc(TABLE_WRAPPED_TEXT, filename="柴某某赌博案(FBM-CLI.ALE.60000001).doc")
+    assert p["form"] == "叙述式-结果栏内"
+    assert "为赌博提供条件" in p["facts"]
+    assert p["pkulaw_id"] == "CLI.ALE.60000001"
+
+    rec = build_record(p, harvest_date="2026-10-16")
+    assert rec["source_type"] == "处罚决定书"           # 有事实 → A 类
+    oc = rec["outcome"]
+    assert oc["detention_days"] == 12                   # 不是前科的 5 日
+    assert oc["fine"] == 500
+    assert oc["detention_not_executed"] == "是"         # 已满七十周岁、不送拘留所执行
+    assert rec["quality"]["outcome_only"] is False
+    assert rec["gambling_hint"] if "gambling_hint" in rec else rec["quality"]["form"].startswith("叙述式")
+
+
+def test_bare_article_numbers_and_new_law():
+    """裸条号（实测 d4："第十一条、第八十二条"）+ 新法版本判定。"""
+    p = parse_any_doc(DOC_TEXT.replace("《中华人民共和国治安管理处罚法》第七十条", "第十一条、第八十二条")
+                                 .replace("中华人民共和国治安管理处罚法(2012修正)第70条", ""),
+                      filename="某赌博案(FBM-CLI.ALE.70000001).doc")
+    rec = build_record(p, harvest_date="2026-10-16")
+    assert "治安管理处罚法第八十二条" in rec["outcome"]["articles"]
+    assert rec["outcome"]["law_version"] == "新法"
+
+
+def test_gambling_hint_from_title_only():
+    """事实段为空时，靠标题判赌博（实测 d5：上海记录只有字段表）。"""
+    p = parse_any_doc(DOC_TEXT, filename=DOC_NAME)
+    assert p["gambling_hint"] is True                   # 标题"陈*英赌博案"
+    assert build_record(p)["quality"]["outcome_only"] is True
+
+
+# 复刻「司法案例批量导出」的判决书 .doc（结构化头 + 小节标题；人名等全部虚构）
+JUDGMENT_DOC = """   某甲赌博一案
+    案由： 刑事> 妨害社会管理秩序罪> 扰乱公共秩序罪> 赌博罪
+    案 号：(2026)湘1224刑初264号
+    审理法官： 某某某
+    文书类型： 判决书
+    公开类型： 文书公开
+    审理法院： 湖南省某县人民法院
+    审结日期：2026.09.30
+    案件类型： 刑事一审
+    审理程序： 简易程序
+    权责关键词： 主犯 自首 缓刑 罚金 追缴
+    刑罚：被告人某甲犯赌博罪，判处被告人某甲拘役三个月，缓刑三个月，并处罚金人民币四千元；
+   //
+                                 某甲赌博案
+                            湖南省某县人民法院
+                                 刑事判决书
+                                                       (2026)湘1224刑初264号
+   公诉机关某县人民检察院。
+   当事人
+   被告人某甲。因涉嫌犯赌博罪，于2025年8月15日被某县公安局取保候审。
+   审理经过
+   某县人民检察院于2026年9月20日以某检刑诉[2026]237号起诉书指控被告人某甲犯赌博罪，向本院提起公诉。
+   检察院指控
+   2025年6月份，某甲受雇监管赌博场子，每天保底给付2-3百元工资。累计收取赌博人员兑换的赌资21万余元，非法获利6千余元。
+   本院认为
+   被告人某甲以营利为目的伙同他人聚众赌博，从中抽头渔利，其行为构成赌博罪；系自首，可以从轻处罚。
+   裁判结果
+   被告人某甲犯赌博罪，判处拘役三个月，缓刑三个月，并处罚金人民币四千元；追缴违法所得六千元。
+   落款
+   审 判 员 某某某
+   二〇二六年九月三十日
+"""
+
+
+def test_judgment_doc_form_and_fields():
+    """判决书导出件：结构化头（案号/案由/法院/审结日期/刑罚）+ 小节切分（指控→事实、本院认为、裁判结果）。"""
+    p = parse_any_doc(JUDGMENT_DOC, filename="某甲赌博一案(FBMCLI.C.580711741).doc")
+    assert p["form"] == "判决书"
+    assert p["pkulaw_id"] == "CLI.C.580711741"           # 司法案例的引证码写法（无短横线）
+    assert p["doc_no"] == "(2026)湘1224刑初264号"
+    assert p["authority"] == "湖南省某县人民法院"
+    assert "赌资21万余元" in p["facts"]                    # 简易程序只有"检察院指控"，取作事实段
+    assert "构成赌博罪" in p["reasoning"]
+    assert "拘役三个月" in p["decision"]
+
+    rec = build_record(p, harvest_date="2026-10-16")
+    assert rec["source_type"] == "刑事判决书"
+    assert rec["region"] == "湖南省"
+    assert rec["decision_date"] == "2026-09-30"
+    assert rec["outcome"]["type"] == "刑事判决"
+    assert rec["criminal"] == {"main": "拘役", "months": 3, "suspended": True, "fine": 4000}
+    assert rec["quality"]["in_scope"] is True
+    assert rec["quality"]["form"] == "判决书"
+    assert rec["quality"]["has_amount"] is True
+
+
+def test_civil_judgment_marked_out_of_scope():
+    """民事判决（全文检索噪声）标 in_scope=False，交付时会被跳过。"""
+    civil = JUDGMENT_DOC.replace("刑事> 妨害社会管理秩序罪> 扰乱公共秩序罪> 赌博罪", "民事>合同纠纷")
+    civil = civil.replace("案件类型： 刑事一审", "案件类型： 民事一审").replace("刑事判决书", "民事判决书")
+    rec = build_record(parse_any_doc(civil, filename="某民事案(FBMCLI.C.1).doc"))
+    assert rec["source_type"] == "民事判决书"
+    assert rec["quality"]["in_scope"] is False
