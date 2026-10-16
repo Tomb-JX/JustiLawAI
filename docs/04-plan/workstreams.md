@@ -1,68 +1,93 @@
-# 并行工作流与分工
+# 数据与裁量引擎工作树分工
 
-> 版本 v0.2 · 2026-10-15 · 适用于裁量引擎相关的并行开发（人或 AI 会话都适用）
-> 配套：[引擎方案](../02-design/gambling-discretion-engine.md) · [数据收集计划](./data-collection.md) · [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)
->
-> 起因：2026-10-15 两条工作流共用一个工作树，一方做 rebase 时把另一方的原始数据临时移走（已全部恢复、核对无误）。本文件的规则就是为了不再出现这种互相打断。
+> 版本 v1.6 · 2026-10-16 18:28 · 适用于本项目跨应用并行工作会话
+> 阶段目标与计数口径见 [500 件金标计划](./data-program-500-gold.md)；字段契约见 [数据交付规格](../05-research/data-spec.md)，门禁见 [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)。
 
-## 1. 工作流登记
+**工作树不是会话。**用户确认：法宝和网页前端设计在 Zcode，引擎和网页信息在 Claude；这些应用的历史与模型额度保留在原应用，不迁入 Codex。本会话只协调。下表按这个口径规划；具体会话名、当前活动状态和消息送达仍需在各原应用核对，不能仅凭 Codex 列表宣称已派工。
 
-| 工作流 | 工作树（`.claude/worktrees/`） | 分支 | 负责内容 | 当前任务 |
-|---|---|---|---|---|
-| **数据链路** | `legal-ai-gambling-sentencing-cb2c21` | `claude/legal-ai-gambling-sentencing-cb2c21` | 采集、筛选、台账、脱敏、标注流水线 | 复议决定书多省适配、赌博案筛选 |
-| **引擎** | `discretion-engine` | `worktree-discretion-engine` | 规范层、要素本体、评测框架、模型、接口 | P0：规范层 + 要素本体 + 指标框架 |
-| **发现层** | `project-data-collection-audit-4bac93` | `claude/project-data-collection-audit-4bac93` | 用百度千帆官方搜索 API 发现赌博文书 URL 与可收割栏目，交付数据链路收割（[设计](./search-discovery-design.md)） | M0：API 探针；M1：查询规划 + 执行器 |
+## 1. 工作树登记与当前任务
 
-- **一条工作流只在自己的工作树里写**。新开工作流先在此表登记，再开工。
-- 主检出目录（`D:/02_Dev/Projects/大创`，`main`）只用于浏览和人工操作，不作为任何工作流的开发目录。
-
-## 2. 目录归属
-
-| 归属 | 路径 | 规则 |
-|---|---|---|
-| 数据链路 | `research/discretion/collect/**`、`docs/04-plan/data-collection.md` | 只有数据链路写 |
-| 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`research/papers/**`、`docs/05-research/**`、`docs/02-design/gambling-discretion-engine.md` | 只有引擎写 |
-| 发现层 | `research/discretion/discover/**`、`research/discretion/harvest/**`、`docs/04-plan/search-discovery-design.md`、`docs/04-plan/web-harvest-design.md`、`docs/04-plan/text-processing-spec.md`、`docs/04-plan/data-pipeline-status.md`、`docs/04-plan/manual-collection-guide.md` | 只有发现层写；不写 `collect/`。公开网页的收割与解析（`harvest/`）在数据链路主攻北大法宝期间由发现层承担（2026-10-15），台账用独立的 `harvest/manifest_web.csv`（id 前缀 W-），与 `collect/manifest.csv` 并列 |
-| 共享 | `.gitignore`、`README.md`、`docs/README.md`、`research/README.md`、`justilaw-api/requirements.txt`、`docs/04-plan/milestones.md`、本文件 | 小改动、单独提交；提交前在[协作记录](./collab-log.md)留一行 |
-| 平台其他代码 | `justilaw-api/app/**`（discretion 以外）、`justilaw-web/**`、`launcher/**`、`ops/**` | 引擎接入平台时只做最小改动（注册路由、开关、卡片），单独提交 |
-
-需要改对方目录时：在[协作记录](./collab-log.md)留言说明需求，由对方改；紧急时改完立即留言。
-
-## 3. 数据目录：放在所有工作树之外
-
-- 原始数据和派生数据统一放在**仓库之外**的固定目录，默认 `D:/02_Dev/Data/justilaw-research/`，用环境变量 `JUSTILAW_DATA_DIR` 指定。
-- 结构沿用现有约定：`raw/`、`cail/`、`lecard/`、`reconsider/`……
-- **数据链路负责**：把 `research/discretion/collect/common.py` 的 `DATA_DIR` 改为优先读 `JUSTILAW_DATA_DIR`，并把现有 `research/data/` 迁移过去（迁移前后核对文件数与 SHA-256）。
-- **引擎只读**这个目录；引擎生成的中间产物写到 `$JUSTILAW_DATA_DIR/engine/`。
-- 封存测试集不放在这里，按[门禁文档 §7](../05-research/sota-baselines-and-gates.md) 由保管人另行存放。
-- 迁移完成前，引擎通过环境变量直接指向数据链路工作树里的 `research/data/`，只读。
-
-## 4. Git 纪律（当前不走 PR，直接推 main）
-
-1. **只按明确路径 `git add`**，禁止 `git add -A` / `git add .`，避免把对方进行中的文件一起提交。
-2. 推送前 `git pull --rebase origin main`，推送用 `git push origin HEAD:main`。
-3. **禁止在别人的工作树里**执行 rebase、reset、stash、checkout、clean 或移动文件。
-4. 提交小而频繁；推送后在 §6 记录一行（日期、工作流、提交、内容）。
-5. 推到 main 的引擎代码默认关闭（`DISCRETION_ENABLED=false`），保证随时打 `v*` 标签发布不会带出半成品。
-6. 原始数据、封存测试集、模型权重永不入库。
-
-## 5. 两条工作流之间的接口
-
-| 接口 | 提供方 | 使用方 | 约定 |
+| 工作线 | 工作树与分支 | 执行会话 | 目标任务与当前交接 |
 |---|---|---|---|
-| 要素本体 `schema.py`（字段、取值、证据格式） | 引擎 | 数据链路（标注） | 引擎在 P0 发布 v1；变更时提升版本号并在协作记录中通知 |
-| 案例数据交付 | 数据链路 | 引擎 | 按[行政案例数据交付规格](../05-research/data-spec.md)：来源、时间地点、**原文分段**（事实 / 理由 / 决定 / 复议审查分开存放）、结构化处罚结果、事实要素；JSONL + `SHA256SUMS` |
-| 数据划分 | 数据链路生成，引擎复核 | 双方 | 按事件分组；划分文件只记 id 列表并入库；测试集封存按门禁 §7 |
-| 金标标注 | 数据链路组织，法律组校正 | 引擎 | 按 `schema.py` 当前版本导出，文件名带本体版本号 |
+| 协调总控（本会话） | `data-coordination` · `codex/data-coordination` | 本 Codex 会话 | 调查进度、决策记录、排期、跨线验收与合并顺序；只写协调文档 |
+| 网页发现与交付 | `project-data-collection-audit-4bac93` · `claude/project-data-collection-audit-4bac93` | **Claude：网页信息线**；额度未恢复，具体会话待核 | 专属树仍停 `e6042d1`；主线 `09c9ed2` 已做统一构建。恢复后先接手构建，修主文件 2 条和 only 49 条退回、内容质检，再扩河北＋江苏 |
+| 法宝来源 | `legal-ai-gambling-sentencing-cb2c21` · `claude/legal-ai-gambling-sentencing-cb2c21` | **Zcode：法宝线**；具体会话待核 | 主线 `7e36827` 已产出合并 parsed-1 311 条；统一交付中 258 条 P 来源进入主文件。下一步查跨源事件和可标注率，定向补新法与不予处罚 |
+| 金标质检与标注 | `jolly-cerf-82e544` · `claude/jolly-cerf-82e544` | **Zcode 原会话**（用户已确认；不迁移历史） | 试标输入 50 条／50 事件已备但含验收退回的 `W-000608`；先冻结 v2 替补，再由一位统筹与四个盲标子代理预标注，法律组复核后才计金标 |
+| 引擎与验收 | `discretion-engine` · `worktree-discretion-engine` | **Claude：引擎线**；具体会话待核 | `parsed-1`／L3 契约、独立自动验收、评测和封存治理 |
+| 主检出历史会话 | `D:/02_Dev/Projects/大创` · `main` | **历史会话待核** | 实际完成 `parsed-1` 和统一构建，最新 L3 为 `delivery/2026-10-16.pk1`；给各归属线交代码、批次与验收哈希后停止跨线写入 |
 
-接口有变化时，先改本节再改代码。
+Zcode 的网页前端设计会话继续负责平台前端；它不是网页案例发现与收割工作线，不参与 L0–L5 计数。若未来调整执行应用，只转交任务契约、代码提交与数据批次哈希，保留原应用中的历史，不以复制聊天记录来重建上下文。
 
-## 6. 协作记录（只追加）
+主检出目录 `D:/02_Dev/Projects/大创` 的 `main` 拟只用于浏览与人工集成，不用于并行开发。一个工作树可能被多个应用会话同时打开；**每条线只保留一个执行写入会话**，其余会话的用途要在原应用核对后决定，不能擅自标为只读或继续并发编辑。旧工作树保留到任务交接完成，不因重组而改名或删除。
 
-已移到 [collab-log.md](./collab-log.md)（设为 union 合并，多方同时追加不会冲突）。新增记录请写在那里。
+## 2. 路径与数据写入权
+
+| 写入方 | 仓库内范围 | 外置数据范围 |
+|---|---|---|
+| 网页 | `research/discretion/discover/**`、`research/discretion/harvest/**`、网页发现／处理设计文档 | 网页源台账与 `parsed/web/**`；共用 `delivery/<版本>/**` 唯一发布者 |
+| 法宝 | `research/discretion/collect/**`、法宝采集／解析设计文档 | `inbox/pkulaw/**`、`raw/pkulaw/**`、`ingest/<法宝批次>/**`、`parsed/pkulaw/**`；现有原件只追加和核对，不覆盖 |
+| 金标 | 标注指南建议、质检报告、标注任务与版本台账；需要修改 `harvest/sample_pilot.py` 时提出变更要求，由网页负责人落地 | `qa/**`、`labels/**`；不得修改 L0–L3 正本 |
+| 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`docs/05-research/**` | `engine/acceptance/**`、封存治理产物；读取 L0–L3，不改来源批次 |
+| 协调 | `docs/04-plan/workstreams.md`、`data-program-500-gold.md`、文档索引和协调记录 | 只读台账和统计，不触碰原件、交付或标签 |
+
+外置数据根目录由 `JUSTILAW_DATA_DIR` 指定，当前为 `D:/02_Dev/Data/justilaw-research`。原件、未脱敏正文、登录态、标签正文、封存测试集和模型权重不进 Git。共享文件（契约、构建入口、`docs/README.md`、依赖、平台入口）由协调先登记变更要求，再由归属方在自己的工作树单独提交；一次提交只解决一类跨线接口。
+
+## 3. 交接协议
+
+1. 来源方交 L0 原件清单与 SHA-256、来源凭据和批次日期；L1 `parsed/<来源>/<批次>/records.jsonl` 通过 `records check --layer parsed`，并附分级、事件数、缺失率与重复报告。法宝已有正式 `parsed-1`；`ingest/` 中的旧产物仍只是过渡层。
+2. 网页线指定一名 L2/L3 构建负责人，按显式批次清单合并、去重、脱敏和分流；发布 `delivery/<版本>/` 及校验和、统计、排除清单、数据卡草稿。任何修订另起版本；不在旧 `admin/` 路径重建覆盖。
+3. 引擎线按交付版本与哈希验收，退回项只由来源或构建负责人修复。金标线另做人工内容抽检；自动字段通过不等于事实可标注。
+4. 金标线仅从通过验收、可指认本人、隐私扫描合格且事件不重复的记录抽样。两名法律标注者独立试标、仲裁；正文哈希变化的标签重标。金标总数只数已人工校正并有证据链的行政案件。
+5. 跨线问题写入 [协作记录](./collab-log.md)：`版本/哈希｜现象与样本 ID｜归属方｜验收条件｜交接状态`。协调会话维护一张当前状态表；旧数字作为历史保留，不与新批次混算。
+
+法宝作业台自动检索／抓取／下载仍按既有暂停决定执行。现有原件解析、人工导出和已批准的 MCP 流程可推进；恢复自动作业台须有明确决定并记录在协作日志。河北＋江苏作为采集目标，省级裁量基准的现行效力和 2026 年法律衔接由法律组核验后才能冻结标注依据。
+
+## 4. Git 与并行纪律
+
+1. 每会话只在登记的工作树写；运行前看 `git status --short --branch`、分支和目标数据目录。相同外置目录同一时间只有一名发布者；批次名、交付版本名不可复用。
+2. 用明确路径 `git add <路径>`，检查 `git diff --cached --stat` 与 `git diff --cached --check`。禁止 `git add .` / `git add -A` 把他人的文件带入提交。
+3. 在自己的**干净**工作树同步 `origin/main`。绝不在别人的工作树执行 rebase、reset、stash、clean、checkout、移动或删除；有未提交文件时先由该树负责人处理。协调不替来源方改产物。
+4. 分支推送为 `git push -u origin HEAD`，共享契约、里程碑和本分工经审阅／PR 后顺序合入 `main`；取消旧规则的 `git push origin HEAD:main`。合并前复查新主线，避免两线同时修改同一接口。
+5. `DISCRETION_ENABLED=false` 维持默认关闭；尚未验收的引擎功能不得因主线合并而对用户开放。
+
+## 5. 管理命令模板（PowerShell）
+
+```powershell
+$repoRoot = 'D:\02_Dev\Projects\大创'
+$dataRoot = 'D:\02_Dev\Data\justilaw-research'
+git -C $repoRoot worktree list
+git -C "$repoRoot\.claude\worktrees\project-data-collection-audit-4bac93" status --short --branch
+git -C "$repoRoot\.claude\worktrees\legal-ai-gambling-sentencing-cb2c21" status --short --branch
+git -C "$repoRoot\.claude\worktrees\jolly-cerf-82e544" status --short --branch
+Get-ChildItem -LiteralPath "$dataRoot\ingest" -Recurse -File -Filter 'pkulaw_ingest.stats.json'
+Get-ChildItem -LiteralPath "$dataRoot\engine\acceptance" -Directory
+```
+
+工作树内的提交流程：
+
+```powershell
+git status --short --branch
+git diff --check
+git add <自己拥有的明确路径>
+git diff --cached --stat
+git diff --cached --check
+git commit -m 'docs(plan): 描述本次交付'
+git fetch origin main
+git rebase origin/main
+git push -u origin HEAD
+```
+
+此模板中的 `<...>` 必须替换成实际路径；先确定上游新提交没有改同一外置批次或接口，才同步与发布。数据目录不是 Git 工作树，不能用 Git 操作代替文件与哈希核对。
 
 ## 变更日志
+
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
-| 2026-10-15 | v0.1 | 初版：工作流登记、目录归属、数据目录外置、Git 纪律、接口约定 | 模型组 |
-| 2026-10-15 | v0.2 | §6 协作记录移到 collab-log.md 并设为 union 合并 | 模型组 |
+| 2026-10-15 | v0.1–v0.2 | 原三工作流及直接推主线规则 | 模型组 |
+| 2026-10-16 | v1.0 | 拆双来源、独立金标与验收，定义唯一写入与审阅合并 | 协调 |
+| 2026-10-16 | v1.1 | 更正工作树与会话的关系；跨应用会话绑定待核，撤回仅凭 Codex 列表派工 | 协调 |
+| 2026-10-16 | v1.2 | 记录用户确认的 Zcode／Claude 归属；保留各应用历史与额度，不向 Codex 镜像派工 | 协调 |
+| 2026-10-16 | v1.3 | 同步法宝新增南京批与跨批去重的最新基线 | 协调 |
+| 2026-10-16 | v1.4 | 确认金标质检线沿用现有原会话 | 协调 |
+| 2026-10-16 | v1.5 | 更新 Claude 网页线暂停期间的主线交付与质检状态 | 协调 |
+| 2026-10-16 | v1.6 | 确认金标原会话在 Zcode；记录四子代理试标分工与临时调度 | 协调 |
