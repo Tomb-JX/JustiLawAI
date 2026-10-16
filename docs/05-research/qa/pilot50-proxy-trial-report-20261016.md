@@ -19,7 +19,7 @@
 - **标注员 A**：GLM-5.3（max，独立上下文 ×10 分片）标 45 条；chunk-09 的 5 条因 bigmodel 提供商通道故障经三次换源改由 **DeepSeek-v4-pro** 完成（45+5 混合，逐片归属已记录）。
 - **标注员 B**：DeepSeek-Flash（max，×10 分片）标 50 条。
 - 两位标注员互不可见，使用同一协议 v1.1（含冒烟共识澄清 11 条）。
-- **仲裁**：GLM-5.3-Flash 共享上下文逐条裁决 67 处分歧，法条问题以法宝 MCP 核验。
+- **仲裁**：67 处分歧（36 条案卷）全部落定——GLM-5.3-Flash 裁 17 条（缓存决定生效）；其余 19 条因提供商落盘通道反复故障，由金标线操作员按同一协议与逐字证据规则代裁（`arbitration/decisions/part-90.jsonl`，逐条附理由可审计）；DeepSeek-v4-pro 对其中 17 条的裁决在同故障中丢失，未参与生效结果。合并用 `merge_arbitration.py`（修复了 B 采纳未实际拷贝的 bug 后重跑），另对 6 处开口金额 max=null 按 G-12 数量级上界做确定性修复。终版 `arbitrated.jsonl` 校验 0 错误、证据命中 100%。
 - **提供商通道事实**（供后续调度）：阿里百炼 qwen3.8-max 账户欠费（Arrearage）；bigmodel GLM 三种账户形态（individual / highspeed-card / Flash）在本轮均出现持续 unknown/network_error，但同账户本会话主通道正常；DeepSeek 通道全程稳定（12/12 分片）。
 - 成本：双标阶段约 440 万 token（20 个标注代理）；法宝 MCP 消耗约 175 分（余额 6,250）。
 
@@ -56,7 +56,13 @@
 - `W-000571` outcome.review.result=撤销与正文"维持"矛盾；`W-000546` outcome.fine=0 与正文"并处罚款五百元"矛盾；
 - `W-000308` 事实段句子中断（"甲用其名下的中国工商，"）。
 
-## 6. 下一步
+## 7. 运维事实（供后续调度）
+
+- bigmodel GLM 通道（individual / highspeed-card / Flash 三种账户形态）当晚反复 unknown / network_error，但同账户本会话主通道一直正常——疑似工作流并发通道问题而非账户问题；DeepSeek 通道前期稳定、后期亦间歇故障。**凡包含批量落盘的环节，决定/产物应分小片落盘并本地可重建**（本轮 37 条裁决因单分片落盘卡死丢失一次，靠缓存 + 操作员代裁兜回）。
+- merge_arbitration.py 初版 `decision=B` 只标记未拷贝值，已修复并在本地确定性重跑（工作流报告的"成功"曾因此为假阳性——**工作流产物必须本地复算核验后才可交付**）。
+- qwen3.8-max 账户欠费（Arrearage）不可用；法宝 MCP 消耗约 175 分（余额 6,250）。
+
+## 8. 下一步
 
 1. 仲裁完成 → `arbitrated.jsonl`（proxy 金标）→ `labels/schema-1.0.0/pilot50-proxy-20261016/` 装配（README 载明混合模型与偏离声明）。
 2. 指南修订建议（G-1…G-19）交协调/引擎线确认；确认后跑**代理第 2 轮**复核数值项是否达 0.95。

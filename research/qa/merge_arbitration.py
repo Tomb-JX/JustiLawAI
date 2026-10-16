@@ -1,6 +1,6 @@
 """仲裁合并（金标质检线）：把仲裁决定合并进标注员 A 的原标，产出仲裁后标签与仲裁台账。
 
-用法：python merge_arbitration.py <A目录或.jsonl> <仲裁决定.jsonl> <pilot50.jsonl> <输出目录>
+用法：python merge_arbitration.py <A目录或.jsonl> <B目录或.jsonl> <仲裁决定目录或.jsonl> <pilot50.jsonl> <输出目录>
 仲裁决定每行一个 JSON：{"id":..., "field":..., "decision": "A"|"B"|"未提及"|"新值",
                         "value": <任意 JSON 或 null>, "status": "明确"|"推断"|"未提及",
                         "evidence": ["…"], "reason": "一句话理由"}
@@ -27,12 +27,14 @@ def load_jsonl(p: Path) -> list[dict]:
 
 
 def main(argv: list[str]) -> int:
-    if len(argv) != 5:
+    if len(argv) != 6:
         print(__doc__)
         return 2
-    path_a, path_dec, path_pilot, outdir = Path(argv[1]), Path(argv[2]), Path(argv[3]), Path(argv[4])
+    path_a, path_b, path_dec, path_pilot, outdir = (Path(argv[1]), Path(argv[2]), Path(argv[3]),
+                                                    Path(argv[4]), Path(argv[5]))
 
     anns = {r["id"]: r for r in load_jsonl(path_a)}
+    anns_b = {r["id"]: r for r in load_jsonl(path_b)}
     decisions = load_jsonl(path_dec)
     pilot_ids = {json.loads(l)["id"] for l in path_pilot.read_text(encoding="utf-8-sig").splitlines() if l.strip()}
 
@@ -56,6 +58,13 @@ def main(argv: list[str]) -> int:
         if dec == "A":
             pass
         elif dec == "B":
+            src = anns_b.get(rid, {}).get("fields", {}).get(field)
+            if src is None:
+                problems.append(f"B 无该记录/字段，无法采纳: {rid}.{field}")
+                by_decision[dec] -= 1
+                continue
+            target.clear()
+            target.update(json.loads(json.dumps(src)))
             target["adopted_from"] = "B"
         elif dec == "未提及":
             target.clear()
