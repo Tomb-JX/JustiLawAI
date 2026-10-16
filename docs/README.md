@@ -35,6 +35,7 @@ docs/
 │   ├── data-spec.md             行政案例数据交付规格（数据链路 → 引擎）
 │   ├── wenshu-retrieval-plan.md 裁判文书批量检索需求（检索条件、字段、样例验收、合规）
 │   ├── gambling-documents-and-retrieval.md 赌博案件文书体系与检索方案研究（法律体系、所需文书、案由、检索方式差别）
+│   ├── pkulaw-mcp-enforcement.md 北大法宝 MCP 与行政执法数据链路调研（行政执法检索实测、全文途径、积分分配）
 │   ├── notes/                   学习笔记（算法原理、操作步骤与结果解读）
 │   └── gate-reports/            各阶段门禁报告
 └── templates/                 模板库
