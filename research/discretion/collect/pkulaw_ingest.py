@@ -1050,6 +1050,44 @@ def law_version_raw(*texts: str) -> str:
     return ""
 
 
+def _cited_law_before(text: str, pos: int, window: int = 24) -> str:
+    """裸条号前若紧跟一个已闭合的《…》引用（其间无其他书名号/条号），返回所引法规名；否则空串。
+
+    实测（无锡批 P-428/P-550）：'…根据《江苏省公共场所治安管理条例》第二十六条…之规定' 里的
+    第二十六条被 assume_law 误套成"治安管理处罚法第二十六条"。
+    """
+    pre = (text or "")[max(0, pos - window):pos]
+    if "》" not in pre:
+        return ""
+    tail = pre.rsplit("》", 1)[-1]
+    if "《" in tail or "第" in tail:
+        return ""
+    head = pre.rsplit("》", 1)[0]
+    return head.rsplit("《", 1)[-1].strip() if "《" in head else ""
+
+
+_LAW_OR_ARTICLE_RE = re.compile(
+    r"(《[^》]+》|[^\s第\d，。；：:]{4,30}?(?:法|条例|办法|规定|细则)(?:[（(][^）)]*[)）])?)"
+    r"|(第\s*[\d一二三四五六七八九十百零]+\s*条)")
+
+
+def articles_in_basis_meta(meta: str) -> list[str]:
+    """'执法依据'结构化字段：按出现顺序跟踪"当前法律名"，只取治安管理处罚法的条文。
+
+    实测（无锡批 P-439 等 13 条）：该字段并列多部法规（如"公安机关办理行政案件程序规定(2020修正) 第46条"），
+    旧实现把所有裸条号都前缀成治安管理处罚法 → 法条误标（R2 方向）。
+    """
+    arts: list[str] = []
+    current = ""
+    for m in _LAW_OR_ARTICLE_RE.finditer(meta or ""):
+        if m.group(1):
+            name = re.sub(r"[（(]\d{4}(修正|修订|年)?[)）]", "", m.group(1)).strip("《》")
+            current = LAW_ALIAS.get(name, "")
+        elif current:
+            arts.append(current + cn_num_to_arabic_article(m.group(2)))
+    return arts
+
+
 def parse_articles(basis_text: str, version_text: str = "", assume_law: str = "") -> tuple[list[str], str]:
     """→ (法条列表, 法律版本)。'《中华人民共和国治安管理处罚法》第七十条' → (['治安管理处罚法第七十条'], '旧法')。
 
@@ -1065,14 +1103,19 @@ def parse_articles(basis_text: str, version_text: str = "", assume_law: str = ""
             arts.append(short + cn_num_to_arabic_article(m.group(1)))
     if not arts:  # 《中华人民共和国治安管理处罚法》第七十条 这种书名号写法
         for m in re.finditer(r"《([^》]+)》\s*(第\s*[\d一二三四五六七八九十百零]+\s*条)", basis_text):
-            short = LAW_ALIAS.get(m.group(1), m.group(1))
-            arts.append(short + cn_num_to_arabic_article(m.group(2)))
+            if m.group(1) not in LAW_ALIAS:
+                continue  # 非治安法引用（地方条例/程序规定等）不进 outcome.articles，避免法条误标
+            arts.append(LAW_ALIAS[m.group(1)] + cn_num_to_arabic_article(m.group(2)))
     if not arts and version_text:
-        for m in re.finditer(r"第\s*([\d一二三四五六七八九十百零]+)\s*条", version_text):
-            arts.append("治安管理处罚法" + cn_num_to_arabic_article("第" + m.group(1) + "条"))
+        # "执法依据"字段并列多部法规：按出现顺序跟踪法律名，只取治安法的条（实测无锡批误标 13 条）
+        arts = articles_in_basis_meta(version_text)
     if not arts and assume_law:
-        # 裸条号（实测 d4：处罚依据="第十一条、第八十二条"）——只在上下文能确定法律时补
+        # 裸条号（实测 d4：处罚依据="第十一条、第八十二条"）——只在上下文能确定法律时补；
+        # 紧跟非治安法《…》引用的裸条号不套 assume_law（无锡批实测）
         for m in re.finditer(r"第\s*([\d一二三四五六七八九十百零]+)\s*条", basis_text or ""):
+            cited = _cited_law_before(basis_text, m.start())
+            if cited and cited not in LAW_ALIAS:
+                continue
             arts.append(assume_law + cn_num_to_arabic_article("第" + m.group(1) + "条"))
     return list(dict.fromkeys(arts)), law_version
 

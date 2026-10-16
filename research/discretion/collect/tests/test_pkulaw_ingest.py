@@ -472,6 +472,23 @@ def test_cmd_merge_dedupes_across_batches(tmp_path, monkeypatch):
     assert stats["duplicates"][0]["key"] == "CLI.ALE.1" and stats["duplicates"][0]["kept"] == "B"
 
 
+def test_articles_not_misattributed_to_public_security_law():
+    """法条归属：'执法依据'字段并列多部法规时只取治安法条文；紧跟非治安法《…》引用的裸条号不套 assume_law。
+
+    实测（无锡批）：'…治安管理处罚法(2012修正) 第11条 第70条 公安机关办理行政案件程序规定(2020修正) 第46条'
+    曾把 第46条 误标为"治安管理处罚法第四十六条"；'《江苏省公共场所治安管理条例》第二十六条' 同。
+    """
+    from pkulaw_ingest import articles_in_basis_meta, parse_articles
+    meta = ("中华人民共和国治安管理处罚法(2012修正) 第11条 第70条 "
+            "公安机关办理行政案件程序规定(2020修正) 第46条")
+    assert articles_in_basis_meta(meta) == ["治安管理处罚法第十一条", "治安管理处罚法第七十条"]
+    text = "现查明：某棋牌室为赌博提供条件。根据《江苏省公共场所治安管理条例》第二十六条第一款第二项之规定，现决定。"
+    arts, _ = parse_articles(text, "", "治安管理处罚法")
+    assert arts == [], arts
+    ok, _ = parse_articles("根据《中华人民共和国治安管理处罚法》第七十条之规定", "", "治安管理处罚法")
+    assert ok == ["治安管理处罚法第七十条"]
+
+
 # ---------------- 输出隔离与保护（2026-10-16 覆盖事故整改） ----------------
 
 def test_doc_files_excludes_word_temp_and_hidden(tmp_path):
