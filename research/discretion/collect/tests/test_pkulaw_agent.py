@@ -365,6 +365,18 @@ def test_download_patterns_format_preference():
     assert not any("WORD" in p.pattern for p in pdf)
 
 
+def test_fmt_patterns_order_matches_format():
+    from pkulaw_agent.download import _fmt_patterns
+    w = _fmt_patterns("word")
+    assert any("WORD" in p.pattern for p in w) and not any("PDF" in p.pattern for p in w)
+    p = _fmt_patterns("pdf")
+    assert any("PDF" in p.pattern for p in p) and not any("WORD" in p.pattern for p in p)
+    auto = _fmt_patterns("auto")
+    i_w = next(i for i, q in enumerate(auto) if "WORD" in q.pattern)
+    i_p = next(i for i, q in enumerate(auto) if "PDF" in q.pattern)
+    assert i_w < i_p
+
+
 # ---------------- session v1.1：session.json / CDP 探测 ----------------
 
 def test_session_json_roundtrip(tmp_path, monkeypatch):

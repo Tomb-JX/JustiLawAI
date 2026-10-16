@@ -162,31 +162,96 @@ def select_all_records(page) -> int:
         return 0
 
 
-def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "auto") -> bool:
-    """点击"下载"直到收到文件；菜单里有格式项时按 fmt 偏好选（auto=Word 优先回退 PDF）。
+def _fmt_patterns(fmt: str) -> list[re.Pattern]:
+    if fmt == "word":
+        return list(_WORD_PATTERNS)
+    if fmt == "pdf":
+        return list(_PDF_PATTERNS)
+    return _WORD_PATTERNS + _PDF_PATTERNS
 
+
+_OPENER_PATTERNS = [re.compile(r"^\s*下载\s*$"), re.compile(r"批量下载|下载选中")]
+_TAIL_PATTERNS = [re.compile(r"^\s*导出\s*$"), re.compile(r"^\s*(TXT|文本)\s*$")]
+
+
+def _visible_clicks(page, pat, *, limit: int = 6) -> list:
+    """pattern 的可见元素列表（防御式；找不到/不可见都静默）。"""
+    try:
+        loc = page.get_by_text(pat)
+    except Exception:  # noqa: BLE001
+        return []
+    els = []
+    for i in range(min(loc.count(), limit)):
+        try:
+            el = loc.nth(i)
+            if el.is_visible():
+                els.append(el)
+        except Exception:  # noqa: BLE001
+            continue
+    return els
+
+
+def _wait_for_file(page, sink: DownloadSink, before: int, timeout_s: float) -> bool:
+    for _ in range(int(timeout_s * 2)):
+        page.wait_for_timeout(500)
+        if sink.count() > before:
+            return True
+    return False
+
+
+def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "auto",
+                   menu_wait_s: float = 4.0) -> bool:
+    """点击"下载"直到收到文件；菜单项按 fmt 偏好（auto=Word 优先回退 PDF）。
+
+    实测修正（2026-10-16）：旧实现对**每次点击都空等满 25s**，而详情页有两个"下载"展开器
+    （点展开器本身永远不会下载）→ 每件白等 ~50s（download_s 稳定 55-57s 的根因）。
+    现逻辑：格式项已可见直接点；否则**只点一个展开器、只短等菜单出现**，再对格式项长等。
     找不到/点了没文件 → 打印候选按钮并返回 False（不瞎试）。
     """
     before = sink.count()
     cands = report_candidates(page)
     print(f"  [UI] 页面上的下载类按钮候选：{cands or '（未识别到）'}")
-    for pat in download_patterns(fmt):
-        try:
-            loc = page.get_by_text(pat)
-        except Exception:  # noqa: BLE001
-            continue
-        for i in range(min(loc.count(), 6)):
+    fmts = _fmt_patterns(fmt)
+
+    # ① 格式项已可见（菜单本来就开着）→ 直接点，长等
+    for pat in fmts:
+        for el in _visible_clicks(page, pat):
             try:
-                el = loc.nth(i)
-                if not el.is_visible():
-                    continue
                 el.click(timeout=5000)
             except Exception:  # noqa: BLE001
                 continue
-            for _ in range(wait_s * 2):
-                page.wait_for_timeout(500)
-                if sink.count() > before:
-                    return True
+            if _wait_for_file(page, sink, before, wait_s):
+                return True
+    # ② 展开菜单：只点第一个可见的"下载"，短等（菜单出现即走，不等满）
+    for pat in _OPENER_PATTERNS:
+        els = _visible_clicks(page, pat, limit=2)
+        if not els:
+            continue
+        try:
+            els[0].click(timeout=5000)
+        except Exception:  # noqa: BLE001
+            continue
+        if _wait_for_file(page, sink, before, menu_wait_s):
+            return True
+        break  # 只试一个展开器一次（旧逻辑在这里空等 25s×按钮数）
+    # ③ 菜单已开 → 逐个格式项点（长等；auto 时 Word 无响应自动轮到 PDF）
+    for pat in fmts:
+        for el in _visible_clicks(page, pat):
+            try:
+                el.click(timeout=5000)
+            except Exception:  # noqa: BLE001
+                continue
+            if _wait_for_file(page, sink, before, wait_s):
+                return True
+    # ④ 兜底：导出 / TXT（长等）
+    for pat in _TAIL_PATTERNS:
+        for el in _visible_clicks(page, pat):
+            try:
+                el.click(timeout=5000)
+            except Exception:  # noqa: BLE001
+                continue
+            if _wait_for_file(page, sink, before, wait_s):
+                return True
     return False
 
 
