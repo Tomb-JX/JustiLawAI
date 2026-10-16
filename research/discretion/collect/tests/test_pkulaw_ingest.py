@@ -428,6 +428,84 @@ def test_table_wrapped_narrative_form():
     assert rec["gambling_hint"] if "gambling_hint" in rec else rec["quality"]["form"].startswith("叙述式")
 
 
+# ---------------- 输出隔离与保护（2026-10-16 覆盖事故整改） ----------------
+
+def test_batch_tag_and_resolve_out(tmp_path, monkeypatch):
+    import pkulaw_ingest as ing
+    monkeypatch.setattr(ing, "DATA_DIR", tmp_path)
+    assert ing.batch_tag("R1", "2026-10-16") == "R1"
+    assert ing.batch_tag("", "2026-10-16") == "2026-10-16"
+    assert len(ing.batch_tag("")) >= 13  # 时间戳兜底
+    # 显式 --out 尊重原样；缺省按批次隔离，绝不落到共享目录
+    assert ing.resolve_out(str(tmp_path / "x"), "docs", "b1") == tmp_path / "x"
+    assert ing.resolve_out("", "docs", "b1") == tmp_path / "ingest" / "b1"   # docs 产物落 ingest/
+    assert ing.resolve_out("", "cases", "b1") == tmp_path / "cases" / "b1"
+
+
+def test_guard_outputs_refuses_then_allows(tmp_path):
+    import pytest
+
+    import pkulaw_ingest as ing
+    out = tmp_path / "docs" / "b1"
+    out.mkdir(parents=True)
+    (out / "admin_cases.jsonl").write_text("{}\n", encoding="utf-8")
+    with pytest.raises(SystemExit, match="拒绝写入"):
+        ing.guard_outputs(out, "docs", force=False)
+    assert ing.guard_outputs(out, "docs", force=True) == ["admin_cases.jsonl"]
+    assert ing.guard_outputs(out, "docs", force=False, append=True) == ["admin_cases.jsonl"]
+    assert ing.guard_outputs(tmp_path / "empty", "docs", force=False) == []
+
+
+def test_merge_jsonl_dedupes_and_leaves_no_tmp(tmp_path):
+    import pkulaw_ingest as ing
+    path = tmp_path / "admin_cases.jsonl"
+    ing._write_jsonl_atomic(path, [{"pkulaw_id": "CLI.ALE.1", "doc_no": "A1"},
+                                   {"pkulaw_id": "CLI.ALE.2", "doc_no": "A2"}])
+    merged, added = ing.merge_jsonl(path, [{"pkulaw_id": "CLI.ALE.2", "doc_no": "A2"},
+                                           {"pkulaw_id": "CLI.ALE.3", "doc_no": "A3"}])
+    assert added == 1 and len(merged) == 3
+    assert [r["pkulaw_id"] for r in merged] == ["CLI.ALE.1", "CLI.ALE.2", "CLI.ALE.3"]
+    assert not list(tmp_path.glob("*.tmp"))
+
+
+def test_cmd_docs_isolated_and_protected_end_to_end(tmp_path, monkeypatch):
+    """端到端：默认输出落批次目录；重跑拒写；--append 合并；--force 覆盖。"""
+    from types import SimpleNamespace
+
+    import pytest
+
+    import pkulaw_ingest as ing
+    monkeypatch.setattr(ing, "DATA_DIR", tmp_path / "data")
+    docs = tmp_path / "inbox"
+    docs.mkdir()
+    (docs / "a.txt").write_text(NARRATIVE_TEXT, encoding="utf-8")
+
+    args = SimpleNamespace(docs=str(docs), worklist="", manifest="", harvest_date="",
+                           out="", batch="b1", append=False, force=False)
+    ing.cmd_docs(args)
+    out = tmp_path / "data" / "ingest" / "b1"
+    assert (out / "admin_cases.jsonl").exists()
+    assert not (tmp_path / "data" / "admin").exists()  # 绝不写共享 admin/
+
+    with pytest.raises(SystemExit, match="拒绝写入"):     # 重跑默认拒写
+        ing.cmd_docs(args)
+
+    second = (NARRATIVE_TEXT.replace("张某某", "赵某某")
+              .replace("〔2024〕0325号", "〔2024〕0326号")
+              .replace("CLI.ALE.50000001", "CLI.ALE.50000002"))
+    (docs / "b.txt").write_text(second, encoding="utf-8")
+    args.append = True                                   # 追加合并
+    ing.cmd_docs(args)
+    lines = (out / "admin_cases.jsonl").read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 2
+    assert not list(out.glob("*.tmp"))
+
+    args.append = False
+    args.force = True                                    # 覆盖重写（只剩本批 2 篇）
+    ing.cmd_docs(args)
+    assert len((out / "admin_cases.jsonl").read_text(encoding="utf-8").strip().splitlines()) == 2
+
+
 def test_doc_no_regex_three_hanzi_prefix():
     """文号里机关代号可以是多字（沪公长(长新)…）：DOC_NO_RE 需允许"公"+0~4 字后再接括号。
 

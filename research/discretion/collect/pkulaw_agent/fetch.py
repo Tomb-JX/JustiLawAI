@@ -190,11 +190,17 @@ def _save(out_dir: Path, records: list[dict], counters: dict | None = None) -> d
 
 
 def run_ingest(fetch_dir: Path, out_dir: Path, *, harvest_date: str = "",
-               worklist: str = "", logger=print) -> int:
-    """把 fetch 产物交给既有解析链（pkulaw_ingest docs），单源不重复实现。"""
+               worklist: str = "", batch: str = "", logger=print) -> int:
+    """把 fetch 产物交给既有解析链（pkulaw_ingest docs），单源不重复实现。
+
+    解析脚本默认拒写已有产物（防覆盖其他工作流）；此处 out_dir 是本 run 专属目录，
+    重跑即刷新，所以带 --force；--batch 让产物标注批次并带上时间戳兜底。
+    """
     docs_dir = Path(fetch_dir) / "docs"
     cmd = [sys.executable, str(COLLECT_DIR / "pkulaw_ingest.py"), "docs",
-           "--docs", str(docs_dir), "--out", str(out_dir), "--manifest", ""]
+           "--docs", str(docs_dir), "--out", str(out_dir), "--manifest", "", "--force"]
+    if batch:
+        cmd += ["--batch", batch]
     if harvest_date:
         cmd += ["--harvest-date", harvest_date]
     if worklist:

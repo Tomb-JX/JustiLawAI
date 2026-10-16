@@ -11,12 +11,12 @@
 来源                          采集/解析代码                                产物（$JUSTILAW_DATA_DIR/）                    分级
 ① 公开网页（县级政府公示、    discover/*（计划·检索·分诊·栏目）→               admin/web_cases.pre_deid.jsonl                 in_scope / gambling
    复议专栏）                 harvest/*（收割·OCR）→ harvest/parse.py          （3,693 条，在范围内 1,036）                    + completeness
-② 法宝行政执法库（公安        collect/pkulaw_ingest.py docs                    admin/admin_cases.jsonl（L1 金标候选）           **tier L1–L4**
-   行政处罚决定书）           （目录 xls 用 catalog；清单用 worklist）          admin/admin_outcomes_only.jsonl（L2 结果-only）
-                                                                               admin/admin_needs_review.jsonl（L4）
-                                                                               admin/pkulaw_out_of_scope.jsonl（L3）
-③ 法宝司法案例库（法院判决）   collect/pkulaw_ingest.py cases（MCP 记录）        admin/pkulaw_cases.pre_deid.jsonl（行政）         tier（判决书形态）
-                             + docs（网页批量导出的 .doc，parse_judgment_doc） admin/pkulaw_crim.pre_deid.jsonl（刑事）
+② 法宝行政执法库（公安        collect/pkulaw_ingest.py docs                    ingest/<批次>/admin_cases.jsonl（L1 金标候选）   **tier L1–L4**
+   行政处罚决定书）           （目录 xls 用 catalog；清单用 worklist）          ingest/<批次>/admin_outcomes_only.jsonl（L2）
+                                                                               ingest/<批次>/admin_needs_review.jsonl（L4）
+                                                                               ingest/<批次>/pkulaw_out_of_scope.jsonl（L3）
+③ 法宝司法案例库（法院判决）   collect/pkulaw_ingest.py cases（MCP 记录）        cases/<批次>/pkulaw_cases.pre_deid.jsonl（行政）  tier（判决书形态）
+                             + docs（网页批量导出的 .doc，parse_judgment_doc） cases/<批次>/pkulaw_crim.pre_deid.jsonl（刑事）
 ④ 第三方采购裁判文书          collect/ingest_wenshu.py（清洗去重入库）          wenshu/imported/<批次>/wenshu.jsonl              **暂存，未分段**
 ⑤ 公开数据集                  collect/fetch_cail.py / fetch_lecard.py          cail/（赌博子集四 split）、lecard/
                              ↓

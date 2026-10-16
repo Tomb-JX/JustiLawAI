@@ -264,7 +264,8 @@ def cmd_fetch(a: argparse.Namespace) -> int:
                             keep_other=not a.only_narrative)
     if a.ingest:
         rc = run_ingest(run_dir / "fetch", _Path(a.ingest_out) if a.ingest_out
-                        else run_dir / "ingest", harvest_date=a.harvest_date)
+                        else run_dir / "ingest", harvest_date=a.harvest_date,
+                        batch=run_dir.name)
         if rc != 0:
             print(f"解析链返回码 {rc}，请查看输出")
     print(f"抓取计数：{summary['counters']}")
@@ -338,7 +339,8 @@ def cmd_harvest(a: argparse.Namespace) -> int:
                 if fetch_cfg.get("ingest"):
                     run_ingest(run_dir / "fetch", run_dir / "ingest",
                                harvest_date=_time.strftime("%Y-%m-%d"),
-                               worklist=plan.get("worklist", ""))
+                               worklist=plan.get("worklist", ""),
+                               batch=run_dir.name)
             if "download" in steps:
                 from pkulaw_agent.download import download_run
                 download_run(s, run_dir, root / "downloads",

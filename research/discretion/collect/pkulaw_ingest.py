@@ -24,16 +24,25 @@ RefereeResult 判决结果 / RefereeBasis 裁判依据），事实段里**完整
 行政赌博判决量级：行政一审 4,986、行政二审 6,604（仅判决书 4,630），远超金标需求；但**近年骤降**
 （2025 年审结 43、2026 年 12）——T-time 不能靠判决书。判决书当事人是**真名**，脱敏不能省。
 
-用法（仓库根目录）：
+用法（仓库根目录；**输出默认按批次隔离**，不再写入共享目录）：
+
   # 1) 目录表 → 工作清单（哪些还没下全文；按法条/省/案由/年份统计，用来决定下一批下什么）
-  python research/discretion/collect/pkulaw_ingest.py catalog --xls inbox/pkulaw/R1/【北大法宝】目录列表.xls \\
-      --out $JUSTILAW_DATA_DIR/pkulaw/R1
+  python research/discretion/collect/pkulaw_ingest.py catalog --xls inbox/pkulaw/R1/【北大法宝】目录列表.xls
+      # 默认 → $JUSTILAW_DATA_DIR/catalog/<batch>/worklist.csv
   # 2) 已下全文（行政执法库）→ 结构化记录（与工作清单按文号 join）
-  python research/discretion/collect/pkulaw_ingest.py docs --docs inbox/pkulaw/R1-docs \\
-      --worklist $JUSTILAW_DATA_DIR/pkulaw/R1/worklist.csv --out $JUSTILAW_DATA_DIR/admin
+  python research/discretion/collect/pkulaw_ingest.py docs --docs inbox/pkulaw/R1-docs --batch R1 \\
+      --worklist $JUSTILAW_DATA_DIR/catalog/R1/worklist.csv
+      # 默认 → $JUSTILAW_DATA_DIR/ingest/R1/{admin_cases.jsonl, admin_outcomes_only.jsonl, …}
+      # 累积多批：--append（按引证码/文号去重合并）；重跑同批：--force
   # 3) 司法案例（MCP 响应 JSON / JSONL / 目录）→ 判决书规格 JSONL
-  python research/discretion/collect/pkulaw_ingest.py cases --src $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/cache/mcp-case \\
-      --out $JUSTILAW_DATA_DIR/admin
+  python research/discretion/collect/pkulaw_ingest.py cases --src $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/cache/mcp-case --batch pfnl-2026H2
+      # 默认 → $JUSTILAW_DATA_DIR/cases/<batch>/pkulaw_cases.pre_deid.jsonl
+
+**输出保护（2026-10-16 整改）**：历史版本默认 `--out $JUSTILAW_DATA_DIR/admin`，而 `admin/` 是
+数据链路（发现层）的统一交付目录（`admin_cases.schema-*.jsonl`、`admin_outcomes_only.jsonl`、
+`SHA256SUMS` 等），本脚本的 L2 产物与 `SHA256SUMS` 与其**同名**，默认运行会互相覆盖。
+现在：① 缺省输出按 `$JUSTILAW_DATA_DIR/<kind>/<batch>/` 隔离；② 显式 `--out` 指向已有产物时
+**拒绝写入**，除非 `--append`（合并，按引证码/文号去重）或 `--force`（覆盖重写）。
 """
 
 from __future__ import annotations
@@ -56,6 +65,92 @@ from common import DATA_DIR, report, sha256_path  # noqa: E402
 
 SCHEMA_VERSION = "0.1"  # data-spec v0.1
 DOC_EXTS = {".doc", ".docx", ".txt", ".md"}
+
+# ---------- 输出隔离与保护（2026-10-16：修"解析脚本默认写共享目录、与他流产物同名互相覆盖"） ----------
+
+OUTPUT_NAMES = {
+    "catalog": ("worklist.csv", "catalog.stats.json"),
+    "docs": ("admin_cases.jsonl", "admin_outcomes_only.jsonl", "admin_needs_review.jsonl",
+             "pkulaw_out_of_scope.jsonl", "SHA256SUMS", "pkulaw_ingest.stats.json"),
+    "cases": ("pkulaw_cases.pre_deid.jsonl", "pkulaw_crim.pre_deid.jsonl", "pkulaw_cases.stats.json"),
+    "worklist": ("worklist.csv",),
+}
+# 缺省目录名（与子命令名解耦：docs 的产物落 ingest/，语义更直白）
+OUTPUT_DIRNAME = {"docs": "ingest", "cases": "cases", "catalog": "catalog", "worklist": "worklist"}
+
+
+def batch_tag(explicit: str = "", harvest_date: str = "") -> str:
+    """批次标签：显式 > 采集日期 > 时间戳。"""
+    return explicit or harvest_date or datetime.now().strftime("%Y%m%d-%H%M%S")
+
+
+def resolve_out(explicit: str, kind: str, batch: str) -> Path:
+    """--out 显式给就尊重；缺省按批次隔离在 $JUSTILAW_DATA_DIR/<dir>/<batch>/。
+
+    `admin/` 是数据链路（发现层）的交付目录，本脚本与其产物同名（admin_outcomes_only.jsonl /
+    SHA256SUMS），默认写进去会互相覆盖——所以默认不再指向任何共享目录。
+    """
+    return Path(explicit) if explicit else DATA_DIR / OUTPUT_DIRNAME.get(kind, kind) / batch
+
+
+def guard_outputs(out: Path, kind: str, *, force: bool, append: bool = False) -> list[str]:
+    """目标目录已有本类产物时拒绝静默覆盖（保护其他批次/其他工作流的输出）。"""
+    existing = [n for n in OUTPUT_NAMES[kind] if (out / n).exists()]
+    if existing and not (force or append):
+        raise SystemExit(
+            f"拒绝写入：{out} 已有解析产物 {existing}\n"
+            "  这是防覆盖保护（该目录可能属于其他批次或其他工作流）。三种处理：\n"
+            "  · 换目录：不传 --out 时默认已按批次隔离（$JUSTILAW_DATA_DIR/<kind>/<batch>/）\n"
+            "  · 追加合并：--append（按 引证码/文号 去重后合并）\n"
+            "  · 覆盖重写：--force")
+    return existing
+
+
+def _read_jsonl(path: Path) -> list[dict]:
+    if not path.exists():
+        return []
+    out: list[dict] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            out.append(json.loads(line))
+    return out
+
+
+def _read_text_lines(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+    return [x for x in path.read_text(encoding="utf-8").splitlines() if x.strip()]
+
+
+def _write_jsonl_atomic(path: Path, records: list[dict]) -> None:
+    tmp = path.with_name(path.name + ".tmp")
+    with tmp.open("w", encoding="utf-8") as f:
+        for r in records:
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
+    tmp.replace(path)
+
+
+def _rec_key(r: dict) -> str:
+    return (r.get("pkulaw_id") or r.get("doc_no") or r.get("id")
+            or json.dumps(r, ensure_ascii=False, sort_keys=True)[:200])
+
+
+def merge_jsonl(path: Path, new_records: list[dict]) -> tuple[list[dict], int]:
+    """把新记录并入已有 JSONL（按引证码/文号去重，保留旧记录顺序在前），原子重写。
+
+    返回 (合并后记录, 新增数)。
+    """
+    old = _read_jsonl(path)
+    seen, merged = set(), []
+    for r in old + new_records:
+        k = _rec_key(r)
+        if k in seen:
+            continue
+        seen.add(k)
+        merged.append(r)
+    added = len(merged) - len(old) if old else len(merged)
+    _write_jsonl_atomic(path, merged)
+    return merged, max(added, 0)
 
 # ---------- 中文数字与金额 ----------
 
@@ -1120,8 +1215,9 @@ def build_judgment_record(record: dict, *, manifest_id: str = "", harvest_date: 
 # ---------- 子命令 ----------
 
 def cmd_catalog(args) -> None:
-    out = Path(args.out)
+    out = resolve_out(args.out, "catalog", batch_tag(getattr(args, "batch", "")))
     out.mkdir(parents=True, exist_ok=True)
+    guard_outputs(out, "catalog", force=getattr(args, "force", False))
     meta, rows = parse_catalog(Path(args.xls))
     worklist = out / "worklist.csv"
     fields = list(rows[0].keys()) if rows else []
@@ -1145,8 +1241,9 @@ def cmd_catalog(args) -> None:
 
 def cmd_docs(args) -> None:
     docs_dir = Path(args.docs)
-    out = Path(args.out)
+    out = resolve_out(args.out, "docs", batch_tag(args.batch, args.harvest_date))
     out.mkdir(parents=True, exist_ok=True)
+    guard_outputs(out, "docs", force=args.force, append=args.append)
     files = sorted(p for p in docs_dir.rglob("*") if p.suffix.lower() in DOC_EXTS and p.is_file())
     if not files:
         raise SystemExit(f"{docs_dir} 下没有可解析的文书（{sorted(DOC_EXTS)}）")
@@ -1201,9 +1298,6 @@ def cmd_docs(args) -> None:
                or str(r["quality"].get("tier", "")).startswith("L3")]
     if outside:
         counters["skipped_out_of_scope"] = len(outside)
-        with open(out / "pkulaw_out_of_scope.jsonl", "w", encoding="utf-8") as f:
-            for r in outside:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
         records = [r for r in records if r not in outside]
 
     buckets = {"L1-金标候选": [], "L2-结果only": [], "L3-范围外": [], "L4-待核": []}
@@ -1211,17 +1305,35 @@ def cmd_docs(args) -> None:
         buckets.setdefault(r["quality"].get("tier", "L4-待核"), []).append(r)
     tier_counts = {k: len(v) for k, v in buckets.items() if v}
     cases, only = buckets.get("L1-金标候选", []), buckets.get("L2-结果only", [])
-    written = []
-    for name, subset in (("admin_cases.jsonl", cases), ("admin_outcomes_only.jsonl", only),
-                         ("admin_needs_review.jsonl", buckets.get("L4-待核", []))):
-        if not subset:
-            continue
-        target = out / name
-        with open(target, "w", encoding="utf-8") as f:
-            for r in subset:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        written.append(target)
-    (out / "SHA256SUMS").write_text("\n".join(sha_lines) + "\n", encoding="utf-8")
+
+    tier_files = (("admin_cases.jsonl", cases), ("admin_outcomes_only.jsonl", only),
+                  ("admin_needs_review.jsonl", buckets.get("L4-待核", [])))
+    written: list[Path] = []
+    appended: dict[str, int] = {}
+    if args.append:
+        # 合并模式：与既有产物按 引证码/文号 去重后合并（跨批累积用）
+        if outside:
+            merge_jsonl(out / "pkulaw_out_of_scope.jsonl", outside)
+        for name, subset in tier_files:
+            if subset:
+                merge_jsonl(out / name, subset)
+        for name, _ in tier_files:
+            if (out / name).exists():
+                written.append(out / name)
+        # SHA256SUMS：按行合并去重（跨批保留全部文件指纹）
+        old_sums = _read_text_lines(out / "SHA256SUMS")
+        new_sums = sorted(set(old_sums) | set(sha_lines))
+        (out / "SHA256SUMS").write_text("\n".join(new_sums) + "\n", encoding="utf-8")
+    else:
+        if outside:
+            _write_jsonl_atomic(out / "pkulaw_out_of_scope.jsonl", outside)
+        for name, subset in tier_files:
+            if not subset:
+                continue
+            target = out / name
+            _write_jsonl_atomic(target, subset)
+            written.append(target)
+        (out / "SHA256SUMS").write_text("\n".join(sha_lines) + "\n", encoding="utf-8")
 
     # 回写工作清单：标记哪些已下全文（三天窗口里靠这张表决定"还差哪些"）
     if by_no and args.worklist and Path(args.worklist).exists():
@@ -1244,39 +1356,47 @@ def cmd_docs(args) -> None:
         done = sum(1 for r in rows if r.get("已下全文") == "是")
         report(f"  工作清单已回写：{done}/{len(rows)} 条已下全文 ← {args.worklist}")
 
-    facts_len = sorted(len(r["text_facts"]) for r in records)
+    stats_records = records
+    if args.append:
+        stats_records = []
+        for name, _ in tier_files:
+            stats_records.extend(_read_jsonl(out / name))
+    facts_len = sorted(len(r["text_facts"]) for r in stats_records)
     stats = {
         "schema_version": SCHEMA_VERSION,
         "parsed_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "batch": args.batch or batch_tag("", args.harvest_date),
+        "mode": "append" if args.append else "write",
         "counts": dict(counters),
-        "tier": dict(Counter(r["quality"].get("tier", "?") for r in records)),
+        "tier": dict(Counter(r["quality"].get("tier", "?") for r in stats_records)),
         "facts_len_median": facts_len[len(facts_len) // 2] if facts_len else 0,
-        "unique_events": len({r.get("event_key", "") for r in records}),
-        "event_yield": round(len({r.get("event_key", "") for r in records}) / max(len(records), 1), 3),
-        "has_amount_ratio": round(sum(1 for r in records if r["quality"]["has_amount"]) / max(len(records), 1), 3),
+        "unique_events": len({r.get("event_key", "") for r in stats_records}),
+        "event_yield": round(len({r.get("event_key", "") for r in stats_records}) / max(len(stats_records), 1), 3),
+        "has_amount_ratio": round(sum(1 for r in stats_records if r["quality"]["has_amount"]) / max(len(stats_records), 1), 3),
         "missing_decision_date_ratio": round(
-            sum(1 for r in records if not r["decision_date"]) / max(len(records), 1), 3),
-        "outcome_only": len(only),
-        "with_facts": len(cases),
-        "outcome_types": dict(Counter(r["outcome"]["type"] or "未解析" for r in records)),
-        "law_versions": dict(Counter(r["outcome"]["law_version"] or "未知" for r in records)),
+            sum(1 for r in stats_records if not r["decision_date"]) / max(len(stats_records), 1), 3),
+        "outcome_only": sum(1 for r in stats_records if r["quality"].get("tier") == "L2-结果only"),
+        "with_facts": sum(1 for r in stats_records if r["quality"].get("tier") == "L1-金标候选"),
+        "outcome_types": dict(Counter(r["outcome"]["type"] or "未解析" for r in stats_records)),
+        "law_versions": dict(Counter(r["outcome"]["law_version"] or "未知" for r in stats_records)),
         "files": [t.name for t in written],
     }
     (out / "pkulaw_ingest.stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
 
-    forms = dict(Counter(r["quality"]["form"] for r in records))
-    tiers = dict(Counter(r["quality"].get("tier", "?") for r in records))
-    report(f"解析 {len(records)} 份文书（形态 {forms}）")
+    forms = dict(Counter(r["quality"]["form"] for r in stats_records))
+    tiers = dict(Counter(r["quality"].get("tier", "?") for r in stats_records))
+    mode = "追加合并" if args.append else "写入"
+    report(f"{mode} {len(records)} 份文书（合计 {len(stats_records)} 条；形态 {forms}）")
     report(f"  分级：{tiers}")
-    report(f"  有事实（金标候选，A 类主力）：{len(cases)} → admin_cases.jsonl")
-    report(f"  无事实（结果-only，B 类，D6）：{len(only)} → admin_outcomes_only.jsonl")
+    report(f"  有事实（金标候选，A 类主力）：{stats['with_facts']} → admin_cases.jsonl")
+    report(f"  无事实（结果-only，B 类，D6）：{stats['outcome_only']} → admin_outcomes_only.jsonl")
     report(f"  处罚类型分布：{stats['outcome_types']}")
     report(f"  法律版本分布：{stats['law_versions']}")
     report(f"  质量提示：{ {k: v for k, v in counters.items() if k.startswith('warn:')} }")
     report(f"  批次指标：事实段中位 {stats['facts_len_median']} 字｜含金额 {stats['has_amount_ratio']:.0%}"
            f"｜缺决定日期 {stats['missing_decision_date_ratio']:.0%}")
-    report(f"  事件产出：{stats['unique_events']} 个独立事件 / {len(records)} 篇（折算率 {stats['event_yield']:.0%}）")
-    report(f"  产出目录：{out}（含 SHA256SUMS）")
+    report(f"  事件产出：{stats['unique_events']} 个独立事件 / {len(stats_records)} 篇（折算率 {stats['event_yield']:.0%}）")
+    report(f"  产出目录：{out}（批次 {stats['batch']}；含 SHA256SUMS）")
 
 
 def cmd_cases(args) -> None:
@@ -1285,8 +1405,10 @@ def cmd_cases(args) -> None:
     输入：MCP 响应 JSON（含 Data 数组）、JSONL、或目录（递归取 *.json/*.jsonl）。
     """
     src = Path(args.src)
-    out = Path(args.out)
+    out = resolve_out(args.out, "cases", batch_tag(getattr(args, "batch", ""),
+                                                   getattr(args, "harvest_date", "")))
     out.mkdir(parents=True, exist_ok=True)
+    guard_outputs(out, "cases", force=args.force, append=args.append)
 
     files: list[Path]
     if src.is_dir():
@@ -1343,10 +1465,12 @@ def cmd_cases(args) -> None:
             continue
         name = "pkulaw_cases.pre_deid.jsonl" if kind == "行政" else "pkulaw_crim.pre_deid.jsonl"
         target = out / name
-        with open(target, "w", encoding="utf-8") as f:
-            for r in subset:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        written.append(f"{target.name}（{kind} {len(subset)} 件）")
+        if args.append:
+            merged, added = merge_jsonl(target, subset)
+            written.append(f"{target.name}（{kind} 追加 {added}，合计 {len(merged)} 件）")
+        else:
+            _write_jsonl_atomic(target, subset)
+            written.append(f"{target.name}（{kind} {len(subset)} 件）")
         warns = Counter(w for r in subset for w in r["quality"]["parse_warnings"])
         per_group[kind] = {
             "件数": len(subset),
@@ -1377,8 +1501,9 @@ def cmd_worklist(args) -> None:
     下载时按文号逐条勾选（网页一次最多 50 篇），下完用 `docs --worklist` 回写"已下全文"。
     """
     src = Path(args.src)
-    out = Path(args.out)
+    out = resolve_out(args.out, "worklist", batch_tag(getattr(args, "batch", "")))
     out.mkdir(parents=True, exist_ok=True)
+    guard_outputs(out, "worklist", force=getattr(args, "force", False))
     files = sorted(src.rglob("*")) if src.is_dir() else [src]
     files = [f for f in files if f.suffix.lower() in {".json", ".jsonl"}]
     if not files:
@@ -1432,7 +1557,9 @@ def main() -> None:
     sub = ap.add_subparsers(dest="cmd", required=True)
     c = sub.add_parser("catalog", help="目录列表（.xls / CSV）→ 工作清单与统计")
     c.add_argument("--xls", "--catalog", dest="xls", required=True, help="法宝导出的目录列表 .xls（或已转好的 CSV）")
-    c.add_argument("--out", default=str(DATA_DIR / "pkulaw"))
+    c.add_argument("--out", default="", help="输出目录；缺省按批次隔离：$JUSTILAW_DATA_DIR/<kind>/<batch>/（不再默认写共享目录）")
+    c.add_argument("--batch", default="", help="批次标签（缺省用时间戳）")
+    c.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
     c.set_defaults(func=cmd_catalog)
     d = sub.add_parser("docs", help="已下全文（.doc/.docx/.txt）→ 结构化 JSONL")
     d.add_argument("--docs", required=True, help="放导出文书的目录（递归）")
@@ -1440,17 +1567,26 @@ def main() -> None:
     d.add_argument("--manifest", default=str(HERE / "manifest.csv"),
                    help="台账 manifest.csv：按文件 SHA-256 回填 id（默认本目录下的台账）")
     d.add_argument("--harvest-date", default="")
-    d.add_argument("--out", default=str(DATA_DIR / "admin"))
+    d.add_argument("--out", default="", help="输出目录；缺省按批次隔离：$JUSTILAW_DATA_DIR/<kind>/<batch>/（不再默认写共享目录）")
+    d.add_argument("--batch", default="", help="批次标签（缺省用 harvest-date 或时间戳）")
+    d.add_argument("--append", action="store_true",
+                   help="与目标目录已有产物按 引证码/文号 去重合并（跨批累积）")
+    d.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
     d.set_defaults(func=cmd_docs)
     wl = sub.add_parser("worklist", help="MCP 行政执法检索结果 → 工作清单（含'已知含事实'标记）")
     wl.add_argument("--src", required=True, help="MCP 响应 JSON/JSONL 或目录（含缓存目录）")
-    wl.add_argument("--out", default=str(DATA_DIR / "pkulaw"))
+    wl.add_argument("--out", default="", help="输出目录；缺省按批次隔离：$JUSTILAW_DATA_DIR/<kind>/<batch>/（不再默认写共享目录）")
+    wl.add_argument("--batch", default="", help="批次标签（缺省用时间戳）")
+    wl.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
     wl.set_defaults(func=cmd_worklist)
     c2 = sub.add_parser("cases", help="司法案例记录（MCP 响应/JSONL）→ 判决书规格 JSONL")
     c2.add_argument("--src", required=True, help="MCP 响应 JSON、JSONL 或目录")
     c2.add_argument("--worklist", default="", help="司法案例库目录 worklist.csv（按案件字号 join）")
     c2.add_argument("--harvest-date", default="")
-    c2.add_argument("--out", default=str(DATA_DIR / "admin"))
+    c2.add_argument("--out", default="", help="输出目录；缺省按批次隔离：$JUSTILAW_DATA_DIR/<kind>/<batch>/（不再默认写共享目录）")
+    c2.add_argument("--batch", default="", help="批次标签（缺省用 harvest-date 或时间戳）")
+    c2.add_argument("--append", action="store_true", help="与已有产物按 引证码/文号 去重合并")
+    c2.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
     c2.set_defaults(func=cmd_cases)
     args = ap.parse_args()
     args.func(args)

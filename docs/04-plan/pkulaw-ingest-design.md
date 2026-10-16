@@ -351,19 +351,21 @@ pkulaw_ingest.py docs（处罚决定书公示）        pkulaw_ingest.py cases�
                                                   交付引擎（data-spec v0.1）
 ```
 
-命令（仓库根目录）：
+命令（仓库根目录；**输出默认按批次隔离，不再写共享目录**——见 §7 的输出保护）：
 
 ```bash
 # 依赖：pip install xlrd（读 .xls）；没有 xlrd 的机器先用 pkulaw_xls2csv.ps1 转 CSV，再喂 --xls 指向 CSV
 # 1) 目录 → 工作清单与统计（行政执法库与司法案例库共用）
 python research/discretion/collect/pkulaw_ingest.py catalog \
-    --xls "inbox/pkulaw/R1/【北大法宝】目录列表.xls" --out $JUSTILAW_DATA_DIR/pkulaw/R1
+    --xls "inbox/pkulaw/R1/【北大法宝】目录列表.xls" --batch R1
+    # 默认 → $JUSTILAW_DATA_DIR/catalog/R1/worklist.csv
 # 2) 行政执法库的处罚决定书公示 → 结果-only 层
 python research/discretion/collect/pkulaw_ingest.py docs --docs inbox/pkulaw/R1/docs \
-    --worklist $JUSTILAW_DATA_DIR/pkulaw/R1/worklist.csv --out $JUSTILAW_DATA_DIR/admin
+    --worklist $JUSTILAW_DATA_DIR/catalog/R1/worklist.csv --batch R1
+    # 默认 → $JUSTILAW_DATA_DIR/ingest/R1/…；跨批累积加 --append，重跑同批加 --force
 # 3) 司法案例库的判决书 → 金标候选（MCP 响应 JSON / JSONL / 目录都可作输入）
-python research/discretion/collect/pkulaw_ingest.py cases --src inbox/pkulaw/cases \
-    --out $JUSTILAW_DATA_DIR/admin
+python research/discretion/collect/pkulaw_ingest.py cases --src inbox/pkulaw/cases --batch pfnl-2026H2
+    # 默认 → $JUSTILAW_DATA_DIR/cases/pfnl-2026H2/…
 ```
 
 **主键与去重**：判决书用原文链接里的 `pfnl` 哈希；处罚决定书公示用文件名里的法宝引证码（`FBM-CLI.…`），无引证码时退文号。同一 URL 重复下载视为同一条。
@@ -422,6 +424,11 @@ python research/discretion/collect/pkulaw_ingest.py cases --src inbox/pkulaw/cas
 
 ## 7. 风险与合规
 
+- **输出隔离与防覆盖（2026-10-16 整改）**：解析脚本的默认输出按 `$JUSTILAW_DATA_DIR/<kind>/<batch>/`
+  隔离（docs→`ingest/`、cases→`cases/`、catalog/worklist→同名目录）；显式 `--out` 指向已有产物时
+  **拒绝写入**，除非 `--append`（按 引证码/文号 去重合并）或 `--force`（覆盖重写）。
+  背景：旧默认 `--out $DATA/admin` 与数据链路（发现层）的交付目录相同，且 L2 产物与 `SHA256SUMS`
+  与其**同名**，默认运行会互相覆盖。
 - **二次分发**：导出文本只存仓库外 `$JUSTILAW_DATA_DIR`，仓库只提交脚本与台账哈希（手册 §5）。
 - **账号与权限**：学院账号已绑定**司法案例库**权限（长期）；**行政执法库**是购买的三天权限——两者的条款与导出额度不同，批量导出前先确认限额（待确认 #2、#8）。
 - **姓名遮挡不可假设**：司法案例库判决书**未脱敏**（实测含当事人真名、律师、法官姓名）；执法库的表格形态样本是遮挡过的（"陈\*英"）；而**叙述式省份的决定书原文多为"李xx"半脱敏、也有真名**（发现层实测 385 件真名）→ 一律走脱敏 SOP + R6，交付前 `deidentified` 恒为 false。
@@ -433,6 +440,7 @@ python research/discretion/collect/pkulaw_ingest.py cases --src inbox/pkulaw/cas
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-16 | v1.4 | **修"默认输出写共享目录、与他流产物互相覆盖"**：`docs/cases/catalog/worklist` 缺省输出改为 `$JUSTILAW_DATA_DIR/<kind>/<batch>/`（docs→`ingest/`）；显式 `--out` 指向已有产物时拒绝写入（`--append` 合并 / `--force` 覆盖二选一）；新增 `--batch`；`docs` 增加合并统计与 SHA256SUMS 合并；单测 +4（端到端验证隔离/拒写/合并）。背景：旧默认 `--out $DATA/admin` 与发现层交付目录同名（`admin_outcomes_only.jsonl`/`SHA256SUMS`） | 模型组 |
 | 2026-10-16 | v1.3 | 修复 `DOC_NO_RE` 文号正则缺口（网页抓取场景暴露）：原式要求"公/检/法/执"紧邻括号，真实文号如"沪公长(长新)行罚决字〔2025〕00289号"（机关代号多字）兜底不到；改为括号前恰一字、公字后可夹 0–4 字，并防前缀吸附；`doc_no` 抽取时剥离前导括号（新增回归测试） | 模型组 |
 | 2026-10-16 | v1.2 | §5 增加指向 [pkulaw-agent-design.md](./pkulaw-agent-design.md)：人工循环由作业台接管（agent 自检索/预探/下载/核对），本节退为口径与节奏定义 | 模型组 |
 | 2026-10-16 | v0.1 | 初版：实样解剖、字段缺口表、需求侧形式与内容、链路设计、三天窗口计划 | 模型组 |
