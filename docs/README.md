@@ -24,6 +24,12 @@ docs/
 │   ├── data-collection.md       数据收集计划（渠道 / 标注 / 治理 / 时间表）
 │   ├── crawler-ops.md           批量采集运维计划（站点台账 / 适配 SOP / 每周节奏）
 │   ├── pkulaw-playbook.md       渠道 C 北大法宝作战手册（检索式 / 导出 SOP / 侦察清单）
+│   ├── pkulaw-ingest-design.md  渠道 C 数据化链路设计（实样解剖 / 字段缺口 / 导出计划）
+│   ├── manual-collection-guide.md  人工采集指南（县级公示 / 复议 / 裁判文书网 / 信用中国）
+│   ├── search-discovery-design.md  发现层设计（千帆搜索 API / 饱和拆分 / 交付文件）
+│   ├── web-harvest-design.md    公开网页收割设计（分诊 → 收割 → 解析 → 脱敏）
+│   ├── text-processing-spec.md  文本处理规范与数据对接分析（分段 / 脱敏 / D1–D5 待拍板）
+│   ├── data-pipeline-status.md  数据链路阶段总结（核对版，各来源件数与缺口）
 │   ├── workstreams.md           并行工作流与分工（工作树、目录归属、Git 纪律、接口）
 │   ├── collab-log.md            协作记录（只追加，union 合并）
 │   └── meetings/                周例会纪要（YYYY-MM-DD-主题.md）

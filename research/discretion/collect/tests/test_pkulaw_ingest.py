@@ -1,0 +1,235 @@
+"""北大法宝导出解析单测：合成样本复刻 2026-10-16 实样的两种形态（不含真实个人信息），不联网。
+
+运行（仓库根目录）：python -m pytest research/discretion/collect/tests -q
+"""
+
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from pkulaw_ingest import (  # noqa: E402
+    build_record,
+    catalog_stats,
+    cn2int,
+    cn_num_to_arabic_article,
+    outcome_from,
+    parse_articles,
+    parse_catalog,
+    parse_date,
+    parse_enforcement_doc,
+    pkulaw_id_from_name,
+    province_of,
+)
+
+# 复刻「目录列表.xls」导出的 CSV（表头两行 + 字段行 + 数据行 + 版权页脚）
+CATALOG_CSV = """北大法宝V6-行政执法-行政执法字段表单,,,,,,,,,,
+搜索条件：案件名称： 赌博；,,,,,下载时间：2026-10-16,,,,,
+序号,标题,执法机关,发文案号,公布日期,行政相对人,执法依据,处罚种类,执法地域,原文链接,罚没总金额（万元）
+_1,张*三赌博案(某公(某新)行罚决字〔2025〕00289号),某县公安局,某公(某新)行罚决字〔2025〕00289号,2025.12.29,,中华人民共和国治安管理处罚法(2012修正) 第70条   ,罚款、没收违法所得、没收非法财物,某省,https://www.pkulaw.com/apy/0000bdfb.html,0.03
+_2,李*四赌博案(某公(某新)行罚决字〔2025〕00290号),某县公安局,某公(某新)行罚决字〔2025〕00290号,2025.12.25,,中华人民共和国治安管理处罚法(2025修订) 第82条,行政拘留,某省,https://www.pkulaw.com/apy/1111bdfb.html,0
+© 北大法宝：(www.pkulaw.com)专业提供法律信息、法学知识和法律软件领域各类解决方案。北大法宝为您提供丰富的参考资料，正式引用法规条文时请与标准文本核对。
+扫码添加法小宝微信号,,,,,手机扫一扫关注北大法宝公众号,,,,
+,,,,,,,,,,
+"""
+
+# 复刻 .doc 经 antiword 取出的文本（元数据块 + 决定表 + 页脚）
+DOC_TEXT = """   张*三赌博案(某公(某新)行罚决字〔2025〕00289号)
+
+    主题分类： 公安
+
+    处罚种类： 罚款、没收违法所得、没收非法财物
+
+    行政相对人： 张*三
+
+    执法级别： 省级
+
+    执法机关：某县公安局
+
+    执法地域： 某省
+
+    公布日期：2025.12.29
+
+    发文案号：某公(某新)行罚决字〔2025〕00289号
+
+    罚没情况：对张*三赌博罚款三百元
+
+    执法依据： 中华人民共和国治安管理处罚法(2012修正)第70条
+
+   |行政处罚决定书文号                      |某公(某新)行罚决字〔2025〕00289号     |
+|被处罚对象                              |张*三                                   |
+|处罚事由                                |赌博                                    |
+|处罚依据                                |《中华人民共和国治安管理处罚法》第七十条  |
+|处罚结果                                |罚款三百元                              |
+|处罚决定日期                            |2025-12-29                              |
+|处罚机关                                |某县公安局                    |
+
+©北大法宝：（www.pkulaw.com）专业提供法律信息、法学知识和法律软件领域各类解决方案。
+原文链接：https://www.pkulaw.com/apy/9445d6e6deb7c9d2da58383f0133290de14dc328de1b2154bdfb.html
+"""
+
+DOC_NAME = "张*三赌博案(某公(某新)行罚决字〔2025〕00289号)(FBM-CLI.ALE.47644244).doc"
+
+
+def test_cn2int():
+    assert cn2int("三百") == 300
+    assert cn2int("十") == 10
+    assert cn2int("十日") is None          # 带单位"日"的不认，由调用方的正则先剥掉
+    assert cn2int("伍佰") == 500
+    assert cn2int("1382") == 1382
+    assert cn2int("两千") == 2000
+    assert cn2int("1,382") == 1382
+    assert cn2int("三十日") is None
+
+
+def test_article_normalization():
+    assert cn_num_to_arabic_article("第82条") == "第八十二条"
+    assert cn_num_to_arabic_article("第70条") == "第七十条"
+    assert cn_num_to_arabic_article("第八十二条") == "第八十二条"
+    assert cn_num_to_arabic_article("第144条") == "第一百四十四条"
+
+
+def test_parse_date():
+    assert parse_date("2025.12.29") == "2025-12-29"
+    assert parse_date("2025-12-29") == "2025-12-29"
+    assert parse_date("2025年12月29日") == "2025-12-29"
+    assert parse_date("二〇二五年十二月二十九日") == "2025-12-29"
+    assert parse_date("下载时间：2026-10-16") == "2026-10-16"
+
+
+def test_catalog_parse(tmp_path):
+    p = tmp_path / "catalog_1.csv"
+    p.write_text(CATALOG_CSV, encoding="utf-8")
+    meta, rows = parse_catalog(p)
+    assert meta["library"].startswith("北大法宝V6-行政执法")
+    assert meta["search"] == "案件名称： 赌博"
+    assert meta["download_time"] == "2026-10-16"
+    assert len(rows) == 2                       # 版权行与空行都没有混进来
+    assert rows[0]["发文案号"] == "某公(某新)行罚决字〔2025〕00289号"
+    assert rows[0]["公布日期"] == "2025-12-29"
+    assert rows[0]["罚没总金额_元"] == 300
+    assert rows[1]["罚没总金额_元"] == 0
+    stats = catalog_stats(rows)
+    assert stats["按法律版本与法条"]["旧法 第七十条"] == 1
+    assert stats["按法律版本与法条"]["新法 第八十二条"] == 1
+    assert stats["按处罚种类"]["行政拘留"] == 1
+
+
+def test_pkulaw_id_from_name():
+    assert pkulaw_id_from_name(DOC_NAME) == "FBM-CLI.ALE.47644244"
+    assert pkulaw_id_from_name("没有引证号.doc") == ""
+
+
+# 复刻「司法案例库」的目录表（与行政执法库列完全不同；实测 2026-10-16）
+CASES_CSV = """北大法宝V6-司法案例-司法案例字段表单,,,,,,,,
+搜索条件：全 文： 赌博；,,,,,下载时间：2026-10-16,,,,
+序号,标题,审理程序,案由,文书类型,审理法院,案件字号,审结日期,省份
+1,贺某赌博一案,简易程序,刑事>妨害社会管理秩序罪>扰乱公共秩序罪>赌博罪;,判决书,湖南省溆浦县人民法院,(2026)湘1224刑初264号,2026.09.30,湖南省溆浦县人民法院
+2,褚某、李某民间借贷纠纷一案,二审,民事>合同、准合同纠纷>借款合同纠纷>民间借贷纠纷;,判决书,江苏省常州市中级人民法院,(2026)苏04民终4141号,2026.09.30,江苏省常州市中级人民法院
+© 北大法宝：(www.pkulaw.com)专业提供法律信息、法学知识和法律软件领域各类解决方案。
+扫码添加法小宝微信号,,,,手机扫一扫关注北大法宝公众号,,,,
+"""
+
+
+def test_province_of():
+    assert province_of("湖南省溆浦县人民法院") == "湖南省"
+    assert province_of("新疆维吾尔自治区喀什地区中级人民法院") == "新疆维吾尔自治区"
+    assert province_of("上海市公安局长宁分局") == "上海市"
+    assert province_of("") == ""
+
+
+def test_case_catalog_parse(tmp_path):
+    """司法案例库目录：列名与行政执法库完全不同，表头行靠"已知列名 ≥3 个"识别，不写死列。"""
+    p = tmp_path / "catalog_1.csv"
+    p.write_text(CASES_CSV, encoding="utf-8")
+    meta, rows = parse_catalog(p)
+    assert meta["library"].startswith("北大法宝V6-司法案例")
+    assert meta["search"] == "全 文： 赌博"
+    assert len(rows) == 2
+    assert rows[0]["案件字号"] == "(2026)湘1224刑初264号"
+    assert rows[0]["审结日期"] == "2026-09-30"
+    assert rows[0]["省份规范"] == "湖南省"
+    stats = catalog_stats(rows)
+    assert stats["按案由（一级）"] == {"刑事": 1, "民事": 1}
+    assert stats["按案由（末级）"]["赌博罪"] == 1
+    assert stats["按文书类型"] == {"判决书": 2}
+    assert stats["按省份"]["湖南省"] == 1 and stats["按省份"]["江苏省"] == 1
+    assert "按法律版本与法条" not in stats          # 司法案例库没有执法依据列，不产生这一项
+
+
+def test_enforcement_doc_meta_and_table():
+    p = parse_enforcement_doc(DOC_TEXT, filename=DOC_NAME)
+    assert p["pkulaw_id"] == "FBM-CLI.ALE.47644244"
+    assert p["doc_no"] == "某公(某新)行罚决字〔2025〕00289号"
+    assert p["subject"] == "张*三"
+    assert p["authority"] == "某县公安局"
+    assert p["region_text"] == "某省"
+    assert p["publish_date"] == "2025-12-29"
+    assert p["decision_date"] == "2025-12-29"
+    assert p["penalty_kinds"] == "罚款、没收违法所得、没收非法财物"
+    assert p["result_text"] == "罚款三百元"
+    assert p["subject_matter"] == "赌博"
+    assert p["source_url"].startswith("https://www.pkulaw.com/apy/")
+    assert "北大法宝" not in p["body"]           # 版权页脚已截掉
+
+
+def test_articles_and_law_version():
+    arts, ver = parse_articles("中华人民共和国治安管理处罚法(2012修正)第70条")
+    assert arts == ["治安管理处罚法第七十条"] and ver == "旧法"
+    arts, ver = parse_articles("中华人民共和国治安管理处罚法(2025修订) 第82条")
+    assert arts == ["治安管理处罚法第八十二条"] and ver == "新法"
+    arts, ver = parse_articles("《中华人民共和国治安管理处罚法》第七十条")
+    assert arts == ["治安管理处罚法第七十条"] and ver == ""
+
+
+def test_outcome_variants():
+    oc = outcome_from("罚款三百元", "罚款、没收违法所得、没收非法财物")
+    assert oc["type"] == "罚款" and oc["fine"] == 300 and oc["detention_days"] == 0
+    assert "没收" in oc["confiscation"]
+
+    oc = outcome_from("行政拘留十日并处罚款五百元", "行政拘留")
+    assert oc["type"] == "拘留并处罚款" and oc["detention_days"] == 10 and oc["fine"] == 500
+
+    oc = outcome_from("行政拘留五日", "行政拘留")
+    assert oc["type"] == "拘留" and oc["detention_days"] == 5 and oc["fine"] == 0
+
+    oc = outcome_from("合并执行拘留二十日", "行政拘留")
+    assert oc["detention_days"] == 20
+
+    oc = outcome_from("对张*三不予处罚", "")
+    assert oc["type"] == "不予处罚"
+
+    oc = outcome_from("", "", "")               # 抽不出结果 → 给解析告警留口子
+    assert oc["type"] == ""
+
+
+def test_record_is_outcome_only_and_flags():
+    p = parse_enforcement_doc(DOC_TEXT, filename=DOC_NAME)
+    cat_row = {"罚没总金额_元": 300}
+    rec = build_record(p, harvest_date="2026-10-16", catalog_row=cat_row)
+    assert rec["source_type"] == "执法公示"
+    assert rec["behavior_date"] is None          # 硬缺口：执法公示不发行为日期
+    assert rec["text_facts"] == ""
+    assert rec["quality"]["outcome_only"] is True
+    assert rec["quality"]["has_amount"] is False  # 事实段没有金额 → 不满足信息完整度
+    assert rec["quality"]["law_version_raw"] == "2012修正"
+    assert rec["quality"]["parse_warnings"] == ["facts_missing"]
+    assert rec["outcome"]["articles"] == ["治安管理处罚法第七十条"]
+    assert rec["outcome"]["law_version"] == "旧法"
+    assert rec["event_hint"]["doc_seq"] == "00289"
+
+    # 罚款额与目录表不一致 → 记告警（双源交叉核对）
+    rec2 = build_record(p, catalog_row={"罚没总金额_元": 500})
+    assert any(w.startswith("fine_mismatch") for w in rec2["quality"]["parse_warnings"])
+
+
+def test_record_serializable_and_schema_keys():
+    rec = build_record(parse_enforcement_doc(DOC_TEXT, filename=DOC_NAME))
+    s = json.dumps(rec, ensure_ascii=False)      # 交付是 JSONL，必须可序列化
+    assert "behavior_date" in json.loads(s)
+    for key in ("id", "source_type", "source_ref", "harvest_date", "deidentified", "behavior_date",
+                "decision_date", "authority", "region", "text_facts", "text_decision", "outcome", "review"):
+        assert key in rec, key
