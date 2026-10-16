@@ -1239,6 +1239,15 @@ def cmd_catalog(args) -> None:
         report(f"  {k}：{v}")
 
 
+TIER_RANK = {"L1-金标候选": 0, "L2-结果only": 1, "L4-待核": 2, "L3-范围外": 3}
+
+
+def record_rank(r: dict) -> tuple:
+    """跨批去重时的"择优"排序：金标候选 > 结果-only > 待核 > 范围外；同级事实段更长优先。"""
+    tier = r.get("quality", {}).get("tier", "")
+    return (TIER_RANK.get(tier, 9), -len(r.get("text_facts") or ""), -len(r.get("text_full") or ""))
+
+
 def doc_files(root: Path) -> list[Path]:
     """递归收集可解析文书；排除 Word 临时/锁文件（~$…，Word 打开文档时生成）与隐藏文件。
 
@@ -1412,6 +1421,66 @@ def cmd_docs(args) -> None:
            f"｜缺决定日期 {stats['missing_decision_date_ratio']:.0%}")
     report(f"  事件产出：{stats['unique_events']} 个独立事件 / {len(stats_records)} 篇（折算率 {stats['event_yield']:.0%}）")
     report(f"  产出目录：{out}（批次 {stats['batch']}；含 SHA256SUMS）")
+
+
+def cmd_merge(args) -> None:
+    """跨批次合并解析产物（择优去重）：多盒 L1/L2/L3/L4 → 一个唯一集合。
+
+    去重键：法宝引证码 > 文号（_rec_key）；重复时按 record_rank 择优
+    （金标候选 > 结果-only > 待核 > 范围外，同级事实段更长优先）。
+    产出：out/<批次>/ 四个分级文件 + merge.stats.json（含重复明细 per_key）。
+    """
+    sources = [Path(x) for x in args.sources]
+    out = resolve_out(args.out, "docs", batch_tag(args.batch))
+    out.mkdir(parents=True, exist_ok=True)
+    guard_outputs(out, "docs", force=args.force)
+
+    best: dict[str, dict] = {}
+    key_source: dict[str, str] = {}
+    dup_log: list[dict] = []
+    per_source: dict[str, int] = {}
+    for src in sources:
+        n = 0
+        for f in ("admin_cases.jsonl", "admin_outcomes_only.jsonl",
+                  "admin_needs_review.jsonl", "pkulaw_out_of_scope.jsonl"):
+            for r in _read_jsonl(src / f):
+                n += 1
+                k = _rec_key(r)
+                if k in best and record_rank(r) >= record_rank(best[k]):
+                    dup_log.append({"key": k, "kept": key_source[k], "dropped": src.name})
+                    continue
+                if k in best:
+                    dup_log.append({"key": k, "kept": src.name, "dropped": key_source[k]})
+                best[k] = r
+                key_source[k] = src.name
+        per_source[src.name] = n
+
+    buckets = {"L1-金标候选": [], "L2-结果only": [], "L3-范围外": [], "L4-待核": []}
+    for k, r in best.items():
+        buckets.setdefault(r.get("quality", {}).get("tier", "L4-待核"), []).append(r)
+    names = (("admin_cases.jsonl", "L1-金标候选"), ("admin_outcomes_only.jsonl", "L2-结果only"),
+             ("admin_needs_review.jsonl", "L4-待核"), ("pkulaw_out_of_scope.jsonl", "L3-范围外"))
+    for fname, tier in names:
+        if buckets.get(tier):
+            _write_jsonl_atomic(out / fname, buckets[tier])
+    events = {r.get("event_key", "") for r in best.values() if r.get("event_key")}
+    stats = {
+        "merged_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "batch": args.batch or batch_tag(""),
+        "sources": {k: v for k, v in per_source.items()},
+        "total_in": sum(per_source.values()), "unique": len(best),
+        "tier": {t: len(v) for t, v in buckets.items() if v},
+        "unique_events": len(events),
+        "duplicates": dup_log,
+        "key_source": key_source,
+    }
+    (out / "merge.stats.json").write_text(
+        json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
+    report(f"合并 {len(sources)} 个来源 → {out}")
+    report(f"  输入 {stats['total_in']} 条 → 唯一 {stats['unique']} 条（去重 {len(dup_log)}）")
+    report(f"  分级：{stats['tier']}｜独立事件 {len(events)}")
+    for d in dup_log:
+        report(f"  重复：{d['key']}（保留 {d['kept']}，丢弃 {d['dropped']}）")
 
 
 def cmd_cases(args) -> None:
@@ -1594,6 +1663,12 @@ def main() -> None:
     wl.add_argument("--batch", default="", help="批次标签（缺省用时间戳）")
     wl.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
     wl.set_defaults(func=cmd_worklist)
+    m = sub.add_parser("merge", help="跨批次合并解析产物（择优去重）→ 一个唯一集合")
+    m.add_argument("--from", dest="sources", nargs="+", required=True, help="要合并的批次目录（含四个分级文件）")
+    m.add_argument("--out", default="", help="输出目录；缺省 $JUSTILAW_DATA_DIR/ingest/<批次>/")
+    m.add_argument("--batch", default="", help="批次标签（缺省时间戳）")
+    m.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
+    m.set_defaults(func=cmd_merge)
     c2 = sub.add_parser("cases", help="司法案例记录（MCP 响应/JSONL）→ 判决书规格 JSONL")
     c2.add_argument("--src", required=True, help="MCP 响应 JSON、JSONL 或目录")
     c2.add_argument("--worklist", default="", help="司法案例库目录 worklist.csv（按案件字号 join）")

@@ -428,6 +428,48 @@ def test_table_wrapped_narrative_form():
     assert rec["gambling_hint"] if "gambling_hint" in rec else rec["quality"]["form"].startswith("叙述式")
 
 
+def test_record_rank_prefers_better_copy():
+    """跨批去重择优：金标候选 > 结果-only > 待核 > 范围外；同级事实段更长优先。"""
+    import pkulaw_ingest as ing
+    l1_short = {"quality": {"tier": "L1-金标候选"}, "text_facts": "短", "text_full": "x"}
+    l1_long = {"quality": {"tier": "L1-金标候选"}, "text_facts": "长" * 200, "text_full": "x"}
+    l2 = {"quality": {"tier": "L2-结果only"}, "text_facts": "", "text_full": "y"}
+    l3 = {"quality": {"tier": "L3-范围外"}, "text_facts": "", "text_full": "z"}
+    assert sorted([l2, l1_short, l3, l1_long], key=ing.record_rank)[0] is l1_long
+    assert ing.record_rank(l1_short) < ing.record_rank(l2) < ing.record_rank(l3)
+
+
+def test_cmd_merge_dedupes_across_batches(tmp_path):
+    """跨批合并：同键去重并择优；L1/L2/L3 分级写出；重复明细落 merge.stats.json。"""
+    from types import SimpleNamespace
+
+    import pkulaw_ingest as ing
+    a, b = tmp_path / "A", tmp_path / "B"
+    a.mkdir(); b.mkdir()
+    ing._write_jsonl_atomic(a / "admin_cases.jsonl", [
+        {"pkulaw_id": "CLI.ALE.1", "doc_no": "X公字〔2020〕1号", "text_facts": "短",
+         "quality": {"tier": "L1-金标候选"}, "event_key": "e1"}])
+    ing._write_jsonl_atomic(a / "admin_outcomes_only.jsonl", [
+        {"pkulaw_id": "CLI.ALE.2", "doc_no": "X公字〔2020〕2号", "text_facts": "",
+         "quality": {"tier": "L2-结果only"}}])
+    ing._write_jsonl_atomic(b / "admin_cases.jsonl", [
+        {"pkulaw_id": "CLI.ALE.1", "doc_no": "X公字〔2020〕1号", "text_facts": "长" * 99,
+         "quality": {"tier": "L1-金标候选"}, "event_key": "e1"}])   # 同键、更全 → 应保留
+    ing._write_jsonl_atomic(b / "pkulaw_out_of_scope.jsonl", [
+        {"pkulaw_id": "CLI.ALE.3", "doc_no": "X民字〔2020〕3号",
+         "quality": {"tier": "L3-范围外"}}])
+    out = tmp_path / "M"
+    args = SimpleNamespace(sources=[str(a), str(b)], out=str(out), batch="m1", force=False)
+    ing.cmd_merge(args)
+    kept = ing._read_jsonl(out / "admin_cases.jsonl")
+    assert len(kept) == 1 and len(kept[0]["text_facts"]) == 99     # 择优保留了更全的那份
+    assert len(ing._read_jsonl(out / "admin_outcomes_only.jsonl")) == 1
+    assert len(ing._read_jsonl(out / "pkulaw_out_of_scope.jsonl")) == 1
+    stats = json.loads((out / "merge.stats.json").read_text(encoding="utf-8"))
+    assert stats["total_in"] == 4 and stats["unique"] == 3
+    assert stats["duplicates"][0]["key"] == "CLI.ALE.1" and stats["duplicates"][0]["kept"] == "B"
+
+
 # ---------------- 输出隔离与保护（2026-10-16 覆盖事故整改） ----------------
 
 def test_doc_files_excludes_word_temp_and_hidden(tmp_path):
