@@ -77,7 +77,7 @@
 
 ### 4.1 扫描件 OCR（`ocr.py` + `winocr.ps1`，2026-10-16）
 
-**复用本机已有实现，不新装库**：本机已有两套 OCR——Windows 自带 OCR（`Windows.Media.Ocr`，zh-Hans-CN；调用写法沿用另一个本地项目 astrbot-ops 的 `vision_lib.ps1`）和 Tesseract 5.5（`D:_Apps\Tools\Tesseract-OCR`，带 chi_sim）。用同一张定兴扫描件对比：
+**复用本机已有实现，不新装库**：本机已有两套 OCR——Windows 自带 OCR（`Windows.Media.Ocr`，zh-Hans-CN；调用写法沿用另一个本地项目 astrbot-ops 的 `vision_lib.ps1`）和 Tesseract 5.5（`D:/01_Apps/Tools/Tesseract-OCR`，带 chi_sim）。用同一张定兴扫描件对比：
 
 | 引擎 | 速度 | 质量 |
 |---|---|---|
