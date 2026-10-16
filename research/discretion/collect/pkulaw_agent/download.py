@@ -222,16 +222,17 @@ def _wait_for_file(page, sink: DownloadSink, before: int, timeout_s: float) -> b
 
 
 def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "auto",
-                   menu_wait_s: float = 4.0, probe_wait_s: float = 6.0,
+                   menu_wait_s: float = 4.0, probe_wait_s: float = 3.0,
                    grace_s: float = 15.0) -> bool:
     """点击"下载"直到收到文件；菜单项按 fmt 偏好（auto=Word 优先回退 PDF）。
 
     实测修正轨迹（2026-10-16，分步计时定位）：
     ① 旧逻辑对**每次点击空等满 25s** → 详情页两个"下载"展开器各白等 25s（download_s 恒 55–57s）；
     ② 展开器短等后仍 ~28s：**[计时] 显示格式项也先撞到一个"死元素"（点了不出文件）再撞真元素**，
-       而真元素点击后 **0.5s 文件即到**（导出本身极快）。
+       而真元素点击后 **0.5s 文件即到**（导出本身极快，n≈14 全部 ≤1s）。
     现逻辑：展开器只点一次短等；格式/兜底点击一律**短探 probe_wait_s 秒 → 没文件立刻换下一个元素**；
-    全部试完仍无文件才做一次 grace_s 宽限（慢导出兜底）。每步打 [计时] 供效率分析。
+    全部试完仍无文件才做一次 grace_s 宽限（慢导出兜底）。probe_wait_s=3s 对实测 0.5s 留 6 倍余量
+    （2026-10-16 晚从 6s 收紧；再往下压需活体证据支持）。每步打 [计时] 供效率分析。
     """
     import time as _t
 
