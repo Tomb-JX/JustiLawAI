@@ -54,21 +54,55 @@ def cn_to_number(s: str) -> float | None:
     return float(total + section + num)
 
 
+_OPEN_PREFIX = r"(?:在|达|达到|累计达|共计|合计|总计)?"
+_FEW = {"数": (2, 9), "几": (2, 9)}
+
+
+def _last_unit(v: float) -> int:
+    """末位非零数位的单位：3000 → 1000，12500 → 100，500000 → 100000。"""
+    n, unit = int(v), 1
+    while n and n % 10 == 0:
+        n, unit = n // 10, unit * 10
+    return unit
+
+
 def parse_amount(text: str) -> AmountRange | None:
-    """"800" / "800元" / "3000-3999" / "三千余元" / "1.2万元" / "约5万元" → 金额区间（元）。"""
+    """金额写法 → 区间（元），口径见标注指南 §2：
+    "800元" → 800–800；"3000-3999"；"三千余元" → 3000–3999；"约5万元" → 45000–55000；
+    "万元以上" / "逾5000元" / "至少2000元" → 下界、上界为空；"不足1000元" → 0–1000；
+    "近万元" → 9000–10000；"数千元" → 2000–9999。
+    """
     t = text.replace("人民币", "").replace("元", "").replace("约", "").replace("左右", "").strip()
+    t = re.sub(r"^(?:个人|现场|累计|涉案)?(?:赌资|赌金|金额)(?:数额)?", "", t)
+    t = re.sub(r"^" + _OPEN_PREFIX, "", t) if re.search(r"以上|逾|超过|至少|不低于|不少于", t) else t
     m = re.fullmatch(r"(.+?)\s*[-~—至到]\s*(.+)", t)
     if m:
         lo, hi = cn_to_number(m.group(1)), cn_to_number(m.group(2))
         return AmountRange(min=lo, max=hi) if lo is not None and hi is not None and lo <= hi else None
+    m = re.fullmatch(r"(?:逾|超过|至少|不低于|不少于)?\s*(.+?)\s*(以上)?", t)
+    if m and (m.group(2) or re.match(r"逾|超过|至少|不低于|不少于", t)):
+        base = cn_to_number(m.group(1) if m.group(1) != "万" else "1万")
+        return AmountRange(min=base, max=None) if base is not None else None
+    m = re.fullmatch(r"(?:不足|不到|低于)\s*(.+)|(.+?)\s*以下", t)
+    if m:
+        v = cn_to_number(m.group(1) or m.group(2))
+        return AmountRange(min=0, max=v) if v is not None else None
+    m = re.fullmatch(r"(?:近|将近|接近)\s*(.+)", t)
+    if m:
+        v = cn_to_number(m.group(1) if m.group(1) != "万" else "1万")
+        return AmountRange(min=round(v * 0.9), max=v) if v is not None else None
+    m = re.fullmatch(r"([数几])\s*([十百千万]+)", t)
+    if m:
+        unit = cn_to_number("1" + m.group(2)) if m.group(2) == "万" else cn_to_number("一" + m.group(2))
+        lo, hi = _FEW[m.group(1)]
+        return AmountRange(min=lo * unit, max=(hi + 1) * unit - 1)
     more = re.fullmatch(r"(.+?)\s*[余多]\s*(万)?", t)
     if more:
         base = cn_to_number(more.group(1) + (more.group(2) or ""))
         if base is None:
             return None
-        # "三千余元" → 3000–3999；"1万余元" → 10000–19999；"50余万元" → 500000–599999；"十余万元" → 100000–199999
-        step = 10 ** (len(str(int(base))) - 1) if base >= 10 else 1
-        return AmountRange(min=base, max=base + step - 1)
+        # "三千余元" → 3000–3999；"1万余元" → 10000–19999；"50余万元" → 500000–599999；"12500余元" → 12500–12599
+        return AmountRange(min=base, max=base + _last_unit(base) - 1)
     v = cn_to_number(t)
     if v is None:
         return None

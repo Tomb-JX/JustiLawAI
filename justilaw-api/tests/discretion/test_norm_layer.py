@@ -79,6 +79,20 @@ def test_merge_detention_cap():
 def test_per_capita_stake():
     r = nl.per_capita_stake(AmountRange(min=4600, max=4600), 4)
     assert (r.min, r.max) == (1150, 1150)
+    r = nl.per_capita_stake(AmountRange(min=5000, max=None), 5)
+    assert (r.min, r.max) == (1000, None)
+
+
+@pytest.mark.parametrize("stake, status", [
+    ({"min": 10000, "max": None}, "可能达到"),    # "赌资在万元以上"：开口，只能说可能达到 5 万门槛
+    ({"min": 60000, "max": None}, "达到"),        # "6 万元以上"：下界已过门槛
+    ({"min": 10000, "max": 19999}, None),         # 按数量级补上界会把它错判成未达到（不提示）
+])
+def test_referral_open_upper_bound(stake, status):
+    a = nl.assess(to_facts({"behavior_date": date(2026, 3, 1), "behavior_type": "为赌博提供条件",
+                            "cumulative_stake": stake}))
+    got = [r["status"] for r in a.referral if r["item"] == "cumulative_stake"]
+    assert got == ([status] if status else [])
 
 
 def test_every_option_respects_statutory_maximum():

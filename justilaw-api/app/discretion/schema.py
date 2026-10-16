@@ -19,7 +19,7 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"  # 1.1.0：金额允许无上界；营利目的改为只记原文认定与本人获利事实（collab-log 2026-10-17）
 
 T = TypeVar("T")
 
@@ -54,15 +54,31 @@ class Extracted(BaseModel, Generic[T]):
 
 
 class AmountRange(BaseModel):
-    """金额（元）。确切数额 min=max；"三千余元"记 min=3000、max=3999；"约 5 万元"按标注指南记区间。"""
+    """金额（元），闭区间 [min, max]。
+
+    - 确切数额 min=max；"三千余元"记 3000–3999（余 = 末位非零数位上不足一个单位）；
+      "约 5 万元"记 45000–55000；其余写法见标注指南 §2。
+    - **max 为空表示没有上界**，只用于"以上 / 逾 / 超过 / 至少 / 不低于"这类开口写法：
+      "赌资在万元以上"记 min=10000、max=空。不得按数量级替它补一个上界——
+      补出来的上界会让规范层把"可能达到入罪门槛"错判成"未达到"。
+    """
     min: float = Field(ge=0)
-    max: float = Field(ge=0)
+    max: float | None = Field(default=None, ge=0, description="上界；为空表示开口（原文只给了下界）")
 
     @model_validator(mode="after")
     def _ordered(self):
-        if self.min > self.max:
+        if self.max is not None and self.min > self.max:
             raise ValueError("min 不能大于 max")
         return self
+
+    @property
+    def upper(self) -> float:
+        """比较用的上界：开口时为正无穷。"""
+        return float("inf") if self.max is None else self.max
+
+    @property
+    def open_upper(self) -> bool:
+        return self.max is None
 
 
 # ---------- 取值枚举 ----------
@@ -135,7 +151,8 @@ class Amounts(BaseModel):
     cumulative_stake: Extracted[AmountRange] = Field(default_factory=Extracted,
         description="累计赌资（元），多次赌博累计")
     commission: Extracted[AmountRange] = Field(default_factory=Extracted,
-        description="抽头渔利、台费、头钱等从赌博中获取的收入（元）")
+        description="抽头渔利、头钱、水钱、台费等从赌博中获取的收入（元）。只有台费、场地费时也记在这里，"
+                    "但它本身不证明以营利为目的（见 intent.profit_purpose）")
     illegal_gain: Extracted[AmountRange] = Field(default_factory=Extracted, description="其他违法所得（元）")
 
 
@@ -156,7 +173,12 @@ class Venue(BaseModel):
 
 class Intent(BaseModel):
     profit_purpose: Extracted[bool] = Field(default_factory=Extracted,
-        description="是否以营利为目的。有抽头、收台费、经营性收费等事实时为'明确'；仅凭金额大小判断时标'推断'")
+        description="是否以营利为目的。只记两类依据：原文对本人写明'以营利为目的'或'营利性赌博'，"
+                    "或原文写明本人抽头、渔利、收头钱水钱、坐庄获利——都标'明确'为是；本人是场所或条件提供者、"
+                    "原文写了现场有抽头头钱但没说谁收的，标'推断'为是；原文写明'不以营利为目的''娱乐消遣'的标'明确'为否。"
+                    "赌资或输赢金额大小、赌博方式、被当场查获、只收台费场地费、平台名里的'娱乐'、"
+                    "所引法条原文、'构成赌博'等定性用语都不是依据，此时标'未提及'。"
+                    "对其他参赌人的营利事实不算本人的")
 
 
 class Circumstances(BaseModel):

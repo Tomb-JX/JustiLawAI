@@ -1,6 +1,8 @@
 """M1 取值规范化与证据定位（不调用模型）。"""
 from datetime import date
 
+import pytest
+
 from app.discretion import extract as ex
 from app.discretion.schema import AmountRange
 
@@ -24,6 +26,29 @@ def test_parse_amount():
     assert ex.parse_amount("十余万元") == AmountRange(min=100000, max=199999)
     assert ex.parse_amount("math.ceil(173890/2)") is None
     assert ex.parse_amount("若干") is None
+
+
+@pytest.mark.parametrize("text, lo, hi", [
+    ("赌资在万元以上", 10000, None),        # W-000608 的原文写法
+    ("一万元以上", 10000, None),
+    ("五千元以上", 5000, None),
+    ("达5000元以上", 5000, None),
+    ("12500元以上", 12500, None),          # 不是 12500–12999，也不是确切数
+    ("逾5000元", 5000, None),
+    ("至少2000元", 2000, None),
+    ("不足1000元", 0, 1000),
+    ("500元以下", 0, 500),
+    ("近万元", 9000, 10000),
+    ("数千元", 2000, 9999),
+    ("数百元", 200, 999),
+    ("数万元", 20000, 99999),
+    ("12500余元", 12500, 12599),           # 余 = 末位非零数位上不足一个单位
+    ("一万二千余元", 12000, 12999),
+    ("7000余元", 7000, 7999),
+])
+def test_parse_amount_bounds(text, lo, hi):
+    r = ex.parse_amount(text)
+    assert (r.min, r.max) == (lo, hi)
 
 
 def test_parse_other_types():

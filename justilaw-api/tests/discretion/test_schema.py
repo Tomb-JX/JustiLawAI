@@ -25,6 +25,12 @@ def test_amount_range_ordered():
         AmountRange(min=500, max=100)
 
 
+def test_amount_range_open_upper():
+    a = AmountRange(min=10000)
+    assert a.max is None and a.open_upper and a.upper == float("inf")
+    assert AmountRange(min=10000, max=10000).upper == 10000
+
+
 def test_key_fields_exist_and_all_fields_documented():
     paths = {p for p, _, _ in iter_fields()}
     assert set(KEY_FIELDS) <= paths
