@@ -365,7 +365,7 @@ def cmd_download(a: argparse.Namespace) -> int:
             run_dir = _Path(a.run)
             out_dir = _Path(a.out) if a.out else run_dir / "downloads"
             download_run(s, run_dir, out_dir, cap=a.cap, min_interval_s=a.interval,
-                         manual=a.manual)
+                         manual=a.manual, fmt=a.format)
         else:
             if a.ui_search:
                 if not a.term:
@@ -381,7 +381,8 @@ def cmd_download(a: argparse.Namespace) -> int:
             out_dir = (_Path(a.out) if a.out else
                        sess.data_dir() / "inbox" / "pkulaw" / (a.batch or _time.strftime("%Y%m%d"))
                        / "downloads")
-            download_results_page(s, url, out_dir, pages=a.pages, cap=a.cap, manual=a.manual)
+            download_results_page(s, url, out_dir, pages=a.pages, cap=a.cap,
+                                  manual=a.manual, fmt=a.format)
     return 0
 
 
@@ -493,7 +494,8 @@ def cmd_run(a: argparse.Namespace) -> int:
         _ensure_login(s, a.timeout)
         run_jobs(s, Path(a.jobs), out_dir=Path(a.out) if a.out else None,
                  cap=a.cap, dry_run=a.dry_run, resume=not a.no_resume, force=a.force,
-                 min_interval=a.interval, window_spec=a.window, min_facts=a.min_facts)
+                 min_interval=a.interval, window_spec=a.window, min_facts=a.min_facts,
+                 download_format=a.download_format)
     return 0
 
 
@@ -581,6 +583,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--term", default="")
     p.add_argument("--pages", type=int, default=1)
     p.add_argument("--cap", type=int, default=50, help="本次最多下载条数（配额红线）")
+    p.add_argument("--format", default="auto", choices=["auto", "word", "pdf"],
+                   help="下载格式：auto=Word 优先回退 PDF（默认）")
     p.add_argument("--manual", action="store_true", help="自动失败时转人工点一下，文件自动收")
     p.add_argument("--lib", default="apy", choices=sorted(api_mod.LIBS))
     p.add_argument("--batch", default="")
@@ -625,6 +629,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", default="", help="输出目录（缺省=作业单所在目录）")
     p.add_argument("--cap", type=int, default=30, help="本次最多下载件数（配额红线）")
     p.add_argument("--dry-run", action="store_true", help="只校验不下载")
+    p.add_argument("--download-format", default="auto", choices=["auto", "word", "pdf"],
+                   help="下载格式：auto=Word 优先、失败回退 PDF（默认）；word=只点下载WORD；pdf=只点下载PDF")
     p.add_argument("--no-resume", action="store_true", help="不跳过已完成件（默认跳过）")
     p.add_argument("--force", action="store_true", help="忽略历史状态全部重做")
     p.add_argument("--interval", type=float, default=2.0)

@@ -120,6 +120,7 @@ def _reason_key(fails: list[str]) -> str:
 def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int = 30,
              dry_run: bool = False, resume: bool = True, force: bool = False,
              min_interval: float = 2.0, window_spec: str = "", min_facts: int = 50,
+             download_format: str = "auto",
              manifest_path: Path | None = None, logger=print) -> dict:
     jobs_path = Path(jobs_path)
     jobs = [json.loads(x) for x in
@@ -225,7 +226,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             ok = False
             try:
                 from pkulaw_agent.download import click_download
-                ok = click_download(session.page, sink, wait_s=25)
+                ok = click_download(session.page, sink, wait_s=25, fmt=download_format)
             except Exception as exc:  # noqa: BLE001
                 logger(f"  ✗ 下载动作异常：{exc}")
             files = sink.saved[before:]
@@ -250,9 +251,10 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
                 logger("  ✗ 自动点下载未收到文件")
         state.put(rec)
 
-    summary = {"mode": "dry-run" if dry_run else f"download(cap={cap})",
+    summary = {"mode": "dry-run" if dry_run else f"download(cap={cap},fmt={download_format})",
                "jobs": str(jobs_path), "out": str(out), "input_sha256_16": in_sha,
                "window": window_spec or "", "min_facts": min_facts,
+               "download_format": download_format,
                "started": started, "finished": time.strftime("%Y-%m-%d %H:%M"),
                "counters": counters, "reasons": dict(reasons)}
     if sink is not None:

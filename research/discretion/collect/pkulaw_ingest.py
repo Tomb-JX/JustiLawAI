@@ -621,6 +621,27 @@ def catalog_stats(rows: list[dict]) -> dict:
 
 # ---------- 文书文本获取 ----------
 
+def _splice_prefix_artifact(s: str) -> str:
+    """段内"截断前缀+全文"修复：扫描 20 字窗口，若其后 300 字内出现同一窗口且
+    "被删片段恰是后一次全文的前缀"，则删除前一次截断部分（保留完整副本）。
+    实测两种形态：① 伪影在段首（"…院内，王2026年…"）；② 折行后段首带标题（"现查明2026年…"）。"""
+    if len(s) < 60:
+        return s
+    changed = True
+    while changed:
+        changed = False
+        i, n = 0, len(s)
+        while i < n - 40:
+            seg = s[i:i + 20]
+            q = s.find(seg, i + 1, min(n, i + 300))
+            if q > i and s[q:q + (q - i)] == s[i:q]:
+                s = s[:i] + s[q:]
+                changed = True
+                break
+            i += 1
+    return s
+
+
 def dedup_page_text(text: str) -> str:
     """清理法宝**源文档**自带的重复伪影（page 抓取与 PDF 导出件同样出现，实测 2026-10-16）：
     ① 整段精确重复（"…出生。…出生。"）；
@@ -632,10 +653,7 @@ def dedup_page_text(text: str) -> str:
     for s in raw_lines:
         if len(s) >= 24 and len(s) % 2 == 0 and s[: len(s) // 2] == s[len(s) // 2:]:
             s = s[: len(s) // 2]  # ① 半段精确重复
-        if len(s) >= 40:
-            p = s.find(s[:20], 5)
-            if p > 0 and len(s) - p >= 12:
-                s = s[p:]  # ② 截断前缀：保留后一次完整副本
+        s = _splice_prefix_artifact(s)  # ② 截断前缀：保留后一次完整副本
         if s:
             lines.append(s)
     keep = [True] * len(lines)
@@ -664,9 +682,13 @@ def _find_dup_spans(flat: str) -> list[tuple[int, int]]:  # pragma: no cover —
 
 
 def doc_to_text(path: Path) -> tuple[str, str]:
-    """'.doc/.docx/.pdf/.txt' → (文本, 取文本方式)；产出统一过去重伪影（幂等）。"""
+    """'.doc/.docx/.pdf/.txt' → (文本, 取文本方式)；统一前置"折行还原"再"去伪影"（幂等）。
+
+    各引擎输出都有硬换行（PDF 版面宽 / antiword ~80 列 / 页面 innerText 段落），先折行使
+    "段落≈一行"，行级去伪影规则才能覆盖"截断前缀"跨行的情形。
+    """
     text, how = _doc_to_text_raw(path)
-    return dedup_page_text(text), how
+    return dedup_page_text(_fold_wrapped_lines(text)), how
 
 
 def _doc_to_text_raw(path: Path) -> tuple[str, str]:
@@ -693,23 +715,40 @@ def _doc_to_text_raw(path: Path) -> tuple[str, str]:
             return text, "word-com"
         raise RuntimeError(f"{path}: .doc 取文本失败（antiword 与本机 Word 都不可用）")
     if suf == ".pdf":  # 法宝"下载PDF"导出件（作业台默认原件形态）
-        return _pdf_to_text(path), "pdf"
+        text, engine = _pdf_to_text(path)
+        return text, f"pdf:{engine}"
     raise ValueError(f"不支持的扩展名：{path.suffix}")
 
 
-def _pdf_to_text(path: Path) -> str:
-    """PDF 取文本：优先 PyMuPDF（fitz），退回 pypdf；还原元数据"值/标签"排版，再折行还原段落。"""
+def _pdf_to_text(path: Path) -> tuple[str, str]:
+    """PDF 取文本三链（本机工具探查 2026-10-16）：PyMuPDF(fitz) → pdftotext -layout（poppler）
+    → pypdf。统一做"值/标签"换序（折行与去伪影在 doc_to_text 统一处理）。返回 (文本, 引擎名)。"""
+    raw = ""
+    engine = ""
     try:
         import fitz  # PyMuPDF
 
         with fitz.open(str(path)) as doc:
             raw = "\n".join(page.get_text() for page in doc)
-    except Exception:  # noqa: BLE001 —— 退回 pypdf
+        engine = "fitz"
+    except Exception:  # noqa: BLE001
+        raw = ""
+    if not raw.strip() and shutil.which("pdftotext"):
+        try:
+            out = subprocess.run(["pdftotext", "-layout", "-enc", "UTF-8", str(path), "-"],
+                                 capture_output=True, timeout=120)
+            if out.returncode == 0 and out.stdout.strip():
+                raw = out.stdout.decode("utf-8", "replace")
+                engine = "pdftotext"
+        except Exception:  # noqa: BLE001
+            pass
+    if not raw.strip():
         from pypdf import PdfReader
 
         reader = PdfReader(str(path))
         raw = "\n".join((p.extract_text() or "") for p in reader.pages)
-    return _fold_wrapped_lines(_fix_label_after_value(raw))
+        engine = "pypdf"
+    return _fix_label_after_value(raw), engine
 
 
 def _fold_wrapped_lines(text: str) -> str:

@@ -350,6 +350,21 @@ def test_download_patterns_cover_menu_items():
     assert DOWNLOAD_TEXT.search("导出目录")
 
 
+def test_download_patterns_format_preference():
+    from pkulaw_agent.download import download_patterns
+    auto = download_patterns("auto")
+    i_w = next(i for i, p in enumerate(auto) if "WORD" in p.pattern)
+    i_p = next(i for i, p in enumerate(auto) if "PDF" in p.pattern)
+    assert i_w < i_p  # auto：Word 优先、失败回退 PDF
+    assert auto[0].search("下载") and i_w > 0  # 首位仍是"下载"展开器
+    word = download_patterns("word")
+    assert any("WORD" in p.pattern for p in word)
+    assert not any("PDF" in p.pattern for p in word)
+    pdf = download_patterns("pdf")
+    assert any("PDF" in p.pattern for p in pdf)
+    assert not any("WORD" in p.pattern for p in pdf)
+
+
 # ---------------- session v1.1：session.json / CDP 探测 ----------------
 
 def test_session_json_roundtrip(tmp_path, monkeypatch):

@@ -214,6 +214,10 @@ python research/discretion/collect/pkulaw_agent/__main__.py download --run <同�
 > phase-review 补记与 workstreams v1.7 在 data-coordination 工作树，待合入 main）。
 > 目标：把作业台打磨成"登录一次、窗口不闪断、批量跑得完、每件有据可查"的稳定工具，
 > 首先服务清洗候选清单（317/165）与 T-time/不予处罚定向。
+>
+> **执行纪律（2026-10-16 立，用户要求）**：每次跑批/动数据前，先核对**最新协调文档**
+> （`data-coordination` 工作树：`workstreams.md` / `phase-review-2026-10-16.md` / 接管单），
+> 确认当前归属、禁区与在途版本后再执行；核对记录写入协作记录。
 
 ### 10.1 "稳定好用"的验收定义
 
@@ -281,6 +285,10 @@ queued → opened → fetched（.txt + sha256）
 
 **下载**：仅对 pass；复用 `click_download` → 文件完整性检查（扩展名 / 大小 >0 / Word 魔数 `PK`/OLE2）
 → 记 `downloaded.jsonl`；`--cap` 双层（本次上限 + 每日配额文件）；失败件 `--manual` 兜底一次。
+**下载格式**（2026-10-16 晚补）：菜单实测为「下载PDF / 下载WORD」——`--download-format`
+`auto`（默认，Word 优先、失败回退 PDF）/ `word` / `pdf`；**Word（.doc）已实下验证**（antiword 链）。
+**原件取文本三链**：PDF = PyMuPDF → `pdftotext -layout`（poppler）→ pypdf；Word = antiword/Word COM；
+页面 txt 同链；统一"折行还原 → 去伪影（法宝源文档自带重复，页面/PDF/Word 同现）→ 解析"。
 
 **命令形态（新增）**：
 

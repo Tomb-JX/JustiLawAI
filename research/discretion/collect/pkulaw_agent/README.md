@@ -7,6 +7,10 @@
 > **红线（详见设计 §3）**：只用官方检索/浏览/导出功能；不绕验证码与风控；单账号、人类节奏
 > （默认 ≥1.5s/请求）；下载消耗配额，必须 `--cap`；账号密码与 profile **不进仓库、不进对话**；
 > 一切正文产物只落 `$JUSTILAW_DATA_DIR`（默认 `D:/02_Dev/Data/justilaw-research`，仓库外）。
+>
+> **执行纪律（2026-10-16 立）**：每次跑批/动数据前，先核对**最新协调文档**（`data-coordination`
+> 工作树：`workstreams.md` / `phase-review-2026-10-16.md` / 接管单），确认当前归属、禁区与在途版本
+> ——用户要求"每次执行任务前确认最新调度"。
 
 ## 0. 安装与前置
 
@@ -156,17 +160,23 @@ Ctrl+C 结束本进程不影响浏览器（窗口继续开着，可手动使用�
 
 ### run — 作业流水线（v1.1 核心）
 ```bash
-... __main__.py run --jobs jobs/2026T-82.jsonl --window 2026 [--dry-run] [--cap 30]
+... __main__.py run --jobs jobs/2026T-82.jsonl --window 2026 [--dry-run] [--cap 30] \
+    [--download-format auto|word|pdf]
 ```
 逐件：打开链接（零配额）→ 抓正文落 `fetch/docs/*.txt` → **六项原文校验**：
 `doc_no`（页面文号==作业文号）/ `gambling`（赌博要素词、非烟草）/ `year`（处罚日期或正文
 年份在窗内，排除"2025修订"字样）/ `narrative`（叙述式且事实段 ≥ `--min-facts`）/ `masked`
 （无 xx/＊/□ 式打码）/ `dedupe`（文号与正文哈希不与台账、本批重复）。
 **六项全过才点下载**（`--cap` 强制上限；文件落盘后做完整性检查），未过件分类留档。
+`--download-format`：`auto`（默认，菜单里 **Word 优先、失败回退 PDF**）/ `word` / `pdf`。
 逐件状态写 `run.jsonl`（追加即刷盘）：`--resume`（默认开）跳过已完成，`--force` 全重做；
 撞上安全验证页整批停（红线），人工处理后 `--resume` 续跑。产物：`run_report.md`（计数 +
 失败原因分布 + 逐件表）、`run.json`、`downloads/`（通过件原件）。下载目录可直接接
 `import_manual.py --channel P` → `pkulaw_ingest` → `parsed1` → L2 构建。
+
+> **原件形态**：PDF 走三链取文本（PyMuPDF → `pdftotext -layout`（poppler）→ pypdf），Word
+> （.doc，antiword/Word COM）与页面 `.txt` 同链；三者统一"折行还原 → 去伪影（法宝源文档
+> 自带重复：截断前缀/整段重复/跨段碎片）→ 解析"。`run` 存下的 `.txt` 与原件任一形态都可直接进解析链。
 
 ## 3. 产物目录布局
 
@@ -230,9 +240,14 @@ $JUSTILAW_DATA_DIR/                       # 默认 D:/02_Dev/Data/justilaw-resea
 
 - v1.1（2026-10-16 作业台开放后）：**会话稳定化**（登录永不自关 / `serve` 常驻 + CDP 接管 /
   `session.json` / doctor 锁检测）、**作业流水线**（`jobs` + `run` 六校验限额下载 + 断点 + 报告）
-  已实现，单测 81 项（本文件所在目录 tests/ 全量）全绿。
-- **联测通过（2026-10-16 晚实跑）**：dry-run 3/3；真下载 3/3；cap-10 批 → 10 下载 + 12 智能跳过
+  已实现，单测 82 项（本文件所在目录 tests/ 全量）全绿。
+- **联测通过（2026-10-16 晚实跑）**：dry-run 3/3；真下载 3/3（PDF）；**Word 格式验证通过**
+  （`--download-format word` 实下 .doc，antiword 链解析正常）；cap-10 批 → 10 下载 + 12 智能跳过
   （打码 10 / 字段式 2）/ 0 失败；批次走通 台账 P-720–P-729 → 解析 10 L1（全叙述式、全新法）
-  → parsed-1 零 error。已知边界：token 约 30 分钟；**续跑用同一 `--out`**（不同目录会重复下载）。
+  → parsed-1 零 error。
+- **原件形态闭环**：PDF 三链（fitz→pdftotext -layout→pypdf）+ Word/页面 txt 统一"折行还原→
+  去伪影→解析"；法宝源文档自带的重复伪影（页面/PDF/Word 同现）已全格式清零（计数法验证）。
+- 已知边界：token 约 30 分钟；**续跑用同一 `--out`**（不同目录会重复下载）；"**派出所"式地名
+  打码但金额/日期完好 → 判可用。
 - 网页版"字段式七字段"的排版需第一份真实抓取样本后适配解析器（叙述式判定已可靠）；
 - `report`（要素出现率核对）暂用既有 `research/eval/key_field_presence.py` 手工跑；自适应换词待做。

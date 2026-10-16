@@ -24,6 +24,24 @@ from pkulaw_agent.session import BASE, LIB_ENTRY
 DOWNLOAD_TEXT = re.compile(r"下载|导出")
 NEXT_PAGE_TEXT = re.compile(r"下一页|下页|后一页")
 
+# 下载格式偏好（实测菜单：下载PDF / 下载WORD）。auto = Word 优先、失败回退 PDF。
+_WORD_PATTERNS = [re.compile(r"下载\s*WORD|下载\s*Word|Word\s*文档"),
+                  re.compile(r"^\s*(WORD|Word|word)\s*$")]
+_PDF_PATTERNS = [re.compile(r"下载\s*PDF|PDF\s*下载"), re.compile(r"^\s*(PDF|pdf)\s*$")]
+
+
+def download_patterns(fmt: str = "auto") -> list[re.Pattern]:
+    """点击顺序：先"下载"展开菜单，再按格式偏好点菜单项，最后兜底泛化模式。"""
+    head = [re.compile(r"^\s*下载\s*$"), re.compile(r"批量下载|下载选中")]
+    if fmt == "word":
+        mid = list(_WORD_PATTERNS)
+    elif fmt == "pdf":
+        mid = list(_PDF_PATTERNS)
+    else:
+        mid = _WORD_PATTERNS + _PDF_PATTERNS
+    tail = [re.compile(r"^\s*导出\s*$"), re.compile(r"^\s*(TXT|文本)\s*$"), DOWNLOAD_TEXT]
+    return head + mid + tail
+
 
 class DownloadSink:
     """context 级下载收集器：文件一落地就改名保存到 out_dir，并记账。"""
@@ -144,19 +162,15 @@ def select_all_records(page) -> int:
         return 0
 
 
-def click_download(page, sink: DownloadSink, *, wait_s: int = 20) -> bool:
-    """点击"下载"直到收到文件；点击"下载"弹出格式菜单时继续点菜单项（Word/PDF）。
+def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "auto") -> bool:
+    """点击"下载"直到收到文件；菜单里有格式项时按 fmt 偏好选（auto=Word 优先回退 PDF）。
 
     找不到/点了没文件 → 打印候选按钮并返回 False（不瞎试）。
     """
     before = sink.count()
     cands = report_candidates(page)
     print(f"  [UI] 页面上的下载类按钮候选：{cands or '（未识别到）'}")
-    patterns = [re.compile(r"^\s*下载\s*$"), re.compile(r"批量下载|下载选中"),
-                re.compile(r"^\s*导出\s*$"),
-                re.compile(r"^\s*(Word|WORD|PDF|TXT|文本)\s*$"),
-                re.compile(r"下载Word|Word文档"), DOWNLOAD_TEXT]
-    for pat in patterns:
+    for pat in download_patterns(fmt):
         try:
             loc = page.get_by_text(pat)
         except Exception:  # noqa: BLE001
@@ -216,7 +230,7 @@ def next_page(page) -> bool:
 # ---------------- 三种入口 ----------------
 def download_run(session, run_dir: Path, out_dir: Path, *, cap: int = 50,
                  min_interval_s: float = 2.0, manual: bool = False,
-                 skip_downloaded: bool = True) -> dict:
+                 fmt: str = "auto", skip_downloaded: bool = True) -> dict:
     """入口 1：对 results.jsonl 逐条开详情页 → 点下载。"""
     from pkulaw_agent.api import Pacer
     from pkulaw_agent.search import iter_results
@@ -250,7 +264,7 @@ def download_run(session, run_dir: Path, out_dir: Path, *, cap: int = 50,
             print(f"    打开失败：{exc}")
             continue
         before = sink.count()
-        ok = click_download(session.page, sink, wait_s=25)
+        ok = click_download(session.page, sink, wait_s=25, fmt=fmt)
         if not ok and manual:
             before = sink.count()
             manual_capture(session, sink, prompt=f"请手动点开这条记录下方的下载按钮（{url}）", timeout_s=180)
@@ -270,7 +284,7 @@ def download_run(session, run_dir: Path, out_dir: Path, *, cap: int = 50,
 
 
 def download_results_page(session, url: str, out_dir: Path, *, pages: int = 1,
-                          cap: int = 50, manual: bool = False) -> dict:
+                          cap: int = 50, manual: bool = False, fmt: str = "auto") -> dict:
     """入口 2/3：打开（或先在库页检索出的）结果页 → 勾选 → 下载；可翻页。"""
     sink = DownloadSink(session.context, out_dir)
     session.page.goto(url if url.startswith("http") else BASE + url,
@@ -284,7 +298,7 @@ def download_results_page(session, url: str, out_dir: Path, *, pages: int = 1,
             print("    ✗ 没勾选到记录——用 --manual 兜底或检查页面")
             break
         before = sink.count()
-        ok = click_download(session.page, sink, wait_s=30)
+        ok = click_download(session.page, sink, wait_s=30, fmt=fmt)
         if not ok and manual:
             manual_capture(session, sink,
                            prompt="请手动点【下载】（勾选保持不动），文件会自动收下", timeout_s=300)
