@@ -222,59 +222,64 @@ def _wait_for_file(page, sink: DownloadSink, before: int, timeout_s: float) -> b
 
 
 def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "auto",
-                   menu_wait_s: float = 4.0) -> bool:
+                   menu_wait_s: float = 4.0, probe_wait_s: float = 6.0,
+                   grace_s: float = 15.0) -> bool:
     """点击"下载"直到收到文件；菜单项按 fmt 偏好（auto=Word 优先回退 PDF）。
 
-    实测修正（2026-10-16）：旧实现对**每次点击都空等满 25s**，而详情页有两个"下载"展开器
-    （点展开器本身永远不会下载）→ 每件白等 ~50s（download_s 稳定 55-57s 的根因）。
-    现逻辑：格式项已可见直接点；否则**只点一个展开器、只短等菜单出现**，再对格式项长等。
-    找不到/点了没文件 → 打印候选按钮并返回 False（不瞎试）。
+    实测修正轨迹（2026-10-16，分步计时定位）：
+    ① 旧逻辑对**每次点击空等满 25s** → 详情页两个"下载"展开器各白等 25s（download_s 恒 55–57s）；
+    ② 展开器短等后仍 ~28s：**[计时] 显示格式项也先撞到一个"死元素"（点了不出文件）再撞真元素**，
+       而真元素点击后 **0.5s 文件即到**（导出本身极快）。
+    现逻辑：展开器只点一次短等；格式/兜底点击一律**短探 probe_wait_s 秒 → 没文件立刻换下一个元素**；
+    全部试完仍无文件才做一次 grace_s 宽限（慢导出兜底）。每步打 [计时] 供效率分析。
     """
+    import time as _t
+
     before = sink.count()
     cands = report_candidates(page)
     print(f"  [UI] 页面上的下载类按钮候选：{cands or '（未识别到）'}")
     fmts = _fmt_patterns(fmt)
 
-    # ① 格式项已可见（菜单本来就开着）→ 直接点，长等
+    def _click(el, tag: str, wait: float) -> bool:
+        tc = _t.monotonic()
+        try:
+            el.click(timeout=5000)
+        except Exception:  # noqa: BLE001
+            return False
+        click_s = _t.monotonic() - tc
+        w0 = _t.monotonic()
+        got = _wait_for_file(page, sink, before, wait)
+        print(f"  [计时] {tag}: click={click_s:.1f}s wait={_t.monotonic() - w0:.1f}s got={got}")
+        return got
+
+    # ① 格式项已可见（菜单本来就开着）→ 短探；撞到死元素立刻换下一个
     for pat in fmts:
         for el in _distinct_clicks(page, pat):
-            try:
-                el.click(timeout=5000)
-            except Exception:  # noqa: BLE001
-                continue
-            if _wait_for_file(page, sink, before, wait_s):
+            if _click(el, f"格式①{pat.pattern[:12]}", probe_wait_s):
                 return True
     # ② 展开菜单：只点第一个可见的"下载"，短等（菜单出现即走，不等满）
     for pat in _OPENER_PATTERNS:
         els = _distinct_clicks(page, pat, limit=2)
         if not els:
             continue
-        try:
-            els[0].click(timeout=5000)
-        except Exception:  # noqa: BLE001
-            continue
-        if _wait_for_file(page, sink, before, menu_wait_s):
+        if _click(els[0], "展开", menu_wait_s):
             return True
         break  # 只试一个展开器一次（旧逻辑在这里空等 25s×按钮数）
-    # ③ 菜单已开 → 逐个格式项点（长等；auto 时 Word 无响应自动轮到 PDF）
+    # ③ 菜单已开 → 逐个格式项短探（auto 时 Word 死元素/无响应自动轮到 PDF）
     for pat in fmts:
         for el in _distinct_clicks(page, pat):
-            try:
-                el.click(timeout=5000)
-            except Exception:  # noqa: BLE001
-                continue
-            if _wait_for_file(page, sink, before, wait_s):
+            if _click(el, f"格式③{pat.pattern[:12]}", probe_wait_s):
                 return True
-    # ④ 兜底：导出 / TXT（长等）
+    # ④ 兜底：导出 / TXT（短探）
     for pat in _TAIL_PATTERNS:
         for el in _distinct_clicks(page, pat):
-            try:
-                el.click(timeout=5000)
-            except Exception:  # noqa: BLE001
-                continue
-            if _wait_for_file(page, sink, before, wait_s):
+            if _click(el, f"兜底{pat.pattern[:12]}", probe_wait_s):
                 return True
-    return False
+    # ⑤ 宽限：所有点击都没文件——等一次长超时（慢导出兜底）
+    w0 = _t.monotonic()
+    got = _wait_for_file(page, sink, before, grace_s)
+    print(f"  [计时] 宽限: wait={_t.monotonic() - w0:.1f}s got={got}")
+    return got
 
 
 def manual_capture(session, sink: DownloadSink, *, prompt: str, timeout_s: int = 600,
