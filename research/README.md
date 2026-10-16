@@ -9,6 +9,7 @@
 | `papers/checksums.tsv` | 每个 PDF 的 SHA-256 | 是 |
 | `papers/pdf/` | 论文 PDF | **否**（arXiv 许可只授权 arXiv 分发） |
 | `discretion/collect/` | 数据采集脚本与来源台账（数据链路负责，见[分工](../docs/04-plan/workstreams.md)） | 是 |
+| `discretion/collect/pkulaw_agent/` | 法宝作业台 CLI：登录/侦察/检索/抓正文/下载文件（见其 [README](discretion/collect/pkulaw_agent/README.md)） | 是（不含凭据与数据；产物落 `$JUSTILAW_DATA_DIR`） |
 | `.venv/` | 研究用虚拟环境（训练、评测依赖） | **否** |
 | `eval/metrics.py` | 门禁文档 §3 全部指标的唯一实现（只依赖 numpy） | 是 |
 | `eval/tests/` | 指标与 scikit-learn、pytrec_eval、CAIL 官方公式的一致性测试 | 是 |
