@@ -36,6 +36,7 @@ docs/
 │   ├── project-status.md        ★ 项目现状总览与数据流水线规范化方案（唯一入口：会话归属、产物分层、问题、待人工决定事项）
 │   ├── data-pipeline-status.md  数据链路阶段总结（核对版，各来源件数与缺口）
 │   ├── data-program-500-gold.md 500 件金标计划（双来源供给、质检、交付与门禁）
+│   ├── coordination-audit-2026-10-16.md 交接文档现势审计（当前交付／质检／差异与责任）
 │   ├── workstreams.md           并行工作树与会话分工（单写入方、交接、Git 纪律）
 │   ├── collab-log.md            协作记录（只追加，union 合并）
 │   └── meetings/                周例会纪要（YYYY-MM-DD-主题.md）
