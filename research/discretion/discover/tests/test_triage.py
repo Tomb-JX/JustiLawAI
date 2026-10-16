@@ -106,3 +106,18 @@ def test_dedupe_by_doc_no_keeps_www_host():
     b = {"url": "https://www.d.gov.cn/1", "host": "www.d.gov.cn", "doc_no": "定兴公(田)行罚决字〔2024〕0474号", "doc_type": "处罚决定"}
     kept = dedupe_by_doc_no([a, b])
     assert len(kept) == 1 and kept[0]["host"] == "www.d.gov.cn" and kept[0]["alt_urls"] == [a["url"]]
+
+
+def test_pending_not_delivered(tmp_path):
+    # 收割全文核验：发现层"待定"<1% 是赌博，只交付"是"，"待定"另存 urls_pending.tsv
+    from triage import write_outputs
+
+    base = {"host": "www.x.gov.cn", "publisher": "", "title": "", "doc_no": "", "year": "2024", "law_article": "",
+            "query_id": "", "found_at": ""}
+    cands = [{**base, "url": "u1", "doc_type": "处罚决定", "gambling": "是", "priority": 3},
+             {**base, "url": "u2", "doc_type": "复议", "gambling": "待定", "priority": 1},
+             {**base, "url": "u3", "doc_type": "处罚决定", "gambling": "否", "priority": 0}]
+    stats = write_outputs(cands, tmp_path)
+    assert stats["deliver"] == 1 and stats["pending"] == 1
+    assert "u2" not in (tmp_path / "urls.tsv").read_text(encoding="utf-8")
+    assert "u2" in (tmp_path / "urls_pending.tsv").read_text(encoding="utf-8")

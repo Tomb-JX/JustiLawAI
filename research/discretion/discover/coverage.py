@@ -29,7 +29,7 @@ COVERAGE_CSV = HERE / "coverage.csv"
 PROVINCES = ["北京", "天津", "河北", "山西", "内蒙古", "辽宁", "吉林", "黑龙江", "上海", "江苏", "浙江", "安徽", "福建",
              "江西", "山东", "河南", "湖北", "湖南", "广东", "广西", "海南", "重庆", "四川", "贵州", "云南", "西藏",
              "陕西", "甘肃", "青海", "宁夏", "新疆"]
-FIELDS = ["as_of", "province", "sites", "docs", "decisions", "reviews", "y2026", "law82", "sites_swept",
+FIELDS = ["as_of", "province", "sites", "docs", "pending", "decisions", "reviews", "y2026", "law82", "sites_swept",
           "sites_saturated", "columns_ok", "columns_ok_items"]
 
 
@@ -74,8 +74,12 @@ def summarize(rows: list[dict], site_prov: dict[str, str], sweep_state: dict, co
     for r in rows:
         site = registrable_site(r.get("host", "")) or r.get("host", "")
         p = site_prov.get(site, "未识别")
-        sites[p].add(site)
         c = out[p]
+        if r.get("gambling", "是") != "是":
+            # "待定"不计入覆盖：收割全文核验，发现层"待定"625 条只有 5 条是赌博（<1%），计入会严重高估（2026-10-16）
+            c["pending"] += 1
+            continue
+        sites[p].add(site)
         c["docs"] += 1
         c["decisions"] += r.get("doc_type") in ("处罚决定", "处罚汇总", "执法结果表", "不予处罚")
         c["reviews"] += r.get("doc_type") == "复议"

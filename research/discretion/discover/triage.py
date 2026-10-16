@@ -172,20 +172,23 @@ URL_FIELDS = ["url", "title", "doc_type", "doc_no", "publisher", "host", "year",
 
 def write_outputs(cands: list[dict], out_dir: Path) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
-    deliver = sorted((c for c in cands if c["gambling"] in ("是", "待定") and c["doc_type"] in TARGET_TYPES),
-                     key=lambda c: (-c["priority"], c["host"], c["doc_no"]))
+    # 只交付"是"：收割全文核验，"待定"625 条只有 5 条是赌博（<1%），"是"592 条有 567 条确认（96%）（2026-10-16）。
+    # "待定"另存 urls_pending.tsv 备查，不进主交付、不进增量交付
+    order = lambda c: (-c["priority"], c["host"], c["doc_no"])  # noqa: E731
+    deliver = sorted((c for c in cands if c["gambling"] == "是" and c["doc_type"] in TARGET_TYPES), key=order)
+    pending = sorted((c for c in cands if c["gambling"] == "待定" and c["doc_type"] in TARGET_TYPES), key=order)
     norms = [c for c in cands if c["doc_type"] == "法规清单" and re.search(r"裁量|赌", c["title"])]
     with open(out_dir / "candidates.jsonl", "w", encoding="utf-8") as f:
         f.writelines(json.dumps(c, ensure_ascii=False) + "\n" for c in cands)
-    for name, rows in (("urls.tsv", deliver), ("norms_candidates.tsv", norms)):
+    for name, rows in (("urls.tsv", deliver), ("urls_pending.tsv", pending), ("norms_candidates.tsv", norms)):
         with open(out_dir / name, "w", encoding="utf-8", newline="") as f:
             w = csv.DictWriter(f, fieldnames=URL_FIELDS, delimiter="\t", extrasaction="ignore")
             w.writeheader()
             w.writerows(rows)
     sums = [f"{hashlib.sha256((out_dir / n).read_bytes()).hexdigest()}  {n}"
-            for n in ("candidates.jsonl", "urls.tsv", "norms_candidates.tsv")]
+            for n in ("candidates.jsonl", "urls.tsv", "urls_pending.tsv", "norms_candidates.tsv")]
     (out_dir / "SHA256SUMS").write_text("\n".join(sums) + "\n", encoding="utf-8")
-    return {"deliver": len(deliver), "norms": len(norms)}
+    return {"deliver": len(deliver), "pending": len(pending), "norms": len(norms)}
 
 
 def write_domains(cands: list[dict], path: Path) -> int:
@@ -225,7 +228,8 @@ def main() -> None:
     print(f"合并命中 {hits} 条 → 去重后 {len(cands)} 条；域名 {n_domains} 个")
     for (dt, g), n in sorted(table.items(), key=lambda kv: (-kv[1])):
         print(f"  {dt:<6} 赌博={g}  {n}")
-    print(f"交付 urls.tsv {stats['deliver']} 条，规范候选 {stats['norms']} 条 → {out_dir}")
+    print(f"交付 urls.tsv {stats['deliver']} 条（待定另存 urls_pending.tsv {stats['pending']} 条），"
+          f"规范候选 {stats['norms']} 条 → {out_dir}")
 
 
 if __name__ == "__main__":

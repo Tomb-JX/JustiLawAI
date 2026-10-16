@@ -308,7 +308,7 @@ def latest_out(root: Path) -> Path:
 
 
 def run_urls(root: Path, limit: int, fetch: Fetcher, store: Store) -> dict:
-    rows = [r for r in read_csv(latest_out(root) / "urls.tsv", delimiter="\t") if r["gambling"] in ("是", "待定")]
+    rows = [r for r in read_csv(latest_out(root) / "urls.tsv", delimiter="\t") if r["gambling"] == "是"]  # 发现层"待定"<1% 是赌博
     rows.sort(key=lambda r: -int(r.get("priority") or 0))
     todo = [r for r in rows if not store.done(r["url"])][:limit]
     stats = defaultdict(int)
