@@ -39,7 +39,7 @@ SURNAMES = set(
     "蒙鲍华喻祁蒲房滕屈饶解牟艾尤阳穆农司卓古吉缪简车项连芦麦褚娄窦戚岑景党宫费卜冷晏席卫米柏宗瞿桂全佟应臧闵苟邬边卞"
     "姬师仇栾隋商刁沙荣巫寇桑郎甄丛仲虞敖巩明佘池查麻苑迟邝官封谈匡鞠惠荆乐冀郁胥南班储原栗燕楚鄢劳谌奚皮粟冼蔺楼盘满"
     "闻位厉伊仝区郜海阚花权强帅屠豆朴盖练廉禹井祖漆巴丰支卿狄计索宣晋相初门云容敬扈晁芮普阙浦戈伏鹿薄邸雍辜羊阿乌母裘"
-    "亓修邰赫杭况宿鲜印逯隆茹诸战慕危玉银亢嵇哈湛宾戎勾茅揭干尉冶斯束檀衣展昝智幸奉植衡富尧闭者"
+    "亓修邰赫杭况宿鲜印逯隆茹诸战慕危玉银亢嵇哈湛宾戎勾茅揭干尉冶斯束檀衣展昝智幸奉植衡富尧闭者汲乜"
 )
 COMPOUND_SURNAMES = ("欧阳", "司马", "上官", "诸葛", "东方", "皇甫", "尉迟", "公孙", "慕容", "长孙", "宇文", "司徒", "夏侯",
                      "令狐", "端木", "轩辕", "呼延", "南宫")
@@ -58,26 +58,31 @@ GIVEN = rf"(?:(?![{FUNC}{PLACE_AFTER}{NOT_GIVEN}])[一-龥])"
 # 遮挡写法后接一个名字用字（韦*林、黄*森）时，名字用字后面必须是边界或常见后续字，否则按"姓+遮挡"处理（"戴x询问"）；
 # 前面是数字（"三楼xxx"）时不算人名
 NAME_END = r"[、，,。；;（(\s和与及等在于因被将从到对向为以的已均也都持赢输家提参共各分先主自又再处罚行给予携\d]"
+# 名字后紧跟"三人""四人"（"张某学三人"）、"询问笔录"（"曹x权询问笔录"）也是边界（2026-10-16 r2 抽检：留下残字"丁学""乙权"）
+NAME_END_X = rf"(?:{NAME_END}|[一二三四五六七八九十两]+人|询问|讯问|陈述|笔录|$)"
 # 真名用字：只排除虚词、紧跟人名的公文动词首字（行政、处以、罚款、拘留、给予）和地名用字；可含"小""华""道""进"
 VERB_HEAD = "行处罚拘给予"
 GIVEN_REAL = rf"(?:(?![{FUNC}{VERB_HEAD}某省市县区镇乡村屯组街路巷号楼栋室局所院校队部厂店])[一-龥])"
 SURCH = "[" + "".join(sorted(SURNAMES)) + "]"
 # "姓+名+遮挡"（常文x、莫向*、张纪x）：名字用字也是姓时（"查明覃**"里的"明覃"）只在前面是边界、且只遮一个字时才算三字写法
-BOUND = "、，,。；;：:和与及同伙对给由将被人的在是为向把村屯组镇乡家民众犯"
+BOUND = "、，,。；;：:和与及同伙对给由将被人的在是为向把村屯组镇乡家民众犯中"   # "中"：（其中谭金*持有）
 MASKED = (rf"(?<![\d一二三四五六七八九十两])(?:"
-          rf"{SUR}{MASK}{GIVEN}(?!{MASK})(?={NAME_END}|$)"
+          rf"{SUR}{MASK}{GIVEN}(?!{MASK})(?={NAME_END_X})"
+          # "蒙*利等人"：名字用字是"利""进"这类动词首字时，只在后接"等人"时认（"韦*利用"不是）
+          rf"|{SUR}{MASK}(?![{FUNC}{PLACE_AFTER}家{MASK_CH}])[一-龥](?=等人|等[\d一二三四五六七八九十]+人)"
+          rf"|{SUR}{MASK}(?![{FUNC}{MASK_CH}])[一-龥](?=询问笔录|讯问笔录)"   # "吕x弄询问笔录"（"弄"平时按地名字处理）
           rf"|{SUR}{MASK}{{1,4}}(?!{MASK})(?!{PLACE_NEXT})"
           rf"|{SUR}(?!{SURCH})(?!{PLACE_NEXT})[一-龥]{MASK}{{1,2}}(?!{MASK})(?!{PLACE_NEXT})"
           rf"|(?:(?<![一-龥])|(?<=[{BOUND}])){SUR}{SURCH}{MASK}(?!{MASK})(?!{PLACE_NEXT})"
           # "吴某芳""宋某某明"（2026-10-16：后者旧版只认"唐某某"，留下"文"成了"丙明"）
-          rf"|(?:(?<![市县省镇乡村某])|(?!区)){SUR}某{{1,2}}{GIVEN_REAL}(?={NAME_END}|$)|{SUR}(?!{SURCH}){GIVEN_REAL}某(?!某)(?={NAME_END}|$)"
+          rf"|(?:(?<![市县省镇乡村某])|(?!区)){SUR}某{{1,2}}{GIVEN_REAL}(?={NAME_END_X})|{SUR}(?!{SURCH}){GIVEN_REAL}某(?!某)(?={NAME_END}|$)"
           rf"|(?:(?<![一-龥])|(?<=[{BOUND}])){SUR}{SURCH}某(?!某)(?={NAME_END}|$)"
           # "于某处""在某地"不是人名；"覃某某处以"是
           rf"|(?:(?<![市县省镇乡村某])|(?!区)){SUR}某{{1,2}}(?![日月年时天地些种个人]|{PLACE_NEXT}|处(?![以罚理])|司法|公司|单位|机关|医院|学校|中心))")
 REAL = rf"{SUR}{GIVEN_REAL}{{1,2}}"
 NAME = rf"(?:{MASKED}|[一-龥]{{1,6}}·[一-龥]{{1,6}}|{REAL})"
 SUBJECT_ROLES = ("违法行为人", "违法嫌疑人", "被处罚人", "违法人", "行为人")
-ROLES = (r"违法行为人|违法嫌疑人|被处罚人|违法人|行为人|行政处罚对象|处罚对象|行政相对人名称|行政相对人|当事人|同案人|申请人"
+ROLES = (r"违法行为人|违法嫌疑人|被处罚人|违法人|行为人|行政处罚对象|处罚对象|行政相对人名称|行政相对人|相对人名称|当事人|同案人|申请人"
          r"|受害人|被害人|被侵害人|证人|报案人|举报人|旅客")
 AFTER_NAME = r"(?=\s*(?:[，,。；;（(\s、男女于因等不和与及对在系的将从被为:：已均也都共各分先一\d]|给予|处以|行政拘留|罚款|警告|$))"
 # 称谓后：遮挡写法自带边界，直接认；真名要后面跟边界；其余写法（少数民族姓等）只在逗号、括号或处罚动词前认
@@ -88,7 +93,7 @@ PERSON_LINE = re.compile(rf"(?:^|\n)\s*(?P<name>{NAME})\s*[,，]\s*[男女]\s*[,
 CUE_NAME = re.compile(rf"(?:伙同|纠集|邀约|召集|约同|邀请|联系)\s*(?P<name>{NAME}){AFTER_NAME}")
 CASE_NAME = re.compile(rf"(?:^|(?<=[\s：:\d.、]))(?P<name>{NAME})(?=(?:、[^\s，。、]{{1,6}}){{0,5}}(?:等人|等[\d一二三四五六七八九十]+人)?"
                        r"(?:涉嫌)?(?:为赌博提供条件|参与赌博|聚众赌博|赌博|开设赌场))")
-EVID_NAME = re.compile(rf"(?:(?<=^)|(?<=[、，,和与及有：:.．\s\d]))(?P<name>{REAL})(?=(?:等人?)?(?:的+|在其)?(?:陈述|供述|询问|笔录|申辩|辨认|证言|证实|证人|身份证|身份信息))")
+EVID_NAME = re.compile(rf"(?:(?<=^)|(?<=[、，,和与及有：:.．\s\d]))(?P<name>{REAL})(?=(?:等人?)?(?:的+|在其)?(?:陈述|陈诉|供述|询问|笔录|申辩|辨认|证言|证实|证人|身份证|身份信息))")
 TIME_NAME = re.compile(rf"(?<=[午上晚间许日月]，)(?P<name>{REAL})(?=在|于|伙同|与|和|、|等|驾驶|通过|利用|以)")  # "2022年10月下午，奚少俊在……"
 KIN_NAME = re.compile(rf"(?P<name>{REAL})(?=的?(?:女儿|儿子|妻子|丈夫|父亲|母亲|哥哥|弟弟|姐姐|妹妹|侄子|家中|家里|家))")
 DOTTED = re.compile(r"(?<![一-龥])?[一-龥]{2,5}·[一-龥]{2,6}")  # 少数民族姓名（艾某·某某）
@@ -96,13 +101,33 @@ ROLE_VERB_NAME = re.compile(rf"(?<=由)(?P<name>{REAL})(?=提供|组织|负责|�
 HOST_NAME = re.compile(rf"(?<=在)(?P<name>{REAL})(?=开设|经营|开办|承包|租用)")              # "在冯某某开设的棋牌室内"
 # 表格导出（法宝"执法依据/违法事实"两栏表）的单元格续行：" |⏎|      |"或单栏" |⏎|"把一个词切成两行，
 # 人名、日期都被切开（实测"行为人李 |⏎|   |洋"漏网，2026-10-16）。脱敏前先去掉夹在两个汉字/数字之间的续行
-CELL_WRAP = re.compile(r"(?<=[一-龥\d])[ \t]*\|[ \t]*\r?\n[ \t]*\|(?P<empty>[ \t]*\|)?[ \t]*(?=[一-龥\d])")
+CELL_WRAP = re.compile(r"(?<=[一-龥\d])[ \t]*\|[ \t]*\r?\n[ \t]*\|(?P<empty>[ \t]*\|)?[ \t]*(?=[一-龥\d、，,；;])")
 PAREN_NAME = re.compile(rf"(?:笔录|传唤证|回执|告知书|通知书|证明|辨认)[（(](?P<name>{REAL})[)）]")
+# 语境很强的位置（2026-10-16 r2 抽检，漏网真名 20 余件）：结果表"；×××罚款四百元""；××行政拘留五日"，
+# 事实里"其中×××持有赌资""、×××提供的赌具""×××坐庄""×××等人提供麻将""在×××位于……的家中"。
+# 名字用字不按 GIVEN_REAL 卡（"其""均""月""机"都可能是名字），由 cue_ok 排除公文、虚词用字与停用词
+CUE_NAME_STRONG = re.compile(rf"(?:(?<=[、，,；;：:（(）)\n])|(?<=其中)|(?<=^))(?P<name>{SUR}[一-龥]{{1,2}}?)"
+                             r"(?=(?:等人?)?(?:持有|携带|坐庄|提供|组织|抽头|放资|放码|赌资)|等[\d一二三四五六七八九十两]*人?(?:在|于|以|用|利用|进行|参与|聚众|采用|使用|伙同))")
+TABLE_NAME = re.compile(rf"(?:(?<=[；;、\n])|(?<=^))(?P<name>{SUR}[一-龥]{{1,2}}?)(?=行政拘留|罚款|处以|警告)")
+LOC_NAME = re.compile(rf"(?<=在)(?P<name>{SUR}[一-龥]{{1,2}}?)(?=位于|的家|家中|家里)")
+# 复议文书申请人位："。姓名不服，向本机关申请行政复议"（2026-10-16 r3 接管：两件复议申请人真名漏网；r6_scan 同步兜底）
+REVIEW_NAME = re.compile(rf"(?:(?<=^)|(?<=[。；;：:，,（(\n]))(?P<name>{REAL})(?=不服)")
+SEP = r"\s*[、，,和与及]\s*"
+# 顿号列举里两个以上真名连排（"查获×××、××、×××（另案处理）在该…"）：列举本身即语境，整串真名收录
+LIST_RUN = re.compile(rf"(?:(?<=^)|(?<=[、，,。；;：:（(）)\n获为对查]))(?P<name>{REAL})(?:{SEP}{REAL})+"
+                      rf"(?={SEP}|[，,。；;（(\s]|等|在|于|被|将|和|与|及|伙同|提供|持有|组织|坐庄|涉嫌|另案|$)")
+# "姓名在××市/区/路…"（"费××在无锡市滨湖区雪新苑用麻将"）
+AT_NAME = re.compile(rf"(?:(?<=[、，,。；;：:\n])|(?<=^))(?P<name>{REAL})"
+                     rf"(?=在[一-龥]{{0,12}}?(?:省|市|县|区|镇|乡|村|屯|组|路|街|巷|苑|小区|大道))")
+# 顿号列举里的"姓+遮挡号"、姓不在常见姓表（"丁、也**四人""乙、崖**、丙"）
+LIST_MASK = re.compile(rf"(?<=、)(?P<name>[一-龥]{MASK}{{1,3}})(?!{MASK})(?=[、，,的等]|[一二三四五六七八九十两]人)")
+CUE_STOP = {"房东", "车主", "宾馆", "农户", "司机", "商户", "商店", "门卫", "单处", "并处", "万元", "向其", "成员", "庄家", "钱款",
+            "现金", "余款", "全部", "全场", "全体", "部分", "单位", "包厢", "包间", "房间", "金额", "高额", "华为", "现场", "共同", "宁可",
+            "符合", "应当", "曾在", "曾经"}
 LINE_NAME = re.compile(rf"(?m)^\s*(?P<name>{REAL})\s*$")      # 按列排版的公开表：姓名独占一行
 OBJ_NAME = re.compile(rf"(?<=对)(?P<name>{REAL})(?=的)")       # "对韩宗红的违法所得""对陶明的行为"
 VERB_NAME = re.compile(rf"(?:(?<=决定对)|(?<=现对)|(?<=给予)|(?<=予以)|(?<=决定给予)|(?<=[、，,；;对]))\s*(?P<name>{NAME}|[一-龥]{{3}})"
                        r"(?=处以|行政拘留|罚款|警告|给予|作出|予以|进行)")
-SEP = r"\s*[、，,和与及]\s*"
 STATION_STOP = "到去回至往送赴在于向从被由将对把给让经"   # 派出所名前的动词、介词（"传唤至派出所""到栎社机场派出所"）
 CHAIN_SEP = r"\s*[、和与及]\s*"   # 并列扩展只认顿号和连词（逗号后面常是别的成分，"23时18分左右，严某某"）
 STOP_WORDS = {
@@ -114,6 +139,7 @@ STOP_WORDS = {
     "收缴", "赌资", "以下", "以上", "当日", "次日", "同日", "期间", "等人", "该处", "此处", "一起", "共同", "伙同", "笔录", "供述",
     "证言", "家属", "其他", "其中", "上述", "现场", "网络", "手机", "微信", "金花", "牌九", "斗牛", "三公", "推筒", "百家",
     "鲁莽", "毕业", "党员", "严重", "从轻", "从重", "减轻", "宣告", "解除", "管理", "管辖", "简易", "查获", "查明", "查处", "查实",
+    "于当",
     "温州", "武汉", "长沙", "南宁", "南京", "合肥", "昆明", "贵阳", "成都", "石家", "保定", "邯郸", "邢台", "沧州", "衡水", "廊坊",
     "钱款", "钱财", "储蓄", "祁门", "相关", "相应", "相同", "初次", "初中", "高中", "小学", "大学", "曾经", "曾因", "强制", "强行",
     "通过", "通知", "方便", "安全", "安装", "习惯", "苗族", "汉族", "回族", "壮族", "满族", "瑶族", "彝族", "侗族", "傣族", "白族",
@@ -235,9 +261,24 @@ def looks_like_name(tok: str, *, lenient: bool = False) -> bool:
 NON_NAME = "证言资表记录赌罚款元笔书物具据单照片场博牌机钱币局所员警"
 
 
+def cue_ok(tok: str) -> bool:
+    """强语境（CUE_NAME_STRONG、TABLE_NAME、LOC_NAME）里的写法：2–3 字，不含遮挡与公文、虚词用字，不是停用词。"""
+    return (2 <= len(tok) <= 3 and tok not in STOP_WORDS and tok[:2] not in STOP_WORDS and tok[:2] not in CUE_STOP
+            and not re.search(rf"某|{MASK}|[\d的了在于与和及等是被将从到对向为以之并处罚拘留给予行政人员款年日时]", tok[1:]))
+
+
+def strong_ok(tok: str) -> bool:
+    """强语境（REVIEW_NAME、LIST_RUN、AT_NAME）的门槛：常规真名或 cue_ok（名字可含"月""祥"等字，
+    qa 软候选实测，2026-10-16 r3 接管）。"""
+    return 2 <= len(tok) <= 3 and (looks_like_name(tok) or cue_ok(tok))
+
+
 def lenient_ok(tok: str) -> bool:
-    """顿号列举里的三字写法（"摆文清""谢镇华"）：不要求常见姓开头，但不能含公文、赌博用字。"""
-    return looks_like_name(tok, lenient=True) and not re.search(rf"[{NON_NAME}某]|{MASK}", tok)
+    """顿号列举里的三字写法（"摆文清""谢镇华"）：不要求常见姓开头，但不能含公文、赌博用字。
+    以陈述/供述收尾的是"××陈述"被并列扩展切出的伪影（实测"王玲陈述、董友忠陈述"切出"玲陈述"，
+    与真名"王玲"重叠替换后残出"王"+代号，2026-10-16 r3 接管）。"""
+    return (looks_like_name(tok, lenient=True) and not re.search(rf"[{NON_NAME}某]|{MASK}", tok)
+            and not tok.endswith(("陈述", "供述")))
 
 
 # ---------- 识别各类片段 ----------
@@ -443,16 +484,24 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
                     and len({t for t in same_sur if t[0] == subject[0]}) <= 2 and len(role_toks) <= 2):
                 same_as_subject.add(tok)
     rxs = [PERSON_LINE, CUE_NAME, CASE_NAME, VERB_NAME, OBJ_NAME, EVID_NAME, KIN_NAME, TIME_NAME, PAREN_NAME, ROLE_VERB_NAME,
-           HOST_NAME]
+           HOST_NAME, REVIEW_NAME, AT_NAME]
     if "姓名" in text:
         rxs.append(LINE_NAME)
     for rx in rxs:
         for m in rx.finditer(text):
             tok = m.group("name")
-            # 处罚列举里"、谢镇华行政拘留"：三字写法可含地名用字
-            if looks_like_name(tok) or (rx is VERB_NAME and len(tok) == 3 and text[m.start() - 1: m.start()] in ("、", "；", ";")
-                                        and lenient_ok(tok)):
+            # 处罚列举里"、谢镇华行政拘留"：三字写法可含地名用字；复议/在-地强语境可含"月"等名字用字
+            if (looks_like_name(tok)
+                    or (rx in (REVIEW_NAME, AT_NAME) and strong_ok(tok))
+                    or (rx is VERB_NAME and len(tok) == 3 and text[m.start() - 1: m.start()] in ("、", "；", ";")
+                        and lenient_ok(tok))):
                 tokens.add(tok)
+    tokens |= {m.group("name") for rx in (CUE_NAME_STRONG, TABLE_NAME, LOC_NAME) for m in rx.finditer(text)
+               if cue_ok(m.group("name"))}
+    tokens |= {m.group("name") for m in LIST_MASK.finditer(text)}
+    # 顿号列举里两个以上真名连排：整串收录（"查获×××、××、×××（另案处理）"）
+    for m in LIST_RUN.finditer(text):
+        tokens |= {t for t in (x.group(0) for x in re.finditer(REAL, m.group(0))) if strong_ok(t)}
     tokens |= {m.group(0) for m in DOTTED.finditer(text) if not re.search(r"[县市省区委政府局院所厅部]", m.group(0))}
     # 本人是遮挡写法、正文里又漏出同姓真名（"尹某某"与"尹大明在……"）：视为本人
     if subject and re.fullmatch(pure, subject):
@@ -466,13 +515,16 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
                    for m in [masked_rx.match(text, i)] if m]
     tokens |= {t for _, _, t in masked_hits}
     # 与已认出的人名并列的名字（"王五、李四"），反复扩展到不再增加；顿号列举里的三字写法可不以常见姓开头（"摆文清"）
-    nxt_rx = re.compile(rf"{CHAIN_SEP}(?P<name>{REAL}|[一-龥]{{3}}){AFTER_NAME}")
+    # 扩展允许隔着短括号注记（"××（微信名：×某）、××"，2026-10-16 r3 接管：复议当事人名录漏网）
+    note = r"(?:\s*[（(][^（）()\n]{1,14}[)）]\s*)?"
+    nxt_rx = re.compile(rf"{note}{CHAIN_SEP}(?P<name>{REAL}|[一-龥]{{3}}){AFTER_NAME}")
     prv_rx = re.compile(rf"(?P<name>{REAL}|[一-龥]{{3}}){CHAIN_SEP}$")
     while tokens:
         alt = "|".join(sorted(map(re.escape, tokens), key=len, reverse=True))
         new = set()
         for k in re.finditer(alt, text):  # 每个已知人名前后各看一个并列项（不用一次 finditer，免得并列项被前一个匹配吃掉）
-            for mm in (nxt_rx.match(text, k.end()), prv_rx.search(text[max(0, k.start() - 8): k.start()])):
+            # 窗口 12 字：8 字会把"姓+两字名"这类三字真名的姓切在窗外，只认出尾部两字，与真名重叠替换后残出"姓"+代号（2026-10-16 r3 接管）
+            for mm in (nxt_rx.match(text, k.end()), prv_rx.search(text[max(0, k.start() - 12): k.start()])):
                 if not mm or mm.group("name") in tokens:
                     continue
                 tok = mm.group("name")
@@ -489,6 +541,14 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
         reals = {t for t in tokens if t[0] == subject[0] and not is_masked(t) and "·" not in t}
         if len(reals) == 1:
             same_as_subject |= reals
+    # 本人是部分遮挡写法（"高某杰"）：同姓且尾字一致的真名（同姓同尾字全名）视为本人（2026-10-16 r3 接管：复议申请人位漏网）
+    if subject and re.fullmatch(rf"{SUR}(?:某|[{MASK_CH}]){GIVEN_REAL}", subject):
+        reals2 = {t for t in tokens if t[0] == subject[0] and t[-1] == subject[-1] and not is_masked(t) and "·" not in t
+                  and looks_like_name(t)}
+        if len(reals2) == 1:
+            same_as_subject |= reals2
+    # 本人是纯遮挡写法时，唯一的同姓另一种纯遮挡写法（"张xxx"与"张xx"，且两者从不并列出现）视为本人
+    if subject and re.fullmatch(pure, subject):
         variants = {t for t in tokens if t != subject and t[0] == subject[0] and re.fullmatch(pure, t)}
         if len(variants) == 1 and len(role_toks) <= 2:
             v = next(iter(variants))

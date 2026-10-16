@@ -29,10 +29,11 @@ sys.path.insert(0, str(HERE.parent / "discover"))
 from search import data_root  # noqa: E402
 from triage import DOC_NO, classify, gambling_status  # noqa: E402
 
-CN = {"〇": 0, "零": 0, "一": 1, "壹": 1, "二": 2, "贰": 2, "两": 2, "三": 3, "叁": 3, "四": 4, "肆": 4, "五": 5, "伍": 5,
-      "六": 6, "陆": 6, "七": 7, "柒": 7, "八": 8, "捌": 8, "九": 9, "玖": 9}
+# 含繁体大写"貳""參""陸"（定兴"罚款貳仟元整"，2026-10-16 r2 抽检漏抽）
+CN = {"〇": 0, "零": 0, "一": 1, "壹": 1, "二": 2, "贰": 2, "貳": 2, "两": 2, "兩": 2, "三": 3, "叁": 3, "參": 3, "叄": 3,
+      "四": 4, "肆": 4, "五": 5, "伍": 5, "六": 6, "陆": 6, "陸": 6, "七": 7, "柒": 7, "八": 8, "捌": 8, "九": 9, "玖": 9}
 UNIT = {"十": 10, "拾": 10, "百": 100, "佰": 100, "千": 1000, "仟": 1000}
-NUM = r"[\d,，.]+|[〇零一壹二贰两三叁四肆五伍六陆七柒八捌九玖十拾百佰千仟万]+"
+NUM = r"[\d,，.]+|[〇零一壹二贰貳两兩三叁參叄四肆五伍六陆陸七柒八捌九玖十拾百佰千仟万萬]+"
 ART = r"第[一二三四五六七八九十百零\d]+条(?:第[一二三四五六七八九十\d]+款)?(?:第?[（(]?[一二三四五六七八九十\d]+[)）]?项)?"
 LABELS = {
     "facts": r"违法事实|行政处罚事由|处罚事由|处罚事项|案件情况|简要案情|主要违法事实",
@@ -50,7 +51,7 @@ LABELS = {
 
 def cn2int(s: str) -> int | None:
     """中文/大写/阿拉伯数字 → 整数：十日、十三、一千五百、伍佰、壹仟陆佰、3,000、两千。无法解析返回 None。"""
-    s = (s or "").replace(",", "").replace("，", "").replace("整", "")
+    s = (s or "").replace(",", "").replace("，", "").replace("整", "").replace("萬", "万")
     if re.fullmatch(r"\d+(\.\d+)?", s):
         return int(float(s))
     if not s or any(ch not in CN and ch not in UNIT and ch != "万" for ch in s):
@@ -75,7 +76,7 @@ def parse_date(s: str) -> str:
     if m:
         y, mo, d = m.group(1), int(m.group(2)), m.group(3)
         return _valid_date(f"{y}-{mo:02d}" + (f"-{int(d):02d}" if d else ""))
-    m = re.search(r"([〇○零一二三四五六七八九]{4})年([一二三四五六七八九十]{1,2})月(?:([一二三四五六七八九十]{1,3})日)?", s)
+    m = re.search(r"([〇○零0OＯ一二三四五六七八九]{4})年([一二三四五六七八九十]{1,2})月(?:([一二三四五六七八九十]{1,3})日)?", s)
     if m:
         y = "".join(str(CN.get(c, 0)) for c in m.group(1))
         mo, d = cn2int(m.group(2)), cn2int(m.group(3)) if m.group(3) else None
@@ -94,7 +95,8 @@ def _valid_date(s: str) -> str:
         return ""
 
 
-DATE_CN = r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"
+# "2026年02底至5月"（红塔，漏"月"字）也认，否则行为日期为空、2026 年案例漏计
+DATE_CN = r"\d{4}\s*年\s*\d{1,2}\s*(?:月|(?=[底初]))(?:\s*\d{1,2}\s*日)?"
 
 
 def behavior_and_punish(facts: str, full: str = "") -> tuple[str, str]:
@@ -124,15 +126,23 @@ def behavior_and_punish(facts: str, full: str = "") -> tuple[str, str]:
 
 # ---------- 处罚结果 ----------
 
+# "行政拘留不执行"（含山公示把它写在决定句之后的执行一栏，r2 抽检漏标）
+NOT_EXECUTED = r"不执行(?:行政)?拘留|(?:行政)?拘留(?:处罚)?不(?:予)?执行|不送(?:达)?拘留所|依法不执行"
+
 def outcome_from(decision: str, context: str = "") -> dict:
     d = decision or ""
     det = [cn2int(x) for x in re.findall(rf"(?:行政)?拘留({NUM})日", d)]
     det += [cn2int(x) for x in re.findall(rf"给予({NUM})日(?:行政)?拘留", d)]
     merged = [cn2int(x) for x in re.findall(rf"合并执行(?:行政)?拘留({NUM})日", d)]
     det = [x for x in det if x]
-    fines = [cn2int(x) for x in re.findall(rf"罚款(?:人民币)?({NUM})元", d)] + \
-            [cn2int(x) for x in re.findall(rf"({NUM})元(?:的)?罚款", d)]
+    fines = [cn2int(x) for x in re.findall(rf"罚(?:款|金)(?:人民币)?({NUM})元", d)] + \
+            [cn2int(x) for x in re.findall(rf"({NUM})元(?:的)?罚(?:款|金)", d)] + \
+            [cn2int(x) for x in re.findall(rf"并处罚(?!款)({NUM})元", d)] + \
+            [cn2int(x) for x in re.findall(rf"并处(?:人民币)?({NUM})元(?!以)", d)]   # 漏"款"字："并处罚壹仟元""并处1000元的处罚"
     fines = [x for x in fines if x]
+    # 合并执行时罚款也取合并句里的数（"合并执行行政拘留二十日，并处罚款壹仟元整"；旧版取第一项 500）
+    mfine = [cn2int(x) for x in re.findall(rf"合并执行(?:行政)?拘留(?:{NUM})日[，,]?\s*并处(?:罚款)?(?:人民币)?({NUM})元", d)]
+    mfine = [x for x in mfine if x]
     if re.search(r"不予(?:行政)?处罚", d):
         typ = "不予处罚"
     elif re.search(r"移送.{0,6}(起诉|审查起诉|刑事|立案侦查)", d):
@@ -148,7 +158,7 @@ def outcome_from(decision: str, context: str = "") -> dict:
     else:
         typ = ""
     articles, law = [], ""
-    for m in re.finditer(rf"《([^》]+)》|({ART})", d):
+    for m in re.finditer(rf"《+([^《》]+)》|({ART})", d):   # 原文"根据《《中华人民共和国……》"
         if m.group(1):
             law = re.sub(r"^中华人民共和国", "", m.group(1))
         elif law:
@@ -158,8 +168,8 @@ def outcome_from(decision: str, context: str = "") -> dict:
         "type": typ,
         "detention_days": (merged[0] if merged else det[0]) if det or merged else 0,
         "detention_items": det,
-        "fine": fines[0] if fines else 0,
-        "detention_not_executed": "是" if re.search(r"不执行(?:行政)?拘留|不送(?:达)?拘留所|依法不执行", d) else "否",
+        "fine": mfine[0] if mfine else (fines[0] if fines else 0),
+        "detention_not_executed": "是" if re.search(NOT_EXECUTED, d) else "否",
         "confiscation": "；".join(dict.fromkeys(m.strip("，,") for m in re.findall(r"收缴[^。；]{0,40}", d))),
         "articles": list(dict.fromkeys(articles)),
         "stated_circumstances": list(dict.fromkeys(circ)),
@@ -187,7 +197,13 @@ def segment_decision(text: str) -> dict:
     """叙述式处罚决定书。"""
     t = text
     fs = re.search(r"(现查明|经查明|经查实|经查)[:：，,]?", t)
-    ev = re.search(r"(以上|上述)(违法)?事实[^。]{0,8}有[^。]*?(证实|为证|证明|佐证|证据)[^。]*。", t)
+    # "以上事实由……证实"、"以上事实有询问笔录等。等证据证实。"（r2 抽检：证据句留在事实段 95 件）
+    ev = re.search(r"(以上|上述)(违法)?事实[^。]{0,8}[有由][^。]*?(证实|为证|证明|佐证|证据)[^。]*。", t) \
+        or re.search(r"(以上|上述)(违法)?事实[^。]{0,8}[有由][^。]*。[^。\n]{0,4}等?证据(证实|为证)[^。\n]*。", t)
+    # 环江 2021 年表格排版：证据句被拆成"⏎等证据证实。 以上事实有……"挤在事实后面（76 件），事实段到错位句前为止
+    ev2 = re.search(r"\n\s*等?证据(?:证实|为证)。\s*(?:以上|上述)(?:违法)?事实[^\n]*", t)
+    if ev2 and (not ev or ev2.start() < ev.start()):
+        ev = ev2
     rs = re.search(r"(本局认为|本机关认为|我局认为|综上所述|综上)", t)
     ds = re.search(r"根据《[^》]+》[^。]{0,200}?(之规定|的规定)[，,]?\s*(现)?决定|现决定|决定(给予|对)", t)
     de = re.search(r"执行方式|被处罚人如不服|如不服本决定|逾期不(交|缴)纳|本决定书送达|申请行政复议", t[ds.end():]) if ds else None
@@ -199,8 +215,59 @@ def segment_decision(text: str) -> dict:
     facts = t[fs.end(): min(cut)].strip()
     reasoning = t[rs.start(): ds.start()].strip() if rs and fs.end() < rs.start() < ds.start() else ""
     decision = t[ds.start(): ds.end() + (de.start() if de else 400)].strip()
-    return {"segmented": True, "text_facts": facts, "text_evidence": ev.group(0) if ev else "",
+    return {"segmented": True, "text_facts": facts, "text_evidence": ev.group(0).strip() if ev else "",
             "text_reasoning": reasoning, "text_decision": decision}
+
+
+REVIEW_OUTCOME = re.compile(r"(?:决定|给予|处以|对)[^。；;]{0,40}?(?:拘留|罚款|警告|不予)")
+
+
+def reviewed_outcome(t: str) -> str:
+    """复议文书里被复议那份处罚的结果句。旧版取第一句含"行罚决字"的处罚句，会拿到"另查明"里同案人的处罚
+    （W-000546 取成同案人拘留十日、漏了申请人的罚款）或申请人此前的另一次处罚（W-000547 取成前次罚款 300）。
+    1. "决定给予/对申请人（或申请人姓名）……拘留/罚款"的句子，取"本机关认为"之前的最后一句（前次处罚、被撤销的
+       原处罚在叙述里排在前面）；2. 没有就在"不服……作出的××号"文号之后、到下一个文号之间找决定句。"""
+    def ok(s: str) -> bool:
+        # 申请人的陈述、异议、告知（"拟作出"）、"另查明"与执行情况不算；同一文书里的殴打等别的违法行为不算
+        if "不服" in s or re.search(r"申请人称|异议|请求|拟[^。；;]{0,30}?(?:拘留|罚款)|另查明|缴(?:交|纳)罚款|执行完毕", s):
+            return False
+        if re.search(r"殴打|伤害|寻衅|强拿|盗窃|诈骗|卖淫|嫖娼|吸毒", s) and "赌" not in s:
+            return False
+        if re.search(r"第[一二三四五六七八九十百]+条", s) and not re.search(r"第七十条|第八十二条|第十六条|赌", s):
+            return False   # 依第二十六条（寻衅滋事）、第四十三条（殴打）等作出的处罚
+        oc = outcome_from(s)
+        if oc["type"] == "不予处罚" and (oc["detention_days"] or oc["fine"]):   # 引用法条里的"减轻处罚或者不予处罚"
+            return False
+        return bool(oc["type"]) and bool(oc["detention_days"] or oc["fine"] or oc["type"] in ("不予处罚", "警告"))
+
+    if not re.search(r"第七十条|第八十二条", t):   # 处罚依据不是赌博条款（寻衅滋事等复议里顺带提到赌博）：不取
+        return ""
+    sents, pos = [], 0
+    for s in re.split(r"([。；;])", t)[::2]:
+        sents.append((pos, s))
+        pos += len(s) + 1
+    m = re.search(r"申请人[:：]\s*([^\s，,。;；:：（(]{2,4})", t[:400])
+    who = "申请人|其" + (f"|{re.escape(m.group(1))}" if m and not m.group(1).startswith("申请") else "")
+    strong = re.compile(rf"(?:决定|给予|对)(?:对)?(?:{who})[^。；;]{{0,12}}?(?:拘留|罚款|罚金|警告|不予)")
+    cut = re.search(r"本机关认为|本府认为|复议机关认为|本机关经审查认为", t)
+    cut = cut.start() if cut else len(t)
+    hits = [(p, s) for p, s in sents if strong.search(s) and ok(s)]
+    if hits:
+        before = [s for p, s in hits if p < cut]
+        return (before[-1] if before else hits[0][1]).strip()
+    head = re.search(r"不服[^。]{0,160}", t)
+    no = DOC_NO.search(head.group(0)) if head else None
+    if no:
+        marks = [k.start() for k in DOC_NO.finditer(t)]
+        for k in re.finditer(re.escape(no.group(1)), t):
+            if k.start() < head.end():
+                continue
+            nxt = next((x for x in marks if x > k.end()), len(t))
+            seg = re.split(r"另查明|本机关认为|本府认为|复议机关认为", t[k.end(): nxt])[0]
+            for s in re.split(r"[。；;]", seg):
+                if REVIEW_OUTCOME.search(s) and "决定" in s and ok(s):
+                    return s.strip()
+    return ""
 
 
 def segment_review(text: str) -> dict:
@@ -208,7 +275,7 @@ def segment_review(text: str) -> dict:
     fs = re.search(r"(经审理查明|本机关查明|经审查查明|本府查明|经查明)[:：，,]?", t)
     rs = re.search(r"(本机关认为|本府认为|本机关经审查认为|复议机关认为)", t)
     dm = re.search(r"(决定如下|作出如下(行政复议)?决定|现决定)[:：]?", t)
-    orig = next((s for s in re.split(r"[。；]", t) if "行罚决字" in s and re.search(r"拘留|罚款|警告|不予", s)), "")
+    orig = reviewed_outcome(t) or next((s for s in re.split(r"[。；]", t) if "行罚决字" in s and re.search(r"拘留|罚款|警告|不予", s)), "")
     # 结论（D4，规格 §1.4）：复议"驳回行政复议申请"、诉讼"裁定驳回起诉"记"程序驳回"；诉讼"驳回诉讼请求""驳回上诉"是实体认可，记"维持"。
     # 没有"本机关认为"段时也从"决定如下"之后或全文末尾找结论（I-13：复议结论为空 127 条）
     res_text = t[dm.start(): dm.start() + 300] if dm else (t[rs.start():] if rs else t[-600:])
@@ -372,6 +439,11 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
             if fb["type"]:
                 fb["articles"], fb["law_version"] = oc["articles"], oc["law_version"]
                 oc = {**fb, "from_execution_clause": True}
+    # "行政拘留不执行"写在决定句后的执行一栏（含山公示）：只看紧跟决定段的一小段，免得拿到同页别人的
+    if oc["detention_days"] and oc["detention_not_executed"] == "否" and decision and decision in full:
+        after = full[full.find(decision) + len(decision):][:80]
+        if re.search(NOT_EXECUTED, after):
+            oc["detention_not_executed"] = "是"
     no = DOC_NO.findall(full)
     behavior, punish = behavior_and_punish(facts, full)
     title = base.get("title", "")
@@ -409,7 +481,8 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
 
 def last_date(text: str) -> str:
     tail = text[-200:]
-    ds = re.findall(r"[〇零一二三四五六七八九]{4}年[一二三四五六七八九十]{1,2}月[一二三四五六七八九十]{1,3}日|\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日", tail)
+    # 落款年份可能写成"二0二四年"（塔城，2026-10-16 r2 抽检：决定日期 8 件为空）
+    ds = re.findall(r"[〇○零0OＯ一二三四五六七八九]{4}年[一二三四五六七八九十]{1,2}月[一二三四五六七八九十]{1,3}日|\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日", tail)
     return parse_date(ds[-1]) if ds else ""
 
 

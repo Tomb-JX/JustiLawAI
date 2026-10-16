@@ -34,7 +34,7 @@ from regions import load_regions  # noqa: E402
 from search import data_root  # noqa: E402
 
 RECORD_VERSION = "parsed-1"
-PARSER = "harvest/parse.py@0.5"
+PARSER = "harvest/parse.py@0.6"
 SEGMENTS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
 REVIEW_VALUES = {"维持", "变更", "撤销", "确认违法", "程序驳回", "无"}
 GAMBLING_FACT = re.compile(r"赌|抽头|抽水|六合彩|私彩|牌九|麻将|扑克|炸金花|押宝|牛牛|三公|推筒|跑胡子|下注|投注|彩票")

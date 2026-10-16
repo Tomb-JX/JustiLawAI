@@ -48,7 +48,7 @@ from search import data_root  # noqa: E402
 from triage import DOC_NO  # noqa: E402
 
 SCHEMA_VERSION = "1.0.0"
-PIPELINE_VERSION = "harvest-0.4"
+PIPELINE_VERSION = "harvest-0.5"   # 0.5：r3 接管的脱敏/R6 补强（复议申请人位、括号注记列举、连排列举、伪影修复）
 SEGMENTS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
 TYPE_RANK = {"处罚决定书": 3, "行政复议决定书": 3, "执法公示": 1}
 GAMBLING_FACT = re.compile(r"赌|抽头|抽水|六合彩|私彩|牌九|麻将|扑克|炸金花|押宝|牛牛|三公|推筒|跑胡子|下注|投注|彩票")
