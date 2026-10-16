@@ -396,6 +396,27 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
             f.write(json.dumps({k: v for k, v in r.items() if not k.startswith("_")}, ensure_ascii=False) + "\n")
 
 
+def _demote_other_deliveries(registry: Path, current: Path) -> None:
+    """新交付发布后，把登记表里其他 L3"现行"行标为"已取代"（LATEST 只有一个现行版本）。"""
+    import csv as _csv
+    if not registry.exists():
+        return
+    rows = list(_csv.DictReader(registry.open(encoding="utf-8-sig", newline="")))
+    fields = list(rows[0].keys()) if rows else []
+    changed = False
+    for r in rows:
+        if r.get("layer") == "L3" and r.get("status") == "现行" and Path(r["path"]) != current:
+            r["status"] = "已取代"
+            changed = True
+    if changed:
+        tmp = registry.with_suffix(".csv.tmp")
+        with tmp.open("w", encoding="utf-8", newline="") as f:
+            w = _csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(rows)
+        tmp.replace(registry)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="L2 统一构建：各来源 L1 → 脱敏/去重/事件分组 → 交付层")
     ap.add_argument("--parsed", action="append", default=[], metavar="NAME=PATH",
@@ -516,10 +537,11 @@ def main() -> int:
         if adir.parent.name == "delivery":
             (adir.parent / "LATEST").write_text(adir.name, encoding="utf-8")
         sys.path.insert(0, str(HERE.parent / "collect"))
-        from common import registry_add  # noqa: PLC0415
+        from common import REGISTRY, registry_add  # noqa: PLC0415
         registry_add("L3", adir, records=len(main_rows) + len(outcome_rows),
                      producer="harvest/build.py", pipeline_version=PIPELINE_VERSION,
                      status="现行", note="；".join(inputs))
+        _demote_other_deliveries(REGISTRY, adir)
     except Exception as exc:  # noqa: BLE001
         print(f"[warn] 登记表写入失败（忽略）：{exc}")
     print(json.dumps(stats, ensure_ascii=False, indent=1))
