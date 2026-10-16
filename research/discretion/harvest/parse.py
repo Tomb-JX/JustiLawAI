@@ -71,16 +71,55 @@ def cn2int(s: str) -> int | None:
 def parse_date(s: str) -> str:
     """'2024年04月29日' / '二〇二四年七月二日' / '2024-03-06' / '2024/3/6' → '2024-04-29'；只到月时 '2024-04'。"""
     s = s or ""
-    m = re.search(r"(\d{4})\s*[年/.-]\s*(\d{1,2})(?:\s*[月/.-]\s*(\d{1,2}))?", s)
+    m = re.search(r"(\d{4})\s*[年/.．。-]\s*(\d{1,2})(?:\s*[月/.．。-]\s*(\d{1,2}?)(?=日|\D|20\d{2}|$))?", s)
     if m:
         y, mo, d = m.group(1), int(m.group(2)), m.group(3)
-        return f"{y}-{mo:02d}" + (f"-{int(d):02d}" if d else "")
-    m = re.search(r"([〇零一二三四五六七八九]{4})年([一二三四五六七八九十]{1,2})月(?:([一二三四五六七八九十]{1,3})日)?", s)
+        return _valid_date(f"{y}-{mo:02d}" + (f"-{int(d):02d}" if d else ""))
+    m = re.search(r"([〇○零一二三四五六七八九]{4})年([一二三四五六七八九十]{1,2})月(?:([一二三四五六七八九十]{1,3})日)?", s)
     if m:
-        y = "".join(str(CN[c]) for c in m.group(1))
+        y = "".join(str(CN.get(c, 0)) for c in m.group(1))
         mo, d = cn2int(m.group(2)), cn2int(m.group(3)) if m.group(3) else None
-        return f"{y}-{mo:02d}" + (f"-{d:02d}" if d else "")
+        return _valid_date(f"{y}-{mo:02d}" + (f"-{d:02d}" if d else ""))
     return ""
+
+
+def _valid_date(s: str) -> str:
+    """不合法的日期（"2023-03-92"：落款"2023.3.92023.3.9"粘连）一律返回空，免得交付校验退回。"""
+    from datetime import date as _d
+    try:
+        y, mo, *d = (int(x) for x in s.split("-"))
+        _d(y, mo, d[0] if d else 1)
+        return s if 1990 <= y <= 2030 else ""
+    except (ValueError, TypeError):
+        return ""
+
+
+DATE_CN = r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?"
+
+
+def behavior_and_punish(facts: str, full: str = "") -> tuple[str, str]:
+    """(违法行为日期, 处罚日期)。规格 §1.2：持续行为取结束日（"2025年10月至2026年1月"取 2026-01）；
+    紧跟"被……"的日期是处罚日期而不是行为日期（红塔汇总"于2026年2月1日因赌博，被……处罚"）。"""
+    f = facts or ""
+    base = full.find(f) if full and f else -1
+    ctx = full if base >= 0 else f
+    off = base if base >= 0 else 0
+    punish = ""
+    for dm in re.finditer(DATE_CN, f):
+        tail = ctx[off + dm.end(): off + dm.end() + 70]
+        if re.match(r"\s*[，,]?\s*(?:因[^，,。]{0,60}?[，,]?\s*)?被(?!申请人|告)", tail):
+            punish = punish or parse_date(dm.group(0))
+            continue
+        rng = re.match(r"(?:[初中下上旬末底份]{0,2})\s*(?:至|到|—|－|~|-)\s*(?:(\d{4})\s*年\s*)?(\d{1,2})\s*月(?:\s*(\d{1,2})\s*日)?", f[dm.end():])
+        start = parse_date(dm.group(0))
+        if rng and start:
+            y = rng.group(1) or start[:4]
+            end = _valid_date(f"{y}-{int(rng.group(2)):02d}" + (f"-{int(rng.group(3)):02d}" if rng.group(3) else ""))
+            if end and end >= start[:len(end)]:
+                return end, punish
+        if start:
+            return start, punish
+    return "", punish
 
 
 # ---------- 处罚结果 ----------
@@ -170,11 +209,15 @@ def segment_review(text: str) -> dict:
     rs = re.search(r"(本机关认为|本府认为|本机关经审查认为|复议机关认为)", t)
     dm = re.search(r"(决定如下|作出如下(行政复议)?决定|现决定)[:：]?", t)
     orig = next((s for s in re.split(r"[。；]", t) if "行罚决字" in s and re.search(r"拘留|罚款|警告|不予", s)), "")
-    if not rs:
-        return {"segmented": False, "orig": orig}
-    res_text = t[dm.start(): dm.start() + 300] if dm else t[rs.start():]
+    # 结论（D4，规格 §1.4）：复议"驳回行政复议申请"、诉讼"裁定驳回起诉"记"程序驳回"；诉讼"驳回诉讼请求""驳回上诉"是实体认可，记"维持"。
+    # 没有"本机关认为"段时也从"决定如下"之后或全文末尾找结论（I-13：复议结论为空 127 条）
+    res_text = t[dm.start(): dm.start() + 300] if dm else (t[rs.start():] if rs else t[-600:])
     result = next((r for r, p in (("撤销", r"撤销"), ("确认违法", r"确认.{0,10}违法"), ("变更", r"变更"),
-                                  ("维持", r"维持"), ("驳回", r"驳回")) if re.search(p, res_text)), "")
+                                  ("维持", r"维持|驳回[^。；]{0,8}诉讼请求|驳回上诉"),
+                                  ("程序驳回", r"驳回[^。；]{0,10}(?:复议)?申请|驳回起诉|不予受理|驳回"))
+                   if re.search(p, res_text)), "")
+    if not rs:
+        return {"segmented": False, "orig": orig, "review_result": result}
     return {"segmented": bool(fs), "text_facts": t[fs.end(): rs.start()].strip() if fs and fs.end() < rs.start() else "",
             "text_review": t[rs.start(): (dm.end() + 300) if dm else len(t)].strip(), "orig": orig, "review_result": result}
 
@@ -236,6 +279,15 @@ def canonical(text: str) -> str:
     return "\n".join(lines[j:end]).strip()
 
 
+def _column_row(nxt: list[str]) -> bool:
+    """按列公开表的一行：文号后是案件名（不一定以"案"结尾，如"李某某非法储存危险物质"），再下一行是姓名。"""
+    if len(nxt) < 2:
+        return False
+    case, name = nxt[0].strip(), nxt[1].strip()
+    return 2 <= len(case) <= 40 and not re.search(r"[，,。：:]", case) and 1 <= len(name) <= 8 \
+        and not re.search(r"[\d，,。：:]", name)
+
+
 def split_documents(text: str) -> list[str]:
     """一页多份决定书（环江、东兰、路桥等）：按独占一行、且下几行有当事人的文号切开，往前带上机关名与文书名行。
     少于两份不同文号就不拆。"""
@@ -249,7 +301,8 @@ def split_documents(text: str) -> list[str]:
         # 文号后几行要有当事人行；按列排版的公开表（含山）文号后紧跟"××等人赌博案"
         # 表格排版乱序时（环江 2021 年合页）当事人称谓不在行首：下几行里出现"违法行为人+姓"或"现查明"也算
         if no in seen or not (any(_is_subject_line(x) or "现查明" in x or _role_inside(x) for x in lines[i + 1: i + 6])
-                              or any(re.fullmatch(r"[^，,。]{2,40}案", x.strip()) for x in lines[i + 1: i + 3])):
+                              or any(re.fullmatch(r"[^，,。]{2,40}案", x.strip()) for x in lines[i + 1: i + 3])
+                              or _column_row(lines[i + 1: i + 3])):
             continue
         j = i
         while j > 0 and i - j < 3 and HEAD_LINE.fullmatch(lines[j - 1].strip()) and (not starts or j - 1 >= starts[-1] + 1):
@@ -264,7 +317,7 @@ def split_documents(text: str) -> list[str]:
 
 def column_case(text: str) -> tuple[str, str] | None:
     lines = [ln.strip() for ln in text.splitlines()]
-    if len(lines) < 5 or not re.fullmatch(DOC_NO.pattern, lines[0]) or not re.fullmatch(r"[^，。]{2,40}案", lines[1]):
+    if len(lines) < 5 or not re.fullmatch(DOC_NO.pattern, lines[0]) or not (re.fullmatch(r"[^，。]{2,40}案", lines[1]) or _column_row(lines[1:3])):
         return None
     rest = lines[3:]
     dec_i = next((i for i, ln in enumerate(rest) if re.match(r"根?据《|依据《|依照《", ln) or "之规定" in ln), None)
@@ -320,9 +373,10 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
                 fb["articles"], fb["law_version"] = oc["articles"], oc["law_version"]
                 oc = {**fb, "from_execution_clause": True}
     no = DOC_NO.findall(full)
-    dates = re.findall(r"\d{4}\s*年\s*\d{1,2}\s*月(?:\s*\d{1,2}\s*日)?", facts or "")
+    behavior, punish = behavior_and_punish(facts, full)
     title = base.get("title", "")
-    judged = (facts or "") + (decision or "") + (review or "") or full
+    # 没有事实段的（字段表只有案件名）用全文判，免得因为事实段留空而被判成非赌博
+    judged = ((facts or "") + (decision or "") + (review or "")) if facts else full
     gamb = gambling_status(title, judged, doc_type)
     if gamb == "待定" and len(judged) >= 150:
         gamb = "否"  # "待定"是给截断摘录用的；这里已有全文，全文里没有赌博特征就是"否"
@@ -332,7 +386,8 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
     # 权责清单、事项清单、裁量基准等规范性页面不是案件（收割阶段蚌埠"权责清单"误入）
     is_norm = classify(title, full[:800]) == "法规清单" or bool(re.search(r"权责清单|事项清单|实施依据.{0,20}责任事项", full[:1500]))
     warns = []
-    if re.search(r"决定给予|情节严重|从轻处罚|从重处罚", facts or ""):
+    # 结论词与引擎契约 records.CONCLUSION_WORDS 一致（I-06：漏了"减轻处罚""现决定"）
+    if re.search(r"决定给予|现决定|情节严重|从轻处罚|减轻处罚|从重处罚", facts or ""):
         warns.append("facts_contains_conclusion")
     if not oc["type"]:
         warns.append("outcome_not_parsed")
@@ -340,8 +395,8 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
         **{k: v for k, v in base.items() if k != "_context"},
         "doc_no": no[0][0] if no else "",
         "authority": authority or authority_of(full),
-        "behavior_date": parse_date(dates[0]) if dates else "",
-        "decision_date": decision_date,
+        "behavior_date": behavior,
+        "decision_date": _valid_date(decision_date) if decision_date else punish,
         "text_full": full, "text_facts": facts, "text_evidence": evidence, "text_reasoning": reasoning,
         "text_decision": decision, "text_review": review, "segmented": segmented,
         "outcome": oc,
@@ -389,8 +444,12 @@ def parse_page(page: dict, text: str) -> list[dict]:
     col = column_case(text)
     if col:  # 按列排版的公开表（含山）：拆出来的每份是"文号、案件名、姓名、……、事实、依据与结果"一列一行
         facts, decision = col
-        dd = re.findall(r"(20\d{2})[.年](\d{1,2})[.月](\d{1,2})", text[text.find(decision) + len(decision):])
-        ddate = f"{dd[-1][0]}-{int(dd[-1][1]):02d}-{int(dd[-1][2]):02d}" if dd else ""
+        # 落款日期取决定句之后的第一个日期（I-05：落款"2023.3.92023.3.9"粘连，parse_date 按"9 后接年份"切开）
+        tail = text[text.find(decision) + len(decision):]
+        tail = re.sub(r"(?:执行期限|期限)[^\n]*", "", tail)
+        dm = re.search(r"20\d{2}\s*[.．。/年-]\s*\d{1,2}\s*[.．。/月-]\s*\d{1,2}", tail)
+        ddate = parse_date(tail[dm.start():dm.start() + 12]) if dm else ""
+        ddate = ddate if len(ddate) == 10 else ""
         return [build_case({**base, "source_type": "执法公示"}, facts=facts, decision=decision, full=text, segmented=True,
                            decision_date=ddate, authority=authority_of(text), doc_type="处罚决定")]
     items = split_items(text)
@@ -414,7 +473,9 @@ def parse_page(page: dict, text: str) -> list[dict]:
         fine = f"罚款{amount}元" if re.fullmatch(r"\d+(\.\d+)?", amount) else ""
         category = fv.get("category", "").splitlines()[0] if fv.get("category") else ""
         decision = "；".join(x for x in (fv.get("basis", ""), fv.get("result", ""), category, fine) if x)
-        fv.setdefault("facts", (fv.get("case_name", "").splitlines() or [""])[0])  # 案件名只取一行（翁牛特旗表后面跟着别的单元格）
+        # I-12：没有"违法事实"栏时（翁牛特旗等字段表只有"××等人赌博案"），事实段留空——案件名不是事实，
+        # 拿它当事实段会让下游以为有案情；这类记录进"只有结果"文件
+        fv.setdefault("facts", "")
         return [build_case({**base, "source_type": "执法公示"}, facts=fv["facts"], decision=decision, full=text,
                            segmented=True, decision_date=parse_date(fv.get("date", "")),
                            authority=fv.get("authority", "")[:30], doc_type="处罚决定")]

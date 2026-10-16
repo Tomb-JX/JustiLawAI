@@ -155,12 +155,21 @@ def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
     return out, d.deid_map()
 
 
+BOILERPLATE = re.compile(r"违法行为人|违法嫌疑人|被处罚人|[甲乙丙丁戊己庚壬癸]|因?实施了?|(?:为赌博提供条件、?)?赌博的?违法行为|的违法行为"
+                         r"|于?\d{4}年\d{1,2}月(?:[初中下上旬末底份]{0,2})?(?:至(?:\d{4}年)?\d{1,2}月)?(?:间|期间)?"
+                         r"|因赌博|参与赌博|进行赌博|[，,。、；\s]")
+
+
 def inclusion(out: dict) -> list[str]:
     """不满足的纳入条件（空表示可进金标）。"""
     miss = []
     facts = out.get("text_facts") or ""
-    # 结果表一行既当事实又当决定（海南定安等）：事实没有单独成段，不进金标
-    if len(re.sub(r"\s", "", facts)) < 30 or not GAMBLING_FACT.search(facts) or facts == out.get("text_decision"):
+    # 结果表一行既当事实又当决定（海南定安等）：事实没有单独成段，不进金标。
+    # I-03：汇总条目"违法行为人甲，于2025年10月至2026年1月期间实施了赌博的违法行为，"字数够 30 但没有任何要素——
+    # 去掉称谓、日期、"实施了赌博的违法行为"这类套话后不足 12 字的也算事实不足
+    core = BOILERPLATE.sub("", facts)
+    if (len(re.sub(r"\s", "", facts)) < 30 or not GAMBLING_FACT.search(facts) or facts == out.get("text_decision")
+            or len(core) < 12):
         miss.append("②事实不足")
     if not (out.get("outcome") or {}).get("type"):
         miss.append("③结果未解析")
@@ -324,10 +333,16 @@ def from_parsed1(rec: dict, resolver: Resolver) -> dict | None:
     extra = rec.get("extra") or {}
     oc = dict(rec.get("outcome") or {})
     oc.update(extra.get("outcome") or {})            # detention_items 等内部字段还原
+    site = extra.get("site", "")                     # 网页来源（to_parsed1.py）带站点，区划与"同站同日"事件分组都靠它
+    if rec.get("region") and rec.get("province"):    # 解析层已给区划（网页按站点表）的直接用，否则按机关名解析
+        region = {"region_code": rec["region"], "level": extra.get("region_level", ""), "province": rec["province"],
+                  "province_code": extra.get("province_code") or rec["region"][:2] + "0000"}
+    else:
+        region = region_for_record(resolver, rec)
     out = {
         "id": rec["id"],
         "source_type": rec.get("source_type", ""),
-        "site": "",
+        "site": site,
         "doc_no": rec.get("doc_no", ""),
         "subject_mention": rec.get("subject_mention", ""),
         "harvest_date": rec.get("harvest_date", ""),
@@ -342,8 +357,8 @@ def from_parsed1(rec: dict, resolver: Resolver) -> dict | None:
         "completeness": q.get("completeness") or {},
         "facts_contains_conclusion": bool(q.get("facts_contains_conclusion")),
         "ocr": bool(q.get("ocr")),
-        "_region": region_for_record(resolver, rec),
-        "_site": "法宝:" + (rec.get("authority") or rec.get("province") or rec["id"]),
+        "_region": region,
+        "_site": site or ("法宝:" + (rec.get("authority") or rec.get("province") or rec["id"])),
     }
     for k in SEGMENTS:
         out[k] = rec.get(k, "")
@@ -382,21 +397,34 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="L2 统一构建：各来源 L1 → 脱敏/去重/事件分组 → 交付层")
     ap.add_argument("--parsed", action="append", default=[], metavar="NAME=PATH",
                     help="额外的 parsed-1 来源（可多次），如 pkulaw=$DATA/parsed/pkulaw/merged-20261016")
-    ap.add_argument("--web", default="", help="网页 L1（缺省 $DATA/admin/web_cases.pre_deid.jsonl）")
-    ap.add_argument("--out", default="", help="输出目录（缺省 $DATA/admin；建议传 delivery/<版本>/）")
+    ap.add_argument("--web", default="", help="网页 L1 旧形状（缺省 $DATA/admin/web_cases.pre_deid.jsonl）；"
+                                              "给了 --parsed web=… 时不读")
+    ap.add_argument("--out", default="", help="输出目录（缺省 $DATA/delivery/<日期>.r<n>/，自动取下一个空号）")
     ap.add_argument("--version", default="", help="版本号（写进 stats；缺省用输出目录名）")
+    ap.add_argument("--force", action="store_true", help="允许写进已有内容的输出目录（默认拒绝：交付不覆盖，I-08）")
     args = ap.parse_args()
 
     today = date.today().isoformat()
     root = data_root().parent
-    adir = Path(args.out) if args.out else (root / "admin")
+    if args.out:
+        adir = Path(args.out)
+    else:
+        k = 1
+        while (root / "delivery" / f"{today}.r{k}").exists():
+            k += 1
+        adir = root / "delivery" / f"{today}.r{k}"
+    if adir.exists() and any(adir.iterdir()) and not args.force:
+        print(f"[拒绝] {adir} 已有内容；交付按版本发布不覆盖，换一个 --out 或加 --force")
+        return 2
     adir.mkdir(parents=True, exist_ok=True)
-    web_src = Path(args.web) if args.web else (root / "admin" / "web_cases.pre_deid.jsonl")
-    src = [json.loads(l) for l in web_src.read_text(encoding="utf-8").splitlines() if l.strip()]
-    scope = [r for r in src if r.get("in_scope")]
     regions = load_regions()
-    inputs = [f"web: {web_src}（{len(src)} 条 → 范围内 {len(scope)}）"]
     resolver = Resolver(load_table())
+    scope, inputs = [], []
+    if not any(s.split("=", 1)[0] == "web" for s in args.parsed):
+        web_src = Path(args.web) if args.web else (root / "admin" / "web_cases.pre_deid.jsonl")
+        src = [json.loads(l) for l in web_src.read_text(encoding="utf-8").splitlines() if l.strip()]
+        scope = [r for r in src if r.get("in_scope")]
+        inputs.append(f"web: {web_src}（{len(src)} 条 → 范围内 {len(scope)}）")
     for spec in args.parsed:
         rows, desc = load_parsed_source(spec, resolver)
         inputs.append(desc)
@@ -418,7 +446,8 @@ def main() -> int:
         miss = inclusion(out)
         if not miss:
             main_rows.append(out)
-        elif set(miss) <= {"②事实不足", "本人不可指认", "本人未在事实段出现"}:
+        # I-04：只有结果的文件也要求本人可指认（规格：subject_alias 必填"甲"）；多人一行的结果表等找不到本人的排除
+        elif set(miss) <= {"②事实不足", "本人未在事实段出现"}:
             outcome_rows.append(out)
         else:
             excluded.append((out["id"], ";".join(miss)))

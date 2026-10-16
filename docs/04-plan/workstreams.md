@@ -13,6 +13,17 @@
 | **引擎** | `discretion-engine` | `worktree-discretion-engine` | 规范层、要素本体、评测框架、模型、接口 | P0：规范层 + 要素本体 + 指标框架 |
 | **发现层** | `project-data-collection-audit-4bac93` | `claude/project-data-collection-audit-4bac93` | 用百度千帆官方搜索 API 发现赌博文书 URL 与可收割栏目，交付数据链路收割（[设计](./search-discovery-design.md)） | M0：API 探针；M1：查询规划 + 执行器 |
 
+**2026-10-16 晚实况（发现层登记；正式归属待[项目现状总览](./project-status.md) §7 第 2、3 条由用户定）**：
+
+| 实际在做的会话 | 实际负责 | 与上表的出入 |
+|---|---|---|
+| 数据链路（`legal-ai-gambling-sentencing-cb2c21`） | 复议专栏、CAIL / LeCaRD、裁判文书入库脚本（`collect/`） | 上表的"脱敏、标注流水线"实际不在这里 |
+| 发现层（本工作树） | 千帆发现、公开网页收割与解析、OCR；**网页来源的 L1（`parsed/web/`）**；**共用 L2 构建**（`harvest/build.py`、`deid.py`、`r6_scan.py`、`regions.py`：脱敏、隐私扫描、区划、去重、事件分组、按版本发布交付）；试标抽样 | 交付构建与 L1 超出上表登记 |
+| 引擎（`discretion-engine`） | 记录契约 `records.py`、交付验收 `accept_delivery.py`、交付规格、门禁、全景笔记、规范库、法宝 MCP 调用层 | 一致 |
+| 主检出会话（主检出目录，**未登记**，自称"引擎（主检出会话）"） | **法宝来源全线**：手工导出入账（`collect/import_manual.py`）、解析与 parsed-1（`collect/pkulaw_ingest.py`、`parsed/pkulaw/`）、作业台（已暂停）；也跑过统一构建 pk1–pk3 并改过 `harvest/build.py`、`deid.py` | 写进了数据链路（`collect/`）和发现层（`harvest/`）两边的目录 |
+
+建议（未定）：L2 共用构建归发现层一家维护，各来源只交 L1（parsed-1），要改构建在协作记录提；法宝来源并入数据链路工作流（主检出会话迁到 `cb2c21` 工作树或单独登记）。交付版本由构建写到 `delivery/<版本>/`，引擎验收后再在协作记录宣布可用。
+
 - **一条工作流只在自己的工作树里写**。新开工作流先在此表登记，再开工。
 - 主检出目录（`D:/02_Dev/Projects/大创`，`main`）只用于浏览和人工操作，不作为任何工作流的开发目录。
 

@@ -16,6 +16,7 @@ import re
 import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
+from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -121,22 +122,32 @@ def main(argv: list[str]) -> int:
         print(__doc__)
         return 2
     wl = load_whitelist()
-    total, hard_recs, cats, soft_names = 0, [], Counter(), Counter()
-    for path in map(Path, argv):
+    paths = [Path(a) for a in argv]
+    total, hard_recs, cats, soft_names, per_file = 0, [], Counter(), Counter(), {}
+    for path in paths:
+        n = n_hard = 0
         for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
             rec = json.loads(line)
-            total += 1
+            n += 1
             hits = scan_record(rec, wl)
             cats.update(f"{'硬' if h.hard else '软'}:{h.cat}" for h in hits)
             soft_names.update(h.snippet[12:-12] or h.snippet for h in hits if h.cat == "name_candidate")
             hard = [asdict(h) for h in hits if h.hard]
             if hard:
-                hard_recs.append({"id": rec.get("id"), "hits": hard})
-        report = {"file": str(path), "records": total, "hard_hit_records": len(hard_recs), "categories": dict(cats),
-                  "name_candidates_top": soft_names.most_common(100), "hard_hits": hard_recs[:500]}
-        out = path.with_name("r6_report.json")
-        out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
-        print(f"R6 {path.name}: {total} 件，硬命中 {len(hard_recs)} 件；类别 {dict(cats)} → {out}")
+                n_hard += 1
+                hard_recs.append({"file": path.name, "id": rec.get("id"), "hits": hard})
+        per_file[path.name] = {"records": n, "hard_hit_records": n_hard}
+        total += n
+        print(f"R6 {path.name}: {n} 件，硬命中 {n_hard} 件")
+    # I-07：一份报告覆盖本次扫描的全部文件，逐文件给出件数（旧版只写了最后一个文件名，件数却是合计）
+    report = {"files": per_file, "records": total, "hard_hit_records": len(hard_recs), "categories": dict(cats),
+              "name_candidates_top": soft_names.most_common(100), "hard_hits": hard_recs[:500],
+              "date": date.today().isoformat()}
+    out = paths[0].with_name("r6_report.json")
+    out.write_text(json.dumps(report, ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"R6 合计 {total} 件，硬命中 {len(hard_recs)} 件；类别 {dict(cats)} → {out}")
     return 1 if hard_recs else 0
 
 
