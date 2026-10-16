@@ -26,7 +26,8 @@ if str(COLLECT_DIR) not in sys.path:
 import pkulaw_ingest as ingest  # noqa: E402
 
 from pkulaw_agent.api import Pacer  # noqa: E402
-from pkulaw_agent.fetch import extract_detail_text, probe_text, safe_filename, sha256_text  # noqa: E402
+from pkulaw_agent.fetch import (doc_no_from_title, extract_detail_text, probe_text,  # noqa: E402
+                                safe_filename, sha256_text, wait_for_doc)
 from pkulaw_agent.session import BASE, SecurityChallenge  # noqa: E402
 from pkulaw_agent.validators import parse_window, validate_article  # noqa: E402
 
@@ -164,12 +165,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
         text = ""
         try:
             session.page.goto(url, wait_until="commit", timeout=120_000)
-            for _ in range(30):
-                session.page.wait_for_timeout(700)
-                got = session.page.evaluate(
-                    "() => document.body ? document.body.innerText.length : 0")
-                if got > 1200:
-                    break
+            wait_for_doc(session.page)
             session._check_challenge()
             detail = extract_detail_text(session.page)
             text = detail.get("text") or ""
@@ -194,7 +190,10 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             continue
 
         probe = probe_text(text)
+        if not probe.get("doc_no"):  # 标题兜底（实测标题含文号）
+            probe["doc_no"] = doc_no_from_title(detail.get("title", ""))
         sha = sha256_text(text)
+        rec.update({"source": detail.get("source", ""), "title": detail.get("title", "")[:100]})
         name = safe_filename(job.get("doc_no") or probe.get("pklaw_id") or f"job{i:04d}")
         txt_path = docs_dir / f"{name}.txt"
         txt_path.write_text(text, encoding="utf-8")

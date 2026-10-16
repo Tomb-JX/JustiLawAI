@@ -372,6 +372,38 @@ def test_profile_lock_files_reports_names(tmp_path):
     assert sess.profile_lock_files(tmp_path / "nonexist") == []
 
 
+def test_doc_no_from_title():
+    from pkulaw_agent.fetch import doc_no_from_title
+    assert doc_no_from_title(
+        "王xx行政处罚(土公（沟）行罚决字〔2026〕527号)-北大法宝V6官网") == "土公（沟）行罚决字〔2026〕527号"
+    assert doc_no_from_title("公告-北大法宝") == ""
+
+
+def test_dedup_page_text_collapses_artifacts():
+    from pkulaw_agent.fetch import dedup_page_text
+    doubled = "王某，男，49岁，1976年10月06日出生。王某，男，49岁，1976年10月06日出生。"
+    assert dedup_page_text(doubled) == "王某，男，49岁，1976年10月06日出生。"
+    mixed = ("2026年08月26日2时许，在内蒙古自治区土默特右旗威俊村北王永禄养猪院内，王"
+             "2026年08月26日2时许，在内蒙古自治区土默特右旗威俊村北王永禄养猪院内，王小乐招集"
+             "张艳平、刘海玲、吕俊兰等人用麻将以推对子形式进行赌博，王永禄提供赌博场地并开车送"
+             "参赌人员张艳平、刘海玲等人。")
+    got = dedup_page_text(mixed)
+    assert got.startswith("2026年08月26日2时许")
+    assert got.count("2026年08月26日2时许") == 1 and "王小乐招集" in got
+    # 跨段碎片：全文之后又出现句尾、被拆成两个 <p>
+    frags = ("现查明\n"
+             "2026年08月26日2时许，在内蒙古自治区土默特右旗威俊村北王永禄养猪院内，王小乐招集"
+             "张艳平、刘海玲、吕俊兰等人用麻将以推对子形式进行赌博，王永禄提供赌博场地并开车送"
+             "参赌人员张艳平、刘海玲等人。\n"
+             "小乐招集张艳平、刘海玲、吕俊兰等人用麻将以推对子形式进行赌博，王永禄提供赌博场地并\n"
+             "开车送参赌人员张艳平、刘海玲等人。")
+    got2 = dedup_page_text(frags)
+    assert got2.count("小乐招集") == 1 and got2.count("开车送参赌人员") == 1
+    assert "现查明" in got2  # 短标题行保留
+    normal = "土默特右旗公安局\n行政处罚决定书\n2026年8月26日凌晨2时许，接群众举报后民警赶赴现场处置。"
+    assert dedup_page_text(normal) == normal
+
+
 # ---------------- validators：六项校验 ----------------
 
 def test_check_doc_no_fullwidth_and_brackets():

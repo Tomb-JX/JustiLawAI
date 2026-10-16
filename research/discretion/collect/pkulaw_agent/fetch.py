@@ -26,7 +26,8 @@ if str(COLLECT_DIR) not in sys.path:
 
 import pkulaw_ingest as ingest  # noqa: E402  —— 解析内核（单测与命令行同源）
 
-# 正文块定位：取"文本多、链接少"的最大块（通用做法，不依赖具体 DOM 结构）
+# 正文块定位：优先法宝详情页正文容器 #divFullText（实测 2026-10-16：文档完整且带文号）；
+# 无此容器（摘要/表格形态）时退回"文本多、链接少"的最大块通用启发式。
 MAIN_TEXT_JS = r"""() => {
     const score = (el) => {
         const t = el.innerText || '';
@@ -35,14 +36,28 @@ MAIN_TEXT_JS = r"""() => {
             .reduce((s, a) => s + (a.innerText || '').length, 0);
         return t.length * (1 - Math.min(1, linkLen / Math.max(1, t.length)));
     };
+    const ft = document.querySelector('#divFullText');
+    const ftText = ft ? (ft.innerText || '') : '';
     let best = document.body, bestScore = score(document.body);
-    for (const el of document.querySelectorAll('div,article,section,main')) {
-        const s = score(el);
-        if (s > bestScore) { best = el; bestScore = s; }
+    if (!ftText || ftText.length < 200) {
+        for (const el of document.querySelectorAll('div,article,section,main')) {
+            const s = score(el);
+            if (s > bestScore) { best = el; bestScore = s; }
+        }
     }
-    return {text: best.innerText || '', tag: best.tagName, len: (best.innerText || '').length,
-            bodyLen: (document.body ? document.body.innerText.length : 0)};
+    const useFt = ftText.length >= 200;
+    const text = useFt ? ftText : (best.innerText || '');
+    return {text, tag: useFt ? 'DIV#divFullText' : best.tagName,
+            source: useFt ? 'divFullText' : 'heuristic',
+            len: text.length, ft: ftText.length,
+            bodyLen: (document.body ? document.body.innerText.length : 0),
+            title: document.title || ''};
 }"""
+
+DOC_WAIT_JS = ("() => { const el = document.querySelector('#divFullText');"
+               " const t = el ? (el.innerText || '') : '';"
+               " return {ft: t.length,"
+               " body: document.body ? document.body.innerText.length : 0}; }")
 
 
 def safe_filename(name: str, fallback: str = "doc") -> str:
@@ -86,8 +101,96 @@ def probe_text(text: str) -> dict:
     }
 
 
+def wait_for_doc(page, *, timeout_s: float = 40) -> dict:
+    """等正文渲染：优先等 #divFullText（法宝详情页正文容器）出现且有内容；
+    摘要/表格形态页无此容器时，等 body 文本量稳定后放行。SPA 首跳会重建执行上下文，重试容忍。"""
+    import time as _time
+    t0 = _time.time()
+    last_body = -1
+    stable = 0
+    st = {"ft": 0, "body": 0}
+    while _time.time() - t0 < timeout_s:
+        try:
+            page.wait_for_timeout(700)
+        except Exception:  # noqa: BLE001
+            pass
+        try:
+            st = page.evaluate(DOC_WAIT_JS)
+        except Exception as exc:  # noqa: BLE001 —— 跳转中上下文销毁：重试
+            if "Execution context" in str(exc):
+                continue
+            raise
+        if st.get("ft", 0) >= 200:
+            return st
+        body = st.get("body", 0)
+        if body > 1200 and body == last_body:
+            stable += 1
+            if stable >= 2:
+                return st
+        else:
+            stable = 0
+        last_body = body
+    return st
+
+
 def extract_detail_text(page) -> dict:
-    return page.evaluate(MAIN_TEXT_JS)
+    for _ in range(3):
+        try:
+            data = page.evaluate(MAIN_TEXT_JS)
+            data["text"] = dedup_page_text(data.get("text") or "")
+            return data
+        except Exception as exc:  # noqa: BLE001
+            if "Execution context" in str(exc):
+                try:
+                    page.wait_for_timeout(800)
+                except Exception:  # noqa: BLE001
+                    pass
+                continue
+            raise
+    return {"text": "", "tag": "", "source": "", "len": 0, "bodyLen": 0, "title": ""}
+
+
+def doc_no_from_title(title: str) -> str:
+    """页面标题兜底取文号（实测标题形如"王xx行政处罚(土公（沟）行罚决字〔2026〕527号)-北大法宝V6官网"）。"""
+    import re as _re
+    m = _re.search(ingest.DOC_NO_RE, title or "")
+    if not m:
+        return ""
+    return m.group(0).lstrip("（()").strip()
+
+
+def dedup_page_text(text: str) -> str:
+    """清理页面自身伪影（实测详情页 divFullText 的站点高亮/复制组件产物，三类）：
+    ① 整段精确重复（"…出生。…出生。"）；
+    ② 段内"截断前缀+全文"（"…养猪院内，王2026年08月26日…"）；
+    ③ 跨段碎片重复（全文之后又出现该句尾部、被拆成若干 <p>）。
+    ①②按行清理（保留完整副本），③按"连续行拼接若是其它整行的子串"判定并丢弃。"""
+    raw_lines = [l.strip() for l in (text or "").split("\n")]
+    lines: list[str] = []
+    for s in raw_lines:
+        if len(s) >= 24 and len(s) % 2 == 0 and s[: len(s) // 2] == s[len(s) // 2:]:
+            s = s[: len(s) // 2]  # ① 半段精确重复
+        if len(s) >= 40:
+            p = s.find(s[:20], 5)
+            if p > 0 and len(s) - p >= 12:
+                s = s[p:]  # ② 截断前缀：保留后一次完整副本
+        if s:
+            lines.append(s)
+    keep = [True] * len(lines)
+    for i in range(len(lines)):
+        for span in (1, 2, 3):
+            if i + span > len(lines) or not all(keep[i:i + span]):
+                break
+            seg = "".join(lines[i:i + span])
+            if len(seg) < 12:
+                continue
+            hit = any(k != i and len(o) >= max(2 * len(seg), 40) and seg in o
+                      for k, o in enumerate(lines) if not (i <= k < i + span))
+            if hit:  # ③ 跨段碎片：是其它整行的子串
+                for k in range(i, i + span):
+                    keep[k] = False
+                break
+    return "\n".join(l for l, k in zip(lines, keep) if k)
 
 
 def fetch_one(session, record: dict, docs_dir: Path, *, keep_other: bool = True) -> dict:
@@ -102,13 +205,7 @@ def fetch_one(session, record: dict, docs_dir: Path, *, keep_other: bool = True)
         return out
     try:
         session.page.goto(url, wait_until="commit", timeout=120_000)
-        # 等正文渲染：innerText 超过阈值或超时（SPA + 防护脚本）
-        for _ in range(30):
-            session.page.wait_for_timeout(700)
-            got = session.page.evaluate(
-                "() => document.body ? document.body.innerText.length : 0")
-            if got > 1200:
-                break
+        wait_for_doc(session.page)
         detail = extract_detail_text(session.page)
         text = detail.get("text") or ""
         session._check_challenge()
@@ -127,8 +224,9 @@ def fetch_one(session, record: dict, docs_dir: Path, *, keep_other: bool = True)
         out["has_amount"] = probe["has_amount"]
         out["pklaw_id"] = probe["pklaw_id"]
         out["text_len"] = probe["len"]
+        out["source"] = detail.get("source", "")
         if not out["doc_no"]:
-            out["doc_no"] = probe["doc_no"]
+            out["doc_no"] = probe["doc_no"] or doc_no_from_title(detail.get("title", ""))
         out["main_len"] = detail.get("len", 0)
         out["body_len"] = detail.get("bodyLen", 0)
     except Exception as exc:  # noqa: BLE001 —— 单条失败不拖垮批次
