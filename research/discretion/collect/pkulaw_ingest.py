@@ -359,6 +359,18 @@ DOC_NO_RE = re.compile(r"[（(]?\s*[\u4e00-\u9fa5]{1,6}?[公检法执][（(][^�
 SUBJECT_RE = re.compile(r"(?:违法行为人|被处罚人|违法嫌疑人)[：:]?\s*([\u4e00-\u9fa5*＊xX×]{2,12})")
 
 
+def gambling_hint_of(raw: str, doc_no: str, facts: str, meta: dict, table: dict) -> bool:
+    """是不是赌博案：先看标题（首个**非空**行，实测导出件的首行常为空）与关键字段，
+    都不命中再兜底整篇——兜底会把"因赌博被处罚"这类前科误命中，但漏掉真赌博案的代价更大。
+    """
+    title = next((l.strip() for l in (raw or "").splitlines() if l.strip()), "")
+    primary = flatten(title + doc_no + (facts or "") + meta.get("罚没情况", "")
+                      + meta.get("处罚种类", "") + table.get("处罚事由", ""))
+    if GAMBLING_MARK.search(primary):
+        return True
+    return bool(GAMBLING_MARK.search(flatten(raw)))
+
+
 def flatten(text: str) -> str:
     """拍平：去掉表格竖线与**全部空白**。
 
@@ -629,9 +641,7 @@ def parse_doc(text: str, *, filename: str = "") -> dict:
         "evidence": bits["evidence"],
         "behavior_date_in_facts": parse_date(bits["facts"]) or None,
         "decision": decision,
-        "gambling_hint": bool(GAMBLING_MARK.search(
-            flatten((raw.splitlines()[0] if raw.strip() else "") + doc_no
-                    + bits["facts"] + meta.get("罚没情况", "") + meta.get("处罚种类", "")))),
+        "gambling_hint": gambling_hint_of(raw, doc_no, bits["facts"], meta, table),
     }
 
 
