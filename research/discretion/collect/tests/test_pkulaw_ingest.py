@@ -12,6 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pkulaw_ingest import (  # noqa: E402
+    build_judgment_record,
     build_record,
     catalog_stats,
     cn2int,
@@ -21,6 +22,7 @@ from pkulaw_ingest import (  # noqa: E402
     parse_catalog,
     parse_date,
     parse_enforcement_doc,
+    penalty_articles,
     pkulaw_id_from_name,
     province_of,
 )
@@ -233,3 +235,87 @@ def test_record_serializable_and_schema_keys():
     for key in ("id", "source_type", "source_ref", "harvest_date", "deidentified", "behavior_date",
                 "decision_date", "authority", "region", "text_facts", "text_decision", "outcome", "review"):
         assert key in rec, key
+
+
+# 复刻「司法案例库」判决书记录（29 字段、法宝已分段；人名等全部虚构）
+JUDGMENT = {
+    "Title": "某甲与某县公安局公安行政处罚一审行政判决书",
+    "Category": ["行政", "行政主体", "其他（公安）"],
+    "CaseGrade": ["普通案例"],
+    "Court": "湖南省某县人民法院",
+    "LastInstanceDate": "2025.05.02",
+    "CaseFlag": "(2024)湘1021行初253号",
+    "CaseClassName": "行政一审",
+    "DocumentAttr": ["判决书"],
+    "CriminalPunish": ["行政", "行政处罚", "行政拘留", "罚款"],
+    "TrialAfter": "原告某甲与被告某县公安局公安行政处罚一案，于2024年12月18日向本院提起行政诉讼。",
+    "PlaintiffClaims": "原告某甲诉称，被告对其作出行政拘留十二日，并处罚款一千九百元的处罚决定。",
+    "DefenseViewpoint": "被告某县公安局辩称，原告参与赌博的事实存在。",
+    "Ascertain": "经审理查明，2024年10月30日9时许，某县公安局在某镇一无名牌馆查获涉嫌赌博人员21人，"
+                 "现场查获赌资2664元。同日，被告以原告参与赌博为由，根据《中华人民共和国治安管理处罚法》"
+                 "第七十条规定，作出了某公（城）决字〔2024〕第2166号公安行政处罚决定，对原告行政拘留12日，"
+                 "并处罚款1900元；收缴赌资2664元。",
+    "Identified": "本院认为，被告认定原告参与赌博的事实清楚，情节严重，处罚幅度适当。依照《中华人民共和国"
+                  "行政诉讼法》第六十九条之规定，判决如下：",
+    "RefereeBasis": "《中华人民共和国治安管理处罚法》第九十三条\n《中华人民共和国治安管理处罚法》第七十条\n"
+                    "《中华人民共和国行政诉讼法》第六十九条",
+    "RefereeResult": "驳回原告某甲的诉讼请求。",
+    "Url": "[北大法宝](https://www.pkulaw.com/pfnl/a25051f3312b07f3b9f06d79842693eaa76b741a206847a2bdfb.html?way=mcp)",
+}
+
+
+def test_penalty_articles_excludes_court_procedural_rules():
+    """处罚依据不能混进法院的程序条文（第九十三条/行政诉讼法第六十九条）。"""
+    facts = JUDGMENT["Ascertain"]
+    arts = penalty_articles(facts, JUDGMENT["RefereeBasis"])
+    assert arts == ["治安管理处罚法第七十条"]
+    # 事实段没有"根据…作出…决定"时，退回裁判依据里只保留处罚性条款
+    arts2 = penalty_articles("（事实段没有引用条文）", JUDGMENT["RefereeBasis"])
+    assert arts2 == ["治安管理处罚法第七十条"]
+
+
+def test_judgment_record_mapping():
+    rec = build_judgment_record(JUDGMENT, harvest_date="2026-10-16")
+    assert rec["source_type"] == "行政判决书"
+    assert rec["pkulaw_id"] == "a25051f3312b07f3b9f06d79842693eaa76b741a206847a2"   # 原文链接里的 pfnl 哈希
+    assert rec["doc_no"] == "(2024)湘1021行初253号"
+    assert rec["court"] == "湖南省某县人民法院"
+    assert rec["region"] == "湖南省"
+    assert rec["authority"] == "某县公安局"
+    assert rec["behavior_date"] == "2024-10-30"
+    assert rec["decision_date"] == "2024-10-30"        # 原处罚决定日（从事实段复述里取）
+    assert rec["segmented"] is True                     # 法宝已分段，不再自切
+    assert rec["text_facts"] == JUDGMENT["Ascertain"]   # 经审理查明 → text_facts
+    assert rec["text_review"] == JUDGMENT["Identified"]  # 本院认为 → text_review（法院审查意见）
+    assert rec["deidentified"] is False                 # 判决书是真名
+    oc = rec["outcome"]                                 # 原行政处罚（不是判决结果）
+    assert oc["type"] == "拘留并处罚款" and oc["detention_days"] == 12 and oc["fine"] == 1900
+    assert oc["articles"] == ["治安管理处罚法第七十条"] and oc["law_version"] == "旧法"
+    assert oc["stated_circumstances"] == ["情节严重"]
+    assert rec["review"]["result"] == "维持"            # 驳回诉讼请求 = 原处罚被维持
+    assert rec["review"]["judgment_date"] == "2025-05-02"
+    assert rec["quality"]["has_amount"] and rec["quality"]["has_outcome"]
+    assert rec["quality"]["outcome_only"] is False
+    assert rec["quality"]["parse_warnings"] == []
+
+
+def test_judgment_review_results_and_changed_outcome():
+    """撤销 / 变更 / 确认违法；变更类要给出变更后的处罚。"""
+    def variant(**over):
+        r = dict(JUDGMENT, **over)
+        return build_judgment_record(r)
+
+    assert variant(RefereeResult="撤销被告某县公安局作出的行政处罚决定。")["review"]["result"] == "撤销"
+    assert variant(RefereeResult="确认被告作出的行政处罚违法。")["review"]["result"] == "确认违法"
+    v = variant(RefereeResult="变更被告某县公安局作出的行政拘留十二日为罚款五百元。")
+    assert v["review"]["result"] == "变更" and "罚款500元" in v["review"]["changed_outcome"]
+
+
+def test_judgment_no_facts_flags():
+    """MCP 对部分记录只返回节选：事实段为空时必须告警，不能当作可用金标。"""
+    rec = build_judgment_record(dict(JUDGMENT, Ascertain="", Identified="", RefereeResult=""),
+                                harvest_date="2026-10-16")
+    assert rec["quality"]["parse_warnings"] and "facts_missing" in rec["quality"]["parse_warnings"]
+    assert rec["outcome"]["type"] == ""
+    # 判决结论缺失时按"无"处理，不臆断为维持
+    assert rec["review"]["result"] == "无"

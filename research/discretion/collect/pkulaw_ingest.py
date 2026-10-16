@@ -1,6 +1,6 @@
 """北大法宝（渠道 C）导出文件 → 结构化数据（对齐 docs/05-research/data-spec.md v0.1）。
 
-实测的两种导出形态（2026-10-16，沪公长(长新)行罚决字〔2025〕00289/00290 两份实样）：
+两种导出形态（2026-10-16 实测，沪公长(长新)行罚决字〔2025〕00289/00290 两份实样）：
 
   目录列表 .xls（"北大法宝V6-行政执法-行政执法字段表单"）
     第 1 行：子库与表单名；第 2 行：搜索条件 + 下载时间（进数据卡，必须留住）；
@@ -18,13 +18,22 @@
 `admin_outcomes_only.jsonl`（结果-only 层，用于分布校准与 T-time 计数，不进金标、不作模型输入）。
 脚本据事实段是否为空自动分级：有事实 → `admin_cases.jsonl`（金标候选），无事实 → 结果-only 层。
 
+**司法案例库是另一条数据线，而且是行政金标的主力**（2026-10-16 实测 + 覆盖普查）：
+法院判决书在法宝里是 29 字段的**已分段**结构（Ascertain 经审理查明 / Identified 本院认为 /
+RefereeResult 判决结果 / RefereeBasis 裁判依据），事实段里**完整复述原行政处罚**（拘留日数、罚款额、收缴赌资）。
+行政赌博判决量级：行政一审 4,986、行政二审 6,604（仅判决书 4,630），远超金标需求；但**近年骤降**
+（2025 年审结 43、2026 年 12）——T-time 不能靠判决书。判决书当事人是**真名**，脱敏不能省。
+
 用法（仓库根目录）：
   # 1) 目录表 → 工作清单（哪些还没下全文；按法条/省/案由/年份统计，用来决定下一批下什么）
   python research/discretion/collect/pkulaw_ingest.py catalog --xls inbox/pkulaw/R1/【北大法宝】目录列表.xls \\
       --out $JUSTILAW_DATA_DIR/pkulaw/R1
-  # 2) 已下全文 → 结构化记录（与工作清单按文号 join）
+  # 2) 已下全文（行政执法库）→ 结构化记录（与工作清单按文号 join）
   python research/discretion/collect/pkulaw_ingest.py docs --docs inbox/pkulaw/R1-docs \\
       --worklist $JUSTILAW_DATA_DIR/pkulaw/R1/worklist.csv --out $JUSTILAW_DATA_DIR/admin
+  # 3) 司法案例（MCP 响应 JSON / JSONL / 目录）→ 判决书规格 JSONL
+  python research/discretion/collect/pkulaw_ingest.py cases --src $JUSTILAW_DATA_DIR/engine/pkulaw_mcp/cache/mcp-case \\
+      --out $JUSTILAW_DATA_DIR/admin
 """
 
 from __future__ import annotations
@@ -493,6 +502,173 @@ def _doc_seq(doc_no: str) -> str:
     return m[-1] if m else ""
 
 
+# ---------- 司法案例库：法院判决书（另一条数据线） ----------
+
+# 法宝司法案例记录是 29 个字段的**已分段**结构（2026-10-16 实测，MCP case-keyword 返回）：
+#   TrialAfter 审理经过 / PlaintiffClaims 原告诉称 / DefenseViewpoint 被告辩称 /
+#   Ascertain 经审理查明 / Identified 本院认为 / RefereeResult 判决结果 / RefereeBasis 裁判依据
+#   另有 Category 案由层级、CaseFlag 案号、Court 法院、LastInstanceDate 审结日期、CriminalPunish 主题标签
+# 与 data-spec 的对应：Ascertain→text_facts、Identified→text_review、RefereeBasis→outcome.articles、
+# RefereeResult→review.result；**原行政处罚的结果写在 Ascertain 里**（判决书复述原处罚）。
+# 注意：当事人是**真名**（不同于执法公示的"陈*英"），脱敏不能省。
+
+JUDGMENT_CASE_TYPES = {"行政一审": "行政判决书", "行政二审": "行政判决书", "行政再审": "行政判决书",
+                       "刑事一审": "刑事判决书", "刑事二审": "刑事判决书"}
+AUTHORITY_RE = re.compile(r"被告([\u4e00-\u9fa5]{2,24}?(?:公安局|公安分局|分局|派出所|人民政府|管委会))")
+DATE_CN = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月(?:\s*(\d{1,2})\s*日)?")
+PKULAW_CASE_HASH = re.compile(r"/pfnl/([0-9a-f]{16,})bdfb\.html")
+
+
+def pkulaw_case_id(record: dict) -> str:
+    """判决书的稳定主键：原文链接里的 pfnl 哈希（如 9445…bdfb.html）。"""
+    m = PKULAW_CASE_HASH.search(record.get("Url") or "")
+    return m.group(1) if m else ""
+
+
+def authority_from_judgment(record: dict) -> str:
+    """从"被告××公安局辩称"这类句子里取作出原处罚的机关。判决书没有单列被告字段。"""
+    for field in ("DefenseViewpoint", "Ascertain", "PlaintiffClaims", "Title"):
+        text = record.get(field) or ""
+        m = AUTHORITY_RE.search(text)
+        if m:
+            return m.group(1)
+    return ""
+
+
+def dates_from_facts(facts: str) -> list[str]:
+    return [f"{y}-{int(m):02d}" + (f"-{int(d):02d}" if d else "") for y, m, d in DATE_CN.findall(facts or "")]
+
+
+def decision_date_from_facts(facts: str) -> str:
+    """原处罚决定日期：判决书里常写"同日/当日……作出……处罚决定"，所以要回溯最近的前置日期。"""
+    facts = facts or ""
+    m = re.search(r"(?:作出|下达|出具)[^。；]{0,60}?决定", facts)
+    if not m:
+        return ""
+    before = facts[max(0, m.start() - 40): m.start()]
+    prior = list(DATE_CN.finditer(facts[: m.start()]))
+    if re.search(r"同日|当日", before) and prior:
+        y, mo, d = prior[-1].groups()
+        return f"{y}-{int(mo):02d}" + (f"-{int(d):02d}" if d else "")
+    nxt = DATE_CN.search(facts[m.end(): m.end() + 160])
+    if nxt:
+        y, mo, d = nxt.groups()
+        return f"{y}-{int(mo):02d}" + (f"-{int(d):02d}" if d else "")
+    if prior:
+        y, mo, d = prior[-1].groups()
+        return f"{y}-{int(mo):02d}" + (f"-{int(d):02d}" if d else "")
+    return ""
+
+
+PENALTY_ARTICLES_RE = re.compile(r"根据[^。；]{0,60}?治安管理处罚法[^。；]{0,24}?(第[一二三四五六七八九十百]+条)")
+PENALTY_TIER_ARTICLES = ("第七十条", "第八十二条", "第十九条", "第二十条", "第二十一条", "第二十二条", "第二十三条")
+
+
+def penalty_articles(facts: str, basis: str) -> list[str]:
+    """**处罚依据**（不是法院的裁判依据）。
+
+    判决书的 RefereeBasis 还含法院判决所依据的程序条文（如行政诉讼法第六十九条、治安管理处罚法
+    第九十三条举证规则），直接拿来当 outcome.articles 会污染标签。所以优先从事实段
+    "根据《…治安管理处罚法》第X条…作出…处罚决定"里取；取不到再退回裁判依据里的处罚性条款。
+    """
+    arts: list[str] = []
+    for m in PENALTY_ARTICLES_RE.finditer(facts or ""):
+        arts.append("治安管理处罚法" + cn_num_to_arabic_article(m.group(1)))
+    if not arts:
+        for a in parse_articles(basis or "")[0]:
+            if any(t in a for t in PENALTY_TIER_ARTICLES):
+                arts.append(a)
+    return list(dict.fromkeys(arts))
+
+
+def build_judgment_record(record: dict, *, manifest_id: str = "", harvest_date: str = "") -> dict:
+    """法宝司法案例记录（判决书）→ data-spec v0.1 §1 交付记录（脱敏前）。"""
+    facts = record.get("Ascertain") or ""
+    reasoning = record.get("Identified") or ""
+    result = record.get("RefereeResult") or ""
+    basis = record.get("RefereeBasis") or ""
+    case_type = record.get("CaseClassName") or ""
+    court = record.get("Court") or ""
+    case_flag = record.get("CaseFlag") or ""
+
+    # 原处罚结果：判决书在"经审理查明"里复述（"对原告行政拘留12日，并处罚款1900元；收缴赌资2664元"）
+    oc = outcome_from(facts, "", "")
+    oc["articles"] = penalty_articles(facts, basis)
+    oc["law_version"] = "新法" if "第八十二条" in "".join(oc["articles"]) else (
+        "旧法" if "第七十条" in "".join(oc["articles"]) else "")
+    oc["stated_circumstances"] = [c for c in ("情节严重", "情节较轻", "从轻", "减轻", "从重", "认错认罚")
+                                  if c in (reasoning + facts)]
+
+    # 判决结论：驳回（维持）/ 撤销 / 变更 / 确认违法
+    if re.search(r"驳回", result):
+        rv = "维持"
+    elif re.search(r"撤销", result):
+        rv = "撤销"
+    elif re.search(r"变更", result):
+        rv = "变更"
+    elif re.search(r"确认[^。；]{0,24}?违法", result):
+        rv = "确认违法"
+    else:
+        rv = "无"
+    changed = ""
+    if rv == "变更":
+        c = outcome_from(result, "", "")
+        changed = f"拘留{c['detention_days']}日，罚款{c['fine']}元" if (c["detention_days"] or c["fine"]) else ""
+
+    ds = dates_from_facts(facts)
+    decision_date = decision_date_from_facts(facts)
+
+    warns = []
+    if not facts:
+        warns.append("facts_missing")
+    if not oc["type"]:
+        warns.append("outcome_not_parsed")
+    if not oc["articles"]:
+        warns.append("articles_not_parsed")
+    if not decision_date:
+        warns.append("decision_date_not_found")
+    if not oc["detention_days"] and not oc["fine"]:
+        warns.append("no_penalty_amounts")
+
+    return {
+        "id": manifest_id,
+        "pkulaw_id": pkulaw_case_id(record),
+        "source_type": "行政判决书" if case_type.startswith("行政") else "刑事判决书",
+        "source_ref": "案号哈希待生成（D3）｜原文链接见台账",
+        "doc_no": case_flag,
+        "harvest_date": harvest_date or datetime.now().strftime("%Y-%m-%d"),
+        "deidentified": False,                      # 判决书是**真名**，必须走脱敏 SOP + R6
+        "behavior_date": ds[0] if ds else None,     # 事实段首个日期（多为查处日），粒度待 D2 拍板
+        "decision_date": decision_date or None,     # 原处罚决定日期（判决书复述取得）
+        "authority": authority_from_judgment(record),
+        "region": province_of(court) or province_of(case_flag),
+        "court": court,
+        "text_full": (facts + "\n" + reasoning + "\n" + result).strip(),
+        "segmented": True,                          # 法宝已按语义分段，无需自切
+        "text_facts": facts,                        # 经审理查明（含原处罚复述）
+        "text_evidence": "",
+        "text_reasoning": "",                       # 原处罚机关的裁量说明，判决书里通常没有
+        "text_decision": result,
+        "text_review": reasoning,                   # 本院认为 = 法院审查意见（data-spec text_review）
+        "outcome": oc,                              # 原行政处罚（不是判决结果！）
+        "review": {"result": rv, "changed_outcome": changed,
+                   "judgment_date": parse_date(record.get("LastInstanceDate") or ""),
+                   "case_grade": "／".join(record.get("CaseGrade") or []),
+                   "category": "／".join(record.get("Category") or [])},
+        "quality": {
+            "has_amount": bool(re.search(r"赌资|抽头|渔利|违法所得|罚款\s*[\d一二三四五六七八九十百千]", facts)),
+            "has_outcome": bool(oc["type"]),
+            "outcome_only": False,
+            "plaintiff_claims": record.get("PlaintiffClaims") or "",   # 原告主张（不入模型输入，留作出题）
+            "trial_after": record.get("TrialAfter") or "",
+            "criminal_punish_tags": record.get("CriminalPunish") or [],
+            "parse_warnings": warns,
+        },
+        "event_hint": {"authority": authority_from_judgment(record), "behavior_date": ds[0] if ds else "",
+                       "doc_seq": _doc_seq(case_flag)},
+    }
+
+
 # ---------- 子命令 ----------
 
 def cmd_catalog(args) -> None:
@@ -614,6 +790,97 @@ def cmd_docs(args) -> None:
     report(f"  产出目录：{out}（含 SHA256SUMS）")
 
 
+def cmd_cases(args) -> None:
+    """司法案例记录 → 判决书规格 JSONL（未脱敏，产出与收割链路的 web_cases.pre_deid.jsonl 并列）。
+
+    输入：MCP 响应 JSON（含 Data 数组）、JSONL、或目录（递归取 *.json/*.jsonl）。
+    """
+    src = Path(args.src)
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+
+    files: list[Path]
+    if src.is_dir():
+        files = sorted(p for p in src.rglob("*") if p.suffix.lower() in {".json", ".jsonl"})
+    else:
+        files = [src]
+    if not files:
+        raise SystemExit(f"{src} 下没有 .json/.jsonl")
+
+    raw_records: list[dict] = []
+    for p in files:
+        text = p.read_text(encoding="utf-8")
+        if p.suffix.lower() == ".jsonl":
+            raw_records += [json.loads(line) for line in text.splitlines() if line.strip()]
+        else:
+            d = json.loads(text)
+            if isinstance(d, dict) and "Data" in d:
+                raw_records += d["Data"] or []
+            elif isinstance(d, dict) and "structured" in d:      # 调用层缓存文件
+                raw_records += (d["structured"] or {}).get("Data") or []
+            elif isinstance(d, list):
+                raw_records += d
+            else:
+                raise SystemExit(f"{p}: 认不出结构（既不是 MCP 响应也不是记录数组）")
+
+    by_no: dict[str, dict] = {}
+    if args.worklist and Path(args.worklist).exists():
+        with open(args.worklist, encoding="utf-8-sig", newline="") as f:
+            for r in csv.DictReader(f):
+                by_no[r.get("案件字号", "")] = r
+
+    records, counters = [], Counter()
+    for rec in raw_records:
+        built = build_judgment_record(rec, harvest_date=args.harvest_date)
+        records.append(built)
+        counters["total"] += 1
+        counters[f"source_type:{built['source_type']}"] += 1
+    # 去重：同一 pkulaw_id 只留一条
+    seen, uniq = set(), []
+    for r in records:
+        key = r["pkulaw_id"] or r["doc_no"]
+        if key in seen:
+            counters["duplicated"] += 1
+            continue
+        seen.add(key)
+        uniq.append(r)
+
+    # 按文书类型分流：行政→金标候选；刑事→另行存放（v1 范围外，供行刑边界与后续扩展）
+    groups = {"行政": [r for r in uniq if r["source_type"].startswith("行政")],
+              "刑事": [r for r in uniq if r["source_type"].startswith("刑事")]}
+    written, per_group = [], {}
+    for kind, subset in groups.items():
+        if not subset:
+            continue
+        name = "pkulaw_cases.pre_deid.jsonl" if kind == "行政" else "pkulaw_crim.pre_deid.jsonl"
+        target = out / name
+        with open(target, "w", encoding="utf-8") as f:
+            for r in subset:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        written.append(f"{target.name}（{kind} {len(subset)} 件）")
+        warns = Counter(w for r in subset for w in r["quality"]["parse_warnings"])
+        per_group[kind] = {
+            "件数": len(subset),
+            "判决结论": dict(Counter(r["review"]["result"] for r in subset)),
+            "原处罚类型": dict(Counter(r["outcome"]["type"] or "未解析" for r in subset)),
+            "法律版本": dict(Counter(r["outcome"]["law_version"] or "未知" for r in subset)),
+            "省份前 10": dict(Counter(r["region"] or "未知" for r in subset).most_common(10)),
+            "信息完整（有金额+结果）": sum(1 for r in subset if r["quality"]["has_amount"] and r["quality"]["has_outcome"]),
+            "解析告警": dict(warns),
+        }
+    stats = {"parsed_at": datetime.now().strftime("%Y-%m-%d %H:%M"), "counts": dict(counters),
+             "files": written, "per_group": per_group}
+    (out / "pkulaw_cases.stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    report(f"判决书解析 {len(uniq)} 件（去重 {counters['duplicated']}） → " + "；".join(written))
+    for kind, g in per_group.items():
+        report(f"  [{kind}] 判决结论 {g['判决结论']}｜原处罚 {g['原处罚类型']}")
+        report(f"       法律版本 {g['法律版本']}｜信息完整 {g['信息完整（有金额+结果）']}/{g['件数']}")
+        report(f"       省份前 10 {g['省份前 10']}")
+        report(f"       告警 {g['解析告警']}")
+    report("  注意：判决书含**真名**，交付前必须脱敏 + R6（deidentified=false）")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="北大法宝导出 → 结构化数据（data-spec v0.1）")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -629,6 +896,12 @@ def main() -> None:
     d.add_argument("--harvest-date", default="")
     d.add_argument("--out", default=str(DATA_DIR / "admin"))
     d.set_defaults(func=cmd_docs)
+    c2 = sub.add_parser("cases", help="司法案例记录（MCP 响应/JSONL）→ 判决书规格 JSONL")
+    c2.add_argument("--src", required=True, help="MCP 响应 JSON、JSONL 或目录")
+    c2.add_argument("--worklist", default="", help="司法案例库目录 worklist.csv（按案件字号 join）")
+    c2.add_argument("--harvest-date", default="")
+    c2.add_argument("--out", default=str(DATA_DIR / "admin"))
+    c2.set_defaults(func=cmd_cases)
     args = ap.parse_args()
     args.func(args)
 
