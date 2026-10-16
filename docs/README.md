@@ -15,7 +15,8 @@ docs/
 ├── 02-design/                 设计层
 │   ├── frontend-design.md       前端设计方案（架构 / 技术选型 / 模块 / 页面）
 │   ├── api-contract.md          API 契约（前后端对接唯一依据，变更须评审）
-│   └── gambling-discretion-engine.md  赌博案件智能裁量引擎方案（业界调研 / 架构 / 数据 / 评测）
+│   ├── gambling-discretion-engine.md  赌博案件智能裁量引擎方案（业界调研 / 架构 / 数据 / 评测）
+│   └── framework-panorama.md     框架全景笔记（活文档：三层全景、模块总表、逐项确认清单）
 ├── 03-dev/                    开发层
 │   ├── setup.md                 环境搭建指南
 │   └── conventions.md           代码 / Git / 文档规范
