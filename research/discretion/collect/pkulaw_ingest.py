@@ -61,7 +61,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from common import DATA_DIR, report, sha256_path  # noqa: E402
+from common import DATA_DIR, registry_add, report, sha256_path  # noqa: E402
 
 SCHEMA_VERSION = "0.1"  # data-spec v0.1
 DOC_EXTS = {".doc", ".docx", ".txt", ".md"}
@@ -151,6 +151,285 @@ def merge_jsonl(path: Path, new_records: list[dict]) -> tuple[list[dict], int]:
     added = len(merged) - len(old) if old else len(merged)
     _write_jsonl_atomic(path, merged)
     return merged, max(added, 0)
+
+
+# ---------- parsed-1：统一中间格式（L1）——契约见 justilaw-api/app/discretion/records.py ----------
+
+PARSER_ID = "collect/pkulaw_ingest.py@0.2"
+SOURCE_OF_LIB = {"apy": "法宝执法库", "pfnl": "法宝案例库"}
+CONTRACT_TOP_FIELDS = (
+    "record_version", "id", "source", "batch", "parser", "source_type", "source_ref", "doc_no",
+    "doc_no_hash", "harvest_date", "deidentified", "behavior_date", "decision_date", "authority",
+    "region", "province", "law_version", "subject_mention", "event_key", "text_full", "segmented",
+    "segments", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review",
+    "outcome", "review", "quality", "extra",
+)
+CONTRACT_SOURCE_TYPES = ("处罚决定书", "不予处罚决定书", "行政复议决定书", "行政判决书", "执法公示", "合作案卷")
+CONTRACT_OUTCOME_TYPES = ("不予处罚", "不构成违法", "警告", "罚款", "拘留", "拘留并处罚款", "移送刑事")
+CONTRACT_REVIEW_RESULTS = ("维持", "变更", "撤销", "确认违法", "程序驳回", "无")
+CONTRACT_LAW_VERSIONS = ("旧法", "新法", "未知")
+CONTRACT_OUTCOME_FIELDS = ("type", "detention_days", "fine", "detention_not_executed",
+                           "confiscation", "articles", "stated_circumstances", "law_version")
+# 与 records.py 的 CONCLUSION_WORDS 保持同步（事实段出现即视为混进结论）
+CONCLUSION_WORDS = ("决定给予", "现决定", "情节严重", "从轻处罚", "减轻处罚", "从重处罚")
+SEGMENT_KEYS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
+
+
+def doc_no_norm(doc_no: str) -> str:
+    """规格 v0.2 §1.1 的文号规范化——与 research/discretion/harvest/deid.py 同源实现。"""
+    s = re.sub(r"\s", "", doc_no or "")
+    s = re.sub(r"[〔\[［【(（](20\d{2})[〕\]］】)）]", r"〔\1〕", s)
+    return s.translate(str.maketrans({"(": "（", ")": "）", "[": "〔", "]": "〕",
+                                      "［": "〔", "］": "〕", "【": "〔", "】": "〕"}))
+
+
+def doc_no_hash(doc_no: str) -> str:
+    """交付字段 doc_no_hash：规范化文号的 SHA-256 前 16 位（与 deid.py 同规则）。"""
+    import hashlib
+    return hashlib.sha256(doc_no_norm(doc_no).encode("utf-8")).hexdigest()[:16]
+
+
+def subject_mention_of(rec: dict) -> str:
+    """本人在正文中的原写法（供脱敏替换为"甲"）：决定表/元数据块/正文正则三路兜底。"""
+    full = rec.get("text_full") or ""
+    flat = flatten(full)
+    table = table_cells(full)
+    v = table.get("被处罚对象") or meta_block(flat).get("行政相对人")
+    if v:
+        return v.strip()
+    m = re.search(r"(?:违法行为人|被处罚人)[:：]?([\u4e00-\u9fa5*＊xX×]{1,12})", flat)
+    return m.group(1) if m else ""
+
+
+def _flatten_map(full: str) -> tuple[str, list[int]]:
+    """拍平文本 + 索引映射（与 flatten 同规则：去掉空白与竖线），供段回定位。"""
+    chars: list[str] = []
+    idx: list[int] = []
+    for i, ch in enumerate(full):
+        if ch.isspace() or ch == "|":
+            continue
+        chars.append(ch)
+        idx.append(i)
+    return "".join(chars), idx
+
+
+def _relocate_segment(seg: str, full: str) -> tuple[str, bool]:
+    """把段还原成 text_full 的连续子串，返回 (可直接写入的段, 是否成功)。
+
+    实测（2026-10-16）：legacy 的事实段是在**拍平文本**（去空白）上抽出的，天然不是原文子串；
+    直接写入会被契约判 segment_not_substring，正确做法是回定位到原文字符区间（保留原文换行/空格）。
+    """
+    seg = seg or ""
+    if not seg.strip():
+        return "", True
+    if seg in full:
+        return seg, True
+    flat, idx = _flatten_map(full)
+    flat_seg = "".join(ch for ch in seg if not ch.isspace() and ch != "|")
+    pos = flat.find(flat_seg)
+    if pos < 0 or not flat_seg:
+        return "", False
+    return full[idx[pos]: idx[pos + len(flat_seg) - 1] + 1], True
+
+
+DATE_OK = re.compile(r"^\d{4}-\d{2}(-\d{2})?$")
+
+
+def _clean_date(v) -> tuple[str, bool]:
+    """日期字段落库前校验：格式与范围不合法则弃用（构建时会重新定位），返回 (值, 是否合法)。"""
+    s = (v or "").strip()
+    if not s:
+        return "", True
+    if not DATE_OK.match(s):
+        return "", False
+    y, mo = int(s[:4]), int(s[5:7])
+    d = int(s[8:10]) if len(s) == 10 else 0
+    if 1990 <= y <= 2035 and 1 <= mo <= 12 and (not d or 1 <= d <= 31):
+        return s, True
+    return "", False
+
+
+def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]:
+    """legacy 解析记录 → parsed-1。返回 (记录, 排除原因)；排除原因非空时不产出该条。
+
+    排除规则：source_type 不在契约枚举内（如刑事/民事判决书——v1 范围外，留在 legacy 输出），
+    或 outcome.type 非空但不在枚举内且分级为 L1/L2（契约会判 error）。
+    """
+    st = rec.get("source_type", "")
+    if st not in CONTRACT_SOURCE_TYPES:
+        return None, f"source_type 不在契约枚举：{st}"
+    q = rec.get("quality") or {}
+    oc = rec.get("outcome") or {}
+    tier = str(q.get("tier", ""))
+    oc_type = oc.get("type") or ""
+    if oc_type and oc_type not in CONTRACT_OUTCOME_TYPES and tier[:2] in ("L1", "L2"):
+        return None, f"outcome.type 不在契约枚举：{oc_type}"
+
+    full = rec.get("text_full") or ""
+    b_date, b_ok = _clean_date(rec.get("behavior_date"))
+    d_date, d_ok = _clean_date(rec.get("decision_date"))
+    extra: dict = {"legacy": {k: v for k, v in rec.items() if k not in CONTRACT_TOP_FIELDS}}
+    if not b_ok:
+        extra.setdefault("invalid_dates", {})["behavior_date"] = rec.get("behavior_date")
+    if not d_ok:
+        extra.setdefault("invalid_dates", {})["decision_date"] = rec.get("decision_date")
+    out: dict = {
+        "record_version": "parsed-1",
+        "id": rec.get("id", ""),
+        "source": source,
+        "batch": batch,
+        "parser": PARSER_ID,
+        "source_type": st,
+        "source_ref": (f"法宝引证码 {rec['pkulaw_id']}" if rec.get("pkulaw_id")
+                       else (rec.get("source_ref") or f"台账 {rec.get('id', '')}")),
+        "doc_no": rec.get("doc_no", ""),
+        "doc_no_hash": doc_no_hash(rec.get("doc_no", "")),
+        "harvest_date": rec.get("harvest_date", ""),
+        "deidentified": bool(rec.get("deidentified")),
+        "behavior_date": b_date,
+        "decision_date": d_date,
+        "authority": rec.get("authority", ""),
+        "region": "",  # legacy 的 region 是省份名或区划名，不是区划代码；统一进 province，构建时再补代码
+        "province": rec.get("region") or province_of(rec.get("authority", "")),
+        "law_version": oc.get("law_version") or "未知",
+        "subject_mention": subject_mention_of(rec),
+        "event_key": rec.get("event_key", ""),
+        "text_full": full,
+        "segmented": bool(rec.get("segmented")),
+    }
+    dropped = []
+    for k in SEGMENT_KEYS:
+        seg, ok = _relocate_segment(rec.get(k, ""), full)
+        out[k] = seg
+        if not ok:
+            dropped.append(k)
+    if dropped:
+        extra["segments_not_in_full"] = dropped
+        extra["segments_raw"] = {k: rec.get(k, "") for k in dropped}
+
+    out["outcome"] = {
+        "type": oc_type,
+        "detention_days": int(oc.get("detention_days") or 0),
+        "fine": float(oc.get("fine") or 0),
+        "detention_not_executed": oc.get("detention_not_executed") or "否",
+        "confiscation": oc.get("confiscation") or "",
+        "articles": list(oc.get("articles") or []),
+        "stated_circumstances": list(oc.get("stated_circumstances") or []),
+        "law_version": oc.get("law_version") if oc.get("law_version") in CONTRACT_LAW_VERSIONS else "",
+    }
+    oc_extra = {k: v for k, v in oc.items() if k not in CONTRACT_OUTCOME_FIELDS}
+    if oc_extra:
+        extra["outcome"] = oc_extra
+    rv = rec.get("review") or {}
+    review_result = rv.get("result") or "无"
+    out["review"] = {
+        "result": review_result if review_result in CONTRACT_REVIEW_RESULTS else "无",
+        "changed_outcome": rv.get("changed_outcome") or {},
+    }
+    facts = out.get("text_facts") or ""
+    conclusion = [w for w in CONCLUSION_WORDS if w in facts]
+    out["quality"] = {
+        "tier": tier,
+        "in_scope": not tier.startswith("L3"),
+        "completeness": {"has_amount": bool(q.get("has_amount")),
+                         "has_outcome": bool(q.get("has_outcome"))},
+        "parse_warnings": list(q.get("parse_warnings") or []),
+        "form": q.get("form", ""),
+        "gambling": ("是" if tier[:2] in ("L1", "L2")
+                     else ("否" if "非赌博" in str(q.get("tier_reason", "")) or "民事" in str(q.get("tier_reason", ""))
+                           else "待定")),
+        "facts_contains_conclusion": bool(conclusion),
+    }
+    q_extra = {k: v for k, v in q.items()
+               if k not in ("tier", "has_amount", "has_outcome", "parse_warnings", "form")}
+    if q_extra:
+        extra["quality"] = q_extra
+    out["extra"] = extra
+    return out, ""
+
+
+def cmd_parsed1(args) -> None:
+    """legacy 解析产物 → parsed-1（统一中间格式 L1）→ parsed/pkulaw/<批次>/records.jsonl。
+
+    一个批次一个文件（契约）；枚举外类型（刑事/民事判决书）排除并记入 stats；逐条内嵌自检。
+    """
+    sources = [Path(x) for x in args.sources]
+    batch = batch_tag(args.batch)
+    out = Path(args.out) if args.out else DATA_DIR / "parsed" / "pkulaw" / batch
+    out.mkdir(parents=True, exist_ok=True)
+    if (out / "records.jsonl").exists() and not args.force:
+        raise SystemExit(f"拒绝写入：{out / 'records.jsonl'} 已存在（--force 覆盖）")
+
+    records: list[dict] = []
+    excluded: list[dict] = []
+    per_source: dict[str, int] = {}
+    for src in sources:
+        n = 0
+        for fname in ("admin_cases.jsonl", "admin_outcomes_only.jsonl",
+                      "admin_needs_review.jsonl", "pkulaw_out_of_scope.jsonl"):
+            for rec in _read_jsonl(src / fname):
+                n += 1
+                source = SOURCE_OF_LIB["apy"]
+                if rec.get("source_type") in ("行政判决书", "刑事判决书", "民事判决书"):
+                    source = SOURCE_OF_LIB["pfnl"]
+                got, why = to_parsed1(rec, batch=batch, source=source)
+                if got is None:
+                    excluded.append({"id": rec.get("id", ""), "doc_no": rec.get("doc_no", ""),
+                                     "reason": why})
+                    continue
+                records.append(got)
+        per_source[src.name] = n
+    if records:
+        _write_jsonl_atomic(out / "records.jsonl", records)
+    else:
+        (out / "records.jsonl").unlink(missing_ok=True)  # 全被排除的批次不留空文件
+
+    issues = _self_check(records)
+    stats = {
+        "batch": batch, "parsed_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "sources": per_source, "input": sum(per_source.values()), "records": len(records),
+        "excluded": excluded,
+        "tier": dict(Counter((r.get("quality") or {}).get("tier", "?") for r in records)),
+        "events": len({r.get("event_key") for r in records if r.get("event_key")}),
+        "self_check": issues,
+    }
+    (out / "stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
+    registry_add("L1", out, records=len(records), producer="collect/pkulaw_ingest.py parsed1",
+                 pipeline_version="parsed-1", status="现行",
+                 note=f"统一中间格式；来源 {', '.join(per_source)}")
+    report(f"parsed-1 产出：{len(records)} 条（排除 {len(excluded)}）→ {out / 'records.jsonl'}")
+    report(f"  分级：{stats['tier']}｜独立事件 {stats['events']}")
+    for e in excluded:
+        report(f"  排除：{e['doc_no'] or e['id']}（{e['reason']}）")
+    if issues:
+        for code, s in issues.items():
+            report(f"  自检 {s['level']} {code}: {s['count']} 例：{', '.join(s['ids'][:3])}")
+    else:
+        report("  自检：零 error / 零 warn")
+
+
+def _self_check(records: list[dict]) -> dict:
+    """内嵌契约自检（justilaw-api/app/discretion/records.py 的 check_parsed）。
+
+    读不到契约模块时跳过（返回 {}）——命令行仍可用外部自检：
+      cd justilaw-api && python -m app.discretion.records check <records.jsonl> --layer parsed
+    """
+    api_root = HERE.parents[2] / "justilaw-api"
+    try:
+        if str(api_root) not in sys.path:
+            sys.path.insert(0, str(api_root))
+        from app.discretion.records import check_parsed, summarize  # noqa: PLC0415
+    except Exception:  # noqa: BLE001
+        return {}
+    by_id = {}
+    for r in records:
+        iss = check_parsed(r)
+        if iss:
+            by_id[r.get("id", "?")] = iss
+    out = summarize(by_id)
+    return {k: {"level": v["level"], "count": v["count"], "message": v["message"], "ids": v["ids"]}
+            for k, v in out.items()}
+
 
 # ---------- 中文数字与金额 ----------
 
@@ -421,21 +700,28 @@ def pkulaw_id_from_name(name: str) -> str:
 
 
 def last_date(text: str) -> str:
-    """全文最后一个日期——落款日期在文末（取窗口内首个日期会命中出生日期，实测踩过）。"""
-    best = None
-    for pat in (r"(\d{4})[.\-/年](\d{1,2})[.\-/月]?(\d{1,2})?",
-                r"([〇零一二三四五六七八九]{4})年([〇零一二三四五六七八九十]{1,3})月([〇零一二三四五六七八九十]{1,3})日"):
-        for m in re.finditer(pat, text or ""):
-            if best is None or m.start() > best.start():
-                best = m
-    if best is None:
+    """全文最后一个"像落款"的日期——落款日期在文末（取窗口内首个日期会命中出生日期，实测踩过）。
+
+    2026-10-16 加固（实测两类垃圾日期）：
+      - 门牌号"2058/2059"、编号"1342-05"会被旧式 `\\d{4}[.\\-/年]\\d{1,2}` 当日期 → 加年份范围校验（1990–2035）；
+      - 落款中文写法"二○二三年十月十日"用的是 ○（U+25CB），旧字符类只收 〇（U+3007）→ 落款匹配失败、
+        兜底抓到文中的旧日期/门牌 → 补齐 ○/0/零 与月日范围校验。
+    """
+    candidates: list[tuple[int, str]] = []
+    for m in re.finditer(r"((?:19|20)\d{2})\s*[年.\-/]\s*(\d{1,2})(?:\s*[月.\-/]\s*(\d{1,2})\s*日?)?",
+                         text or ""):
+        y, mo, d = int(m.group(1)), int(m.group(2)), int(m.group(3) or 0)
+        if 1 <= mo <= 12 and (not d or 1 <= d <= 31):
+            candidates.append((m.start(), f"{y}-{mo:02d}" + (f"-{d:02d}" if d else "")))
+    cn = "〇○0零一二三四五六七八九"
+    for m in re.finditer(rf"([{cn}]{{4}})年([{cn}十]{{1,3}})月([{cn}十]{{1,3}})日", text or ""):
+        y = int(m.group(1).translate(str.maketrans(cn, "0000123456789")))
+        mo, d = cn2int(m.group(2)) or 0, cn2int(m.group(3)) or 0
+        if 1990 <= y <= 2035 and 1 <= mo <= 12 and 1 <= d <= 31:
+            candidates.append((m.start(), f"{y}-{mo:02d}-{d:02d}"))
+    if not candidates:
         return ""
-    groups = best.groups()
-    if groups[0] and groups[0][0].isdigit():
-        y, mo = groups[0], int(groups[1])
-        return f"{y}-{mo:02d}" + (f"-{int(groups[2]):02d}" if groups[2] else "")
-    y = groups[0].translate(str.maketrans("〇零一二三四五六七八九", "00123456789"))
-    return f"{y}-{(cn2int(groups[1]) or 0):02d}-{(cn2int(groups[2]) or 0):02d}"
+    return max(candidates, key=lambda x: x[0])[1]
 
 
 def pkulaw_id_from_text(text: str) -> str:
@@ -1420,7 +1706,11 @@ def cmd_docs(args) -> None:
     report(f"  批次指标：事实段中位 {stats['facts_len_median']} 字｜含金额 {stats['has_amount_ratio']:.0%}"
            f"｜缺决定日期 {stats['missing_decision_date_ratio']:.0%}")
     report(f"  事件产出：{stats['unique_events']} 个独立事件 / {len(stats_records)} 篇（折算率 {stats['event_yield']:.0%}）")
-    report(f"  产出目录：{out}（批次 {stats['batch']}；含 SHA256SUMS）")
+    registry_add("L1-legacy", out, records=len(stats_records),
+                 producer="collect/pkulaw_ingest.py docs", pipeline_version=SCHEMA_VERSION,
+                 status="工作副本",
+                 note=f"批次 {stats['batch']}；parsed-1 正本见 parsed/pkulaw/{stats['batch']}/")
+    report(f"  产出目录：{out}（批次 {stats['batch']}；含 SHA256SUMS；已登 REGISTRY）")
 
 
 def cmd_merge(args) -> None:
@@ -1481,6 +1771,9 @@ def cmd_merge(args) -> None:
     report(f"  分级：{stats['tier']}｜独立事件 {len(events)}")
     for d in dup_log:
         report(f"  重复：{d['key']}（保留 {d['kept']}，丢弃 {d['dropped']}）")
+    registry_add("L1-legacy", out, records=stats["unique"],
+                 producer="collect/pkulaw_ingest.py merge", pipeline_version=SCHEMA_VERSION,
+                 status="工作副本", note=f"跨批合并（去重 {len(dup_log)}）；并入 parsed-1 另行产出")
 
 
 def cmd_cases(args) -> None:
@@ -1569,6 +1862,9 @@ def cmd_cases(args) -> None:
              "files": written, "per_group": per_group}
     (out / "pkulaw_cases.stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
 
+    registry_add("L1-legacy", out, records=len(uniq),
+                 producer="collect/pkulaw_ingest.py cases", pipeline_version=SCHEMA_VERSION,
+                 status="工作副本", note=f"判决书批次 {args.batch or batch_tag('')}")
     report(f"判决书解析 {len(uniq)} 件（去重 {counters['duplicated']}） → " + "；".join(written))
     for kind, g in per_group.items():
         report(f"  [{kind}] 判决结论 {g['判决结论']}｜原处罚 {g['原处罚类型']}")
@@ -1669,6 +1965,12 @@ def main() -> None:
     m.add_argument("--batch", default="", help="批次标签（缺省时间戳）")
     m.add_argument("--force", action="store_true", help="允许覆盖已有产物（默认拒写）")
     m.set_defaults(func=cmd_merge)
+    p1 = sub.add_parser("parsed1", help="legacy 解析产物 → parsed-1（统一中间格式 L1）")
+    p1.add_argument("--from", dest="sources", nargs="+", required=True, help="legacy 批次目录（含分级文件）")
+    p1.add_argument("--out", default="", help="缺省 $JUSTILAW_DATA_DIR/parsed/pkulaw/<批次>/")
+    p1.add_argument("--batch", default="", help="批次标签（缺省时间戳）")
+    p1.add_argument("--force", action="store_true", help="允许覆盖已有 records.jsonl（默认拒写）")
+    p1.set_defaults(func=cmd_parsed1)
     c2 = sub.add_parser("cases", help="司法案例记录（MCP 响应/JSONL）→ 判决书规格 JSONL")
     c2.add_argument("--src", required=True, help="MCP 响应 JSON、JSONL 或目录")
     c2.add_argument("--worklist", default="", help="司法案例库目录 worklist.csv（按案件字号 join）")

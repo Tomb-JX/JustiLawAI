@@ -11,8 +11,8 @@
 来源                          采集/解析代码                                产物（$JUSTILAW_DATA_DIR/）                    分级
 ① 公开网页（县级政府公示、    discover/*（计划·检索·分诊·栏目）→               admin/web_cases.pre_deid.jsonl                 in_scope / gambling
    复议专栏）                 harvest/*（收割·OCR）→ harvest/parse.py          （3,693 条，在范围内 1,036）                    + completeness
-② 法宝行政执法库（公安        collect/pkulaw_ingest.py docs                    ingest/<批次>/admin_cases.jsonl（L1 金标候选）   **tier L1–L4**
-   行政处罚决定书）           （目录 xls 用 catalog；清单用 worklist）          ingest/<批次>/admin_outcomes_only.jsonl（L2）
+② 法宝行政执法库（公安        collect/pkulaw_ingest.py docs                      parsed/pkulaw/<批次>/records.jsonl（L1 正本，   **tier L1–L4**
+   行政处罚决定书）           （parsed1 产统一中间格式；legacy 在 ingest/）      parsed-1 → 九组字段；ingest/<批次>/ 为工作副本
                                                                                ingest/<批次>/admin_needs_review.jsonl（L4）
                                                                                ingest/<批次>/pkulaw_out_of_scope.jsonl（L3）
 ③ 法宝司法案例库（法院判决）   collect/pkulaw_ingest.py cases（MCP 记录）        cases/<批次>/pkulaw_cases.pre_deid.jsonl（行政）  tier（判决书形态）

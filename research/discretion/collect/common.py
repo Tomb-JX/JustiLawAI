@@ -157,3 +157,56 @@ def manifest_add(row: dict) -> str:
 
 def report(msg: str) -> None:
     print(msg, flush=True)
+
+
+# ---------- 数据登记表（项目现状总览 §6：构建/导入脚本自动追加一行，文档只引版本号） ----------
+
+REGISTRY = DATA_DIR / "REGISTRY.csv"
+REGISTRY_FIELDS = ["layer", "path", "records", "sha256", "producer", "pipeline_version",
+                   "created_at", "status", "note"]
+
+
+def dir_digest(path: Path) -> str:
+    """目录内容摘要：按文件名排序的「相对路径 + 文件 SHA-256」串接后取 SHA-256。
+
+    对文件返回自身哈希；目录含清单与各文件哈希，任一文件改动都会改变摘要。
+    """
+    p = Path(path)
+    if p.is_file():
+        return sha256_path(p)
+    lines = []
+    for f in sorted(p.rglob("*")):
+        if f.is_file() and ".bak" not in f.suffixes:
+            lines.append(f"{f.relative_to(p).as_posix()}\t{sha256_path(f)}")
+    return sha256_bytes("\n".join(lines).encode("utf-8"))
+
+
+def registry_add(layer: str, path, *, records: int, producer: str,
+                 pipeline_version: str = "", status: str = "现行", note: str = "") -> None:
+    """向 $JUSTILAW_DATA_DIR/REGISTRY.csv 追加一行（文件不存在则写表头）。
+
+    layer 对齐总览 §4 分层：L0 原始 / L1 解析（parsed-1）/ L1-legacy（工作副本）等；
+    status：现行 / 已取代 / 工作副本。
+    """
+    row = {
+        "layer": layer, "path": str(path), "records": records,
+        "sha256": dir_digest(Path(path)), "producer": producer,
+        "pipeline_version": pipeline_version,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "status": status, "note": note,
+    }
+    # 同路径旧行标"已取代"（登记表语义：每个路径只有一个"现行"版本）
+    rows: list[dict] = []
+    if REGISTRY.exists():
+        with REGISTRY.open(encoding="utf-8-sig", newline="") as f:
+            for r in csv.DictReader(f):
+                if r.get("path") == row["path"] and r.get("status") == "现行":
+                    r["status"] = "已取代"
+                rows.append(r)
+    rows.append(row)
+    tmp = REGISTRY.with_suffix(".csv.tmp")
+    with tmp.open("w", encoding="utf-8", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=REGISTRY_FIELDS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+    tmp.replace(REGISTRY)
