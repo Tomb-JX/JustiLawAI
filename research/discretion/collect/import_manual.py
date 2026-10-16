@@ -61,6 +61,8 @@ def main() -> None:
     ap.add_argument("--src", default="", help="来源目录（默认 $DATA/inbox 顶层；给了就递归）")
     ap.add_argument("--dest-sub", default="", help="raw/ 下目标子目录（可含批次名，如 pkulaw/南京50篇）")
     ap.add_argument("--harvest-date", default="", help="下载日期（缺省用今天）")
+    ap.add_argument("--copy", action="store_true",
+                    help="复制而非移动（来源是用户自己的资料夹时用，保留原件）")
     args = ap.parse_args()
 
     src = Path(args.src) if args.src else INBOX
@@ -80,7 +82,10 @@ def main() -> None:
         if dest.exists():
             report(f"  跳过（已存在同名）：{p.name}")
             continue
-        shutil.move(str(p), dest)
+        if args.copy:
+            shutil.copy2(str(p), dest)
+        else:
+            shutil.move(str(p), dest)
         moved += 1
         ref = pkulaw_id_from_stem(p.stem) or args.ref or "manual-export"
         manifest_add(
@@ -98,7 +103,7 @@ def main() -> None:
             }
         )
         n += 1
-    report(f"导入完成：登记 {n} 个文件（移动 {moved}）→ {dest_dir}")
+    report(f"导入完成：登记 {n} 个文件（{"复制" if args.copy else "移动"} {moved}）→ {dest_dir}")
 
 
 if __name__ == "__main__":
