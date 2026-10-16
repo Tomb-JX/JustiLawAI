@@ -808,7 +808,9 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
         "outcome": oc,
         "review": {"result": "无", "changed_outcome": ""},
         "quality": {
-            "form": parsed.get("form", ""),      # 叙述式 / 字段式公示（分省形态不同，实测）
+            "form": parsed.get("form", ""),      # 叙述式-独立成篇 / 叙述式-结果栏内 / 字段式公示
+            **tier_of(has_facts=bool(facts), has_outcome=bool(oc["type"]),
+                      gambling=parsed.get("gambling_hint", True), in_scope=True),
             "has_amount": has_amount(facts),
             "has_outcome": bool(oc["type"]),
             "outcome_only": not facts,           # True → 只能进结果-only 层（D6）
@@ -881,6 +883,8 @@ def build_judgment_doc_record(parsed: dict, *, manifest_id: str = "", harvest_da
         "criminal": cr if is_criminal else None,
         "quality": {
             "form": "判决书",
+            **tier_of(has_facts=bool(parsed["facts"]), has_outcome=bool(oc["type"]) or is_criminal,
+                      gambling=parsed.get("gambling_hint", True), in_scope=not is_civil),
             "in_scope": not is_civil,                  # 民事判决是全文检索噪声，不进交付
             "case_type": case_type,
             "has_amount": has_amount(parsed["facts"]),
@@ -893,6 +897,27 @@ def build_judgment_doc_record(parsed: dict, *, manifest_id: str = "", harvest_da
         "event_hint": {"authority": j["court"], "behavior_date": parsed["behavior_date_in_facts"] or "",
                        "doc_seq": _doc_seq(parsed["doc_no"])},
     }
+
+
+def tier_of(*, has_facts: bool, has_outcome: bool, gambling: bool, in_scope: bool) -> dict:
+    """记录级分级——决定进哪个产物、能不能当训练原料。
+
+    L1 金标候选：有事实段 + 处罚结果可解析 + 赌博范围内 → 训练/测试原料（`admin_cases.jsonl`）
+    L2 结果-only：无事实但有结果 → 省份/年份分布校准、T-time 计数、跨源核对（`admin_outcomes_only.jsonl`，D6）
+    L3 范围外：非赌博、民事判决、结果不可解析且无事实（全文检索噪声）→ 单独存放，不进任何训练（`pkulaw_out_of_scope.jsonl`）
+    L4 待核：有事实但结果解析失败（或反之）→ 人工过一眼（`admin_needs_review.jsonl`）
+    """
+    if not in_scope:
+        return {"tier": "L3-范围外", "tier_reason": "非赌博/民事判决"}
+    if not gambling:
+        return {"tier": "L3-范围外", "tier_reason": "赌博特征未命中"}
+    if has_facts and has_outcome:
+        return {"tier": "L1-金标候选", "tier_reason": "有事实段且结果可解析"}
+    if has_outcome:
+        return {"tier": "L2-结果only", "tier_reason": "无事实段（公示原文即无案情）"}
+    if has_facts:
+        return {"tier": "L4-待核", "tier_reason": "有事实但结果未解析"}
+    return {"tier": "L3-范围外", "tier_reason": "既无事实也无结果"}
 
 
 def _doc_seq(doc_no: str) -> str:
@@ -1146,18 +1171,24 @@ def cmd_docs(args) -> None:
         for w in r["quality"]["parse_warnings"]:
             counters[f"warn:{w.split(':')[0]}"] += 1
 
-    outside = [r for r in records if r["quality"].get("in_scope") is False]   # 民事判决（噪声）
+    # 范围外：民事判决 + 非赌博 + 无事实且无结果（全文检索噪声），单独存放不进任何训练
+    outside = [r for r in records if r["quality"].get("in_scope") is False
+               or str(r["quality"].get("tier", "")).startswith("L3")]
     if outside:
         counters["skipped_out_of_scope"] = len(outside)
         with open(out / "pkulaw_out_of_scope.jsonl", "w", encoding="utf-8") as f:
             for r in outside:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        records = [r for r in records if r["quality"].get("in_scope") is not False]
+        records = [r for r in records if r not in outside]
 
-    cases = [r for r in records if not r["quality"]["outcome_only"]]
-    only = [r for r in records if r["quality"]["outcome_only"]]
+    buckets = {"L1-金标候选": [], "L2-结果only": [], "L3-范围外": [], "L4-待核": []}
+    for r in records:
+        buckets.setdefault(r["quality"].get("tier", "L4-待核"), []).append(r)
+    tier_counts = {k: len(v) for k, v in buckets.items() if v}
+    cases, only = buckets.get("L1-金标候选", []), buckets.get("L2-结果only", [])
     written = []
-    for name, subset in (("admin_cases.jsonl", cases), ("admin_outcomes_only.jsonl", only)):
+    for name, subset in (("admin_cases.jsonl", cases), ("admin_outcomes_only.jsonl", only),
+                         ("admin_needs_review.jsonl", buckets.get("L4-待核", []))):
         if not subset:
             continue
         target = out / name
@@ -1201,7 +1232,9 @@ def cmd_docs(args) -> None:
     (out / "pkulaw_ingest.stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
 
     forms = dict(Counter(r["quality"]["form"] for r in records))
-    report(f"解析 {len(records)} 份文书（形态 {forms}；文本来源 {dict(Counter(r['quality']['text_source'] for r in records))}）")
+    tiers = dict(Counter(r["quality"].get("tier", "?") for r in records))
+    report(f"解析 {len(records)} 份文书（形态 {forms}）")
+    report(f"  分级：{tiers}")
     report(f"  有事实（金标候选，A 类主力）：{len(cases)} → admin_cases.jsonl")
     report(f"  无事实（结果-only，B 类，D6）：{len(only)} → admin_outcomes_only.jsonl")
     report(f"  处罚类型分布：{stats['outcome_types']}")
