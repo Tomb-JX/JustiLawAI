@@ -20,7 +20,8 @@
 ④ 第三方采购裁判文书          collect/ingest_wenshu.py（清洗去重入库）          wenshu/imported/<批次>/wenshu.jsonl              **暂存，未分段**
 ⑤ 公开数据集                  collect/fetch_cail.py / fetch_lecard.py          cail/（赌博子集四 split）、lecard/
                              ↓
-                     ⑥ 脱敏 SOP + R6 隐私扫描   ← **未入库**（deid.py/regions.py 仍在发现层工作树，D1–D5 待拍板）
+                     ⑥ L2 统一构建（harvest/build.py：脱敏+R6+区划+去重+事件分组）
+                        —— 2026-10-16 起支持 `--parsed` 接入 parsed-1 来源；产物按版本发布 `delivery/<版本>/` + LATEST
                              ↓
                      ⑦ 交付引擎：admin_cases.schema-1.0.0.jsonl（data-spec v0.1）  ← **尚未产出过任何一批**
 ```

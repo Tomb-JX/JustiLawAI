@@ -12,12 +12,22 @@
   6. 写出 admin_cases.schema-1.0.0.jsonl、admin_outcomes_only.jsonl、admin_excluded.csv、build_stats.json、SHA256SUMS；
      deid_map.jsonl（代号 → 原文位置与长度，不含原名）同目录存放，不入库。最后对两个交付文件整体再做一次 R6。
 
-用法（仓库根目录）：python research/discretion/harvest/build.py
-输入：$JUSTILAW_DATA_DIR/admin/web_cases.pre_deid.jsonl（parse.py 产出）
+用法（仓库根目录）：
+  # 只跑网页来源（旧行为）：
+  python research/discretion/harvest/build.py
+  # 统一构建：网页 L1 + 各来源 parsed-1（可多次 --parsed NAME=PATH），交付按版本目录发布：
+  python research/discretion/harvest/build.py \
+      --parsed pkulaw=$JUSTILAW_DATA_DIR/parsed/pkulaw/merged-20261016 \
+      --out $JUSTILAW_DATA_DIR/delivery/2026-10-16.pk1 --version 2026-10-16.pk1
+输入：网页 L1 = $JUSTILAW_DATA_DIR/admin/web_cases.pre_deid.jsonl（parse.py 产出）；
+      parsed-1 来源 = parsed/<来源>/<批次>/records.jsonl（数据记录契约见 justilaw-api/app/discretion/records.py）。
+输出：默认 $JUSTILAW_DATA_DIR/admin/；给 --out 时写该目录（建议 delivery/<版本>/，并写父目录 LATEST 指针）。
+登记：写 $JUSTILAW_DATA_DIR/REGISTRY.csv（总览 §6；失败不阻断构建）。
 """
 
 from __future__ import annotations
 
+import argparse
 import csv
 import hashlib
 import json
@@ -33,7 +43,7 @@ sys.path.insert(0, str(HERE.parent / "discover"))
 
 import r6_scan  # noqa: E402
 from deid import deidentify, doc_no_hash, parse_meta_date  # noqa: E402
-from regions import load_regions  # noqa: E402
+from regions import Resolver, load_regions, load_table  # noqa: E402
 from search import data_root  # noqa: E402
 from triage import DOC_NO  # noqa: E402
 
@@ -51,10 +61,15 @@ LAW_TAG = {"旧法": "（2012修正）", "新法": "（2025修订）"}
 
 
 def law_version_of(behavior_date: str, by_article: str) -> str:
-    """规格 v0.2 §1.2：按行为日初判（2026-01-01 为界），没有行为日时用所引条文推断的版本。"""
+    """规格 v0.2 §1.2 / D8：**以实际引用的法条版本为准**（不要用行为日覆盖）；没有引用时退回行为日推断。
+
+    2026-10-16 修 I-01：旧实现按行为日优先，把 13 条"从旧兼从轻、实际引用新法"的案件标成旧法。
+    """
+    if by_article:
+        return by_article
     if re.fullmatch(r"\d{4}-\d{2}(-\d{2})?", behavior_date or ""):
         return "新法" if behavior_date >= "2026-01" else "旧法"
-    return by_article or "未知"
+    return "未知"
 
 
 def tag_articles(articles: list[str], version: str) -> list[str]:
@@ -81,7 +96,8 @@ def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
     bd = rec.get("behavior_date", "")
     behavior = parse_meta_date(bd)
     full = rec.get("text_full") or ""
-    d = deidentify(full, behavior=behavior, behavior_has_day=len(bd) == 10)
+    d = deidentify(full, subject=(rec.get("subject_mention") or None), behavior=behavior,
+                   behavior_has_day=len(bd) == 10)
     out_segments, offsets = {}, {}
     for f in SEGMENTS:
         seg = (rec.get(f) or "").strip()
@@ -133,6 +149,7 @@ def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
     # 复议引用的原处罚文号（脱敏前取，只留哈希）用于关联
     out["_cited"] = sorted({doc_no_hash(m.group(1)) for m in DOC_NO.finditer(full) if m.group(1) != no})
     out["_site"] = rec.get("site", "")
+    out["_region"] = rec.get("_region")  # parsed-1 来源在接入时已解析的区划（无站点来源用；写出时按 _ 前缀剥离）
     return out, d.deid_map()
 
 
@@ -277,13 +294,79 @@ def dedupe_and_link(records: list[dict]) -> tuple[list[dict], list[tuple[str, st
     return kept, dropped, stats
 
 
+# ---------- parsed-1（统一中间格式）来源接入（2026-10-16：法宝来源首批） ----------
+
+def region_for_record(resolver: Resolver, rec: dict) -> dict | None:
+    """无站点来源的区划解析：机关名（权重 3）+ 正文前 300 字（1），复用站点同一张表与打分；省名兜底。"""
+    texts = [(t, w) for t, w in ((rec.get("authority") or "", 3),
+                                 ((rec.get("text_full") or "")[:300], 1)) if t]
+    got = resolver.resolve(texts) if texts else None
+    if got:
+        return got
+    prov = rec.get("province") or ""
+    if prov:
+        for p in resolver.provinces:
+            if prov in (p["name"], resolver.short[p["code"]]):
+                return resolver.row(p, 1, "province_only")
+    return None
+
+
+def from_parsed1(rec: dict, resolver: Resolver) -> dict | None:
+    """parsed-1（L1 统一中间格式）→ 构建内部形状（与 parse.py 的输出同形）。
+
+    只收 quality.in_scope 为真的记录；区划在接入时按机关解析（省名兜底）。
+    """
+    q = rec.get("quality") or {}
+    if not q.get("in_scope"):
+        return None
+    extra = rec.get("extra") or {}
+    oc = dict(rec.get("outcome") or {})
+    oc.update(extra.get("outcome") or {})            # detention_items 等内部字段还原
+    out = {
+        "id": rec["id"],
+        "source_type": rec.get("source_type", ""),
+        "site": "",
+        "doc_no": rec.get("doc_no", ""),
+        "subject_mention": rec.get("subject_mention", ""),
+        "harvest_date": rec.get("harvest_date", ""),
+        "behavior_date": rec.get("behavior_date", ""),
+        "decision_date": rec.get("decision_date", ""),
+        "authority": rec.get("authority", ""),
+        "text_full": rec.get("text_full", ""),
+        "segmented": bool(rec.get("segmented")),
+        "outcome": oc,
+        "review": rec.get("review") or {},
+        "parse_warnings": list(q.get("parse_warnings") or []),
+        "completeness": q.get("completeness") or {},
+        "ocr": bool(q.get("ocr")),
+        "_region": region_for_record(resolver, rec),
+        "_site": "法宝:" + (rec.get("authority") or rec.get("province") or rec["id"]),
+    }
+    for k in SEGMENTS:
+        out[k] = rec.get(k, "")
+    return out
+
+
+def load_parsed_source(spec: str, resolver: Resolver) -> tuple[list[dict], str]:
+    """--parsed NAME=PATH：读 parsed-1 records.jsonl（或目录）→ 内部形状；返回 (记录, 描述)。"""
+    name, _, path = spec.partition("=")
+    p = Path(path)
+    if p.is_dir():
+        p = p / "records.jsonl"
+    rows = [json.loads(l) for l in p.read_text(encoding="utf-8").splitlines() if l.strip()]
+    out = [got for r in rows if (got := from_parsed1(r, resolver)) is not None]
+    desc = f"{name}: {p}（{len(rows)} 条 → 范围内 {len(out)}）"
+    print(f"[parsed] {desc}")
+    return out, desc
+
+
 # ---------- 主流程 ----------
 
 def attach_region(out: dict, regions: dict[str, dict]) -> None:
-    g = regions.get(out["_site"])
+    g = out.get("_region") or regions.get(out.get("_site"))
     if g and g.get("province_code"):
-        out.update({"region": g["region_code"], "region_level": g["level"], "province": g["province"],
-                    "province_code": g["province_code"]})
+        out.update({"region": g.get("region_code", ""), "region_level": g.get("level", ""),
+                    "province": g["province"], "province_code": g["province_code"]})
 
 
 def write_jsonl(path: Path, rows: list[dict]) -> None:
@@ -293,12 +376,28 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 def main() -> int:
+    ap = argparse.ArgumentParser(description="L2 统一构建：各来源 L1 → 脱敏/去重/事件分组 → 交付层")
+    ap.add_argument("--parsed", action="append", default=[], metavar="NAME=PATH",
+                    help="额外的 parsed-1 来源（可多次），如 pkulaw=$DATA/parsed/pkulaw/merged-20261016")
+    ap.add_argument("--web", default="", help="网页 L1（缺省 $DATA/admin/web_cases.pre_deid.jsonl）")
+    ap.add_argument("--out", default="", help="输出目录（缺省 $DATA/admin；建议传 delivery/<版本>/）")
+    ap.add_argument("--version", default="", help="版本号（写进 stats；缺省用输出目录名）")
+    args = ap.parse_args()
+
     today = date.today().isoformat()
     root = data_root().parent
-    adir = root / "admin"
-    src = [json.loads(l) for l in (adir / "web_cases.pre_deid.jsonl").read_text(encoding="utf-8").splitlines()]
+    adir = Path(args.out) if args.out else (root / "admin")
+    adir.mkdir(parents=True, exist_ok=True)
+    web_src = Path(args.web) if args.web else (root / "admin" / "web_cases.pre_deid.jsonl")
+    src = [json.loads(l) for l in web_src.read_text(encoding="utf-8").splitlines() if l.strip()]
     scope = [r for r in src if r.get("in_scope")]
     regions = load_regions()
+    inputs = [f"web: {web_src}（{len(src)} 条 → 范围内 {len(scope)}）"]
+    resolver = Resolver(load_table())
+    for spec in args.parsed:
+        rows, desc = load_parsed_source(spec, resolver)
+        inputs.append(desc)
+        scope += rows
     wl = r6_scan.load_whitelist()
     main_rows, outcome_rows, excluded, maps = [], [], [], []
     r6_soft = Counter()
@@ -363,14 +462,27 @@ def main() -> int:
             "events": len({r["event_id"] for r in rows}),
             "linked": sum(bool(r["linked_ids"]) for r in rows),
         }
-    stats = {"pipeline_version": PIPELINE_VERSION, "in_scope": len(scope), "main": describe(main_rows),
-             "outcomes_only": describe(outcome_rows), "excluded": len(excluded),
+    stats = {"pipeline_version": PIPELINE_VERSION, "version": args.version or adir.name,
+             "inputs": inputs, "in_scope": len(scope),
+             "main": describe(main_rows), "outcomes_only": describe(outcome_rows),
+             "excluded": len(excluded),
              "excluded_reasons": dict(Counter(r.split(":")[0] if r.startswith(("R6", "重复")) else r for _, r in excluded)),
              "dedupe_main": link_stats, "r6_first_pass_soft": dict(r6_soft)}
     # R6 第二次：交付文件整体扫描
     rc = r6_scan.main([str(out_main), str(out_oc)])
     stats["r6_second_pass"] = json.loads((adir / "r6_report.json").read_text(encoding="utf-8"))["hard_hit_records"]
     (adir / "build_stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
+    # 版本指针 + 登记表（总览 §6；登记失败不阻断构建）
+    try:
+        if adir.parent.name == "delivery":
+            (adir.parent / "LATEST").write_text(adir.name, encoding="utf-8")
+        sys.path.insert(0, str(HERE.parent / "collect"))
+        from common import registry_add  # noqa: PLC0415
+        registry_add("L3", adir, records=len(main_rows) + len(outcome_rows),
+                     producer="harvest/build.py", pipeline_version=PIPELINE_VERSION,
+                     status="现行", note="；".join(inputs))
+    except Exception as exc:  # noqa: BLE001
+        print(f"[warn] 登记表写入失败（忽略）：{exc}")
     print(json.dumps(stats, ensure_ascii=False, indent=1))
     return rc
 

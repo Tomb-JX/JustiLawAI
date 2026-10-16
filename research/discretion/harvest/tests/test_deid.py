@@ -228,5 +228,11 @@ def test_spec_v02_fields():
     assert "行为时43周岁" in d.text and not d.age_uncertain
     # 法条统一写法、法律版本按行为日、复议"驳回"记"程序驳回"
     assert tag_articles(["治安管理处罚法第七十条", "第十一条第一款"], "旧法") == ["治安管理处罚法（2012修正）第七十条", "第十一条第一款"]
-    assert law_version_of("2026-02-03", "旧法") == "新法" and law_version_of("", "旧法") == "旧法"
+    # 法律版本以**实际引用的法条**为准（D8 / 2026-10-16 修 I-01）；未引用时退回行为日。
+    # 引用与行为日冲突（如 2026 后仍引旧法）不再被构建覆盖，交由交付契约校验暴露。
+    assert law_version_of("2024-01-05", "新法") == "新法"       # 从旧兼从轻
+    assert law_version_of("2024-01-05", "旧法") == "旧法"
+    assert law_version_of("", "旧法") == "旧法"
+    assert law_version_of("2026-02-03", "") == "新法"
+    assert law_version_of("2026-02-03", "旧法") == "旧法"
     assert dates_close("2024-01-01", "2024-01-20") and not dates_close("2024-01-01", "2024-05-01")
