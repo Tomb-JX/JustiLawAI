@@ -64,7 +64,7 @@ sys.path.insert(0, str(HERE))
 from common import DATA_DIR, registry_add, report, sha256_path  # noqa: E402
 
 SCHEMA_VERSION = "0.1"  # data-spec v0.1
-DOC_EXTS = {".doc", ".docx", ".txt", ".md"}
+DOC_EXTS = {".doc", ".docx", ".pdf", ".txt", ".md"}
 
 # ---------- 输出隔离与保护（2026-10-16：修"解析脚本默认写共享目录、与他流产物同名互相覆盖"） ----------
 

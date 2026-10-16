@@ -53,12 +53,17 @@ def check_pkulaw_channel(files: list[Path], channel: str) -> str:
 
 
 def collect_files(src: Path) -> list[Path]:
-    """收集可导入文件：递归；跳过 Word 锁文件（~$…）与隐藏文件（实测导出目录里常有）。"""
+    """收集可导入文件：递归；跳过 Word 锁文件（~$…）与隐藏文件（实测导出目录里常有）。
+    另跳过作业台自动产出的元数据文件（downloads.json/downloaded.jsonl 等，不是文书）。"""
+    skip_names = {"downloads.json", "downloaded.jsonl", "fetch.json", "extract.jsonl",
+                  "run.json", "run.jsonl", "jobs.jsonl", "run_report.md"}
     out: list[Path] = []
     for p in sorted(src.rglob("*")):
         if not p.is_file() or p.suffix.lower() not in ALLOWED:
             continue
         if p.name.startswith("~$") or p.name.startswith("."):
+            continue
+        if p.name in skip_names:
             continue
         out.append(p)
     return out
