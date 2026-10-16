@@ -137,7 +137,10 @@ def manifest_add(row: dict) -> str:
         ):
             return r["id"]
     prefix = row.get("channel") or "X"
-    seq = sum(1 for r in rows if r["id"].startswith(f"{prefix}-")) + 1
+    # 序号取同前缀已有最大值 +1：按行数计数在台账经历删行重建后会与旧号冲突（B-098 事故）
+    used = [int(r["id"][len(prefix) + 1:]) for r in rows
+            if r["id"].startswith(f"{prefix}-") and r["id"][len(prefix) + 1:].isdigit()]
+    seq = max(used, default=0) + 1
     row["id"] = f"{prefix}-{seq:03d}"
     row.setdefault("harvest_date", datetime.now().strftime("%Y-%m-%d"))
     row.setdefault("harvest_by", "collect-script")

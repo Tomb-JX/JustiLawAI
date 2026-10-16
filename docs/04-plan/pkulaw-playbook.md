@@ -1,8 +1,8 @@
 # 渠道 C 作战手册：北大法宝（学院账号）
 
-> 版本 v0.1 · 2026-10-15 · **数据链路**工作流执行（[分工文档](./workstreams.md)）
-> 定位：渠道 B 公开专栏密度 <1% 已量化（[crawler-ops](./crawler-ops.md)），北大法宝是凑足金标 ≥500 的**主力通道**；同时是规范库 G0.1 官方原文的最稳来源。
-> 配套：[数据收集计划](./data-collection.md)（§3-C、§4 流水线）· collect/import_manual.py
+> 版本 v0.3 · 2026-10-16 · **数据链路**工作流执行（[分工文档](./workstreams.md)）
+> 定位：MCP 目录服务（C1：普查/不决字/反查出处）已可用；网页批量导出（C2）**待学院订阅绑定后启用**。行政案例主力已是发现层公开网页链路（见[数据收集计划 §0](./data-collection.md)），法宝负责稀缺类与官方原文。
+> 配套：[数据收集计划](./data-collection.md)（§3-C1/C2）· [执法库调研](../05-research/pkulaw-mcp-enforcement.md) · collect/import_manual.py
 
 ## 0. 分工边界（与发现层探针的配合）
 
@@ -72,23 +72,30 @@
 | API / 自动化 | 个人中心无开放平台入口；**发现官方 MCP 产品 mcp.pkulaw.com**——若学院订阅含此产品，即为合规自动化的正道，优先确认 |
 | 检索 URL 模板 | 法规库实测：`/law/chl?Keywords=<词>&SearchKeywordType=Fulltext&MatchType=Exact`；站内提交 = `#txtSearch` 填词后调 `doSearch("Fulltext")`（SPA，无独立结果页跳转） |
 
-## 7. 法宝 MCP 接入（2026-10-15 已打通 ✅）
+## 7. 法宝 MCP 接入（2026-10-15 打通 ✅，2026-10-16 补至 13 服务）
 
-**接入方式**：mcp.pkulaw.com 控制台的 Bearer Token（用户级 `~/.zcode/cli/config.json` → `mcp.servers`，**Token 只存本地配置，永不入库**；失效时到控制台重新生成）。ZCode 会话重启后自动连接 9 个服务：
+**接入方式**：mcp.pkulaw.com 控制台的 Bearer Token（用户级 `~/.zcode/cli/config.json` → `mcp.servers`，**Token 只存本地配置，永不入库**；失效时到控制台重新生成）。ZCode 会话重启后自动连接（MCP 方式需重启生效；脚本方式即时可用）。完整服务清单与单价以引擎的调用层为准（`research/eval/pkulaw_mcp/services.py`，2026-10-16 已对照账户实测）：在原 9 个之上新增 4 个——
 
-| 服务 | 端点 | 工具（实测） | 管线用途 |
+| 服务 | 端点 | 单价 | 数据链路用途 |
 |---|---|---|---|
-| pkulaw-case-keyword | /mcp-case | `get_case_list`（标题/正文关键词，前 20 条，字段含案号/法院/标签/法官） | 金标目录、类案元数据 |
-| pkulaw-case-semantic-search | /mcp-case-search-service | `search_case` | 类案语义检索（M5 对照） |
-| pkulaw-law-keyword | /mcp-law | `get_law_list` | 规范库检索（G0.1） |
-| pkulaw-law-search | /mcp-law-search-service | `get_article` / `search_article` | 法条原文核对 |
-| pkulaw-law-item-keyword | /mcp-fatiao | `get_law_item_content`（如"刑法第2条"） | **M2 规范层取原文 + 时间效力** |
-| pkulaw-law-recognition | /law_recognition | `law_recognition` | 文书中法条识别溯源 |
-| pkulaw-case-number-recognition | /case_number_recognition | `anhao_recognition` | 案号识别溯源 |
-| pkulaw-citation-validator | /pku_citation_validator | `adjust_provisions` | **M6 说理校验器（红线 R2 法条精确率）** |
-| pkulaw-doc-link | /add-doc-link | `get_linked_content` | 法宝超链 |
+| **pkulaw-enforcement-doc** | /pkulaw-enforcement-doc/mcp | 75 | **行政执法库目录**：普查选省、"不决字"定位不予处罚、"机关+文号"反查原公示页（详见[执法库调研](../05-research/pkulaw-mcp-enforcement.md)） |
+| pkulaw-procuratorate-doc | /pkulaw-procuratorate-doc/mcp | 75 | 不起诉决定书目录（行刑边界样本） |
+| pkulaw-statute-history | /pkulaw-statute-history/mcp | 75 | 法条沿革与新旧对照（规范库核验已由引擎完成，22 项一致） |
+| pkulaw-account | /pkulaw-account/mcp | 0 | 查余额、开通状态与单价（对账用） |
 
-**使用纪律**：MCP 是官方合规通道，优先级高于网页导出——单点精确查询、法条原文核对、说理校验走 MCP；**批量成百上千件的文书导出仍走网页批量导出**（MCP 每次只回前 20 条，且积分/配额另计，页面上有"积分充值"）。协议注意：SSE 响应无 charset，requests 必须显式 `content.decode("utf-8")`（latin-1 误读会把多字节序列切成假换行）。
+原 9 个（case-keyword / case-semantic / law-keyword / law-search / fatiao / law-recognition / case-number-recognition / citation-validator / doc-link）用途见 git 历史 v0.2 版本表；法律智能检索（mcp-law-agg）网关路径未知（404），暂未收录。
+
+**调用方式二选一**：
+1. **共用调用层（推荐，有记账）**：引擎维护的 `research/eval/pkulaw_mcp/`，带预算上限、参数缓存（同参数只付一次）、按工作流记账的台账：
+   ```bash
+   research/.venv/Scripts/python research/eval/pkulaw_mcp/__main__.py --workstream data call enforcement-doc search_enforcement '{"queryText": "赌博", "documentNo": "不决字"}' --budget 75
+   ```
+   令牌查找顺序：环境变量 `PKULAW_MCP_AUTHORIZATION` → 官方 CLI 配置 → 数据链路的 ZCode 配置。**数据链路调用一律加 `--workstream data`**，月底对账（`__main__.py ledger` + `account` 服务查余额）。
+2. ZCode 内 MCP 工具（`mcp__pkulaw-*`，会话重启后出现）：适合单点人工查询，无自动记账。
+
+**积分纪律（与引擎共用一个账户）**：余额 8,300 分，**2026-11-15 全部过期**。普查（31 省 × 2026，2,325 分）、不予处罚定向（约 750 分）、检察目录（约 375 分）等成规模调用，**先在协作记录里与引擎对齐再执行**（[积分分配建议 §5](../05-research/pkulaw-mcp-enforcement.md)）。
+
+**使用纪律**：MCP 是官方合规通道，优先级高于网页导出——单点精确查询、法条原文核对、说理校验走 MCP；**批量成百上千件的文书导出仍走网页批量导出**（MCP 只回目录无正文、每次前 20 条不能翻页）。协议注意：SSE 响应无 charset，requests 必须显式 `content.decode("utf-8")`（latin-1 误读会把多字节序列切成假换行）；"精准查找法条"在标题匹配不上时会**静默返回别的文件**，用前核对返回的文件名与文号。
 
 ## 变更日志
 
@@ -96,3 +103,4 @@
 |---|---|---|---|
 | 2026-10-15 | v0.1 | 初版：分工边界、侦察清单、五条检索式、导出 SOP、合规红线 | 模型组 |
 | 2026-10-15 | v0.2 | 侦察结果回填；§7 法宝 MCP 已打通（9 服务接入 ZCode 用户配置，实测 get_case_list 返回真实案例） | 模型组 |
+| 2026-10-16 | v0.3 | §7 升级：ZCode 配置补至 13 服务（行政执法/检察文书/法条沿革/积分查询）；调用改推引擎共用调用层（预算/缓存/--workstream data 记账）；积分纪律（余额 8,300，11-15 过期，成规模调用先对齐）；补"精准查找法条静默返回错文件"坑 | 数据链路 |
