@@ -22,7 +22,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from deid import ALIASES, MASK, MASK_CH, MASKED, REAL, SEP, STATION_STOP, STOP_WORDS, looks_like_name  # noqa: E402
+from deid import (ALIASES, FUNC, MASK, MASK_CH, MASKED, REAL, SEP, STATION_STOP, STOP_WORDS, apply,  # noqa: E402
+                  cell_wraps, looks_like_name)
 
 WHITELIST = HERE / "r6_whitelist.txt"
 TEXT_FIELDS = ("text_full", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review", "title")
@@ -47,6 +48,10 @@ SOFT = [
     ("station_named", re.compile(r"(?P<pre>[^\s，,。；;、：:（）()“”\"\d局]{1,6})派出所")),
     ("officer_named", re.compile(r"(民警|辅警|执法人员)(?!某)[一-龥]{2,3}(?=[、，,在于对到将])")),
 ]
+# 当事人称谓后紧跟真名（脱敏后这里应是代号）：硬命中（2026-10-16 实测法宝表格案卷"行为人张伟"式漏网 12 件）
+# （复议文书的"申请人/被申请人"后面多是动词："申请人宣读""被申请人于同日"，不收）
+ROLE_REAL = re.compile(rf"(?:违法行为人|行为人|违法嫌疑人|被处罚人|当事人)\s*(?P<name>{REAL})"
+                       r"(?=[，,。；;、（(\s于因在等和与及系的被将从对后]|$)")
 NAME_CTX = re.compile(rf"(?:(?<=[、，,和与及对])|(?<=伙同)|(?<=给予)|(?<=违法行为人)|(?<=被处罚人)|(?<=违法嫌疑人)|(?<=申请人)|(?<=当事人))"
                       rf"(?P<name>{REAL})(?={SEP}|等|在|于|因|的|被|行政拘留|罚款|，|。|$)")
 
@@ -93,7 +98,8 @@ def _excluded(cat: str, text: str, m: re.Match) -> bool:
 
 
 def scan_text(text: str, field: str = "text", whitelist: set[str] | None = None) -> list[Hit]:
-    text = text or ""
+    # 表格续行会把人名、日期切成两行，规则都匹配不上：先去掉续行再扫（位置相对去掉续行后的文本）
+    text = apply(text or "", cell_wraps(text or ""))
     hits: list[Hit] = []
     for hard, rules in ((True, HARD), (False, SOFT)):
         for cat, rx in rules:
@@ -101,6 +107,12 @@ def scan_text(text: str, field: str = "text", whitelist: set[str] | None = None)
                 if not _excluded(cat, text, m):
                     hits.append(Hit(cat, hard, field, m.start(), m.end(), text[max(0, m.start() - 12): m.end() + 12]))
     wl = whitelist or set()
+    for m in ROLE_REAL.finditer(text):
+        tok = m.group("name")
+        if tok in wl or tok in STOP_WORDS or tok[:2] in STOP_WORDS or tok[0] in FUNC or not looks_like_name(tok):
+            continue
+        hits.append(Hit("person_role", True, field, m.start("name"), m.end("name"),
+                        text[max(0, m.start() - 12): m.end() + 12]))
     for m in NAME_CTX.finditer(text):
         tok = m.group("name")
         if tok in wl or tok in STOP_WORDS or tok[:2] in STOP_WORDS or tok[0] in ALIASES + ["甲"] or not looks_like_name(tok):

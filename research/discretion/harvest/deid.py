@@ -57,7 +57,7 @@ NOT_GIVEN = "行处罚拘给予进参组提开聚利用通使伙纠邀召约违�
 GIVEN = rf"(?:(?![{FUNC}{PLACE_AFTER}{NOT_GIVEN}])[一-龥])"
 # 遮挡写法后接一个名字用字（韦*林、黄*森）时，名字用字后面必须是边界或常见后续字，否则按"姓+遮挡"处理（"戴x询问"）；
 # 前面是数字（"三楼xxx"）时不算人名
-NAME_END = r"[、，,。；;（(\s和与及等在于因被将从到对向为以的已均也都持赢输家提参共各分先主自又再处罚行给予\d]"
+NAME_END = r"[、，,。；;（(\s和与及等在于因被将从到对向为以的已均也都持赢输家提参共各分先主自又再处罚行给予携\d]"
 # 真名用字：只排除虚词、紧跟人名的公文动词首字（行政、处以、罚款、拘留、给予）和地名用字；可含"小""华""道""进"
 VERB_HEAD = "行处罚拘给予"
 GIVEN_REAL = rf"(?:(?![{FUNC}{VERB_HEAD}某省市县区镇乡村屯组街路巷号楼栋室局所院校队部厂店])[一-龥])"
@@ -69,14 +69,15 @@ MASKED = (rf"(?<![\d一二三四五六七八九十两])(?:"
           rf"|{SUR}{MASK}{{1,4}}(?!{MASK})(?!{PLACE_NEXT})"
           rf"|{SUR}(?!{SURCH})(?!{PLACE_NEXT})[一-龥]{MASK}{{1,2}}(?!{MASK})(?!{PLACE_NEXT})"
           rf"|(?:(?<![一-龥])|(?<=[{BOUND}])){SUR}{SURCH}{MASK}(?!{MASK})(?!{PLACE_NEXT})"
-          rf"|(?:(?<![市县省镇乡村某])|(?!区)){SUR}某{GIVEN_REAL}(?={NAME_END}|$)|{SUR}(?!{SURCH}){GIVEN_REAL}某(?!某)(?={NAME_END}|$)"
+          # "吴某芳""宋某某明"（2026-10-16：后者旧版只认"唐某某"，留下"文"成了"丙明"）
+          rf"|(?:(?<![市县省镇乡村某])|(?!区)){SUR}某{{1,2}}{GIVEN_REAL}(?={NAME_END}|$)|{SUR}(?!{SURCH}){GIVEN_REAL}某(?!某)(?={NAME_END}|$)"
           rf"|(?:(?<![一-龥])|(?<=[{BOUND}])){SUR}{SURCH}某(?!某)(?={NAME_END}|$)"
           # "于某处""在某地"不是人名；"覃某某处以"是
           rf"|(?:(?<![市县省镇乡村某])|(?!区)){SUR}某{{1,2}}(?![日月年时天地些种个人]|{PLACE_NEXT}|处(?![以罚理])|司法|公司|单位|机关|医院|学校|中心))")
 REAL = rf"{SUR}{GIVEN_REAL}{{1,2}}"
 NAME = rf"(?:{MASKED}|[一-龥]{{1,6}}·[一-龥]{{1,6}}|{REAL})"
-SUBJECT_ROLES = ("违法行为人", "违法嫌疑人", "被处罚人", "违法人")
-ROLES = (r"违法行为人|违法嫌疑人|被处罚人|违法人|行政处罚对象|处罚对象|行政相对人名称|行政相对人|当事人|同案人|申请人"
+SUBJECT_ROLES = ("违法行为人", "违法嫌疑人", "被处罚人", "违法人", "行为人")
+ROLES = (r"违法行为人|违法嫌疑人|被处罚人|违法人|行为人|行政处罚对象|处罚对象|行政相对人名称|行政相对人|当事人|同案人|申请人"
          r"|受害人|被害人|被侵害人|证人|报案人|举报人|旅客")
 AFTER_NAME = r"(?=\s*(?:[，,。；;（(\s、男女于因等不和与及对在系的将从被为:：已均也都共各分先一\d]|给予|处以|行政拘留|罚款|警告|$))"
 # 称谓后：遮挡写法自带边界，直接认；真名要后面跟边界；其余写法（少数民族姓等）只在逗号、括号或处罚动词前认
@@ -92,6 +93,10 @@ TIME_NAME = re.compile(rf"(?<=[午上晚间许日月]，)(?P<name>{REAL})(?=在|
 KIN_NAME = re.compile(rf"(?P<name>{REAL})(?=的?(?:女儿|儿子|妻子|丈夫|父亲|母亲|哥哥|弟弟|姐姐|妹妹|侄子|家中|家里|家))")
 DOTTED = re.compile(r"(?<![一-龥])?[一-龥]{2,5}·[一-龥]{2,6}")  # 少数民族姓名（艾某·某某）
 ROLE_VERB_NAME = re.compile(rf"(?<=由)(?P<name>{REAL})(?=提供|组织|负责|召集|经营|出资|开设|望风|放哨)")  # "由房友明提供的"
+HOST_NAME = re.compile(rf"(?<=在)(?P<name>{REAL})(?=开设|经营|开办|承包|租用)")              # "在冯某某开设的棋牌室内"
+# 表格导出（法宝"执法依据/违法事实"两栏表）的单元格续行：" |⏎|      |"或单栏" |⏎|"把一个词切成两行，
+# 人名、日期都被切开（实测"行为人李 |⏎|   |洋"漏网，2026-10-16）。脱敏前先去掉夹在两个汉字/数字之间的续行
+CELL_WRAP = re.compile(r"(?<=[一-龥\d])[ \t]*\|[ \t]*\r?\n[ \t]*\|(?P<empty>[ \t]*\|)?[ \t]*(?=[一-龥\d])")
 PAREN_NAME = re.compile(rf"(?:笔录|传唤证|回执|告知书|通知书|证明|辨认)[（(](?P<name>{REAL})[)）]")
 LINE_NAME = re.compile(rf"(?m)^\s*(?P<name>{REAL})\s*$")      # 按列排版的公开表：姓名独占一行
 OBJ_NAME = re.compile(rf"(?<=对)(?P<name>{REAL})(?=的)")       # "对韩宗红的违法所得""对陶明的行为"
@@ -135,6 +140,7 @@ class DeidResult:
     cleanup: list[Span] = field(default_factory=list)   # 第二步：删掉替换后留下的"，，""， 。"（位置相对第一步结果）
     age_uncertain: bool = False                          # 出生或行为日期不到日、算不准是否已过生日（取较小值）
     subject_variants: int = 0                            # 推断为本人的其他写法个数（>0 时复核看一眼）
+    pre: list[Span] = field(default_factory=list)        # 第零步：去掉切开词语的表格续行（spans 的位置相对第零步结果）
 
     @staticmethod
     def _shift(spans: list[Span], pos: int, is_end: bool) -> int:
@@ -150,10 +156,10 @@ class DeidResult:
 
     def project(self, pos: int, *, is_end: bool) -> int:
         """原文位置 → 脱敏后位置。落在替换片段内部时，起点映射到片段新起点、终点映射到片段新终点。"""
-        return self._shift(self.cleanup, self._shift(self.spans, pos, is_end), is_end)
+        return self._shift(self.cleanup, self._shift(self.spans, self._shift(self.pre, pos, is_end), is_end), is_end)
 
     def deid_map(self) -> list[list]:
-        """代号 → 原文位置与长度（不含原名），供复核。"""
+        """代号 → 原文位置与长度（不含原名），供复核。有表格续行时位置相对去掉续行后的文本。"""
         return [[s.repl, s.start, s.end - s.start] for s in self.spans if s.cat == "person"]
 
 
@@ -436,7 +442,8 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
                     and tok[0] == subject[0] and m.group(0).startswith(SUBJECT_ROLES)
                     and len({t for t in same_sur if t[0] == subject[0]}) <= 2 and len(role_toks) <= 2):
                 same_as_subject.add(tok)
-    rxs = [PERSON_LINE, CUE_NAME, CASE_NAME, VERB_NAME, OBJ_NAME, EVID_NAME, KIN_NAME, TIME_NAME, PAREN_NAME, ROLE_VERB_NAME]
+    rxs = [PERSON_LINE, CUE_NAME, CASE_NAME, VERB_NAME, OBJ_NAME, EVID_NAME, KIN_NAME, TIME_NAME, PAREN_NAME, ROLE_VERB_NAME,
+           HOST_NAME]
     if "姓名" in text:
         rxs.append(LINE_NAME)
     for rx in rxs:
@@ -469,7 +476,9 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
                 if not mm or mm.group("name") in tokens:
                     continue
                 tok = mm.group("name")
-                if looks_like_name(tok) or (len(tok) == 3 and "、" in mm.group(0) and lenient_ok(tok)):
+                # 顿号列举里的"X某Y"即使 X 不在常见姓表里也是人名（"陈某丽、过某华、陈某强"）
+                listed = len(tok) == 3 and "、" in mm.group(0)
+                if looks_like_name(tok) or (listed and (lenient_ok(tok) or re.fullmatch(rf"[^{FUNC}]某{GIVEN_REAL}", tok))):
                     new.add(tok)
         if not new:
             break
@@ -485,11 +494,14 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
             v = next(iter(variants))
             if not re.search(rf"{re.escape(v)}{SEP}{re.escape(subject)}(?!{MASK})|{re.escape(subject)}{SEP}{re.escape(v)}(?!{MASK})", text):
                 same_as_subject.add(v)
-    # 位置：遮挡写法用正则扫描结果（"韦*"与"韦*林"不混），其余写法找全部出现
+    # 位置：纯遮挡写法用正则扫描结果（"韦*"与"韦*林"不混），其余写法（含带名字用字的遮挡写法"吴某芳""郭x青"）找全部出现——
+    # 后者旧版也只认正则位置，"吴某芳携带"处正则不认（后接字不是边界）只换掉"孙某"，留下"戊芳"（2026-10-16）
     found = list(masked_hits)
     for t in tokens:
         if not is_masked(t):
             found += [(m.start(), m.end(), t) for m in re.finditer(re.escape(t), text)]
+        elif re.fullmatch(rf"{SUR}(?:{MASK}+|某+)[一-龥]", t):   # 连同紧跟的遮挡残字（源文"周x山x2022年"）一起换
+            found += [(m.start(), m.end(), t) for m in re.finditer(re.escape(t) + rf"{MASK}*", text)]
     return found, same_as_subject
 
 
@@ -541,6 +553,8 @@ def deidentify(text: str, *, subject: str | None = None, behavior: date | None =
                persons: dict[str, str] | None = None) -> DeidResult:
     """persons：沿用另一段文本的代号表（单独脱敏的段落、标题）；subject 为空时自动找本人。
     behavior_has_day：行为日期是否到日（只到月时年龄按当月首尾两种情况算范围）。"""
+    pre = cell_wraps(text)
+    text = apply(text, pre)
     if subject is None and not persons:
         subject = find_subject(text)
     if subject is None and persons:
@@ -564,10 +578,23 @@ def deidentify(text: str, *, subject: str | None = None, behavior: date | None =
         counts[s.cat] = counts.get(s.cat, 0) + 1
     return DeidResult(apply(mid, cleanup), spans, pmap, ambiguous, subject, counts, cleanup,
                       age_uncertain=bool(flags.get("age_uncertain")) and any(s.cat == "birth" and s.repl for s in spans),
-                      subject_variants=len(same))
+                      subject_variants=len(same), pre=pre)
 
 
-CLEAN = re.compile(r"(?<=[。；;\n])[ \t　 ]*[，,]|[ \t　 ]*[，,](?=[ \t　 ]*[，,。；;])|(?<=[：:，,])[ \t　 ]+|[ \t　 ]+(?=[，,。；;])")
+def cell_wraps(text: str) -> list[Span]:
+    """切开词语的表格续行。两栏表的续行左格为空（"|   |洋"）；单栏表续行这一行里除结尾外没有别的竖线。
+    两栏表的新一行（"|处罚依据 |…"）不是续行，保留。"""
+    out = []
+    for m in CELL_WRAP.finditer(text):
+        if not m.group("empty"):
+            eol = text.find("\n", m.end())
+            if "|" in text[m.end(): eol if eol >= 0 else len(text)].rstrip().rstrip("|"):
+                continue
+        out.append(Span(m.start(), m.end(), "", "wrap", 0))
+    return out
+
+
+CLEAN =re.compile(r"(?<=[。；;\n])[ \t　 ]*[，,]|[ \t　 ]*[，,](?=[ \t　 ]*[，,。；;])|(?<=[：:，,])[ \t　 ]+|[ \t　 ]+(?=[，,。；;])")
 
 
 def apply(text: str, spans: list[Span]) -> str:
