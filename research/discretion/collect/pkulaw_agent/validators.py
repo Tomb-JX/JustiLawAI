@@ -26,8 +26,13 @@ import pkulaw_ingest as ingest  # noqa: E402 —— 文号规范化与拍平，�
 GAMBLING_CORE = re.compile(
     r"赌博|参赌|赌资|赌具|抽头|渔利|赌场|麻将|扑克|骰子|牌九|炸金花|押宝|比鸡|老虎机|赌博机|六合彩")
 TOBACCO_RE = re.compile(r"烟草|卷烟|烟叶|烟丝|香烟|专卖管理")
-# 打码：连续 2 个以上 xx/××/＊/□ 后跟金额或日期单位；或单个 × 紧随 年月
-MASK_RE = re.compile(r"(?:[xX×]{2,}|＊{1,}|□{1,}|\u25a1{1,})\s*[元年]|×\s*[年月]")
+# 打码：连续掩码字符（ASCII * 常见于法宝源文，如"赌资****元""20**年**月**日"；
+# x/×/＊/□ 为变体）后跟金额或日期单位；单个 × 紧随年月日也认。
+# 注意：姓名的"张**"、条号的"第**条"不触发（后随非单位字）。
+MASK_TOKEN_RE = re.compile(r"(?:[xX×*]{2,}|[＊□\u25a1]{1,})\s*([元年月日])|×\s*([年月日])")
+# 日期位豁免语境：出生日期与"之前无违法犯罪记录"式前科句——遮的是非关键要素（真实样本：
+# 安陆 34 号只遮年龄/出生日期，行为日期与赌资完好，属可用件，不应拦）
+MASK_EXCUSE = ("出生", "之前")
 # 正文年份（排除"2025年修订/2012年修正"式版本字样——它出现在法条名里，不是案件年份）
 YEAR_IN_TEXT = re.compile(r"(20\d{2})年(?!修订|修正)")
 
@@ -79,9 +84,18 @@ def check_narrative(probe: dict, min_facts: int = 50) -> tuple[bool, str]:
 
 
 def check_masked(text: str) -> tuple[bool, str]:
-    m = MASK_RE.search(ingest.flatten(text))
-    if m:
-        return False, f"疑似打码：{m.group(0)[:12]}"
+    """金额位打码一律拦；日期位打码仅当不是"出生/前科记录"语境时拦（那两类遮的不是关键要素）。"""
+    flat = ingest.flatten(text)
+    hits: list[str] = []
+    for m in MASK_TOKEN_RE.finditer(flat):
+        unit = m.group(1) or m.group(2) or ""
+        if unit in "年月日":
+            window = flat[m.end():m.end() + 12]
+            if any(w in window for w in MASK_EXCUSE):
+                continue
+        hits.append(m.group(0))
+    if hits:
+        return False, f"疑似打码：{hits[0][:12]}（共{len(hits)}处）"
     return True, ""
 
 

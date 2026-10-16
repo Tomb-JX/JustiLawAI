@@ -409,7 +409,13 @@ def test_check_narrative_and_masked():
     assert not val_mod.check_masked("决定对其处罚款 xx 元")[0]
     assert not val_mod.check_masked("查获赌资＊元、赌具一批")[0]
     assert not val_mod.check_masked("罚款人民币□□□元")[0]
+    assert not val_mod.check_masked("现场查获赌资****元，赌具麻将*副")[0]  # 法宝源 * 号打码
+    assert not val_mod.check_masked("20**年**月**日**时许在**栋")[0]
     assert val_mod.check_masked("处罚款五百元整；王xx（男，45岁）到场")[0]  # 人名 xx 不误报
+    assert val_mod.check_masked("依据《治安管理处罚法》第**条、第**条第**款处罚")[0]  # 只遮条号不遮金额/日期
+    assert val_mod.check_masked("张**，李*，杨**，石**四人以打*方式赌博")[0]  # 只遮人名
+    assert val_mod.check_masked("男，年龄**岁，****年**月**日出生，居民身份证号码：1522**")[0]  # 出生日期豁免
+    assert val_mod.check_masked("违法犯罪记录：****年**月**日之前无违法犯罪记录")[0]  # 前科句豁免
 
 
 def test_check_dedupe_manifest_and_seen():
