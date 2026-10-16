@@ -25,6 +25,7 @@ docs/
 │   ├── crawler-ops.md           批量采集运维计划（站点台账 / 适配 SOP / 每周节奏）
 │   ├── pkulaw-playbook.md       渠道 C 北大法宝作战手册（检索式 / 导出 SOP / 侦察清单）
 │   ├── pkulaw-ingest-design.md  渠道 C 数据化链路设计（实样解剖 / 字段缺口 / 导出计划）
+│   ├── pkulaw-agent-design.md   法宝作业台设计（agent 自检索/预探/下载/核对；M0–M4）
 │   ├── manual-collection-guide.md  人工采集指南（县级公示 / 复议 / 裁判文书网 / 信用中国）
 │   ├── search-discovery-design.md  发现层设计（千帆搜索 API / 饱和拆分 / 交付文件）
 │   ├── web-harvest-design.md    公开网页收割设计（分诊 → 收割 → 解析 → 脱敏）

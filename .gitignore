@@ -42,3 +42,6 @@ research/papers/pdf/
 # ===== 案例数据（隐私：原始件与脱敏件均不入库，哈希登记在数据卡） =====
 research/data/
 research/.venv/
+
+# ===== 法宝下载原始资料（含真实姓名等，严禁入库；副本放 $JUSTILAW_DATA_DIR） =====
+测试下载资料库/
