@@ -10,9 +10,10 @@
     以及"××等人赌博案"这类案件名。其余残留交给 R6 扫描（r6_scan.py）的姓名候选人工复核；
   - 同一写法视为同一人；同一列举里出现两次同样的遮挡写法（"蒙**、……、蒙**"）无法区分，标 ambiguous_persons；
   - 当事人称谓之后、与本人同姓的遮挡写法视为本人（清河"被处罚人张xxx"与"违法嫌疑人张xx"）。
-年龄（D1）：明文出生日期 → "行为时N周岁"（按行为日期算；只有年月按当月 1 日、只有年按 7 月 1 日，标注时为"推断"）；已遮挡的出生信息删除。
+年龄（D1，规格 v0.2 §1.6）：明文出生日期 → "行为时N周岁"（按行为日期算；出生或行为日期不到日、算不准是否已过生日的取较小值，
+  标 age_uncertain）；已遮挡的出生信息删除。
 日期（D2）：正文到月、去掉时分；元数据（behavior_date、decision_date）保留到日。
-文号（D3）：正文里的文号换成"〔文号 h:6 位哈希〕"；交付文件不写 URL（溯源走台账 id）。
+文号（D3）：正文里的文号换成"〔文号 h:6 位哈希〕"，与交付字段 doc_no_hash（规范化文号 SHA-256 前 16 位）同源；交付文件不写 URL。
 不保存原名：deid_map 只记"代号 → 原文位置与长度"，存仓库外。
 """
 
@@ -132,6 +133,8 @@ class DeidResult:
     subject: str | None = None
     counts: dict[str, int] = field(default_factory=dict)
     cleanup: list[Span] = field(default_factory=list)   # 第二步：删掉替换后留下的"，，""， 。"（位置相对第一步结果）
+    age_uncertain: bool = False                          # 出生或行为日期不到日、算不准是否已过生日（取较小值）
+    subject_variants: int = 0                            # 推断为本人的其他写法个数（>0 时复核看一眼）
 
     @staticmethod
     def _shift(spans: list[Span], pos: int, is_end: bool) -> int:
@@ -156,13 +159,37 @@ class DeidResult:
 
 # ---------- 工具 ----------
 
+def doc_no_norm(doc_no: str) -> str:
+    """规格 v0.2 §1.1：去空白、统一括号（年份括号一律"〔〕"，其余圆括号一律"（）"）。"""
+    s = re.sub(r"\s", "", doc_no or "")
+    s = re.sub(r"[〔\[［【(（](20\d{2})[〕\]］】)）]", r"〔\1〕", s)
+    return s.translate(str.maketrans({"(": "（", ")": "）", "[": "〔", "]": "〕", "［": "〔", "］": "〕", "【": "〔", "】": "〕"}))
+
+
+def doc_no_hash(doc_no: str) -> str:
+    """交付字段 doc_no_hash：规范化文号的 SHA-256 前 16 位。"""
+    return hashlib.sha256(doc_no_norm(doc_no).encode("utf-8")).hexdigest()[:16]
+
+
 def doc_hash(doc_no: str) -> str:
-    norm = re.sub(r"[\s〔〕\[\]［］【】()（）第]", "", doc_no or "")
-    return hashlib.sha1(norm.encode("utf-8")).hexdigest()[:6]
+    """正文占位"〔文号 h:××××××〕"用的 6 位：与 doc_no_hash 同源，取前 6 位。"""
+    return doc_no_hash(doc_no)[:6]
 
 
 def age_at(birth: date, when: date) -> int:
     return when.year - birth.year - ((when.month, when.day) < (birth.month, birth.day))
+
+
+def _month_end(y: int, m: int) -> date:
+    return (date(y + (m == 12), m % 12 + 1, 1) - date.resolution) if 1 <= m <= 12 else date(y, 12, 31)
+
+
+def age_range(y: int, m: int | None, d: int | None, behavior: date, behavior_has_day: bool) -> tuple[int, int]:
+    """出生日期与行为日期不到日时可能的周岁范围（最小, 最大）。"""
+    births = [date(y, m, d)] if m and d else ([date(y, m, 1), _month_end(y, m)] if m else [date(y, 1, 1), date(y, 12, 31)])
+    whens = [behavior] if behavior_has_day else [date(behavior.year, behavior.month, 1), _month_end(behavior.year, behavior.month)]
+    ages = [age_at(b, w) for b in births for w in whens]
+    return min(ages), max(ages)
 
 
 def parse_meta_date(s: str) -> date | None:
@@ -238,8 +265,10 @@ def _place(kind_group: int = 2):
     return f
 
 
-def find_spans(text: str, *, behavior: date | None) -> list[Span]:
+def find_spans(text: str, *, behavior: date | None, behavior_has_day: bool = True,
+               flags: dict | None = None) -> list[Span]:
     spans: list[Span] = []
+    flags = flags if flags is not None else {}
 
     def add(pattern: str, repl, cat: str, prio: int, flags=0):
         for m in re.finditer(pattern, text, flags):
@@ -285,13 +314,16 @@ def find_spans(text: str, *, behavior: date | None) -> list[Span]:
     def birth(m):
         if not behavior:
             return ""
-        # 标注指南：只有出生年份按 7 月 1 日估算；只有年月按当月 1 日
+        # 规格 v0.2 §1.6：出生或行为日期不到日、算不准是否已过生日的，取较小值并标 age_uncertain
         g = m.groupdict()
-        y, mo, d = int(g["y"]), int(g.get("m") or 7), int(g.get("d") or 1)
         try:
-            return f"行为时{age_at(date(y, mo, d), behavior)}周岁"
+            lo, hi = age_range(int(g["y"]), int(g["m"]) if g.get("m") else None, int(g["d"]) if g.get("d") else None,
+                               behavior, behavior_has_day)
         except ValueError:
             return ""
+        if lo != hi:
+            flags["age_uncertain"] = True
+        return f"行为时{lo}周岁"
     add(r"(?:出生(?:日期|年月)\s*[:：为是]?\s*)?(?P<y>(?:19|20)\d{2})\s*年\s*(?:(?P<m>\d{1,2})\s*月\s*(?:(?P<d>\d{1,2})\s*日)?)?"
         r"\s*(?:出生|生)(?![活产效意])", birth, "birth", 9)
     add(r"出生(?:日期|年月)\s*[:：为是]?\s*(?P<y>(?:19|20)\d{2})\s*年\s*(?:(?P<m>\d{1,2})\s*月\s*(?:(?P<d>\d{1,2})\s*日)?)?",
@@ -413,8 +445,6 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
         leak = {m.group(0) for m in re.finditer(rf"{re.escape(subject[0])}{GIVEN_REAL}{{1,2}}(?=[在于因与和、，,等伙被的])", text)
                 if looks_like_name(m.group(0)) and m.group(0) not in tokens}
         tokens |= leak
-        if len(leak) == 1:  # 只有一个同姓真名时才认作本人
-            same_as_subject |= leak
     # 遮挡写法逐位置尝试（允许重叠："张纪x"与"纪x"、"区丁**"与"丁**"都留作候选，去重叠时按优先级与长度取舍）
     masked_rx = re.compile(MASKED)
     masked_hits = [(m.start(), m.end(), m.group(0)) for i, ch in enumerate(text)
@@ -437,6 +467,17 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
         if not new:
             break
         tokens |= new
+    # 本人是纯遮挡写法时，文中唯一一个同姓真名（"尹某某"与"尹大明"）、唯一一个同姓的另一种纯遮挡写法（"张xxx"与"张xx"，
+    # 且两者从不并列出现）视为本人。只是推断，DeidResult.subject_variants 记合并了几种写法，供复核
+    if subject and re.fullmatch(pure, subject):
+        reals = {t for t in tokens if t[0] == subject[0] and not is_masked(t) and "·" not in t}
+        if len(reals) == 1:
+            same_as_subject |= reals
+        variants = {t for t in tokens if t != subject and t[0] == subject[0] and re.fullmatch(pure, t)}
+        if len(variants) == 1 and len(role_toks) <= 2:
+            v = next(iter(variants))
+            if not re.search(rf"{re.escape(v)}{SEP}{re.escape(subject)}(?!{MASK})|{re.escape(subject)}{SEP}{re.escape(v)}(?!{MASK})", text):
+                same_as_subject.add(v)
     # 位置：遮挡写法用正则扫描结果（"韦*"与"韦*林"不混），其余写法找全部出现
     found = list(masked_hits)
     for t in tokens:
@@ -489,15 +530,18 @@ def resolve(spans: list[Span]) -> list[Span]:
     return sorted(chosen, key=lambda x: x.start)
 
 
-def deidentify(text: str, *, subject: str | None = None, behavior: date | None = None,
+def deidentify(text: str, *, subject: str | None = None, behavior: date | None = None, behavior_has_day: bool = True,
                persons: dict[str, str] | None = None) -> DeidResult:
-    """persons：沿用另一段文本的代号表（单独脱敏的段落、标题）；subject 为空时自动找本人。"""
+    """persons：沿用另一段文本的代号表（单独脱敏的段落、标题）；subject 为空时自动找本人。
+    behavior_has_day：行为日期是否到日（只到月时年龄按当月首尾两种情况算范围）。"""
     if subject is None and not persons:
         subject = find_subject(text)
     if subject is None and persons:
         subject = next((t for t, a in persons.items() if a == "甲"), None)
     found, same = person_candidates(text, subject, persons)
-    spans = resolve(find_spans(text, behavior=behavior) + [Span(a, b, t, "person", 8) for a, b, t in found])
+    flags: dict = {}
+    spans = resolve(find_spans(text, behavior=behavior, behavior_has_day=behavior_has_day, flags=flags)
+                    + [Span(a, b, t, "person", 8) for a, b, t in found])
     pmap, ambiguous = number_persons(text, [x for x in spans if x.cat == "person"], subject, same, persons)
     mid = apply(text, spans)
     # 第二步：整项删除后留下的空项（"男， ，。""：，"），只在删过东西的地方附近清理
@@ -511,7 +555,9 @@ def deidentify(text: str, *, subject: str | None = None, behavior: date | None =
     counts: dict[str, int] = {}
     for s in spans:
         counts[s.cat] = counts.get(s.cat, 0) + 1
-    return DeidResult(apply(mid, cleanup), spans, pmap, ambiguous, subject, counts, cleanup)
+    return DeidResult(apply(mid, cleanup), spans, pmap, ambiguous, subject, counts, cleanup,
+                      age_uncertain=bool(flags.get("age_uncertain")) and any(s.cat == "birth" and s.repl for s in spans),
+                      subject_variants=len(same))
 
 
 CLEAN = re.compile(r"(?<=[。；;\n])[ \t　 ]*[，,]|[ \t　 ]*[，,](?=[ \t　 ]*[，,。；;])|(?<=[：:，,])[ \t　 ]+|[ \t　 ]+(?=[，,。；;])")

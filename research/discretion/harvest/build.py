@@ -24,6 +24,7 @@ import json
 import re
 import sys
 from collections import Counter, defaultdict
+from datetime import date
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -31,13 +32,13 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "discover"))
 
 import r6_scan  # noqa: E402
-from deid import deidentify, doc_hash, parse_meta_date  # noqa: E402
+from deid import deidentify, doc_no_hash, parse_meta_date  # noqa: E402
 from regions import load_regions  # noqa: E402
 from search import data_root  # noqa: E402
 from triage import DOC_NO  # noqa: E402
 
 SCHEMA_VERSION = "1.0.0"
-PIPELINE_VERSION = "harvest-0.3"
+PIPELINE_VERSION = "harvest-0.4"
 SEGMENTS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
 TYPE_RANK = {"处罚决定书": 3, "行政复议决定书": 3, "执法公示": 1}
 GAMBLING_FACT = re.compile(r"赌|抽头|抽水|六合彩|私彩|牌九|麻将|扑克|炸金花|押宝|牛牛|三公|推筒|跑胡子|下注|投注|彩票")
@@ -45,56 +46,92 @@ GAMBLING_FACT = re.compile(r"赌|抽头|抽水|六合彩|私彩|牌九|麻将|�
 
 # ---------- 单件 ----------
 
-def deid_record(rec: dict) -> tuple[dict, list]:
-    """脱敏一件；返回 (交付记录, deid_map)。"""
-    behavior = parse_meta_date(rec.get("behavior_date", ""))
+REVIEW_VALUES = {"维持", "变更", "撤销", "确认违法", "程序驳回", "无"}
+LAW_TAG = {"旧法": "（2012修正）", "新法": "（2025修订）"}
+
+
+def law_version_of(behavior_date: str, by_article: str) -> str:
+    """规格 v0.2 §1.2：按行为日初判（2026-01-01 为界），没有行为日时用所引条文推断的版本。"""
+    if re.fullmatch(r"\d{4}-\d{2}(-\d{2})?", behavior_date or ""):
+        return "新法" if behavior_date >= "2026-01" else "旧法"
+    return by_article or "未知"
+
+
+def tag_articles(articles: list[str], version: str) -> list[str]:
+    """法条统一写法：治安管理处罚法第七十条 → 治安管理处罚法（2012修正）第七十条（版本按所引条文判定）。"""
+    tag = LAW_TAG.get(version, "")
+    return [re.sub(r"^(?:中华人民共和国)?治安管理处罚法(?![（(])", "治安管理处罚法" + tag, a) if tag else a for a in articles]
+
+
+def place_segment(full: str, seg: str) -> tuple[int, int] | None:
+    """段落在正本里的位置；字段式公示拼出来的决定段（"依据；结果"）找不到原样时，退而取其中能原样找到的结果部分。"""
+    pos = full.find(seg)
+    if pos >= 0:
+        return pos, pos + len(seg)
+    parts = [p for p in re.split(r"[；;]", seg) if p.strip() and full.find(p.strip()) >= 0]
+    if not parts:
+        return None
+    best = next((p for p in parts if re.search(r"拘留|罚款|警告|不予|处罚", p)), max(parts, key=len)).strip()
+    pos = full.find(best)
+    return pos, pos + len(best)
+
+
+def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
+    """脱敏一件；返回 (交付记录, deid_map)。字段按数据交付规格 v0.2（docs/05-research/data-spec.md）。"""
+    bd = rec.get("behavior_date", "")
+    behavior = parse_meta_date(bd)
     full = rec.get("text_full") or ""
-    d = deidentify(full, behavior=behavior)
+    d = deidentify(full, behavior=behavior, behavior_has_day=len(bd) == 10)
     out_segments, offsets = {}, {}
     for f in SEGMENTS:
         seg = (rec.get(f) or "").strip()
-        if not seg:
-            out_segments[f], offsets[f] = "", None
-            continue
-        pos = full.find(seg)
-        if pos >= 0:
-            a, b = d.project(pos, is_end=False), d.project(pos + len(seg), is_end=True)
+        place = place_segment(full, seg) if seg else None
+        if place:
+            a, b = d.project(place[0], is_end=False), d.project(place[1], is_end=True)
             out_segments[f], offsets[f] = d.text[a:b], [a, b]
-        else:  # 字段式公示拼出来的决定段等：单独脱敏，沿用代号表
-            out_segments[f], offsets[f] = deidentify(seg, behavior=behavior, persons=d.persons).text, None
+        else:
+            out_segments[f], offsets[f] = "", None
     authority = deidentify(rec.get("authority") or "", persons=d.persons).text if rec.get("authority") else ""
     oc = dict(rec.get("outcome") or {})
     internal = {k: oc.pop(k) for k in ("detention_items", "from_execution_clause") if k in oc}
+    oc["articles"] = tag_articles(oc.get("articles") or [], oc.get("law_version", ""))
+    rv = dict(rec.get("review") or {})
+    rv["result"] = {"驳回": "程序驳回"}.get(rv.get("result", ""), rv.get("result", ""))
+    rv["changed_outcome"] = rv.get("changed_outcome") or None
     no = rec.get("doc_no") or ""
+    warns = rec.get("parse_warnings") or []
     out = {
         "id": rec["id"],
-        "event_id": "",
-        "linked_ids": [],
-        "subject_alias": "甲" if d.subject else "",
         "source_type": rec.get("source_type", ""),
-        "source_ref": f"manifest_web.csv#{rec['id'].split('-')[0]}-{rec['id'].split('-')[1]}",
-        "doc_no_hash": doc_hash(no) if no else "",
+        "doc_no_hash": doc_no_hash(no) if no else "",
         "harvest_date": rec.get("harvest_date", ""),
         "deidentified": "是",
-        "behavior_date": rec.get("behavior_date", ""),
+        "r6_scan": {"passed": False, "date": today},
+        "behavior_date": bd,
         "decision_date": rec.get("decision_date", ""),
         "authority": authority,
         "region": "", "region_level": "", "province": "", "province_code": "",
+        "law_version": law_version_of(bd, oc.get("law_version", "")),
+        "subject_alias": "甲" if d.subject else "",
+        "event_id": "",
+        "linked_ids": [],
+        "schema_version": SCHEMA_VERSION,
+        "pipeline_version": PIPELINE_VERSION,
         "text_full": d.text,
+        "text_sha256": hashlib.sha256(d.text.encode("utf-8")).hexdigest(),
         **out_segments,
         "segmented": bool(rec.get("segmented")),
         "segments": offsets,
         "outcome": oc,
-        "review": rec.get("review") or {},
-        "schema_version": SCHEMA_VERSION,
-        "pipeline_version": PIPELINE_VERSION,
-        "text_sha256": hashlib.sha256(d.text.encode("utf-8")).hexdigest(),
+        "review": rv,
         "quality": {"ocr": bool(rec.get("ocr")), "completeness": rec.get("completeness") or {},
-                    "parse_warnings": rec.get("parse_warnings") or [], "ambiguous_persons": d.ambiguous_persons,
-                    "persons": len(set(d.persons.values())), "deid_counts": d.counts, **internal},
+                    "parse_warnings": warns, "ambiguous_persons": d.ambiguous_persons,
+                    "age_uncertain": d.age_uncertain, "facts_contains_conclusion": "facts_contains_conclusion" in warns,
+                    "subject_variants": d.subject_variants, "persons": len(set(d.persons.values())),
+                    "deid_counts": d.counts, **internal},
     }
     # 复议引用的原处罚文号（脱敏前取，只留哈希）用于关联
-    out["_cited"] = sorted({doc_hash(m.group(1)) for m in DOC_NO.finditer(full) if m.group(1) != no})
+    out["_cited"] = sorted({doc_no_hash(m.group(1)) for m in DOC_NO.finditer(full) if m.group(1) != no})
     out["_site"] = rec.get("site", "")
     return out, d.deid_map()
 
@@ -112,6 +149,10 @@ def inclusion(out: dict) -> list[str]:
         miss.append("④无区划")
     if not out.get("subject_alias"):
         miss.append("本人不可指认")
+    elif "甲" not in facts:  # 规格 v0.2 §4：本人代称须在事实段出现，否则抽不出本人的要素
+        miss.append("本人未在事实段出现")
+    if (out.get("review") or {}).get("result") not in REVIEW_VALUES:
+        miss.append("复议结论未解析")
     return miss
 
 
@@ -143,6 +184,13 @@ def jaccard_pairs(sets: dict[str, set[str]], threshold: float, max_df: int = 300
         if jac >= threshold:
             out.append((a, b, jac))
     return out
+
+
+def dates_close(a: str, b: str, days: int = 31) -> bool:
+    da, db = parse_meta_date(a), parse_meta_date(b)
+    if not da or not db:
+        return True
+    return abs((da - db).days) <= days
 
 
 class DSU:
@@ -187,7 +235,8 @@ def dedupe_and_link(records: list[dict]) -> tuple[list[dict], list[tuple[str, st
     # 近重复
     near = jaccard_pairs({r["id"]: shingles((r.get("text_facts") or "") + (r.get("text_decision") or "")
                                             or r["text_full"], 5) for r in kept}, 0.8)
-    for a, b, _ in near:
+    near = [(a, b, j) for a, b, j in near if dates_close(rec[a]["behavior_date"], rec[b]["behavior_date"])]
+    for a, b, _ in near:  # 近重复但行为日相差一个多月的是套话相同的不同案件，不并（规格 §4：同一 event_id 日期相同或相近）
         dsu.union(a, b)
     # 同站同日、事实相似：同一事件多人
     groups: dict[tuple, list[str]] = defaultdict(list)
@@ -244,6 +293,7 @@ def write_jsonl(path: Path, rows: list[dict]) -> None:
 
 
 def main() -> int:
+    today = date.today().isoformat()
     root = data_root().parent
     adir = root / "admin"
     src = [json.loads(l) for l in (adir / "web_cases.pre_deid.jsonl").read_text(encoding="utf-8").splitlines()]
@@ -253,7 +303,7 @@ def main() -> int:
     main_rows, outcome_rows, excluded, maps = [], [], [], []
     r6_soft = Counter()
     for rec in scope:
-        out, dmap = deid_record(rec)
+        out, dmap = deid_record(rec, today)
         attach_region(out, regions)
         hits = r6_scan.scan_record(out, wl)
         hard = [h for h in hits if h.hard]
@@ -262,10 +312,11 @@ def main() -> int:
         if hard:
             excluded.append((out["id"], "R6:" + ",".join(sorted({h.cat for h in hard}))))
             continue
+        out["r6_scan"]["passed"] = True   # 第一次扫描通过；第二次对交付文件整体扫，不通过则整批返工
         miss = inclusion(out)
         if not miss:
             main_rows.append(out)
-        elif miss == ["②事实不足"] or set(miss) <= {"②事实不足", "本人不可指认"}:
+        elif set(miss) <= {"②事实不足", "本人不可指认", "本人未在事实段出现"}:
             outcome_rows.append(out)
         else:
             excluded.append((out["id"], ";".join(miss)))

@@ -11,8 +11,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from build import dedupe_and_link, inclusion, jaccard_pairs, shingles  # noqa: E402
-from deid import deidentify, doc_hash, find_subject  # noqa: E402
+from build import dates_close, dedupe_and_link, inclusion, jaccard_pairs, law_version_of, shingles, tag_articles  # noqa: E402
+from deid import deidentify, doc_hash, doc_no_hash, find_subject  # noqa: E402
 from parse import canonical, column_case, split_documents, split_items  # noqa: E402
 from r6_scan import scan_text  # noqa: E402
 from regions import Resolver  # noqa: E402
@@ -210,6 +210,23 @@ def test_jaccard_and_inclusion():
     a, b = shingles("甲在某村以打麻将的方式赌博被查获", 5), shingles("甲在某村以打麻将的方式赌博被查获了", 5)
     assert jaccard_pairs({"x": a, "y": b}, 0.8)
     rec = {"text_facts": "甲在某村以打麻将的方式赌博，现场查获赌资三千元，甲持有赌资五百元。", "outcome": {"type": "罚款"},
-           "province_code": "130000", "subject_alias": "甲"}
+           "province_code": "130000", "subject_alias": "甲", "review": {"result": "无"}}
     assert inclusion(rec) == []
-    assert inclusion({**rec, "text_facts": "因赌博"}) == ["②事实不足"]
+    assert inclusion({**rec, "text_facts": "因赌博"}) == ["②事实不足", "本人未在事实段出现"]
+    assert inclusion({**rec, "review": {"result": ""}}) == ["复议结论未解析"]
+
+
+def test_spec_v02_fields():
+    # 文号哈希：去空白、统一括号后 SHA-256 前 16 位；正文占位取前 6 位
+    assert doc_no_hash("某公(治)行罚决[2022]13号") == doc_no_hash("某公（治）行罚决字〔2022〕13号".replace("决字", "决"))
+    assert doc_no_hash("某公（固）行罚决字 〔2024〕 0123号") == doc_no_hash("某公（固）行罚决字〔2024〕0123号")
+    assert len(doc_no_hash("x〔2024〕1号")) == 16 and doc_hash("x〔2024〕1号") == doc_no_hash("x〔2024〕1号")[:6]
+    # 年龄：只有出生年月、行为在同月时算不准，取较小值并标 age_uncertain
+    d = deidentify("违法行为人李xx，男，1980年4月出生。", behavior=date(2024, 4, 18))
+    assert "行为时43周岁" in d.text and d.age_uncertain
+    d = deidentify("违法行为人李xx，男，1980年5月6日出生。", behavior=date(2024, 4, 18))
+    assert "行为时43周岁" in d.text and not d.age_uncertain
+    # 法条统一写法、法律版本按行为日、复议"驳回"记"程序驳回"
+    assert tag_articles(["治安管理处罚法第七十条", "第十一条第一款"], "旧法") == ["治安管理处罚法（2012修正）第七十条", "第十一条第一款"]
+    assert law_version_of("2026-02-03", "旧法") == "新法" and law_version_of("", "旧法") == "旧法"
+    assert dates_close("2024-01-01", "2024-01-20") and not dates_close("2024-01-01", "2024-05-01")
