@@ -58,6 +58,7 @@ def main() -> None:
     ap.add_argument("--jsonl", required=True, help="交付 JSONL 或含 JSONL 的目录")
     ap.add_argument("--tier", default="L1", help="只统计该分级（默认 L1；空字符串=全部）")
     args = ap.parse_args()
+    sys.stdout.reconfigure(encoding="utf-8")   # Windows 控制台默认 GBK，否则中文和 ⚠ 会乱码或报错
 
     records = load(pathlib.Path(args.jsonl), args.tier)
     if not records:
