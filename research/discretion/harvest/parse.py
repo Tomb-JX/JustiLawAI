@@ -5,8 +5,10 @@
   字段式公示         违法事实/处罚事由 → facts；处罚依据 + 处罚结果/内容 → decision；决定日期、实施机关
   汇总页             按"1、2、3、"拆成单案（红塔等），每条一案
   复议决定书         原处罚句 → outcome；经审理查明 → facts；本机关认为…决定如下 → text_review、review.result
+  按列公开表         含山：文号 / 案件名 / 姓名 / 事实 / 依据与结果 一列一行
+解析前先取正本（去网页导航与页脚，canonical）；一页多份决定书按独占一行的文号拆开（id 加 -dk）。
 每案用全文重判是否赌博（triage 同规则）；in_scope 只收公安机关依《治安管理处罚法》作出的处理（文化执法等排除）。
-产物不含脱敏（deidentified=false），**不能直接交给引擎**，下一步是脱敏 + R6 扫描（设计 §4）。
+产物不含脱敏（deidentified=false），**不能直接交给引擎**；脱敏、R6、去重与交付由 build.py 完成（文本处理规范 §8）。
 
 用法（仓库根目录）：python research/discretion/harvest/parse.py
 输入：$JUSTILAW_DATA_DIR/harvest/pages.jsonl + text/
@@ -177,10 +179,112 @@ def segment_review(text: str) -> dict:
             "text_review": t[rs.start(): (dm.end() + 300) if dm else len(t)].strip(), "orig": orig, "review_result": result}
 
 
+# ---------- 正本与拆分 ----------
+
+ROLE = r"违法行为人|被处罚人|违法嫌疑人|行政处罚对象|行政相对人名称|行政相对人|当事人|申请人"
+SUBJECT_LINE = re.compile(rf"\s*(?:\d{{1,3}}[、.．]\s*)?(?:{ROLE})\s*[:：]?\s*(?P<n>[一-龥])"
+                          rf"|\s*(?P<p>[一-龥])[一-龥xX×＊*某]{{1,4}}\s*[,，]\s*[男女]\s*[,，]")
+FIELD_LINE = re.compile(r"\s*(?:案件名称|行政处罚决定书文号|处罚决定书文号|决定书文号|违法事实|主要违法事实|处罚事由|行政处罚事由"
+                        r"|行政相对人名称)\s*[:：\s]")
+HEAD_LINE = re.compile(r"[一-龥（）()·]{0,30}(?:公安局|公安分局|公安厅|派出所|人民政府|决定书)|[^\s，,。]{2,30}案")
+CHROME_END = re.compile(r"(文件下载|我要提建议|扫一扫|【?打印(本页)?】?|【?关闭(窗口|本页)?】?|网站地图|版权所有|主办单位|承办单位"
+                        r"|首页\s*[|｜]|上一篇|下一篇|相关链接|相关文章|友情链接|分享到|责任编辑|【?字体|您是第|技术支持|联系我们|.*ICP备)")
+
+
+def _is_subject_line(ln: str) -> bool:
+    from deid import SURNAMES, MASK
+    m = SUBJECT_LINE.match(ln)
+    if not m:
+        return False
+    rest = ln[m.end() - 1:]
+    return (m.group("n") or m.group("p")) in SURNAMES or bool(re.match(rf"[一-龥]{MASK}", rest))
+
+
+def _role_inside(ln: str) -> bool:
+    from deid import SURNAMES
+    return any(m.group(1) in SURNAMES for m in re.finditer(rf"(?:{ROLE})\s*[:：]?\s*([一-龥])", ln))
+
+
+def canonical(text: str) -> str:
+    """正本：去掉网页导航、页头与页脚（规范 §4.1）。正文从第一个当事人行（或字段式公示的第一个字段行）开始，
+    往前带上紧邻的机关名、文书名、文号行（至多 3 行）；到正文后第一条页脚标记为止。找不到正文起点就原样保留。"""
+    lines = text.split("\n")
+    first = next((i for i, ln in enumerate(lines) if _is_subject_line(ln) or FIELD_LINE.match(ln)), None)
+    if first is None:
+        # 兜底：从"当前位置"面包屑之后开始（汇总表、新闻式案例页）
+        crumb = next((i for i, ln in enumerate(lines[: len(lines) // 2])
+                      if re.match(r"\s*(当前位置|您当前所在位置|您的位置|您现在的位置|首页\s*[>＞])", ln)), None)
+        if crumb is None or re.search(r"现查明|经查明|拘留|罚款", "\n".join(lines[:crumb + 1])):
+            return text
+        first = crumb + 1
+        while first < len(lines) - 1 and len(lines[first].strip()) <= 2:  # 面包屑被拆成多行时跳过">"等碎片
+            first += 1
+    j = first
+    while j > 0 and first - j < 3:
+        prev = lines[j - 1].strip()
+        if not (HEAD_LINE.fullmatch(prev) or re.fullmatch(r"(?:行政处罚决定书文号[:：]\s*)?" + DOC_NO.pattern, prev)):
+            break
+        j -= 1
+    if re.search(r"现查明|经查明|经审理查明|违法事实[:：]|拘留|罚款", "\n".join(lines[:j])):
+        j = 0  # 被裁掉的部分里有正文：起点判错了，页头原样保留
+    # 页脚：正文后第一条页脚标记，且它后面不再有正文（"打印""字号"等也会出现在页头元数据与正文之间）
+    body_after = [False] * (len(lines) + 1)
+    for k in range(len(lines) - 1, -1, -1):
+        body_after[k] = body_after[k + 1] or bool(re.search(r"拘留|罚款|赌|现查明|决定", lines[k]))
+    end = next((k for k in range(first + 1, len(lines)) if CHROME_END.match(lines[k].strip()) and not body_after[k + 1]),
+               len(lines))
+    return "\n".join(lines[j:end]).strip()
+
+
+def split_documents(text: str) -> list[str]:
+    """一页多份决定书（环江、东兰、路桥等）：按独占一行、且下几行有当事人的文号切开，往前带上机关名与文书名行。
+    少于两份不同文号就不拆。"""
+    lines = text.split("\n")
+    starts, seen = [], set()
+    for i, ln in enumerate(lines):
+        m = re.fullmatch(r"\s*(?:行政处罚决定书文号[:：]\s*)?" + DOC_NO.pattern + r"\s*", ln)
+        if not m:
+            continue
+        no = re.sub(r"\s", "", m.group(1))
+        # 文号后几行要有当事人行；按列排版的公开表（含山）文号后紧跟"××等人赌博案"
+        # 表格排版乱序时（环江 2021 年合页）当事人称谓不在行首：下几行里出现"违法行为人+姓"或"现查明"也算
+        if no in seen or not (any(_is_subject_line(x) or "现查明" in x or _role_inside(x) for x in lines[i + 1: i + 6])
+                              or any(re.fullmatch(r"[^，,。]{2,40}案", x.strip()) for x in lines[i + 1: i + 3])):
+            continue
+        j = i
+        while j > 0 and i - j < 3 and HEAD_LINE.fullmatch(lines[j - 1].strip()) and (not starts or j - 1 >= starts[-1] + 1):
+            j -= 1
+        starts.append(j)
+        seen.add(no)
+    if len(starts) < 2:
+        return []
+    bounds = starts + [len(lines)]
+    return ["\n".join(lines[a:b]).strip() for a, b in zip(bounds, bounds[1:])]
+
+
+def column_case(text: str) -> tuple[str, str] | None:
+    lines = [ln.strip() for ln in text.splitlines()]
+    if len(lines) < 5 or not re.fullmatch(DOC_NO.pattern, lines[0]) or not re.fullmatch(r"[^，。]{2,40}案", lines[1]):
+        return None
+    rest = lines[3:]
+    dec_i = next((i for i, ln in enumerate(rest) if re.match(r"根?据《|依据《|依照《", ln) or "之规定" in ln), None)
+    if dec_i is None:
+        return None
+    facts = next((ln for ln in rest[:dec_i] if ln not in ("/", "") and len(ln) >= 15), "")
+    return (facts, rest[dec_i]) if facts else None
+
+
 def split_items(text: str) -> list[str]:
     parts = re.split(r"(?:^|\n|[。；])\s*\d{1,3}[、.．]\s*(?=违法行为人|[一-龥*×xX]{1,8}[，,])", text)
     items = [p.strip() for p in parts if re.search(r"处罚|拘留|罚款", p)]
-    return items if len(items) >= 2 else []
+    if len(items) >= 2:
+        return items
+    # 不编号、一行一人的汇总页（红塔部分页面）："违法行为人××，因实施赌博的违法行为，于……给予……的处罚。"
+    rows = [ln.strip() for ln in text.split("\n")
+            if re.match(r"\s*(违法行为人|被处罚人)", ln) and "不服" not in ln and len(ln) < 600
+            and re.search(r"(给予|处以|决定对|决定给予)[^。]{0,40}?(拘留|罚款|警告)", ln)]
+    names = {re.sub(r"[，,].*", "", re.sub(r"^\s*(违法行为人|被处罚人)\s*[:：]?", "", r))[:6] for r in rows}
+    return rows if len(rows) >= 2 and len(names) >= 2 else []
 
 
 def table_rows(title: str, text: str) -> list[str]:
@@ -222,7 +326,9 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
     gamb = gambling_status(title, judged, doc_type)
     if gamb == "待定" and len(judged) >= 150:
         gamb = "否"  # "待定"是给截断摘录用的；这里已有全文，全文里没有赌博特征就是"否"
-    police = bool(re.search(r"公安", authority + decision + full[:400])) and "治安管理处罚法" in (decision + full)
+    # 机关名可能只在被去掉的页头、标题或发布单位里（正本从当事人行开始）
+    ctx = base.get("_context", "") + base.get("title", "") + base.get("publisher", "")
+    police = bool(re.search(r"公安", authority + decision + full[:400] + ctx)) and "治安管理处罚法" in (decision + full)
     # 权责清单、事项清单、裁量基准等规范性页面不是案件（收割阶段蚌埠"权责清单"误入）
     is_norm = classify(title, full[:800]) == "法规清单" or bool(re.search(r"权责清单|事项清单|实施依据.{0,20}责任事项", full[:1500]))
     warns = []
@@ -231,7 +337,7 @@ def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "
     if not oc["type"]:
         warns.append("outcome_not_parsed")
     return {
-        **base,
+        **{k: v for k, v in base.items() if k != "_context"},
         "doc_no": no[0][0] if no else "",
         "authority": authority or authority_of(full),
         "behavior_date": parse_date(dates[0]) if dates else "",
@@ -257,6 +363,14 @@ def parse_page(page: dict, text: str) -> list[dict]:
             "harvest_date": page["fetched_at"][:10], "site": page["site"], "title": page.get("title", ""),
             "publisher": page.get("publisher", ""), "ocr": bool(page.get("ocr"))}
     body_len = len(re.sub(r"\s", "", re.sub(r"附件[:：].*", "", text)))
+    if body_len >= 200 or not page.get("attachment_files"):
+        docs = split_documents(text)
+        if docs:  # 一页多份决定书：逐份当独立页面解析，id 加 -dk
+            return [c for k, d in enumerate(docs, 1)
+                    for c in parse_page({**page, "manifest_id": f"{base['id']}-d{k}", "attachment_files": []}, d)]
+        if not page.get("ocr"):  # OCR 文本没有网页导航
+            base["_context"] = text[:1500]
+            text = canonical(text)
     if body_len < 200 and page.get("attachment_files"):
         # 正文只有扫描件或 PDF（定兴 2025 年起即如此）：先建占位案例，OCR 后再解析
         return [{**base, "source_type": "处罚决定书", "segmented": False, "needs_ocr": True,
@@ -272,6 +386,13 @@ def parse_page(page: dict, text: str) -> list[dict]:
                            segmented=sg.get("segmented", False), review_result=sg.get("review_result", ""),
                            decision_date=last_date(text), authority=authority_of(re.split(r"被申请人", text, maxsplit=1)[-1][:60]),
                            doc_type="复议")]
+    col = column_case(text)
+    if col:  # 按列排版的公开表（含山）：拆出来的每份是"文号、案件名、姓名、……、事实、依据与结果"一列一行
+        facts, decision = col
+        dd = re.findall(r"(20\d{2})[.年](\d{1,2})[.月](\d{1,2})", text[text.find(decision) + len(decision):])
+        ddate = f"{dd[-1][0]}-{int(dd[-1][1]):02d}-{int(dd[-1][2]):02d}" if dd else ""
+        return [build_case({**base, "source_type": "执法公示"}, facts=facts, decision=decision, full=text, segmented=True,
+                           decision_date=ddate, authority=authority_of(text), doc_type="处罚决定")]
     items = split_items(text)
     if items:
         out = []
@@ -293,7 +414,7 @@ def parse_page(page: dict, text: str) -> list[dict]:
         fine = f"罚款{amount}元" if re.fullmatch(r"\d+(\.\d+)?", amount) else ""
         category = fv.get("category", "").splitlines()[0] if fv.get("category") else ""
         decision = "；".join(x for x in (fv.get("basis", ""), fv.get("result", ""), category, fine) if x)
-        fv.setdefault("facts", fv.get("case_name", ""))
+        fv.setdefault("facts", (fv.get("case_name", "").splitlines() or [""])[0])  # 案件名只取一行（翁牛特旗表后面跟着别的单元格）
         return [build_case({**base, "source_type": "执法公示"}, facts=fv["facts"], decision=decision, full=text,
                            segmented=True, decision_date=parse_date(fv.get("date", "")),
                            authority=fv.get("authority", "")[:30], doc_type="处罚决定")]
