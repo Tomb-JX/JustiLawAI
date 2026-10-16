@@ -40,6 +40,7 @@ docs/
 │   ├── annotation-guideline.md  要素标注指南（字段表由 schema.py 生成）
 │   ├── data-spec.md             行政案例数据交付规格（数据链路 → 引擎）
 │   ├── data-flow.md             数据链路全景（as-built：各来源 → 解析 → 规范数据）
+│   ├── data-requirements.md     引擎侧需求 → 数据交付对齐清单（五层对齐与关键字段出现率）
 │   ├── wenshu-retrieval-plan.md 裁判文书批量检索需求（检索条件、字段、样例验收、合规）
 │   ├── gambling-documents-and-retrieval.md 赌博案件文书体系与检索方案研究（法律体系、所需文书、案由、检索方式差别）
 │   ├── pkulaw-mcp-enforcement.md 北大法宝 MCP 与行政执法数据链路调研（行政执法检索实测、全文途径、积分分配）
