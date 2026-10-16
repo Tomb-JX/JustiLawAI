@@ -12,7 +12,7 @@
   python ingest_wenshu.py            # 处理 inbox/wenshu/ 全部新文件
   python ingest_wenshu.py --dry-run  # 只统计不写盘
 
-合规：原始到货文件只在外置目录；下单前须指导老师确认来源合规（需求 §5）。
+合规：原始到货文件只在外置数据目录，不入库、不二次分发（需求 §5）。
 """
 
 from __future__ import annotations
