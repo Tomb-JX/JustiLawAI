@@ -213,6 +213,18 @@ def _distinct_clicks(page, pat, *, limit: int = 6) -> list:
     return out
 
 
+def _prefer_tail(els: list) -> list:
+    """多元素时优先点**后一个**（实测 2026-10-16：详情页同名元素成对出现时，第一个常是
+    死元素、第二个才是真下载入口；先点后者可省一轮短探）。纯函数，便于单测。"""
+    if len(els) >= 2:
+        return els[1:] + els[:1]
+    return els
+
+
+def _ordered_candidates(page, pat, *, limit: int = 6) -> list:
+    return _prefer_tail(_distinct_clicks(page, pat, limit=limit))
+
+
 def _wait_for_file(page, sink: DownloadSink, before: int, timeout_s: float) -> bool:
     for _ in range(int(timeout_s * 2)):
         page.wait_for_timeout(500)
@@ -258,9 +270,9 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
     print(f"  [UI] 页面上的下载类按钮候选：{cands or '（未识别到）'}")
     fmts = _fmt_patterns(fmt)
 
-    # ① 格式项已可见（菜单本来就开着）→ 短探；撞到死元素立刻换下一个
+    # ① 格式项已可见（菜单本来就开着）→ 短探；多元素先点后一个（实测后者常是真入口）
     for pat in fmts:
-        for el in _distinct_clicks(page, pat):
+        for el in _ordered_candidates(page, pat):
             if _click(el, f"格式①{pat.pattern[:12]}", probe_wait_s):
                 return True
     # ② 展开菜单：只点第一个可见的"下载"，短等（菜单出现即走，不等满）
@@ -273,12 +285,12 @@ def click_download(page, sink: DownloadSink, *, wait_s: int = 20, fmt: str = "au
         break  # 只试一个展开器一次（旧逻辑在这里空等 25s×按钮数）
     # ③ 菜单已开 → 逐个格式项短探（auto 时 Word 死元素/无响应自动轮到 PDF）
     for pat in fmts:
-        for el in _distinct_clicks(page, pat):
+        for el in _ordered_candidates(page, pat):
             if _click(el, f"格式③{pat.pattern[:12]}", probe_wait_s):
                 return True
     # ④ 兜底：导出 / TXT（短探）
     for pat in _TAIL_PATTERNS:
-        for el in _distinct_clicks(page, pat):
+        for el in _ordered_candidates(page, pat):
             if _click(el, f"兜底{pat.pattern[:12]}", probe_wait_s):
                 return True
     # ⑤ 宽限：所有点击都没文件——等一次长超时（慢导出兜底；预算内才等）

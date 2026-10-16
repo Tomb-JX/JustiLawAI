@@ -377,6 +377,19 @@ def test_fmt_patterns_order_matches_format():
     assert i_w < i_p
 
 
+def test_prefer_tail_ordering():
+    from pkulaw_agent.download import _prefer_tail
+    assert _prefer_tail([1]) == [1]
+    assert _prefer_tail([1, 2]) == [2, 1]      # 实测：成对出现时第一个常是死元素
+    assert _prefer_tail([1, 2, 3]) == [2, 3, 1]
+
+
+def test_ensure_serve_reuses_live_port(monkeypatch):
+    from pkulaw_agent import session as _sess
+    monkeypatch.setattr(_sess, "cdp_probe", lambda *a, **k: {"Browser": "x"})
+    assert _sess.ensure_serve(port=1, wait_s=1) is True  # 已有 CDP 直接复用，不拉起进程
+
+
 # ---------------- session v1.1：session.json / CDP 探测 ----------------
 
 def test_session_json_roundtrip(tmp_path, monkeypatch):

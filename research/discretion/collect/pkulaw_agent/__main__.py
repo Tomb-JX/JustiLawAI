@@ -101,6 +101,8 @@ def cmd_login(a: argparse.Namespace) -> int:
     退出条件：登录成功且（--hold 保持 / --grace 秒后自动关）；--timeout 到点；用户关窗；Ctrl+C。
     """
     hold = a.hold if a.hold is not None else sys.stdin.isatty()
+    if not a.no_serve:
+        sess.ensure_serve(port=a.cdp_port, browser=a.browser, entry=a.entry)
     with sess.Session(browser=a.browser, cdp_port=a.cdp_port) as s:
         try:
             s.open_entry(a.entry)
@@ -490,17 +492,30 @@ def cmd_jobs(a: argparse.Namespace) -> int:
 # ---- run：作业流水线 ----
 def cmd_run(a: argparse.Namespace) -> int:
     from pkulaw_agent.run import run_jobs
+    if not a.no_serve:
+        sess.ensure_serve(port=a.cdp_port, browser=a.browser)  # v1.2：默认常驻窗口，命令结束不关
     with sess.Session(browser=a.browser, cdp_port=a.cdp_port) as s:
         _ensure_login(s, a.timeout)
-        run_jobs(s, Path(a.jobs), out_dir=Path(a.out) if a.out else None,
-                 cap=a.cap, dry_run=a.dry_run, resume=not a.no_resume, force=a.force,
-                 min_interval=a.interval, window_spec=a.window, min_facts=a.min_facts,
-                 download_format=a.download_format)
+        used = 0
+        for attempt in range(1 + max(0, a.retries)):
+            summary = run_jobs(s, Path(a.jobs), out_dir=Path(a.out) if a.out else None,
+                               cap=max(0, a.cap - used), dry_run=a.dry_run,
+                               resume=not a.no_resume, force=a.force,
+                               min_interval=a.interval, window_spec=a.window,
+                               min_facts=a.min_facts, download_format=a.download_format)
+            counters = summary.get("counters") or {}
+            used += counters.get("downloaded", 0)
+            errs = counters.get("errors", 0)
+            if a.dry_run or errs == 0 or used >= a.cap or attempt >= a.retries:
+                if errs and attempt < a.retries:
+                    print(f"↻ 自动重试未执行（cap 已用尽 {used}/{a.cap}）")
+                break
+            print(f"↻ 自动重试（第 {attempt + 2} 遍）：{errs} 件失败件续跑；cap 余量 {a.cap - used}")
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stdout.reconfigure(encoding="utf-8", line_buffering=True)  # 实时可见：后台日志随跑随出
     ap = argparse.ArgumentParser(prog="pkulaw_agent")
     ap.add_argument("--data-dir", help="覆盖 $JUSTILAW_DATA_DIR")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -515,6 +530,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--hold", action=argparse.BooleanOptionalAction, default=None,
                    help="登录成功后保持窗口（默认：交互终端保持；非交互 4 秒后自动关）")
     p.add_argument("--grace", type=int, default=4, help="成功后自动关窗等待秒数（非 hold 时）")
+    p.add_argument("--no-serve", action="store_true",
+                   help="不用常驻窗口（默认先确保 serve 常驻窗口，登录一次整晚免登、窗口不关）")
     p.add_argument("--cdp-port", type=int, default=sess.DEFAULT_CDP_PORT,
                    help="检测到 serve 长驻窗口时直接接管（0=不接管，总是自启）")
 
@@ -633,6 +650,10 @@ def main(argv: list[str] | None = None) -> int:
                    help="下载格式：auto=Word 优先、失败回退 PDF（默认）；word=只点下载WORD；pdf=只点下载PDF")
     p.add_argument("--no-resume", action="store_true", help="不跳过已完成件（默认跳过）")
     p.add_argument("--force", action="store_true", help="忽略历史状态全部重做")
+    p.add_argument("--retries", type=int, default=1,
+                   help="失败件自动重试遍数（默认 1：一条命令内把队列跑完两遍）")
+    p.add_argument("--no-serve", action="store_true",
+                   help="不用常驻窗口（默认先确保 serve 常驻窗口；命令结束不关窗）")
     p.add_argument("--interval", type=float, default=2.0)
     p.add_argument("--window", default="", help="年份窗，如 2026 或 2025:2026（处罚日期与正文年份）")
     p.add_argument("--min-facts", type=int, default=50, help="叙述式事实段最小字数")

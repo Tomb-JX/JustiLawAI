@@ -149,6 +149,34 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
     loop_t0 = time.monotonic()
     this_run: list[dict] = []  # 本次运行处理的件（计时统计只算这些）
     consec_errors = 0  # 连续失败计数（断路器：防窗口被关/被拦时空转扫完整个队列）
+    progress_path = out / "progress.json"
+    todo = sum(1 for j in jobs
+               if not (resume and not force
+                       and (state.get(j) or {}).get("status") in TERMINAL))
+
+    def _progress(force_log: bool = False) -> None:
+        """实时进度（v1.2）：每件写 progress.json；每 10 件打一行进度+ETA（配合行缓冲即看即报）。"""
+        done = len(this_run)
+        if done == 0:
+            return
+        elapsed = time.monotonic() - loop_t0
+        rate = done / elapsed if elapsed else 0.0
+        eta_min = round((todo - done) / rate / 60, 1) if rate else None
+        try:
+            progress_path.write_text(json.dumps({
+                "updated": time.strftime("%H:%M:%S"), "done": done, "todo": todo,
+                "downloaded": counters["downloaded"], "skipped": counters["skipped"],
+                "errors": counters["errors"], "download_failed": counters["download_failed"],
+                "last": (this_run[-1].get("doc_no") or this_run[-1].get("url") or "")[:40],
+                "last_status": this_run[-1].get("status") or "",
+                "elapsed_s": round(elapsed), "items_per_min": round(rate * 60, 1),
+                "eta_min": eta_min}, ensure_ascii=False, indent=1), encoding="utf-8")
+        except Exception:  # noqa: BLE001 —— 进度文件是辅助手段，失败不中断
+            pass
+        if force_log or done % 10 == 0:
+            eta_txt = f"，预计剩余 {eta_min} 分" if eta_min is not None else ""
+            logger(f"[进度] {done}/{todo} 下载{counters['downloaded']} 跳过{counters['skipped']} "
+                   f"错{counters['errors']} 速度 {rate * 60:.1f} 件/分{eta_txt}")
 
     for i, job in enumerate(jobs, 1):
         if resume and not force:
@@ -172,6 +200,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             reasons["no_url"] += 1
             this_run.append(rec)
             state.put(rec)
+            _progress()
             continue
         # —— 打开详情页（零配额）——
         t0 = time.monotonic()
@@ -191,6 +220,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             reasons["security"] += 1
             this_run.append(rec)
             state.put(rec)
+            _progress()
             logger("  ⛔ 安全验证页：整批停止（不绕过；人工完成后 --resume 续跑）")
             break
         except Exception as exc:  # noqa: BLE001 —— 单件失败不拖垮批次
@@ -204,6 +234,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             reasons["window_closed" if closed else "open_failed"] += 1
             this_run.append(rec)
             state.put(rec)
+            _progress()
             consec_errors += 1
             if consec_errors >= 5:
                 logger("⛔ 连续 5 件失败（窗口被关/被拦/会话失效）：批次停止。"
@@ -219,6 +250,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
             reasons["too_short"] += 1
             this_run.append(rec)
             state.put(rec)
+            _progress()
             consec_errors += 1
             if consec_errors >= 5:
                 logger("⛔ 连续 5 件失败（窗口被关/被拦/会话失效）：批次停止。"
@@ -299,6 +331,7 @@ def run_jobs(session, jobs_path: Path, *, out_dir: Path | None = None, cap: int 
         }
         this_run.append(rec)
         state.put(rec)
+        _progress()
         if rec.get("status") == "error":
             consec_errors += 1
             if consec_errors >= 5:

@@ -13,6 +13,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import subprocess
 import time
 import urllib.request
 from pathlib import Path
@@ -20,6 +21,10 @@ from typing import Any
 
 BASE = "https://www.pkulaw.com"
 DEFAULT_CDP_PORT = 9222
+_CHROME = (r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+           r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe")
+_EDGE = (r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
+         r"C:\Program Files\Microsoft\Edge\Application\msedge.exe")
 LIB_ENTRY = {
     "apy": f"{BASE}/penalty?way=topGuid",   # 行政执法库
     "pfnl": f"{BASE}/case?way=topGuid",     # 司法案例库
@@ -74,6 +79,49 @@ def profile_lock_files(prof: Path | None = None) -> list[str]:
     """profile 目录里的锁文件（Chrome 正在使用/异常残留的线索，仅作诊断）。"""
     prof = prof or profile_dir()
     return [n for n in ("lockfile", "SingletonLock", "SingletonCookie") if (prof / n).exists()]
+
+
+def browser_exe(browser: str = "chrome") -> str:
+    for p in (_CHROME if browser == "chrome" else _EDGE):
+        if Path(p).exists():
+            return p
+    return ""
+
+
+def ensure_serve(port: int = DEFAULT_CDP_PORT, browser: str = "chrome", entry: str = "apy",
+                 wait_s: int = 30, logger=print) -> bool:
+    """确保有一个**常驻可接管**的浏览器窗口（v1.2 核心）：
+
+    - 已有 CDP（serve 在跑）→ 直接复用，窗口不会开开关关；
+    - 没有 → 以独立进程拉起（detached，命令结束**不关窗**），等端口就绪。
+    窗口一经拉起即长期保持：登录态/token 由站点 SPA 自行续期，命令之间不再重复开窗。
+    """
+    if cdp_probe(port):
+        return True
+    exe = browser_exe(browser)
+    if not exe:
+        logger(f"未找到 {browser} 可执行文件；无法自动拉起常驻窗口")
+        return False
+    prof = profile_dir()
+    prof.mkdir(parents=True, exist_ok=True)
+    url = LIB_ENTRY.get(entry, LIB_ENTRY["apy"])
+    cmd = [exe, f"--user-data-dir={prof}", f"--remote-debugging-port={port}",
+           "--no-first-run", "--no-default-browser-check", url]
+    kwargs = {}
+    if os.name == "nt":
+        kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS|NEW_PROCESS_GROUP
+    try:
+        subprocess.Popen(cmd, **kwargs)
+    except Exception as exc:  # noqa: BLE001
+        logger(f"常驻窗口拉起失败：{exc}")
+        return False
+    logger(f"已拉起常驻窗口（CDP {port}）——请在窗口中登录（如未登录）；窗口会一直保持，不再自动关闭。")
+    for _ in range(wait_s):
+        if cdp_probe(port):
+            return True
+        time.sleep(1)
+    logger("30 秒内 CDP 未就绪；若已有同 profile 的 Chrome 在跑，请先关闭后重试")
+    return False
 
 
 class LoginRequired(RuntimeError):
