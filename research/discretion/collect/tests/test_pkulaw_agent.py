@@ -213,6 +213,18 @@ def test_plan_template_has_required_keys():
     assert t["lib"] == "apy" and t["runs"][0]["terms"]
 
 
+def test_example_plan_loads_and_expands():
+    """仓库内的示例作业单要能直接跑（JSON 有效、字段齐全、展开正确）。"""
+    from pkulaw_agent.search import expand_runs, load_plan
+    plan_path = Path(__file__).resolve().parent.parent / "pkulaw_agent" / "plans" / "example-js-2022.json"
+    plan = load_plan(plan_path)
+    runs = expand_runs(plan)
+    assert {r["term"] for r in runs} == {"现场查获赌资", "抽头"}
+    assert all(r["region"] == "江苏省" and r["window"] == ["2022-01-01", "2022-12-31"]
+               for r in runs)
+    assert plan["fetch"]["only"] == "narrative"
+
+
 # ---------------- fetch ----------------
 
 NARRATIVE_WEB = """\

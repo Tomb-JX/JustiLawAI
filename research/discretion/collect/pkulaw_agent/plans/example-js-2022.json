@@ -1,0 +1,24 @@
+{
+  "_note": "示例作业单（口径：金额导向短语 + 限省 + 细时间窗，见 pkulaw-ingest-design §1.9）。field_names/split/date_filter 的字段名在 recon 捕获后按实际修正；field_nodes 可直接放原样节点。",
+  "batch": "js-2022",
+  "lib": "apy",
+  "field_names": {"full_text": "FullText", "region": "Regional"},
+  "runs": [
+    {
+      "id": "js2022-现场查获赌资",
+      "terms": ["现场查获赌资"],
+      "region": "江苏省",
+      "window": ["2022-01-01", "2022-12-31"]
+    },
+    {
+      "id": "js2022-抽头检验词",
+      "terms": ["抽头"],
+      "region": "江苏省",
+      "window": ["2022-01-01", "2022-12-31"]
+    }
+  ],
+  "search": {"page_size": 50, "max_pages": 40, "limit": 500, "order_by": ""},
+  "split": {"field": "PublishDate", "mode": "group_by", "values": ["2022", "2021", "2020"]},
+  "fetch": {"only": "narrative", "min_interval_s": 2.0},
+  "download": {"per_run": 50}
+}

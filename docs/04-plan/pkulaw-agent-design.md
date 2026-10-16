@@ -137,10 +137,11 @@ POST https://www.pkulaw.com/searchingapi/adv/cluster/{lib}
 python research/discretion/collect/pkulaw_agent/__main__.py login
 # ② 侦察一次（固化执法库字段映射；之后 search 用 --plan 里的 field_nodes 或简化节点）
 python research/discretion/collect/pkulaw_agent/__main__.py recon --tag 20261016
-# ③ 干活：检索→抓正文→（要原件再）下载
-python research/discretion/collect/pkulaw_agent/__main__.py search  --plan js-2022H1.json
-python research/discretion/collect/pkulaw_agent/__main__.py fetch   --run $DATA/inbox/pkulaw/js-2022H1/search/js-2022-抽头 --ingest
+# ③ 干活：检索→抓正文→（要原件再）下载（示例作业单：pkulaw_agent/plans/example-js-2022.json）
+python research/discretion/collect/pkulaw_agent/__main__.py search  --plan research/discretion/collect/pkulaw_agent/plans/example-js-2022.json
+python research/discretion/collect/pkulaw_agent/__main__.py fetch   --run $DATA/inbox/pkulaw/js-2022/search/js2022-现场查获赌资 --ingest
 python research/discretion/collect/pkulaw_agent/__main__.py download --run <同上> --cap 50 --manual
+# 或一条命令串完：harvest --plan …（fetch-only 时零配额；加 download 步才耗配额）
 ```
 
 ## 5. 数据流与核对闭环
