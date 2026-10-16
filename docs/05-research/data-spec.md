@@ -1,8 +1,8 @@
 # 行政案例数据交付规格（数据链路 → 引擎）
 
-> 版本 v0.2 · 2026-10-16 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
-> 配套：[数据收集计划](../04-plan/data-collection.md) · [文本处理规范](../04-plan/text-processing-spec.md)（数据链路的实现规则）· [标注指南](./annotation-guideline.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
-> v0.2 按文本处理规范 §5 的决策项 D1–D6 修订，决策记录见 §5。
+> 版本 v0.3 · 2026-10-16 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
+> 配套：[项目现状总览](../04-plan/project-status.md)（数据分层 §4）· [数据收集计划](../04-plan/data-collection.md) · [文本处理规范](../04-plan/text-processing-spec.md)（数据链路的实现规则）· [标注指南](./annotation-guideline.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
+> v0.2 按文本处理规范 §5 的决策项 D1–D6 修订；v0.3 新增解析层统一中间格式（§6）与自动验收（§4），字段总表（§7）由 `justilaw-api/app/discretion/records.py` 生成，**以代码为准**。
 
 ## 0. 为什么要这份规格：CAIL 探针的教训
 
@@ -40,7 +40,7 @@
 | `decision_date` | 处罚决定日期，元数据保留到日 | 从旧兼从轻需要同时知道两个日期；"一年内 / 六个月内"从重按日计算 |
 | `authority` | 作出决定的机关，如"××县公安局"（派出所名脱敏为"某派出所"） | 定位到省、市 |
 | `region` | 行政区划代码，至少到省 | 选省级裁量基准 |
-| `law_version` | 旧法（2012 修正）/ 新法（2025 修订）/ 未知；数据链路按行为日初判，引擎复核 | 与日期交叉核对，发现日期抽错 |
+| `law_version` | 旧法（2012 修正）/ 新法（2025 修订）/ 未知。**指处罚决定实际适用的版本，以 `outcome.articles` 引用的法条为准，不按行为日期推算**；同时写在 `outcome.law_version`，两处必须一致 | 引擎按日期推算"应当适用"的版本，与实际适用的对比。两者不同的多是从旧兼从轻案件，正是 T-time 要的样本，构建时不能用日期推算值覆盖 |
 
 ### 1.3 原文与分段（最重要，防止"答案混进题目"）
 
@@ -149,17 +149,44 @@
 
 - 每批交付在[协作记录](../04-plan/collab-log.md)留一行：件数、来源构成、信息完整度、R6 结果。
 
-## 4. 引擎侧的验收检查（自动执行）
+## 4. 引擎侧的验收（自动执行）
 
-引擎读取每批数据时自动检查以下各项，不合格的批次退回：
-- 必填字段齐全；`deidentified` 为"是"，`r6_scan.passed` 为真；
-- 日期能解析，且 `law_version` 与 `behavior_date` 一致（2026-01-01 为界）；
-- `text_sha256` 与 `text_full` 相符，`segments` 的起止位置落在正文内、切出的文字与各段一致；
-- `subject_alias` 为"甲"，且在 `text_facts` 中出现；
-- 处罚结果在该法律版本的合法范围内；`review.result` 在 §1.4 的取值内；
-- `text_facts` 中不含"决定给予""情节严重"等结论性词句（已标 `facts_contains_conclusion` 的除外，转人工）；
-- 同一 `event_id` 的案例 `behavior_date` 相同或相近；
-- 信息完整度达标。
+**工具**：`research/.venv/Scripts/python research/eval/accept_delivery.py [交付目录]`。报告写到 `$JUSTILAW_DATA_DIR/engine/acceptance/<管线版本>-<主文件哈希前 8 位>/`，包括 `acceptance.json`、一页摘要 `acceptance.md`、退回清单 `rejected.csv`。
+
+**逐条检查**（`records.check_delivery`，每条记录的全部问题一次列出）：
+- 字段、类型、取值符合 §7 总表；`deidentified` 为"是"，`r6_scan.passed` 为真；
+- 不含内部或敏感字段（原始文号、本人原称、页面编号、站点、网址等）；正文、机关里没有残留的身份证号、手机号、网址、邮箱；
+- 日期能解析（只到月记 info）；行为在 2026-01-01 之后的不能适用旧法；顶层与 `outcome` 的法律版本一致；
+- `text_sha256` 与正文相符，`segments` 切出的文字与各段一致；
+- `subject_alias` 为"甲"，且出现在事实段（只有结果的文件不查这一项）；
+- 处罚类型与拘留天数、罚款金额相符；不超过该版本法定上限（上限取自规范库）。超过单项上限、但不超过合并执行上限 20 日的，记 warn；
+- 事实段不含"决定给予""现决定""情节严重""从轻处罚""减轻处罚""从重处罚"（已标 `facts_contains_conclusion` 的除外）。
+
+**批次检查**：
+- 文件哈希与 `SHA256SUMS` 一致（发布后被改写即不通过）；
+- 隐私扫描硬命中为 0；
+- 两份文件间 `id` 不重复；
+- 一批只含一个本体版本和管线版本；
+- `linked_ids` 指向的记录存在；
+- 同一事件内行为日期相差不超过 31 天。
+
+**结论**：
+- **通过**：没有 error；
+- **部分通过**：只有记录级 error，这些记录退回，其余进入标注；
+- **不通过**：有批次级 error，整批退回。
+
+门禁差距单独列出，不影响结论，包括信息完整度、新法件数、各档件数、不予处罚件数等。
+
+**首次验收**（2026-10-16，harvest-0.4，主文件哈希 e87ec995）：**部分通过**。主文件 881 条退回 12 条，869 条可进入标注；只有结果的文件 678 条退回 49 条。主要问题：
+- 法律版本被按日期覆盖：13 条，均为从旧兼从轻、实际引用新法的案件；
+- 只有结果的条目没有本人代称：46 条；
+- 日期错误：1 条；
+- 事实段含结论：1 条。
+
+门禁差距：
+- 信息完整度 40%；
+- 2026 年后的行为只有 7 件；
+- 不予处罚只有 2 件。
 
 ## 5. 决策记录（文本处理规范 §5）
 
@@ -172,9 +199,110 @@
 | D5 | 本人代称与事件关联 | 新增 `subject_alias`（固定"甲"）、`event_id`、`linked_ids` | 引擎已定（§1.6） |
 | D6 | 只有结果的汇总条目 | 不进金标，单独交付 `admin_outcomes_only.jsonl` | 引擎已定（§2） |
 | D7 | OCR 文本 | 冻结前人工通读 | 数据链路自定 |
+| D8 | `law_version` 指什么 | 决定实际适用的版本（以引用法条为准），不是按行为日推算的版本 | 引擎已定（2026-10-16，首次验收发现 13 条被覆盖） |
+| D9 | 各来源解析产物的格式 | 统一为解析层中间格式 `parsed-1`（§6），由构建脚本合并 | 引擎已定格式；各来源接入时间待定 |
+
+## 6. 解析层统一中间格式（parsed-1）
+
+**为什么要有**：网页、法宝、裁判文书三套解析器原来各出一种形状。统一之后，脱敏、隐私扫描、去重、事件分组只需实现一次，由构建脚本统一处理；各来源只负责"把原文解析成这一格式"。
+
+**放在哪**：`$JUSTILAW_DATA_DIR/parsed/<来源>/<批次>/records.jsonl`，一个批次一个文件，同目录附 `stats.json`。写过的批次不改，重解析就出新批次（数据分层见[项目现状总览](../04-plan/project-status.md) §4）。
+
+**和交付层的区别**：
+
+| | 解析层 L1 | 交付层 L3 |
+|---|---|---|
+| 脱敏 | 未脱敏（正文、原始文号、本人原称都在） | 已脱敏，冻结为正本 |
+| 溯源 | `source_ref` 可以是网址；`batch` 指向原始层批次；`parser` 记解析器版本 | 只有台账 `id` 和 `doc_no_hash` |
+| 本人 | `subject_mention`：本人在正文中的原写法，供脱敏替换为"甲" | `subject_alias` 固定为"甲" |
+| 分段 | 各段须是正文的连续子串，不要求起止位置 | 必须有 `segments` 起止位置和 `text_sha256` |
+| 事件 | `event_key` 指纹（可选） | `event_id`、`linked_ids`（构建生成） |
+| 分级 | `quality.tier`：L1 金标候选 / L2 只有结果 / L3 范围外 / L4 待核 | 只收 L1（主文件）与 L2（只有结果的文件） |
+| 来源专有字段 | 一律放进 `extra`（页面编号、站点、法宝引证码等） | 不得出现 |
+| 缺失值 | `null` 或空字符串都可以；枚举字段的"未知"要写"未知" | 同左 |
+
+**自检**：`cd justilaw-api && python -m app.discretion.records check <records.jsonl> --layer parsed`，按"问题:字段"汇总，列出例子，有 error 时退出码为 1。
+
+**现有产物离 parsed-1 还差什么**（2026-10-16 自检）：
+
+| 来源 | 只需搬字段（格式差距） | 要修的数据问题 |
+|---|---|---|
+| 公开网页（`harvest/parse.py`，4,906 条） | 补 `record_version`、`source`、`batch`、`parser`；把顶层的 `completeness`、`gambling`、`in_scope`、`ocr`、`parse_warnings` 移进 `quality`，加 `quality.tier`；`page_id`、`site`、`title`、`publisher`、`item_index` 移进 `extra` | 决定段不是正文子串 149 条；复议结论为空 127 条、仍写"驳回" 17 条（按 D4 改）；2026 年后行为标旧法 13 条；结果字段整组缺失 12 条；日期错 1 条；罚款超新法上限 1 条（多人合计？）；区划、省、机关全空 778 条 |
+| 法宝执法库、案例库（`collect/pkulaw_ingest.py`） | 分配台账 `id`（目前为空）；补 `record_version`、`source`、`batch`、`parser`；`has_amount`、`has_outcome` 移进 `quality.completeness`；`pkulaw_id`、`event_hint` 移进 `extra`；`source_ref` 填法宝引证码 | 产物目前不在数据目录，接入后再自检 |
+| 裁判文书采购（`collect/ingest_wenshu.py`） | 整体映射到本格式：`primary_key` → `extra`，补 `source_type`、`outcome`、`review`、`quality` | 还没有分段和结果抽取（只到清洗暂存） |
+
+## 7. 字段总表（由代码生成）
+
+<!-- records:begin -->
+> 由 `records.py`（parsed-1）自动生成，请勿手改。
+
+| 字段 | 类型 | 解析层 L1 | 交付层 L3 | 可为空 | 取值 | 说明 |
+|---|---|---|---|---|---|---|
+| `record_version` | str | 必填 | — | 否 |  | 解析层格式版本，固定为 parsed-1 |
+| `id` | str | 必填 | 必填 | 否 |  | 台账 id，前缀标来源（W- 公开网页，B- 复议专栏，P- 法宝，C- 采购） |
+| `source` | enum | 必填 | 可选 | 否 | 公开网页、复议专栏、法宝执法库、法宝案例库、裁判文书采购、合作案卷 | 来源渠道 |
+| `batch` | str | 必填 | 可选 | 否 |  | 原始层批次名（raw/<来源>/<批次>/），用于追溯 |
+| `parser` | str | 必填 | — | 否 |  | 解析器与版本，如 harvest/parse.py@0.4 |
+| `source_type` | enum | 必填 | 必填 | 否 | 处罚决定书、不予处罚决定书、行政复议决定书、行政判决书、执法公示、合作案卷 | 文书类型 |
+| `source_ref` | str | 必填 | — | 否 |  | 原文出处（URL、台账引用或法宝引证码）；交付层不得出现 |
+| `doc_no` | str | 可选 | — | 可 |  | 原始文号；交付层只给 doc_no_hash |
+| `doc_no_hash` | str | 可选 | 必填 | 可 |  | 规范化文号的 SHA-256 前 16 位，无文号时为空 |
+| `harvest_date` | date | 必填 | 必填 | 否 |  | 采集日期 |
+| `deidentified` | flag | 可选 | 必填 | 否 |  | 交付层必须为'是'；解析层可写 false |
+| `r6_scan` | dict | — | 必填 | 否 |  | 隐私扫描结果 {passed, date} |
+| `behavior_date` | date | 可选 | 必填 | 可 |  | 违法行为日期，持续行为取结束日；可只到月 |
+| `decision_date` | date | 可选 | 必填 | 可 |  | 处罚决定日期 |
+| `authority` | str | 可选 | 必填 | 可 |  | 作出决定的机关 |
+| `region` | str | 可选 | 必填 | 可 |  | 行政区划代码；交付层必须有 |
+| `province` | str | 可选 | 可选 | 可 |  |  |
+| `province_code` | str | — | 可选 | 可 |  |  |
+| `region_level` | str | — | 可选 | 可 |  |  |
+| `law_version` | enum | 可选 | 必填 | 否 | 旧法、新法、未知 | 旧法（2012 修正）/ 新法（2025 修订）/ 未知 |
+| `subject_mention` | str | 可选 | — | 可 |  | 脱敏前本人在正文中的写法（如'王某某'），供脱敏替换为'甲' |
+| `subject_alias` | str | — | 必填 | 否 |  | 本人代称，固定为'甲' |
+| `event_key` | str | 可选 | 可选 | 可 |  | 事件指纹：处罚机关 + 事实段首个日期 + 金额 |
+| `event_id` | str | — | 必填 | 否 |  | 事件编号，同一事件多人共用 |
+| `linked_ids` | list | — | 必填 | 否 |  | 关联记录（如复议决定书与原处罚决定书） |
+| `text_full` | str | 必填 | 必填 | 否 |  | 正文；交付层是脱敏后冻结的正本 |
+| `text_sha256` | str | — | 必填 | 否 |  | text_full 的 SHA-256 |
+| `segmented` | bool | 必填 | 必填 | 否 |  |  |
+| `segments` | dict | 可选 | 必填 | 否 |  | 各段在 text_full 中的 [起, 止) |
+| `text_facts` | str | 可选 | 必填 | 可 |  |  |
+| `text_evidence` | str | 可选 | 必填 | 可 |  |  |
+| `text_reasoning` | str | 可选 | 必填 | 可 |  |  |
+| `text_decision` | str | 可选 | 必填 | 可 |  |  |
+| `text_review` | str | 可选 | 必填 | 可 |  |  |
+| `outcome` | dict | 必填 | 必填 | 否 |  | 处罚结果（见 OUTCOME_FIELDS） |
+| `review` | dict | 必填 | 必填 | 否 |  | 复议、诉讼结论（见 REVIEW_FIELDS） |
+| `quality` | dict | 必填 | 必填 | 否 |  | 质量与分级（见 QUALITY_FIELDS） |
+| `schema_version` | str | — | 必填 | 否 |  | 要素本体版本 |
+| `pipeline_version` | str | — | 必填 | 否 |  | 构建管线版本 |
+| `extra` | dict | 可选 | — | 可 |  | 来源专有的内部字段（page_id、site、pkulaw_id 等）一律放这里 |
+| `outcome.type` | enum | 必填 | 必填 | 可 | 不予处罚、不构成违法、警告、罚款、拘留、拘留并处罚款、移送刑事 | 处罚类型；L3/L4 分级的记录可为空 |
+| `outcome.detention_days` | int | 必填 | 必填 | 否 |  | 拘留天数，没有填 0；合并执行取合并后 |
+| `outcome.fine` | num | 必填 | 必填 | 否 |  | 罚款（元），没有填 0 |
+| `outcome.detention_not_executed` | enum | 必填 | 必填 | 否 | 是、否 |  |
+| `outcome.confiscation` | str | 可选 | 可选 | 可 |  |  |
+| `outcome.articles` | list | 必填 | 必填 | 否 |  |  |
+| `outcome.stated_circumstances` | list | 可选 | 可选 | 可 |  |  |
+| `outcome.law_version` | enum | 可选 | 可选 | 可 | 旧法、新法、未知 | 若给出须与顶层 law_version 一致 |
+| `review.result` | enum | 必填 | 必填 | 否 | 维持、变更、撤销、确认违法、程序驳回、无 | 诉讼'判决驳回诉讼请求'记'维持'；复议驳回申请、裁定驳回起诉记'程序驳回' |
+| `review.changed_outcome` | dict | 可选 | 可选 | 可 |  |  |
+| `quality.tier` | str | 必填 | 可选 | 否 |  | L1 金标候选 / L2 只有结果 / L3 范围外 / L4 待核（允许'L1-金标候选'写法） |
+| `quality.in_scope` | bool | 必填 | 可选 | 否 |  |  |
+| `quality.completeness` | dict | 必填 | 必填 | 否 |  | {has_amount, has_outcome} |
+| `quality.parse_warnings` | list | 必填 | 必填 | 否 |  |  |
+| `quality.form` | str | 可选 | 可选 | 可 |  | 页面或文书形态（叙述式、字段式、汇总、复议、判决书……） |
+| `quality.gambling` | enum | 可选 | — | 可 | 是、否、待定 |  |
+| `quality.ocr` | bool | 可选 | 可选 | 可 |  |  |
+| `quality.facts_contains_conclusion` | bool | 可选 | 可选 | 可 |  |  |
+| `quality.ambiguous_persons` | bool | 可选 | 可选 | 可 |  |  |
+| `quality.age_uncertain` | bool | 可选 | 可选 | 可 |  |  |
+<!-- records:end -->
 
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
 | 2026-10-15 | v0.1 | 初版：基于 CAIL 探针教训，规定来源、时间地点、原文分段、处罚结果标签、事实要素、整体构成与交付格式 | 模型组 |
+| 2026-10-16 | v0.3 | 新增 §6 解析层统一中间格式 parsed-1（与交付层的区别、自检命令、三个来源的差距）与 §7 字段总表（由 `records.py` 生成）；§4 改为自动验收工具与三档结论，记录首次验收结果；`law_version` 定义为实际适用版本（D8）；决策 D9 | 模型组 |
 | 2026-10-16 | v0.2 | 按文本处理规范 §5 决策 D1–D6 修订：溯源走台账（`doc_no_hash`），日期元数据到日、正文到月，`law_version`，正本冻结与 `segments`，`review.result` 新增"程序驳回"并明确诉讼"驳回诉讼请求"记"维持"，`subject_alias`、`event_id`、`linked_ids`，年龄写法，汇总条目单独交付，`quality` 对象，验收检查补充；新增决策记录 | 模型组 |
