@@ -60,21 +60,31 @@ def build_cluster_body(dimension_id: str | None) -> dict:
     return {"dimensionId": dimension_id} if dimension_id else {}
 
 
+class Pacer:
+    """人类节奏：调用间隔 ≥ min_interval_s（再加 0~1s 抖动），在页面 wait_for_timeout 上等待。"""
+
+    def __init__(self, min_interval_s: float = 1.5) -> None:
+        self.min_interval_s = min_interval_s
+        self._last = 0.0
+
+    def wait(self, page) -> None:  # noqa: ANN001
+        import random
+        import time
+        now = time.monotonic()
+        gap = self.min_interval_s + random.uniform(0, 1.0) - (now - self._last)
+        if gap > 0:
+            page.wait_for_timeout(int(gap * 1000))
+        self._last = time.monotonic()
+
+
 # ---- 调用（依赖 Session） ----
 class PkulawApi:
     def __init__(self, session, min_interval_s: float = 1.5) -> None:
         self.s = session
-        self.min_interval_s = min_interval_s
-        self._last_call = 0.0
+        self.pacer = Pacer(min_interval_s)
 
     def _pace(self) -> None:
-        import random
-        import time
-        now = time.monotonic()
-        wait = self.min_interval_s + random.uniform(0, 1.0) - (now - self._last_call)
-        if wait > 0:
-            self.s.page.wait_for_timeout(int(wait * 1000))
-        self._last_call = time.monotonic()
+        self.pacer.wait(self.s.page)
 
     def call(self, path: str, body: dict | None = None) -> Any:
         """POST 并返回解析后的 JSON；token 失效抛 PermissionError，风控抛 RuntimeError。"""

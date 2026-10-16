@@ -6,17 +6,20 @@
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from pkulaw_ingest import (  # noqa: E402
+    DOC_NO_RE,
     build_judgment_record,
     build_record,
     catalog_stats,
     cn2int,
     cn_num_to_arabic_article,
+    flatten,
     is_narrative,
     outcome_from,
     parse_any_doc,
@@ -423,6 +426,20 @@ def test_table_wrapped_narrative_form():
     assert oc["detention_not_executed"] == "是"         # 已满七十周岁、不送拘留所执行
     assert rec["quality"]["outcome_only"] is False
     assert rec["gambling_hint"] if "gambling_hint" in rec else rec["quality"]["form"].startswith("叙述式")
+
+
+def test_doc_no_regex_three_hanzi_prefix():
+    """文号里机关代号可以是多字（沪公长(长新)…）：DOC_NO_RE 需允许"公"+0~4 字后再接括号。
+
+    网页抓取的文本没有 antiword 管道表格，文号只能靠这个正则兜底（2026-10-16 修复）。
+    """
+    for shape in ("沪公长(长新)行罚决字〔2025〕00289号", "沪公长（长新）行罚决字〔2025〕00289号",
+                  "天公（新）不决字〔2022〕第0083号", "苏公（治）行罚决字〔2022〕0001号"):
+        m = re.search(DOC_NO_RE, flatten(shape))
+        assert m and m.group(0).lstrip("（(") == shape, shape
+    p = parse_any_doc("标题\n沪公长(长新)行罚决字〔2025〕00289号\n罚没情况：对陈*英赌博罚款三百元\n",
+                      filename="web.txt")
+    assert p["doc_no"] == "沪公长(长新)行罚决字〔2025〕00289号"  # 不残留前导括号
 
 
 def test_bare_article_numbers_and_new_law():

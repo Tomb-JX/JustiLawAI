@@ -1,14 +1,19 @@
-"""法宝作业台命令行入口（M0/M1）。
+"""法宝作业台命令行入口（M0–M3）。
 
 用法（任选其一，建议直接运行本文件）：
-  python research/discretion/collect/pkulaw_agent/__main__.py doctor
-  python research/discretion/collect/pkulaw_agent/__main__.py login [--timeout 600]
-  python research/discretion/collect/pkulaw_agent/__main__.py recon [--tag 20261016] [--seconds 0]
-  python research/discretion/collect/pkulaw_agent/__main__.py cluster --lib apy [--dim CategoryNew]
-  python research/discretion/collect/pkulaw_agent/__main__.py call --path /searchingapi/adv/list/apy \
-      --body '{"pageIndex":0,"pageSize":5}'
+  doctor                                   环境自检（不联网）
+  login [--timeout 600]                    打开真窗口手动登录并固化 profile
+  recon [--tag 20261016] [--seconds 0]     登录后捕获 XHR（脱敏）+ 回放固化响应字段
+  cluster --lib apy [--dim CategoryNew]    拉筛选维度与 id 映射
+  call --path … --body …                   任意 API 直调（agent 探索用）
+  search --plan plan.json                  检索（分页/饱和拆分）→ results.jsonl
+  search --template                        打印作业单模板
+  fetch --run <run_dir> [--ingest]         零配额抓正文 → .txt + 形态预探（可接着走解析链）
+  download --run <run_dir> [--manual]     勾选/逐条 → 下载文件（自动，--manual 人工兜底）
+  download --ui-search --term 抽头         库页检索后当页勾选→下载（--pages N 翻页）
+  harvest --plan plan.json                 一条命令串完 search→fetch[→download]
 
-红线（design §3）：不绕验证码/风控；单账号人类节奏；凭据与 profile 不进仓库。
+红线（design §3）：不绕验证码/风控；单账号人类节奏；下载消耗配额，必须 --cap；凭据与 profile 不进仓库。
 """
 
 from __future__ import annotations
@@ -196,6 +201,154 @@ def cmd_call(a: argparse.Namespace) -> int:
         return 0
 
 
+def _ensure_login(s, timeout: int, *, entry: str = "apy") -> None:
+    """打开发令库入口并确保有 token；没有就等用户手动登录。"""
+    s.open_entry(entry)
+    if not s.token():
+        print("未登录：请在打开的浏览器窗口中完成登录（账号密码 / 微信扫码 / 验证码均可）。")
+        s.wait_for_login(timeout)
+
+
+def cmd_search(a: argparse.Namespace) -> int:
+    import time as _time
+    from pathlib import Path as _Path
+
+    from pkulaw_agent.search import (expand_runs, load_plan, plan_template,
+                                     run_search)
+    if a.template:
+        print(json.dumps(plan_template(), ensure_ascii=False, indent=2))
+        return 0
+    if a.plan:
+        plan = load_plan(_Path(a.plan))
+        batch = a.batch or plan.get("batch") or _time.strftime("%Y%m%d")
+    else:
+        if not a.term:
+            print("需要 --plan 或（--lib 与 --term）；或 --template 看作业单格式")
+            return 1
+        plan = {"lib": a.lib, "batch": a.batch or _time.strftime("%Y%m%d"),
+                "runs": [{"terms": [a.term], "region": a.region,
+                          "window": [x.strip() for x in a.window.split(":")] if a.window else []}]}
+        batch = plan["batch"]
+    out_root = (_Path(a.out) if a.out
+                else sess.data_dir() / "inbox" / "pkulaw" / batch / "search")
+    runs = expand_runs(plan)
+    if a.run_id:
+        runs = [r for r in runs if a.run_id in r["id"]] or runs
+    search_cfg = plan.get("search", {})
+    with sess.Session(browser=a.browser) as s:
+        _ensure_login(s, a.timeout, entry=plan["lib"] if plan["lib"] in sess.LIB_ENTRY else "apy")
+        api = api_mod.PkulawApi(s, min_interval_s=a.interval)
+        for run in runs:
+            run_dir = out_root / run["id"].replace("/", "_")
+            run_search(api, plan, run, run_dir,
+                       page_size=a.page_size or search_cfg.get("page_size", 50),
+                       max_pages=a.max_pages or search_cfg.get("max_pages", 40),
+                       limit=a.limit or search_cfg.get("limit", 500),
+                       order_by=a.order_by or search_cfg.get("order_by", ""),
+                       split=plan.get("split"), dump_bodies=a.dump_body)
+    print(f"产物目录：{out_root}")
+    return 0
+
+
+def cmd_fetch(a: argparse.Namespace) -> int:
+    from pathlib import Path as _Path
+
+    from pkulaw_agent.fetch import fetch_run, run_ingest
+    run_dir = _Path(a.run)
+    if not (run_dir / "results.jsonl").exists():
+        print(f"{run_dir} 下没有 results.jsonl（先跑 search）")
+        return 1
+    with sess.Session(browser=a.browser) as s:
+        _ensure_login(s, a.timeout)
+        summary = fetch_run(s, run_dir, limit=a.limit, min_interval_s=a.min_interval,
+                            keep_other=not a.only_narrative)
+    if a.ingest:
+        rc = run_ingest(run_dir / "fetch", _Path(a.ingest_out) if a.ingest_out
+                        else run_dir / "ingest", harvest_date=a.harvest_date)
+        if rc != 0:
+            print(f"解析链返回码 {rc}，请查看输出")
+    print(f"抓取计数：{summary['counters']}")
+    return 0
+
+
+def cmd_download(a: argparse.Namespace) -> int:
+    import time as _time
+    from pathlib import Path as _Path
+
+    from pkulaw_agent.download import download_results_page, download_run, ui_search
+    with sess.Session(browser=a.browser) as s:
+        _ensure_login(s, a.timeout, entry=a.lib)
+        if a.run:
+            run_dir = _Path(a.run)
+            out_dir = _Path(a.out) if a.out else run_dir / "downloads"
+            download_run(s, run_dir, out_dir, cap=a.cap, min_interval_s=a.interval,
+                         manual=a.manual)
+        else:
+            if a.ui_search:
+                if not a.term:
+                    print("--ui-search 需要 --term")
+                    return 1
+                ui_search(s.page, a.term, lib=a.lib)
+                url = s.page.url
+            elif a.url:
+                url = a.url
+            else:
+                print("需要 --run / --url / --ui-search 之一")
+                return 1
+            out_dir = (_Path(a.out) if a.out else
+                       sess.data_dir() / "inbox" / "pkulaw" / (a.batch or _time.strftime("%Y%m%d"))
+                       / "downloads")
+            download_results_page(s, url, out_dir, pages=a.pages, cap=a.cap, manual=a.manual)
+    return 0
+
+
+def cmd_harvest(a: argparse.Namespace) -> int:
+    import time as _time
+    from pathlib import Path as _Path
+
+    from pkulaw_agent.fetch import fetch_run, run_ingest
+    from pkulaw_agent.search import expand_runs, load_plan, plan_template, run_search
+    if a.template:
+        print(json.dumps(plan_template(), ensure_ascii=False, indent=2))
+        return 0
+    plan = load_plan(_Path(a.plan))
+    steps = {x.strip() for x in a.steps.split(",") if x.strip()}
+    batch = a.batch or plan.get("batch") or _time.strftime("%Y%m%d")
+    root = _Path(a.out) if a.out else sess.data_dir() / "inbox" / "pkulaw" / batch
+    search_cfg, fetch_cfg = plan.get("search", {}), plan.get("fetch", {})
+    dl_cfg = plan.get("download", {})
+    runs = expand_runs(plan)
+    with sess.Session(browser=a.browser) as s:
+        _ensure_login(s, a.timeout, entry=plan["lib"] if plan["lib"] in sess.LIB_ENTRY else "apy")
+        api = api_mod.PkulawApi(s, min_interval_s=a.interval)
+        for run in runs:
+            run_dir = root / "search" / run["id"].replace("/", "_")
+            print(f"\n=== {run['id']}（{run['term']}｜{run.get('region','')}｜{run.get('window') or '不限窗'}）===")
+            if "search" in steps:
+                run_search(api, plan, run, run_dir,
+                           page_size=search_cfg.get("page_size", 50),
+                           max_pages=search_cfg.get("max_pages", 40),
+                           limit=search_cfg.get("limit", 500),
+                           order_by=search_cfg.get("order_by", ""),
+                           split=plan.get("split"), dump_bodies=a.dump_body)
+            if "fetch" in steps:
+                fetch_run(s, run_dir, limit=fetch_cfg.get("limit", 0),
+                          min_interval_s=fetch_cfg.get("min_interval_s", 2.0),
+                          keep_other=fetch_cfg.get("only") != "narrative")
+                if fetch_cfg.get("ingest"):
+                    run_ingest(run_dir / "fetch", run_dir / "ingest",
+                               harvest_date=_time.strftime("%Y-%m-%d"),
+                               worklist=plan.get("worklist", ""))
+            if "download" in steps:
+                from pkulaw_agent.download import download_run
+                download_run(s, run_dir, root / "downloads",
+                             cap=dl_cfg.get("per_run", 50),
+                             min_interval_s=fetch_cfg.get("min_interval_s", 2.0),
+                             manual=a.manual_download)
+    print(f"\n批次目录：{root}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     sys.stdout.reconfigure(encoding="utf-8")
     ap = argparse.ArgumentParser(prog="pkulaw_agent")
@@ -237,11 +390,71 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--timeout", type=int, default=600)
     p.add_argument("--max-chars", type=int, default=4000)
 
+    p = sub.add_parser("search", help="检索（分页/饱和拆分）→ results.jsonl")
+    p.add_argument("--plan", default="", help="作业单 JSON；缺省用 --lib/--term 单任务")
+    p.add_argument("--lib", default="apy", choices=sorted(api_mod.LIBS))
+    p.add_argument("--term", default="")
+    p.add_argument("--region", default="")
+    p.add_argument("--window", default="", help="时间窗 A:B（YYYY-MM-DD:YYYY-MM-DD）")
+    p.add_argument("--run-id", default="", help="只跑匹配的 run id")
+    p.add_argument("--batch", default="")
+    p.add_argument("--out", default="")
+    p.add_argument("--page-size", type=int, default=0)
+    p.add_argument("--max-pages", type=int, default=0)
+    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--order-by", default="")
+    p.add_argument("--interval", type=float, default=1.5)
+    p.add_argument("--dump-body", action="store_true", help="打印每页请求体（联调第一轮用）")
+    p.add_argument("--template", action="store_true", help="打印作业单模板后退出")
+    p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
+    p.add_argument("--timeout", type=int, default=600)
+
+    p = sub.add_parser("fetch", help="零配额抓正文 → .txt + 形态预探（可接解析链）")
+    p.add_argument("--run", required=True, help="search 产出的 run 目录（含 results.jsonl）")
+    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--min-interval", type=float, default=2.0)
+    p.add_argument("--only-narrative", action="store_true",
+                   help="只保留识别为叙述式的正文文件（其余仍记录预探结论）")
+    p.add_argument("--ingest", action="store_true", help="抓完直接走 pkulaw_ingest 解析链")
+    p.add_argument("--ingest-out", default="")
+    p.add_argument("--harvest-date", default="")
+    p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
+    p.add_argument("--timeout", type=int, default=600)
+
+    p = sub.add_parser("download", help="下载文件（逐条/结果页；可人工兜底）")
+    p.add_argument("--run", default="", help="对 search 结果逐条开详情页下载")
+    p.add_argument("--url", default="", help="对已有结果页执行勾选→下载")
+    p.add_argument("--ui-search", action="store_true", help="先在本机库页检索再下载")
+    p.add_argument("--term", default="")
+    p.add_argument("--pages", type=int, default=1)
+    p.add_argument("--cap", type=int, default=50, help="本次最多下载条数（配额红线）")
+    p.add_argument("--manual", action="store_true", help="自动失败时转人工点一下，文件自动收")
+    p.add_argument("--lib", default="apy", choices=sorted(api_mod.LIBS))
+    p.add_argument("--batch", default="")
+    p.add_argument("--out", default="")
+    p.add_argument("--interval", type=float, default=2.0)
+    p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
+    p.add_argument("--timeout", type=int, default=600)
+
+    p = sub.add_parser("harvest", help="一条命令：search→fetch[→download]")
+    p.add_argument("--plan", default="")
+    p.add_argument("--template", action="store_true")
+    p.add_argument("--steps", default="search,fetch")
+    p.add_argument("--batch", default="")
+    p.add_argument("--out", default="")
+    p.add_argument("--manual-download", action="store_true")
+    p.add_argument("--interval", type=float, default=1.5)
+    p.add_argument("--dump-body", action="store_true")
+    p.add_argument("--browser", default="chrome", choices=sess.BROWSERS)
+    p.add_argument("--timeout", type=int, default=600)
+
     a = ap.parse_args(argv)
     if a.data_dir:
         os.environ["JUSTILAW_DATA_DIR"] = a.data_dir
     handler = {"doctor": cmd_doctor, "login": cmd_login, "recon": cmd_recon,
-               "cluster": cmd_cluster, "call": cmd_call}[a.cmd]
+               "cluster": cmd_cluster, "call": cmd_call,
+               "search": cmd_search, "fetch": cmd_fetch,
+               "download": cmd_download, "harvest": cmd_harvest}[a.cmd]
     try:
         return handler(a)
     except sess.LoginRequired as exc:
@@ -250,6 +463,12 @@ def main(argv: list[str] | None = None) -> int:
     except sess.SecurityChallenge as exc:
         print(f"\n[安全验证] {exc}")
         return 3
+    except PermissionError as exc:
+        print(f"\n[登录失效] {exc}（重跑 login）")
+        return 2
+    except KeyboardInterrupt:
+        print("\n已中断（进度已落盘，可重跑续做）")
+        return 130
 
 
 if __name__ == "__main__":

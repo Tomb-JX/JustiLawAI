@@ -124,6 +124,12 @@ class Session:
             raise RuntimeError("会话未启动（先用 with Session()）")
         return self._page
 
+    @property
+    def context(self):
+        if self._ctx is None:
+            raise RuntimeError("会话未启动（先用 with Session()）")
+        return self._ctx
+
     # ---- 导航与登录态 ----
     def _check_challenge(self) -> None:
         title = ""

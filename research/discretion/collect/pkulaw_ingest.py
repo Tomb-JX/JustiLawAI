@@ -355,7 +355,7 @@ NARRATIVE_FACTS = re.compile(r"现查明[:：]?\s*(.*?)(?=以上事实有|以上
 NARRATIVE_EVIDENCE = re.compile(r"(?:以上|上述)事实有(.*?)(?=根据|依照|依据|现决定|$)", re.S)
 NARRATIVE_DECISION = re.compile(r"(?:根据|依照|依据)[^。]{0,120}?之规定[，,]?\s*(?:现)?决定[:：]?\s*(.*?)(?=被处罚人|如不服|当事人|本决定|$)", re.S)
 NARRATIVE_BASIS = re.compile(r"((?:根据|依照|依据)[^。]{0,120}?之规定)")
-DOC_NO_RE = re.compile(r"[（(]?\s*[\u4e00-\u9fa5]{1,6}?[公检法执][（(][^）)]{1,8}[）)][^\s，。]{0,24}?字[〔\[（(]?\s*\d{4}\s*[〕\]）)]?\s*第?\s*\d+\s*号")
+DOC_NO_RE = re.compile(r"[（(]?[\u4e00-\u9fa5][公检法执][\u4e00-\u9fa5]{0,4}?[（(][^）)]{1,8}[）)][^\s，。]{0,24}?字[〔\[（(]?\s*\d{4}\s*[〕\]）)]?\s*第?\s*\d+\s*号")
 SUBJECT_RE = re.compile(r"(?:违法行为人|被处罚人|违法嫌疑人)[：:]?\s*([\u4e00-\u9fa5*＊xX×]{2,12})")
 
 
@@ -603,7 +603,7 @@ def parse_doc(text: str, *, filename: str = "") -> dict:
     doc_no = table.get("行政处罚决定书文号") or table.get("行政处罚标题") or meta.get("发文案号", "")
     if not doc_no:
         m = re.search(DOC_NO_RE, flat)
-        doc_no = m.group(0) if m else ""
+        doc_no = m.group(0).lstrip("（()").strip() if m else ""
     authority = table.get("处罚机关") or meta.get("执法机关", "")
     subject = table.get("被处罚对象") or meta.get("行政相对人", "")
     if not subject:

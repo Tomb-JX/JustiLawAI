@@ -125,28 +125,38 @@ POST https://www.pkulaw.com/searchingapi/adv/cluster/{lib}
 | `recon` | 登录后开始捕获 XHR：写脱敏 `recon.jsonl`（端点/字段/请求体形态） | 是 | 0 |
 | `cluster --lib apy --dim X` | 拉筛选维度与 id 映射 → 生成 `filters-apy.json` | 是 | 0 |
 | `call --path P --body @f` | 任意 API 直调（agent 探索用，同 `pkulaw_mcp call`） | 是 | 0 |
-| `search …` | 按作业单执行检索、分页、分区、去重 → `results.jsonl` | 是 | 0 |
-| `probe` | 逐条预探形态（叙述式/结果-only/无关）→ `probe.jsonl` | 是 | 0 |
-| `fetch` | 只提取命中的正文 → `extracted/`（复用 ingest 解析） | 是 | 0 |
-| `download` | （可选）走官方下载按钮取 Word 存档，**记账并卡上限** | 是 | 有 |
-| `report` | 批次报告：产出率、要素出现率（调 `key_field_presence.py`）、回写 worklist | 否 | 0 |
+| `search --plan p.json` | 按作业单执行检索、分页、饱和拆分、去重 → `results.jsonl`（每页请求体原样落 `run.json`，首轮联测据此对齐真实字段） | 是 | 0 |
+| `fetch --run <run_dir>` | **零配额**逐条开详情页抓正文（主文本块定位）→ `.txt` + 形态预探（`probe` 内嵌：**直接复用 `pkulaw_ingest.parse_any_doc`，与下游解析同源判定**）；`--ingest` 直接接解析链 | 是 | 0 |
+| `download` | 下载文件：`--run`（逐条详情页点下载）/ `--url`（结果页勾选→下载）/ `--ui-search`（库页检索后下载）；**`--manual` 兜底：agent 把页面铺好，人点一下，文件由监听器自动落盘**；`--cap` 强制配额上限 | 是 | **有** |
+| `harvest --plan p.json` | 一条命令串完 `search → fetch[→ download]`（多词×多省×多窗串行） | 是 | 视步骤 |
 
-> 实现状态：`doctor`/`login`/`recon`/`call`/`cluster` 本版已实现（§7 M0–M1）；
-> `search`/`probe`/`fetch`/`download`/`report` 待 recon 结果固化字段映射后实现（M2–M3）。
+**三步上手**（账号到手后，agent 或人都能跑）：
+
+```bash
+# ① 登录一次（之后 profile 免登录）
+python research/discretion/collect/pkulaw_agent/__main__.py login
+# ② 侦察一次（固化执法库字段映射；之后 search 用 --plan 里的 field_nodes 或简化节点）
+python research/discretion/collect/pkulaw_agent/__main__.py recon --tag 20261016
+# ③ 干活：检索→抓正文→（要原件再）下载
+python research/discretion/collect/pkulaw_agent/__main__.py search  --plan js-2022H1.json
+python research/discretion/collect/pkulaw_agent/__main__.py fetch   --run $DATA/inbox/pkulaw/js-2022H1/search/js-2022-抽头 --ingest
+python research/discretion/collect/pkulaw_agent/__main__.py download --run <同上> --cap 50 --manual
+```
 
 ## 5. 数据流与核对闭环
 
 ```text
-检索计划(词×省×时间窗) → search → results.jsonl（pklawId/文号/机关/日期/链接）
-     → probe（打开详情，判"有没有事实段"）→ 只保留 narrative
-     → fetch（DOM/详情 API 提取正文）→ 交 pkulaw_ingest.py 解析 → spec JSONL（tier 分流）
-     → report（key_field_presence 十要素出现率 + 事件折算率 + 与上一批对比）
+检索计划(词×省×时间窗) → search → results.jsonl（gid/文号/机关/日期/链接 + raw 原样保留）
+     → fetch（零配额开详情页抓正文；内嵌预探判形态）→ .txt（叙述式才留文件）
+     → pkulaw_ingest.py 解析 → spec JSONL（tier 分流）
+     → 核对（key_field_presence 十要素出现率 + 事件折算率 + 与上一批对比；report 复用现有工具）
      → 若要素出现率不升：agent 换检索词/换省/换窗；若饱和：换下一窗口
 ```
 
-关键收益：**probe 用"看"代替"下"**，把下载配额花在刀刃上；`fetch` 出来的文本与 Word 导出
-同源同字段，解析器零改动。若 recon 证明详情页内容与 Word 导出不一致（存在阉割），
-则 `probe` 降级为"按可判定特征给概率 + 小样抽验"，`download` 仍按原 50 篇批量走官方导出。
+关键收益：**预探用"看"代替"下"**，把下载配额花在刀刃上；预探结论=解析器能抽到什么
+（`fetch` 内嵌的 `probe_text` **直接调用 `pkulaw_ingest.parse_any_doc`**，同源判定，不会出现
+"预探说有、解析说无"的分叉）。`download` 仅在需要 Word 原件存档时用；若 recon 证明详情页
+内容与 Word 导出不一致（存在阉割），下载路线退回批量导出（`--url`/`--ui-search` 勾选页下载）。
 
 ## 6. 与现有资产的关系
 
@@ -163,18 +173,18 @@ POST https://www.pkulaw.com/searchingapi/adv/cluster/{lib}
 
 | 阶段 | 内容 | 验收标准 | 状态 |
 |---|---|---|---|
-| **M0 会话层** | `doctor`/`login`；持久 profile；瑞数拦截时明确报错 | 真窗口打开、手动登录后 `access_token` 落 profile；二次运行免登录 | ✅ 已实现（待账号联测） |
-| **M1 侦察** | `recon`/`call`/`cluster`：脱敏捕获 + 任意直调 | 一次人工操作捕获到：检索、详情、下载三类请求；产出 `filters-apy.json` | ✅ 已实现（待账号联测） |
-| **M2 检索+预探** | `search`/`probe`：分页、分区、去重；形态预判 | 对同一查询：`search` 命中数与页面显示一致；`probe` 与随机 10 篇实下结果一致率 ≥90% | 待 M1 |
-| **M3 提取+核对** | `fetch`/`report`；接 ingest 与 presence | 一个 50 篇窗口全自动跑通：产出率/要素率/事件率三联报告，人工 0 干预 | 待 M2 |
-| **M4 作业单** | `harvest`：多词×多省×多窗串行；自适应换词 | 半日无人值守完成一批 ≥500 件候选，回写 worklist | 待 M3 |
+| **M0 会话层** | `doctor`/`login`；持久 profile；安全验证页明确报错 | 真窗口打开、手动登录后 `access_token` 落 profile；二次运行免登录 | ✅ 已实现（待账号联测） |
+| **M1 侦察** | `recon`/`call`/`cluster`：脱敏捕获 + 回放固化响应 + 任意直调 | 一次人工操作捕获到：检索、详情、下载三类请求；产出 `filters-apy.json` | ✅ 已实现（待账号联测） |
+| **M2 检索+预探** | `search`（分页/饱和拆分/去重）+ `fetch` 内嵌预探（同源判定） | 同一查询：`search` 命中数与页面一致；预探与随机 10 篇实下结果一致率 ≥90% | ✅ 代码就绪（待账号联测） |
+| **M3 提取+下载** | `fetch`（正文 → .txt → 解析链）+ `download`（逐条/结果页/人工兜底，`--cap` 卡配额） | 一个 50 篇窗口全自动跑通；下载文件自动落盘且不超 `--cap` | ✅ 代码就绪（待账号联测） |
+| **M4 作业单** | `harvest`：多词×多省×多窗串行；自适应换词 | 半日无人值守完成一批 ≥500 件候选，回写 worklist | ✅ 代码就绪（待账号联测） |
 
 ## 8. 待确认 / 需用户动作
 
 1. **账号**：建议你亲自在 `login` 打开的窗口里登录（不把密码给我、不贴进对话）。
    若确需脚本代填，只放本机环境变量，但仍会被验证码挡住 → **不推荐**。
-2. **账号条款**：三天测试权限是否允许自动化操作、下载配额上限多少——建议向图书馆/法宝确认一次
-   （沿用既有待办：学院订阅含不含批量导出）。
+2. **自动化操作与下载配额以账号实际权限为准**：工具不假设额度——`--cap` 强制本次上限、
+   请求间隔 ≥1.5s、异常即停；配额提示以页面显示为唯一事实来源。
 3. **速率参数**：默认 1.5–3s/请求、单次运行 ≤300 请求、下载 ≤2 页 50 篇/日，是否放行（保守值，可调）。
 4. **司法案例库**：同一作业台同样适用（`--lib pfnl`）；是否也纳入本次三天窗口？
 5. **运行时段**：建议在你在场时首次联测（验证码/风控需要人工接管）。
@@ -193,4 +203,5 @@ POST https://www.pkulaw.com/searchingapi/adv/cluster/{lib}
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-16 | v0.2 | **补全"检索下载"操作层（用户指出上一版只有基础设施）**：`search`（作业单/分页/饱和拆分/去重，每页请求体原样留档）、`fetch`（零配额抓正文 + 内嵌预探**直接复用 `parse_any_doc`** 同源判定 + `--ingest` 接解析链）、`download`（逐条/结果页/库页三种入口；`--manual` 人工兜底+监听器自动收文件；`--cap` 卡配额）、`harvest`（一条命令串完）；单测 47 项。顺带修解析器真 bug：`DOC_NO_RE` 不允许"沪公长(长新)"式多字机关代号（网页抓取无管道表格，文号全靠它兜底）→ 放宽并防前缀吸附（新增回归测试） | 模型组 |
 | 2026-10-16 | v0.1 | 初版：实测侦察（EdgeOne/端点族/入口 URL）、六项目存量对照、架构与子命令、里程碑 M0–M4、红线与待确认清单；代码实现 M0（doctor/login）与 M1（recon/call/cluster） | 模型组 |
