@@ -132,3 +132,30 @@ def test_run_checks_smoke():
     errors = [f for f in findings if f.severity == "error"]
     # 合法样例不应有任何 error（warn 可有：日期未给）
     assert not errors, [f.detail for f in errors]
+
+
+# ---------- 覆盖度（协同指令 §3c） ----------
+
+def test_coverage_sparse_error():
+    from s3 import check_coverage
+    from locate import Located
+    ctx = {"record": {"form": "叙述式-独立成篇"},
+           "locates": {"seg:facts": Located("exact_unique", 0, 30),
+                       "seg:decision": Located("exact_unique", 40, 70)}}
+    f = check_coverage(ctx)   # 并集 60 / 区间 70 = 86% < 95%
+    assert any(x.check == "coverage" and x.severity == "error" for x in f)
+
+
+def test_coverage_dense_pass():
+    from s3 import check_coverage
+    from locate import Located
+    ctx = {"record": {"form": "叙述式-独立成篇"},
+           "locates": {"seg:facts": Located("exact_unique", 0, 50),
+                       "seg:decision": Located("exact_unique", 50, 100)}}
+    assert check_coverage(ctx) == []
+
+
+def test_caps_loader_prefers_config():
+    from s3 import _load_caps
+    caps = _load_caps()   # 数据目录暂无 legal_caps.json → 内置口径
+    assert "2012修正" in caps

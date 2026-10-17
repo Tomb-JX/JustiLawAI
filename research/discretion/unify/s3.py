@@ -16,16 +16,39 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field, asdict
 
 from s1 import validate as schema_validate
 from locate import locate, OffsetIndex
+from s1 import data_root
 
-# 法定幅度（2012修正第七十条，项目规范口径；2025修订待法定幅度库接入后补）
-PENALTY_CAPS = {
+# 法定幅度：优先读引擎导出的常量表（协同指令 §4：$DATA/config/legal_caps.json），
+# 缺省用内置 2012修正第七十条 口径；2025修订待常量表就位后由 warn 升级为硬对账
+BUILTIN_CAPS = {
     "2012修正": {"detention": 15, "fine": 3000},
     "2025修订": None,   # 幅度库未接
 }
+
+
+def _load_caps() -> dict:
+    p = data_root() / "config" / "legal_caps.json"
+    if p.exists():
+        try:
+            raw = json.loads(p.read_text(encoding="utf-8"))
+            caps = raw.get("caps") if isinstance(raw, dict) else raw
+            if isinstance(caps, dict):
+                return caps
+        except Exception:
+            pass
+    return BUILTIN_CAPS
+
+
+try:
+    PENALTY_CAPS = _load_caps()
+except Exception:
+    PENALTY_CAPS = BUILTIN_CAPS
+
 ART16_DETENTION_MAX = 20   # 第十六条：合并执行拘留上限
 
 HARD_OUTCOME = {"拘留", "拘留并处罚款", "罚款", "警告", "不予处罚", "不构成违法", "移送刑事"}
@@ -207,6 +230,33 @@ def check_gambling_cross(ctx):
     return []
 
 
+def check_coverage(ctx):
+    """决策类文书主体覆盖 ≥95%（协同指令 §3c）：定位成功的段并集覆盖
+    [首段起点, 末段终点] 区间的比例；引文整体过疏 → error。"""
+    form = ctx["record"].get("form") or ""
+    if not any(k in form for k in ("叙述式-独立成篇", "叙述式-复议")):
+        return []   # 公示/结果栏等形态不按主体覆盖裁决
+    spans = []
+    for typ, loc in (ctx.get("locates") or {}).items():
+        if typ.startswith("seg:") and loc is not None and loc.clean_end > loc.clean_start \
+                and loc.status in ("exact_unique", "ws_unique"):
+            spans.append((loc.clean_start, loc.clean_end))
+    if len(spans) < 2:
+        return []   # 单段无从谈覆盖；段缺失由 decision_present/quote 把关
+    spans.sort()
+    lo, hi = spans[0][0], spans[-1][1]
+    total = hi - lo
+    if total <= 0:
+        return []
+    covered = 0
+    for a, b in spans:
+        covered += b - a
+    ratio = covered / total
+    if ratio < 0.95:
+        return [_mk("coverage", "error", f"五段并集覆盖主体 {ratio:.0%} < 95%（引文过疏或漏段）")]
+    return []
+
+
 CHECKS = [
     ("schema", check_schema),
     ("quotes", check_quotes),
@@ -217,6 +267,7 @@ CHECKS = [
     ("dates_order", check_dates),
     ("subject", check_subject),
     ("gambling_cross", check_gambling_cross),
+    ("coverage", check_coverage),
 ]
 
 
