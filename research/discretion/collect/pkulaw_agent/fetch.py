@@ -28,6 +28,13 @@ import pkulaw_ingest as ingest  # noqa: E402  —— 解析内核（单测与命
 
 # 正文块定位：取"文本多、链接少"的最大块（通用做法，不依赖具体 DOM 结构）
 MAIN_TEXT_JS = r"""() => {
+    const bodyLen = document.body ? document.body.innerText.length : 0;
+    const full = document.querySelector('#divFullText');
+    if (full) {
+        const t = full.innerText || '';
+        if (t.length >= 200)
+            return {text: t, tag: '#divFullText', len: t.length, bodyLen};
+    }
     const score = (el) => {
         const t = el.innerText || '';
         if (t.length < 200) return 0;
@@ -40,8 +47,7 @@ MAIN_TEXT_JS = r"""() => {
         const s = score(el);
         if (s > bestScore) { best = el; bestScore = s; }
     }
-    return {text: best.innerText || '', tag: best.tagName, len: (best.innerText || '').length,
-            bodyLen: (document.body ? document.body.innerText.length : 0)};
+    return {text: best.innerText || '', tag: best.tagName, len: (best.innerText || '').length, bodyLen};
 }"""
 
 

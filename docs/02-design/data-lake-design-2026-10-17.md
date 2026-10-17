@@ -506,11 +506,12 @@ CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 | 单测 | 5 passed（blob 往返/损坏、manifest、catalog、dualwrite、verify） |
 | 首个双写批次 | `merged-20261017-full`，890 条 |
 | 第二个验证批次 | `20261016-2026T作业台-b4-r2`，2 条；复用同一批 blob，验证跨批去重 |
-| blob | 890 个；原文 1.93 MB → zstd 0.95 MB |
-| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2） |
-| catalog | artifacts 896（890 blob + 2 input + 2 records + 2 manifest）/ documents 890 / records 892 / lineage 6 |
-| verify | blobs 890、manifests 2、records 892，0 error |
-| 未做 | 网页 M2、引擎 M4、存量迁移、P1 要素导向批次双写（待采集落盘） |
+| P1 批次 | `20261018-P1-r4`，144 条；id P-928–P-1110，build 区划 144/144 |
+| blob | 1,034 个；原文 2.20 MB → zstd 1.09 MB |
+| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2）＋ `batch-f149f911d0557d32`（P1） |
+| catalog | artifacts 1,043（1,034 blob + 3 input + 3 records + 3 manifest）/ documents 1,034 / records 1,036 / lineage 9 |
+| verify | blobs 1,034、manifests 3、records 1,036，0 error；lake 8.5 MB |
+| 未做 | 网页 M2、引擎 M4、存量迁移、P1 并入 r7 |
 
 T-L1 当前验收：manifest 覆盖首批、blob 可解析、单测绿。P1 新批次落盘后按同一命令补双写即可，采集不等湖。
 
