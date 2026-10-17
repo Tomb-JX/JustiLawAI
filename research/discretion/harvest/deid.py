@@ -119,6 +119,9 @@ LIST_RUN = re.compile(rf"(?:(?<=^)|(?<=[、，,。；;：:（(）)\n获为对查
 # "姓名在××市/区/路…"（"费××在无锡市滨湖区雪新苑用麻将"）
 AT_NAME = re.compile(rf"(?:(?<=[、，,。；;：:\n])|(?<=^))(?P<name>{REAL})"
                      rf"(?=在[一-龥]{{0,12}}?(?:省|市|县|区|镇|乡|村|屯|组|路|街|巷|苑|小区|大道))")
+# 被表格裸换行切开的人名（"陆厚⏎   琴家"）：姓+1字+换行+1-2字，且后面紧跟强线索（2026-10-17 r4 复检 P 类漏网）
+WRAP_NAME = re.compile(rf"(?:(?<=^)|(?<=[一-龥、，,。；;：:（(\s\d]))(?P<name>{SUR}[一-龥][ \t]*\r?\n[ \t]*[一-龥]{{1,2}})"
+                       rf"(?=(?:家中|家里|家|的|在|于|陈述|供述|询问|笔录|证言|辩认|伙同|等|携带|持有)|[，,。；;（(])")
 # 顿号列举里的"姓+遮挡号"、姓不在常见姓表（"丁、也**四人""乙、崖**、丙"）
 LIST_MASK = re.compile(rf"(?<=、)(?P<name>[一-龥]{MASK}{{1,3}})(?!{MASK})(?=[、，,的等]|[一二三四五六七八九十两]人)")
 CUE_STOP = {"房东", "车主", "宾馆", "农户", "司机", "商户", "商店", "门卫", "单处", "并处", "万元", "向其", "成员", "庄家", "钱款",
@@ -351,7 +354,9 @@ def find_spans(text: str, *, behavior: date | None, behavior_has_day: bool = Tru
     add(r"(?<![\d-])\d{1,4}-\d{1,4}-\d{1,4}(?![\d-])", "", "house", 10)  # 楼栋-单元-房号（"2-1-2"）
     # 门牌式（2026-10-16：与 r6_scan 的 house 判定对齐；实测"明发xx163栋1118室"漏网致 2 条被 R6 拒收）。
     # prio 5 低于文号占位（6–7）：避免把"〔2024〕0123号"里的"0123号"抢走导致文号占位失效（测试抓到）
+    # "房间/号房"后缀（2026-10-17 r4 复检：207房间、8416房间漏网）
     add(r"(?<![第\d])\d{1,5}\s*(?:号楼|号院|栋|幢|单元|室)(?![令文决])", "", "house", 5)
+    add(r"(?<![第\d])\d{1,5}\s*(?:房间|号房)(?![令文决])", "", "house", 5)
     add(r"(?<![第\d])\d{1,5}\s*号(?![令文决])", "", "house", 5)
 
     def work(m):
@@ -416,9 +421,10 @@ def find_spans(text: str, *, behavior: date | None, behavior_has_day: bool = Tru
              r"|厂房|台球厅|台球室|KTV|歌厅|会所|娱乐城|娱乐室|活动室|烧烤店|小卖部|便利店|理发店|洗车店|加工厂|民宿|农家乐"
              r"|鱼塘|服务部|经营部|副食店|水果店|五金店|小吃店|酒吧|洗浴中心|浴池|厂")
     nop = r"\s，,。；;、：:（）()“”\"\d的日月年时分内外到至往向从在于和与及被将为对等局"
-    add(rf"([^{nop}县市区省镇乡村街路号旗]{{1,10}}?)({venue})", _place(), "venue", 5)
-    add(rf"([^{nop}县市区省镇乡村街路号旗州盟组]{{1,8}}?)"
-        r"(乡|镇|街道|社区|小区|村委会|村民委员会|行政村|村|嘎查|苏木|屯|农场|林场)(?![民委商信合])", _place(), "place", 5)
+    # 捕获类排除表不含"旗"：红旗村类地名名字中间带旗，排除会误伤（旗不是被匹配的后缀；2026-10-17 r4 复检）
+    add(rf"([^{nop}县市区省镇乡村街路号]{{1,10}}?)({venue})", _place(), "venue", 5)
+    add(rf"([^{nop}县市区省镇乡村街路号州盟组]{{1,8}}?)"
+        r"(乡|镇|街道|社区|小区|村委会|村民委员会|行政村|村|嘎查|苏木|屯|寨|农场|林场)(?![民委商信合])", _place(), "place", 5)
     add(rf"([^{nop}县市区省镇乡村号旗]{{1,8}}?)(大道|大街|路|街|巷|胡同)(?![费过人线程径道头面上坊])",
         _place(), "road", 5)
 
@@ -484,15 +490,14 @@ def person_candidates(text: str, subject: str | None, seed: dict[str, str] | Non
                     and len({t for t in same_sur if t[0] == subject[0]}) <= 2 and len(role_toks) <= 2):
                 same_as_subject.add(tok)
     rxs = [PERSON_LINE, CUE_NAME, CASE_NAME, VERB_NAME, OBJ_NAME, EVID_NAME, KIN_NAME, TIME_NAME, PAREN_NAME, ROLE_VERB_NAME,
-           HOST_NAME, REVIEW_NAME, AT_NAME]
+           HOST_NAME, REVIEW_NAME, AT_NAME, WRAP_NAME]
     if "姓名" in text:
         rxs.append(LINE_NAME)
     for rx in rxs:
         for m in rx.finditer(text):
             tok = m.group("name")
             # 处罚列举里"、谢镇华行政拘留"：三字写法可含地名用字；复议/在-地强语境可含"月"等名字用字
-            if (looks_like_name(tok)
-                    or (rx in (REVIEW_NAME, AT_NAME) and strong_ok(tok))
+            if (looks_like_name(tok) or (rx in (REVIEW_NAME, AT_NAME) and strong_ok(tok))
                     or (rx is VERB_NAME and len(tok) == 3 and text[m.start() - 1: m.start()] in ("、", "；", ";")
                         and lenient_ok(tok))):
                 tokens.add(tok)

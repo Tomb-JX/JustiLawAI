@@ -103,3 +103,29 @@ def test_r6_backstop_hard_hits():
     hits = [h for h in scan_text("麻某玉不服，申请行政复议。", whitelist=WL) if h.hard]
     assert {h.cat for h in hits} == {"person_masked"}
     assert not [h for h in scan_text("本机关认为，申辩意见成立，但不服理由不成立。", whitelist=WL) if h.hard]
+
+
+# ---------- 2026-10-17 r4 金标复检回退修复 ----------
+
+def test_room_number_masked():
+    # "207房间""8416房间"：房屋后缀表缺"房间/号房"（r4 复检 privacy 回退）
+    t = deidentify("民警在某宾馆207房间查获甲等人赌博，另一处在8416房间。").text
+    assert "207房间" not in t and "8416房间" not in t
+
+
+def test_village_name_with_flag_char():
+    # "红旗村"：地名捕获排除表含"旗"字导致名字中间带旗的村名永远匹配不上（r4 复检回退）
+    t = deidentify("在红旗村老五楼某室内赌博。").text
+    assert "红旗村" not in t and "某村" in t                 # 专名整体换"某"，只留后缀
+
+
+def test_zhai_suffix_place():
+    # "白家寨（小地名）"：地名后缀缺"寨"（r4 复检回退）
+    t = deidentify("在某村二组白家寨乙家中赌博。").text
+    assert "白家寨" not in t
+
+
+def test_wrapped_name_across_bare_newline():
+    # "陆厚⏎   琴家"：表格裸换行把人名切成两行（r4 复检 possible_person_name 回退）
+    t = deidentify("现查明：在红旗村老五楼某室陆厚\n   琴家中，四人利用打麻将赌博。").text
+    assert "厚琴" not in t and "陆厚" not in t
