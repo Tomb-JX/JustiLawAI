@@ -36,7 +36,9 @@ from s1 import Provider, load_config  # noqa: E402
 from s3 import PENALTY_CAPS, ART16_DETENTION_MAX  # noqa: E402
 from anchor_compare import s1_values, anchor_values, comparable, equal  # noqa: E402
 
-ARBITER_MODEL_WHITELIST = {"qwen3.8-max", "kimi-k3"}
+ARBITER_MODEL_WHITELIST = {"qwen3.8-max", "kimi-k3", "mimo-v2.6-pro", "mimo-v2.6-flash"}
+# 2026-10-18 用户改令：双标/仲裁弃用百炼（账户 400 待恢复），改用小米 MiMo v2.6（pro 为裁判档）；
+# D-002 隔离纪律不变——裁判≠生成方（deepseek），白名单登记非 deepseek 系模型。
 CAP_FIELDS = {"fine", "detention_days"}
 REFEREE_PROMPT = """同一份行政处罚文书的一个字段出现两个不同的抽取值，请依正文裁决。
 
