@@ -27,7 +27,7 @@
 | 网页发现与交付 | `project-data-collection-audit-4bac93` · `claude/project-data-collection-audit-4bac93` | **Zcode 原网页修复会话，现为唯一执行写入者**；原 Claude 网页会话保留历史、停止写入 | 先闭环金标线逐件退回；再做河北＋江苏 2026 叙述式与不予处罚供给；网页来源 L1 和共用 L2/L3 版本交付均由本线负责，详见[正式移交单](./zcode-web-discovery-handoff-2026-10-17.md) |
 | 法宝来源 | **`D:/02_Dev/Projects/大创` 主检出目录 · `zcode/pkulaw-agent-stable`**（2026-10-17 更正；`legal-ai-gambling-sentencing-cb2c21` 为历史工作树） | **Zcode：法宝线（主检出会话）** | 作业台 v1.2（常驻服务化/18 倍提速/断点续跑）；台账 P-001–P-927；r5 四项修复已交并入指引；补缺轮 105 下载（不予处罚 63）；两省 YAML 已代录 `50671fd` 待引擎复核。待办：回应引擎 `acfabf6`（I-19 `fine_masked` 落点＋I-02 `text_party`）；同壳件正文通道待查；扩批节奏待用户调度 |
 | ~~金标质检与标注~~ | `jolly-cerf-82e544` · `claude/jolly-cerf-82e544` | **已解散（2026-10-17 用户确认）**；Codex 会话可关闭 | 职能归并：仲裁与分歧裁决→网页线（模型隔离断言）；一致性计算→引擎 agreement.py（唯一实现）；内容复检→S3 校验＋抽样仲裁。树内未提交 qa 工具由用户一次性提交存档；引擎文档改动放弃。D-002 方学与 pilot50-proxy、r4 评审等历史留档 |
-| 引擎与验收 | `discretion-engine` · `worktree-discretion-engine` | **Claude：引擎线**；具体会话待核 | `parsed-1`／L3 契约、独立自动验收、评测和封存治理 |
+| 引擎与验收 | `discretion-engine` · `worktree-discretion-engine` | **执行会话迁移中**（原 Claude 会话额度耗尽，2026-10-17；后继会话接手，简报见[引擎交接](./engine-successor-takeover-2026-10-17.md)） | 任务序：①修订案套用（D-003/门禁 R6/data-spec/指南/records.py/accept_delivery）②legal_caps.json 复核转正（协调层已代生成 caps-v1）③端到端首跑（等 r6+标签初稿）。独立闸门职能不变：验收/规范库法律锚/一致性唯一实现 |
 | 主检出历史会话 | `D:/02_Dev/Projects/大创` · `main` | **历史会话待核** | 实际完成 `parsed-1` 和统一构建，最新 L3 为 `delivery/2026-10-16.pk1`；给各归属线交代码、批次与验收哈希后停止跨线写入 |
 
 Zcode 的网页前端设计会话继续负责平台前端；它不是网页案例发现与收割工作线，不参与 L0–L5 计数。若未来调整执行应用，只转交任务契约、代码提交与数据批次哈希，保留原应用中的历史，不以复制聊天记录来重建上下文。
