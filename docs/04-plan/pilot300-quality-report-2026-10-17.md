@@ -102,6 +102,12 @@ deepseek 同模型干净对比（292→294 件，零调用失败，预算 ¥5.65
 - C：提示迭代五类型定义（混合形态的 facts 判据＋meta 边界）；
 - 抽查：decision 区间比正则大 2.3×（P0.43/R0.86）是否为正确行为，用 mask_review 输出 5–10 件给用户人工定性。
 
+### 6.4 值-文对账层（仔细校验，已实现并在 ds300 实测）
+
+v2 区间接口的一个固有弱点：**分区锚定结构，但字段值（fine/detention/dates/articles）成了自由浮动的声明**——v1 的"引文逐字命中"曾隐式锚定值，v2 丢了这层。已补 `check_value_grounded`：fine（error）/detention（warn）/dates（warn）/articles 条号（error）/aliases（warn）五类值规范化（阿拉伯＋中文数字变体，cn2int 同源）后在正文/区间检索；fine_masked 件跳过；条号提取核对防书名号误报。
+
+**ds300 实测**：value_grounded error 68 件＋warn 39 件——即在结构检查之外又抓出 **68 件含无据值的记录**（金额/法条/别名在正文找不到）。含此层的 deepseek seg-v2 全量硬失败率 **55.3%**（含 facts 缺失 99 等）——这是**校验灵敏度提升**（抓得更多），与 qwen 批 36.6%（无此层）不可直接比。逐件路由：重试→队列，全量前逐类消解。
+
 **另：per-provider 参数已落地**（评审指出的共享耦合）：deepseek max_tokens 12000/timeout 240s（推理型）、bailian 6000/120s、bailian-max 8000/180s——共享参数曾致"一个模型的修复/故障影响另一个"的耦合已解除。
 
 ## 4. 结论与路线（§8 规约环）
