@@ -260,6 +260,11 @@ class ElementsRunner:
             self.tracker.cost.add(prov.model, meta.get("usage") or {})
             self.receipt(event="call", provider=pname, model=prov.model, id=rid, tag=tag,
                          status="ok", **meta)
+            # 原始响应即时落盘：任何崩溃后重跑可从 raws.jsonl 恢复该调用结果，付费成果不再消失
+            with self.lock:
+                with open(self.out_dir / "raws.jsonl", "a", encoding="utf-8", newline="\n") as rf:
+                    rf.write(json.dumps({"id": rid, "tag": tag, "provider": pname, "content": content},
+                                         ensure_ascii=False) + "\n")
             return extract_json(content)
         except Exception as e:
             self.receipt(event="call", provider=pname, model=prov.model, id=rid, tag=tag,
