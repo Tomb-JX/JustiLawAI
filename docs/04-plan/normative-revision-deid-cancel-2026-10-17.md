@@ -52,6 +52,26 @@
 | "D1–D5 拍板前 3,693 件不得交引擎" | 前置条件失效（D1/D2/D3 随脱敏取消失去对象；D5 关联约定保留）；原料可直接进入统一构建 |
 | B-H 专项"分发脱敏输入" | 改为原文输入（该项尚未启动，无存量影响） |
 
+## G. 修订增补（2026-10-17 深夜 · 验收器五补丁 + 版本门控 · 引擎代理实测驱动的修正）
+
+> 背景：r6 已发布（2026-10-17.r6，输入批次与 r5 完全同哈希，Q7 合规），引擎代理用现行验收器实测：全量退回（缺 deidentified/r6_scan/subject_alias、internal_field_leaked、privacy_hit 19+2、r6_report_missing 等）。本节为 §B/§C 的**增补修正**，以本节为准执行。
+
+**验收器五补丁（accept_delivery.py / check 入口）：**
+
+| # | 补丁 | 实现口径 |
+|---|---|---|
+| 1 | DELIVERY_FORBIDDEN 放行 `doc_no`、`subject_mention` | 按**版本门控**放行（pipeline_version ≥ harvest-0.6 的交付允许），不裸删规则 |
+| 2 | `subject_not_in_facts` 改为校验 subject_mention 出现在事实段 | 原"找甲"逻辑删除 |
+| 3 | `privacy_hit` 降级为 **info/外发报告项** | 手机号/证件号随原文保留是既定决策（窄豁免不开）；外发衍生扫描工具输出独立报告，主管线不得 error |
+| 4 | 删除批次级 `r6_report_missing` | r6_report 已停产 |
+| 5 | 删除函数级 `not_deidentified` / `r6_not_passed` | 字段删除后函数级检查必须同删，避免缺字段默认报错 |
+
+**版本门控纪律（新增，防"新旧混验"）：**
+
+- 现行版验收器对 **r6 = 冻结兼容基线**：按 `pipeline_version=harvest-0.6 / schema_version=1.0.0` 门控，目标 **0 error**（warn 保留：decision_before_behavior、detention_merged、fine_masked 等；info 保留）。
+- **禁止**在本版验收器加入新链路要求：event_key 必填、text_party 必填、schema 1.1.0 强制、parsed-2 模型分段权威——全部进 r7/parsed-2 版验收器（Q7 严禁混版在验收维度的延伸）。
+- 验收回执须附 **diff 说明**：与 r5 的输入批次哈希对照、记录重分类解释（main 1,447→1,695 ＝ 解除"甲"要求后的回归；总数 +4 ＝ P-737/P-715~717 回归）、排除清单构成。
+
 ## E. 套用状态登记（各线完成后追加）
 
 | 文档 | 归属线 | 状态 | 提交 |
