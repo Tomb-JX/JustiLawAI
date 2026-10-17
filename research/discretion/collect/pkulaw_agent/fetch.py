@@ -29,6 +29,13 @@ import pkulaw_ingest as ingest  # noqa: E402  —— 解析内核（单测与命
 # 正文块定位：优先法宝详情页正文容器 #divFullText（实测 2026-10-16：文档完整且带文号）；
 # 无此容器（摘要/表格形态）时退回"文本多、链接少"的最大块通用启发式。
 MAIN_TEXT_JS = r"""() => {
+    const bodyLen = document.body ? document.body.innerText.length : 0;
+    const full = document.querySelector('#divFullText');
+    if (full) {
+        const t = full.innerText || '';
+        if (t.length >= 200)
+            return {text: t, tag: '#divFullText', len: t.length, bodyLen};
+    }
     const score = (el) => {
         const t = el.innerText || '';
         if (t.length < 200) return 0;

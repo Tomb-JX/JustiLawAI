@@ -107,7 +107,7 @@ def main() -> None:
         else:
             shutil.move(str(p), dest)
         moved += 1
-        ref = pkulaw_id_from_stem(p.stem) or args.ref or "manual-export"
+        ref = pkulaw_id_from_stem(p.stem) or f"{args.ref or 'manual-export'} | {p.stem}"
         manifest_add(
             {
                 "channel": args.channel,
