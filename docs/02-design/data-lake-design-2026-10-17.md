@@ -1,6 +1,7 @@
-# JustiLaw 数据湖设计 v0.1
+# JustiLaw 数据湖设计 v0.2
 
-> 2026-10-17 · 设计稿（待协调/引擎/网页/数据线评审）· 覆盖公开网页、法宝、裁判文书、复议专栏等全部来源
+> 2026-10-17 初稿；2026-10-18 协调评审通过并裁定实施 · 覆盖公开网页、法宝、裁判文书、复议专栏等全部来源
+> **2026-10-18 协调裁定**：T-L1 归法宝线立即实现（blob/manifest/catalog/verify＋首个双写批次）；采集不等湖；可重建承诺只适用 lake 化版本（r7+），r1–r6 保持原样；`zstandard` 入 requirements；REGISTRY 与 lake.db 双写至 M4；网页 M2／引擎 M4 在各自接入点后置。
 > 目标：把现在的“多套目录 + 多份全文 + 手工对账”收敛为**不可变、可追溯、可重建、去重存储**的数据湖；不改变当前生产路径，按迁移阶段切换。
 > 相关：[项目现状总览](../04-plan/project-status.md)、`parse-format-chain-design-2026-10-17.md`（网页线工作树）、[数据交付规格](../05-research/data-spec.md)、`normative-revision-deid-cancel-2026-10-17.md`（协调分支）
 
@@ -201,7 +202,8 @@ blobs/sha256/<前两位>/<sha256>.zst
 
 - 批次：`<source>/<YYYYMMDD>-<说明>[-rN]`；发布后不可变。
 - 版本：`delivery/<YYYY-MM-DD>.rN`；`LATEST` 只是指针。
-- artifact id：`<kind>:<sha256前16>`；manifest 文件名同 id。
+- artifact id：`<kind>-<sha256前16>`（Windows 文件名不能含冒号）；manifest 文件名同 id。目录表内部仍可用 `kind:hash` 逻辑引用，但落盘名统一用连字符。
+- 双写期对外引用统一写“交付版本号 + artifact id”；REGISTRY 保留至 M4，与 lake.db 双写。
 - 禁止用“同名 + 覆盖”表达新版本；脚本默认拒写已存在路径。
 
 ## 7. 清单与血缘
@@ -359,6 +361,15 @@ CREATE INDEX idx_documents_region ON documents(region_code);
 CREATE INDEX idx_records_id ON records(record_id);
 CREATE INDEX idx_records_event ON records(event_id);
 CREATE INDEX idx_records_text ON records(text_clean_sha256);
+
+CREATE VIEW v_missing_blob AS
+SELECT r.batch_id, r.record_id, r.text_clean_sha256
+FROM records r
+WHERE r.text_clean_sha256 IS NOT NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM artifacts a
+    WHERE a.kind = 'blob' AND a.sha256 = r.text_clean_sha256
+  );
 CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 ```
 
@@ -455,7 +466,7 @@ CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 
 1. **manifest 覆盖**：活跃批次 100% 有 manifest；每个 artifact 有 sha256。
 2. **可解析**：所有 records 的 `text_orig_sha256`/`text_clean_sha256` 均能在 blob 找到；`v_missing_blob` 为空。
-3. **可重建**：随机 3 个交付版本从 manifest + blob 重建，记录数与 `record_hash` 完全一致。
+3. **可重建（仅 lake 化版本）**：r7 及之后的 lake 化交付，随机 3 个版本从 manifest + blob 重建，记录数与 `record_hash` 完全一致；r1–r6 保持原样目录，不承诺重建、不回溯改写。
 4. **去重收益**：文本层总字节较现状下降 ≥ 50%；同一正文只存一份。
 5. **契约兼容**：r6 在 D-003 兼容修改后 acceptance 为 0 error（warning 保留）；新契约不追溯 r6。
 6. **安全**：仓库中无原文/凭据；export 目录均经过 deid/r6_scan；browser-profile 不入 lake。
@@ -487,6 +498,22 @@ CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 | M4 | 交付 manifest/diff；引擎验收改读 manifest | r7 预演 | 引擎 + 网页 |
 | M5 | GC/保留/压缩/目录视图 | 运维手册 | 协调 |
 
+## 17. 实施状态（T-L1，2026-10-18）
+
+| 项 | 状态 |
+|---|---|
+| 代码 | `research/discretion/lake/{blob,manifest,catalog,verify,dualwrite}.py` |
+| 单测 | 5 passed（blob 往返/损坏、manifest、catalog、dualwrite、verify） |
+| 首个双写批次 | `merged-20261017-full`，890 条 |
+| 第二个验证批次 | `20261016-2026T作业台-b4-r2`，2 条；复用同一批 blob，验证跨批去重 |
+| blob | 890 个；原文 1.93 MB → zstd 0.95 MB |
+| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2） |
+| catalog | artifacts 896（890 blob + 2 input + 2 records + 2 manifest）/ documents 890 / records 892 / lineage 6 |
+| verify | blobs 890、manifests 2、records 892，0 error |
+| 未做 | 网页 M2、引擎 M4、存量迁移、P1 要素导向批次双写（待采集落盘） |
+
+T-L1 当前验收：manifest 覆盖首批、blob 可解析、单测绿。P1 新批次落盘后按同一命令补双写即可，采集不等湖。
+
 ## 附录 A：旧路径 → lake 映射
 
 | 现状 | lake 目标 | 切换方式 |
@@ -503,13 +530,20 @@ CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 
 ```bash
 # 1) 校验所有 manifest 引用的 blob 存在且哈希一致
-python research/discretion/lake/verify.py --all
+PYTHONPATH=research/discretion python -m lake.verify --lake "$DATA/lake"
 
-# 2) 从 manifest 重建一个交付版本到临时目录
-python research/discretion/lake/materialize.py delivery/2026-10-17.r6 --out /tmp/r6-rebuild
+# 2) 从 manifest 重建一个交付版本到临时目录（materialize 在 M4 提供）
+# python research/discretion/lake/materialize.py delivery/<版本> --out /tmp/rebuild
 
 # 3) 目录查询
 sqlite3 "$DATA/lake/catalog/lake.db" "select count(*) from records;"
 ```
 
 > 本设计不改变当前 r6；M1 起新批次双写，M3 后才切读。任何迁移步骤失败均可回退到现有路径。
+
+## 变更日志
+
+| 日期 | 版本 | 变更 |
+|---|---|---|
+| 2026-10-18 | v0.2 | 协调评审通过并裁定实施；T-L1 法宝线立即；artifact id 改为 Windows 安全形式；可重建承诺收窄到 lake 化版本（r7+）；zstandard/REGISTRY 双写口径；补 T-L1 实施状态 |
+| 2026-10-17 | v0.1 | 初稿：现状实测、分区、数据模型、blob/manifest/catalog、迁移与验收 |
