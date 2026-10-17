@@ -305,6 +305,7 @@ class Runner:
                 errs = validate(out, n_sentences=len(sentences))
                 if zones_det:
                     out["zones"] = zones_det   # 确定性分区覆写（公示族：模型臆测值不采信）
+                    errs = [e for e in errs if "zone" not in e]
                 # facts 兜底（全形态）：模型漏标 facts 时按正则参照回填 meta 句
                 if not any(z.get("type") == "facts" for z in (out.get("zones") or [])):
                     m = merge_fact_fallback(out.get("zones") or [], sentences,
@@ -312,6 +313,17 @@ class Runner:
                     if m is not None:
                         out["zones"] = m
                         errs = [e for e in errs if "facts" not in e]
+                if errs and i + 1 < len(seq):
+                    # 错误件重试带反馈（design §7 失败处置第一级）：违例回灌，下一尝试修正
+                    fb = ("[上次输出存在结构错误，请修正后重发全部字段："
+                          + "；".join(errs[:3]) + "]")
+                    self.receipt(event="feedback_retry", provider=pname, model=prov.model,
+                                 id=rec["id"], attempt=i + 1, errors=errs[:3])
+                    user_retry = user + "\n\n" + fb
+                    user = user_retry
+                    last_err = f"validation: {errs[:3]}"
+                    chain.append({"provider": pname, "ok": False, "error": last_err[:120]})
+                    continue
                 zc = {"n_zones": len(out.get("zones") or []), "n_sentences": len(sentences)}
                 self._breaker_reset(pname)   # 成功复位连败计数（时间窗熔断的另一半）
                 chain.append({"provider": pname, "ok": True})
