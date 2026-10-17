@@ -288,6 +288,9 @@ def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]
     if not d_ok:
         extra.setdefault("invalid_dates", {})["decision_date"] = rec.get("decision_date")
     _prov = province_and_region(rec.get("region", ""), rec.get("authority", ""))
+    if _prov[1]:
+        # 省直管县级市在构建层按预解析区划直通，补层级避免交付 region_level 为空
+        extra.setdefault("region_level", "县")
     out: dict = {
         "record_version": "parsed-1",
         "id": rec.get("id", ""),

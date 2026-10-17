@@ -102,6 +102,14 @@ def test_to_parsed1_derives_party_when_missing():
     assert why == "" and rec["text_party"] == "违法行为人张某某，男。"
 
 
+def test_to_parsed1_direct_admin_region_level():
+    """省直管县级市：parsed-1 直接给区划码与层级，构建层不再判无区划。"""
+    rec, why = ing.to_parsed1(_legacy_record(authority="仙桃市公安局", region="仙桃市"),
+                              batch="b", source="法宝执法库")
+    assert why == "" and rec["region"] == "429004" and rec["province"] == "湖北省"
+    assert rec["extra"]["region_level"] == "县"
+
+
 def test_to_parsed1_excludes_out_of_enum():
     rec, why = ing.to_parsed1(_legacy_record(source_type="刑事判决书"), batch="b", source="法宝案例库")
     assert rec is None and "不在契约枚举" in why
