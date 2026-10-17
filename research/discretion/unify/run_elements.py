@@ -327,8 +327,13 @@ def main() -> None:
         ev_text = inp["meta_text"] + "\n" + inp["facts_text"]
         pa = runner.call(a.a_provider, msgs, rid, "A")
         pb = runner.call(a.b_provider, msgs, rid, "B")
-        ia = validate_teacher_output(pa, evidence_text=ev_text) if pa else ["调用失败"]
-        ib = validate_teacher_output(pb, evidence_text=ev_text) if pb else ["调用失败"]
+        if pa is None or pb is None:
+            # 双盲缺一（提供商判死等）→ 不产空标签；引擎验收要求 A/B 配对，本件进重试队列
+            runner.tracker.finish_record(False, 1, "single-blind",
+                                         error="missing_" + ("A" if pa is None else "B"))
+            return None, None, None, None
+        ia = validate_teacher_output(pa, evidence_text=ev_text)
+        ib = validate_teacher_output(pb, evidence_text=ev_text)
         merged = unresolved = diffs = None
         adjud = {}
         if pa and pb:
@@ -381,34 +386,61 @@ def main() -> None:
             runner.tracker.finish_record(False, 0, "crash", error=str(e)[:150])
             return {"id": rid, "_crash": str(e)[:150]}, None, None, None
 
-    results, a_rows, b_rows, diff_rows = [], [], [], []
+    # 断点缓存：labels 已有有效行的 id 跳过（停止/崩溃后重跑不重复付费）
+    for name in ("labels.jsonl", "A.jsonl", "B.jsonl", "diffs.jsonl"):
+        if not (ed / name).exists():
+            (ed / name).write_text("", encoding="utf-8", newline="\n")
+    done_ids = set()
+    for l in open(ed / "labels.jsonl", encoding="utf-8"):
+        try:
+            done_ids.add(json.loads(l)["id"])
+        except Exception:
+            pass
+    work = [w for w in work if w[0] not in done_ids]
+    print(f"断点缓存命中 {len(done_ids)} 件，本次待标 {len(work)} 件")
+
+    results = []
+    files = {n: open(ed / n, "a", encoding="utf-8", newline="\n")
+             for n in ("labels.jsonl", "A.jsonl", "B.jsonl", "diffs.jsonl")}
+
+    def _w(name, row):
+        with runner.lock:
+            files[name].write(json.dumps(row, ensure_ascii=False) + "\n")
+            files[name].flush()
+
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
         futs = [ex.submit(do_record, *w) for w in work]
         for i, fut in enumerate(as_completed(futs), 1):
             line, pa, pb, diffs = fut.result()
+            if line is None:
+                continue
+            if line.get("_crash"):
+                print(f"  [崩] {line['id']}: {line['_crash'][:70]}")
+                continue
             results.append(line)
-            a_rows.append({"id": line["id"], "elements": pa})
-            b_rows.append({"id": line["id"], "elements": pb})
+            _w("labels.jsonl", {k: v for k, v in line.items() if k != "_diag"})
+            _w("A.jsonl", {"id": line["id"], "elements": pa})
+            _w("B.jsonl", {"id": line["id"], "elements": pb})
             for d in (diffs or []):
-                diff_rows.append({"id": line["id"], **d})
+                _w("diffs.jsonl", {"id": line["id"], **d})
             if i % 20 == 0 or i == len(work):
                 print(f"  {i}/{len(work)}")
-
-    for name, rows in (("A.jsonl", a_rows), ("B.jsonl", b_rows),
-                       ("diffs.jsonl", diff_rows),
-                       ("labels.jsonl", [{k: v for k, v in r.items() if k != "_diag"} for r in results])):
-        with open(ed / name, "w", encoding="utf-8", newline="\n") as f:
-            for row in rows:
-                if row:
-                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    for fh in files.values():
+        fh.close()
+    retry_ids = sorted({w[0] for w in work} - {r["id"] for r in results})
+    with open(ed / "queue_retry.csv", "w", encoding="utf-8-sig", newline="\n") as f:
+        f.write("id\n")
+        for rid in retry_ids:
+            f.write(rid + "\n")
     n = len(results)
     summary = {
         "stage": PROMPT_VERSION, "n": n, "manual": len(manual),
-        "records_with_ab": sum(1 for r in results if r["elements"]),
+        "records_with_ab": sum(1 for r in results if r.get("elements")),
         "fields_diff": sum(r["_diag"]["n_diffs"] for r in results),
         "unresolved": sum(r["_diag"]["n_unresolved"] for r in results),
         "evidence_total": sum(r["_diag"].get("n_evidence", 0) for r in results),
         "evidence_loc_fail": sum(r["_diag"]["loc_fail"] for r in results),
+        "single_blind_or_crash_skipped": len(retry_ids),
         "cost": runner.tracker.cost.total(),
     }
     (ed / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1),
