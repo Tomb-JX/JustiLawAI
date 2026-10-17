@@ -106,6 +106,9 @@ def main() -> None:
             shutil.copy2(str(p), dest)
         else:
             shutil.move(str(p), dest)
+        side = p.with_suffix(".meta.json")
+        if side.exists():
+            shutil.copy2(str(side), str(dest.with_suffix(".meta.json")))
         moved += 1
         ref = pkulaw_id_from_stem(p.stem) or f"{args.ref or 'manual-export'} | {p.stem}"
         manifest_add(

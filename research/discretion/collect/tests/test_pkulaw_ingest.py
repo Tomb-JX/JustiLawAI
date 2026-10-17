@@ -266,7 +266,7 @@ NARRATIVE_TEXT = """　　某县公安局公安行政处罚决定书
 
 def test_narrative_doc_parsed_as_facts():
     """叙述式决定书必须被识别成含事实的形态（A 类），而不是当字段式公示（B 类）。"""
-    p = parse_any_doc(NARRATIVE_TEXT, filename="某公（天）行罚决字〔2024〕0325号(FBM-CLI.ALE.50000001).doc")
+    p = parse_any_doc(NARRATIVE_TEXT, filename="某公（天）行罚决字〔2024〕0325号.txt")
     assert p["form"].startswith("叙述式")            # 独立成篇形态
     assert p["pkulaw_id"] == "CLI.ALE.50000001"          # 引证码（正文里的，文件名去掉 FBM- 前缀）
     assert "以打麻将的方式进行赌博" in p["facts"]
@@ -294,6 +294,38 @@ def test_narrative_detection_and_public_form_fallback():
     """没有"现查明"的仍是字段式公示；两者不能判错。"""
     assert is_narrative(NARRATIVE_TEXT) is True
     assert is_narrative(DOC_TEXT) is False
+
+
+def test_page_meta_sidecar_merge():
+    """页面元数据 sidecar 补文号/引证码/机关，并进入 page_meta。"""
+    p = parse_any_doc(NARRATIVE_TEXT, filename="某公（天）行罚决字〔2024〕0325号.txt")
+    p["pkulaw_id"] = ""  # 模拟页面正文无引证码，靠 sidecar 补
+    p["page_meta"] = {
+        "title": "某县公安局行政处罚决定书",
+        "fields": {"发文案号": "某公（天）行罚决字〔2024〕0325号",
+                   "执法机关": "某县公安局", "行政相对人": "张某某"},
+        "pklaw_id": "CLI.ALE.TEST0001",
+        "attachments": [],
+        "coverage": {"party": True, "decision": True},
+        "needs_word": False,
+        "text_source": "divFullText",
+    }
+    rec = build_record(p, harvest_date="2026-10-18")
+    assert rec["pkulaw_id"] == "CLI.ALE.TEST0001"
+    assert rec["source_ref"].startswith("法宝引证码")
+    assert rec["page_meta"]["fields"]["行政相对人"] == "张某某"
+    assert rec["doc_no"] == "某公（天）行罚决字〔2024〕0325号"
+    assert "needs_word" not in rec["quality"]["parse_warnings"]
+
+
+def test_fetch_meta_helpers():
+    """表格序列化与覆盖度：二列表转键值，缺决定段时 needs_word。"""
+    from pkulaw_agent.fetch import coverage_of, serialize_tables
+    text = serialize_tables([[["行政相对人", "张某某"], ["处罚种类", "罚款"]]])
+    assert "行政相对人：张某某" in text
+    cov = coverage_of("被处罚人张某某。现决定罚款。", {"fields": {"行政相对人": "张某某"}})
+    assert cov["party"] and cov["decision"]
+    assert coverage_of("仅姓名", {})["needs_word"] is True
     assert parse_any_doc(DOC_TEXT, filename=DOC_NAME)["form"] == "字段式公示"
 
 

@@ -66,6 +66,83 @@ DOC_WAIT_JS = ("() => { const el = document.querySelector('#divFullText');"
                " return {ft: t.length,"
                " body: document.body ? document.body.innerText.length : 0}; }")
 
+# 正文之外的页面元数据：.fields 的 10 个键值、正文表格、附件链接、法宝引证码
+PAGE_META_JS = r"""() => {
+    const labels = ['主题分类','处罚种类','行政相对人','执法级别','执法机关','执法地域',
+                    '公布日期','发文案号','罚没情况','执法依据'];
+    const out = {title:'', fields:{}, tables:[], attachments:[], pklaw_id:'', full_len:0, body_len:0};
+    const h = document.querySelector('h2.title');
+    out.title = h ? (h.innerText || '').trim() : (document.title || '');
+    const f = document.querySelector('.fields');
+    if (f) {
+        const lines = (f.innerText || '').split('\n').map(s => s.trim()).filter(Boolean);
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const hit = labels.find(l => line === l || line === l + '：' || line === l + ':');
+            if (hit) {
+                const val = lines[i + 1] || '';
+                if (val && !labels.includes(val)) { out.fields[hit] = val; i++; }
+            } else {
+                const m = line.match(/^([^：:]{2,10})[：:]\s*(.+)$/);
+                if (m && labels.includes(m[1].trim())) out.fields[m[1].trim()] = m[2].trim();
+            }
+        }
+    }
+    const ft = document.querySelector('#divFullText');
+    out.full_len = ft ? (ft.innerText || '').length : 0;
+    out.body_len = document.body ? document.body.innerText.length : 0;
+    out.tables = [...document.querySelectorAll('#divFullText table')].map(t =>
+        [...t.rows].map(r => [...r.cells].map(c => (c.innerText || '').trim())));
+    const links = [...document.querySelectorAll('a')].map(a => ({
+        text: (a.innerText || '').trim(), href: a.getAttribute('href') || ''
+    }));
+    out.attachments = links.filter(x =>
+        /\.(pdf|docx?|xlsx?|zip)(\?|$)/i.test(x.href) || /附件|相关材料/.test(x.text));
+    const body = document.body ? document.body.innerText : '';
+    const m = body.match(/CLI\.[A-Z.]+\.\d+/);
+    out.pklaw_id = m ? m[0] : '';
+    return out;
+}"""
+
+
+def serialize_tables(tables: list) -> str:
+    """把正文表格转成标签/值可读文本；二列表用“键：值”，其余用 | 分隔。"""
+    lines = []
+    for table in tables or []:
+        for row in table or []:
+            cells = [str(c).strip() for c in (row or []) if str(c).strip()]
+            if not cells:
+                continue
+            if len(cells) == 2 and len(cells[0]) <= 20:
+                lines.append(f"{cells[0]}：{cells[1]}")
+            else:
+                lines.append(" | ".join(cells))
+    return "\n".join(lines)
+
+
+def coverage_of(text: str, meta: dict) -> dict:
+    fields = (meta or {}).get("fields") or {}
+    party = fields.get("行政相对人", "")
+    has_party = bool(party) or any(m in (text or "") for m in
+                                   ("被处罚人", "违法行为人", "被处罚对象"))
+    has_facts = ("现查明" in (text or "")) or ("经查明" in (text or ""))
+    has_evidence = "以上事实有" in (text or "")
+    has_decision = ("现决定" in (text or "")) or ("决定给予" in (text or ""))
+    return {
+        "title": bool((meta or {}).get("title")),
+        "doc_no": bool(fields.get("发文案号")),
+        "authority": bool(fields.get("执法机关")),
+        "publish_date": bool(fields.get("公布日期")),
+        "party": has_party,
+        "facts": has_facts,
+        "evidence": has_evidence,
+        "decision": has_decision,
+        "tables": len((meta or {}).get("tables") or []),
+        "attachments": len((meta or {}).get("attachments") or []),
+        "full_len": len(text or ""),
+        "needs_word": (not has_party) or (not has_decision) or len(text or "") < 200,
+    }
+
 
 def safe_filename(name: str, fallback: str = "doc") -> str:
     """Windows/跨平台文件名清洗。"""
@@ -185,6 +262,11 @@ def fetch_one(session, record: dict, docs_dir: Path, *, keep_other: bool = True)
         wait_for_doc(session.page)
         detail = extract_detail_text(session.page)
         text = detail.get("text") or ""
+        meta = session.page.evaluate(PAGE_META_JS)
+        table_text = serialize_tables(meta.get("tables") or [])
+        used_table = bool(table_text.strip()) and "现查明" not in text
+        if used_table:
+            text = table_text
         session._check_challenge()
         probe = probe_text(text)
         name = safe_filename(record.get("doc_no") or probe.get("pklaw_id")
@@ -195,11 +277,28 @@ def fetch_one(session, record: dict, docs_dir: Path, *, keep_other: bool = True)
             txt_path.write_text(text, encoding="utf-8")
             out["txt"] = str(txt_path)
             out["sha256"] = sha256_text(text)
+        coverage = coverage_of(text, meta)
+        meta.update({
+            "url": url,
+            "doc_no": record.get("doc_no") or meta.get("fields", {}).get("发文案号", ""),
+            "title": meta.get("title") or record.get("title", ""),
+            "form": probe["form"],
+            "is_narrative": probe["is_narrative"],
+            "text_len": len(text),
+            "text_source": "table" if used_table else (detail.get("source") or "divFullText"),
+            "coverage": coverage,
+            "needs_word": coverage["needs_word"],
+        })
+        meta_path = docs_dir / f"{name}.meta.json"
+        meta_path.write_text(json.dumps(meta, ensure_ascii=False, indent=1), encoding="utf-8")
+        out["meta_path"] = str(meta_path)
+        out["coverage"] = coverage
+        out["needs_word"] = coverage["needs_word"]
         out["form"] = probe["form"]
         out["is_narrative"] = probe["is_narrative"]
         out["table_rows_hit"] = probe["table_rows_hit"]
         out["has_amount"] = probe["has_amount"]
-        out["pklaw_id"] = probe["pklaw_id"]
+        out["pklaw_id"] = meta.get("pklaw_id") or probe["pklaw_id"]
         out["text_len"] = probe["len"]
         out["source"] = detail.get("source", "")
         if not out["doc_no"]:

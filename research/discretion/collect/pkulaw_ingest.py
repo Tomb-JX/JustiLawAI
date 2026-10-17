@@ -162,6 +162,7 @@ CONTRACT_TOP_FIELDS = (
     "doc_no_hash", "harvest_date", "deidentified", "behavior_date", "decision_date", "authority",
     "region", "province", "law_version", "subject_mention", "event_key", "text_full", "segmented",
     "segments", "text_party", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review",
+    "page_meta",
     "outcome", "review", "quality", "extra",
 )
 CONTRACT_SOURCE_TYPES = ("处罚决定书", "不予处罚决定书", "行政复议决定书", "行政判决书", "执法公示", "合作案卷")
@@ -283,6 +284,8 @@ def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]
     b_date, b_ok = _clean_date(rec.get("behavior_date"))
     d_date, d_ok = _clean_date(rec.get("decision_date"))
     extra: dict = {"legacy": {k: v for k, v in rec.items() if k not in CONTRACT_TOP_FIELDS}}
+    if rec.get("page_meta"):
+        extra["page_meta"] = rec["page_meta"]
     if not b_ok:
         extra.setdefault("invalid_dates", {})["behavior_date"] = rec.get("behavior_date")
     if not d_ok:
@@ -1430,6 +1433,18 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
     """
     if parsed.get("form") == "判决书":
         return build_judgment_doc_record(parsed, manifest_id=manifest_id, harvest_date=harvest_date)
+    pm = parsed.get("page_meta") or {}
+    fields = pm.get("fields") or {}
+    if not parsed.get("doc_no"):
+        parsed["doc_no"] = fields.get("发文案号", "")
+    if not parsed.get("authority"):
+        parsed["authority"] = fields.get("执法机关", "")
+    if not parsed.get("region_text"):
+        parsed["region_text"] = fields.get("执法地域", "")
+    if not parsed.get("pkulaw_id"):
+        parsed["pkulaw_id"] = pm.get("pklaw_id", "")
+    if not (parsed.get("basis_text") or "").strip() and fields.get("执法依据"):
+        parsed["basis_text"] = fields["执法依据"]
     assume_law = "治安管理处罚法" if re.search(r"治安管理处罚法|赌博|赌资", parsed.get("body", "")) else ""
     articles, law_version = parse_articles(parsed["basis_text"], parsed["basis_meta"], assume_law)
     # 优先用"决定"段算处罚（表格结果栏是整篇长文时，会先命中"违法经历"里的旧拘留天数——实测 d6）
@@ -1459,6 +1474,13 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
         warns.append("outcome_not_parsed")
     if not articles and not oc["articles"]:
         warns.append("articles_not_parsed")
+    if pm.get("needs_word"):
+        warns.append("needs_word")
+    text_party = extract_party(parsed["body"])
+    if not text_party:
+        meta_party = fields.get("行政相对人", "")
+        if meta_party and meta_party in parsed["body"]:
+            text_party = meta_party
     cat_fine = (catalog_row or {}).get("罚没总金额_元")
     try:
         cat_fine = int(float(cat_fine))
@@ -1471,8 +1493,18 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
         "id": manifest_id,                       # 台账 id（由 import_manual/manifest 分配）
         "pkulaw_id": parsed["pkulaw_id"],        # 法宝引证码：稳定主键，去重与复下都靠它
         "source_type": "处罚决定书" if facts else "执法公示",
-        "source_ref": "文号哈希待生成（D3）｜原文链接见台账",
+        "source_ref": (f"法宝引证码 {parsed['pkulaw_id']}" if parsed.get("pkulaw_id")
+                       else "文号哈希待生成（D3）｜原文链接见台账"),
         "doc_no": parsed["doc_no"],
+        "page_meta": {
+            "title": pm.get("title", ""),
+            "fields": fields,
+            "pklaw_id": pm.get("pklaw_id", ""),
+            "attachments": pm.get("attachments") or [],
+            "coverage": pm.get("coverage") or {},
+            "needs_word": bool(pm.get("needs_word")),
+            "text_source": pm.get("text_source", ""),
+        },
         "harvest_date": harvest_date or datetime.now().strftime("%Y-%m-%d"),
         "deidentified": False,                   # 走脱敏 SOP + R6 后才能置"是"
         "behavior_date": parsed.get("behavior_date_in_facts") or None,
@@ -1481,7 +1513,7 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
         "region": parsed["region_text"],
         "text_full": parsed["body"],
         "segmented": bool(facts),
-        "text_party": extract_party(parsed["body"]),
+        "text_party": text_party,
         "text_facts": facts,
         "text_evidence": parsed.get("evidence", ""),
         "text_reasoning": parsed.get("reasoning", ""),
@@ -1867,6 +1899,12 @@ def cmd_docs(args) -> None:
     for p in files:
         text, how = doc_to_text(p)
         parsed = parse_any_doc(text, filename=p.name)     # 自动分派：叙述式 / 字段式公示
+        meta_path = p.with_suffix(".meta.json")
+        if meta_path.exists():
+            try:
+                parsed["page_meta"] = json.loads(meta_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                parsed["page_meta"] = {}
         cat = by_no.get(parsed["doc_no"])
         sha = sha256_path(p)
         rec = build_record(parsed, manifest_id=id_by_sha.get(sha, ""), harvest_date=args.harvest_date,

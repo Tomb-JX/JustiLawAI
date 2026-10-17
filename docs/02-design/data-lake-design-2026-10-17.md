@@ -174,6 +174,7 @@ source adapter → landing manifest
 - `doc_no` 明文与 `subject_mention` 允许进入内部交付（D-003）；`labels/` 不收录姓名/证件类字段，M1 用 `subject_mention` 定位。
 - `event_key` 只由 build 层生成；源端旧 `event_key` 降为参考，不再作为交付键。
 - `record_ref = batch_id + ":" + record_id`；同一记录可出现在多个批次，跨批次引用必须带批次。
+- `page_meta`（fetch sidecar）：`title`、`.fields` 10 键、`pklaw_id`、`attachments`、`coverage`、`needs_word`；只进 `extra`，不拼进 `text_full`，避免元数据污染模型输入。
 - 交付层可继续输出 `text_full` 供下游直接使用，但构建时从 blob 解析，不把全文写进交付 manifest。
 - `record_hash` 规范化：UTF-8、键排序、无多余空白；用于版本 diff 与去重。
 - 任何正文缺失/哈希不匹配 = 硬失败，不生成交付。
@@ -506,12 +507,12 @@ CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 | 单测 | 5 passed（blob 往返/损坏、manifest、catalog、dualwrite、verify） |
 | 首个双写批次 | `merged-20261017-full`，890 条 |
 | 第二个验证批次 | `20261016-2026T作业台-b4-r2`，2 条；复用同一批 blob，验证跨批去重 |
-| P1 批次 | `20261018-P1-r5`，144 条；id P-928–P-1110，build 区划 144/144，text_party 144/144 |
-| P1b 批次 | `20261018-P1b-r1`，76 条（74 L1）；id P-1111–P-1225，text_party 73/76 |
-| blob | 1,110 个；原文 2.37 MB → zstd 1.17 MB |
-| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2）＋ `batch-c57c8429815e0850`（P1-r5）＋ `batch-2b7c17ae054debe8`（P1b-r1） |
-| catalog | artifacts 1,122（1,110 blob + 4 input + 4 records + 4 manifest）/ documents 1,110 / records 1,112 / lineage 12 |
-| verify | blobs 1,110、manifests 4、records 1,112，0 error；lake 9.2 MB |
+| P1 批次 | `20261018-P1-r6`，183 条（180 L1）；id P-928–P-1110，text_party 183/183 |
+| P1b 批次 | `20261018-P1b-r2`，115 条（113 L1）；id P-1111–P-1225，text_party 114/115 |
+| blob | 1,188 个；原文 2.50 MB → zstd 1.24 MB |
+| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2）＋ `batch-c747591fa728efa0`（P1-r6）＋ `batch-eb314e7a2c21219d`（P1b-r2） |
+| catalog | artifacts 1,200（1,188 blob + 4 input + 4 records + 4 manifest）/ documents 1,188 / records 1,190 / lineage 12 |
+| verify | blobs 1,188、manifests 4、records 1,190，0 error；lake 11 MB |
 | 未做 | 网页 M2、引擎 M4、存量迁移、P1 并入 r7 |
 
 T-L1 当前验收：manifest 覆盖首批、blob 可解析、单测绿。P1 新批次落盘后按同一命令补双写即可，采集不等湖。
