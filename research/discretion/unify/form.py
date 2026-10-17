@@ -58,6 +58,10 @@ def detect_form(source_type: str, text: str, pku_form: str = "") -> str:
         return "合作案卷"
     if pku_form in ("叙述式-独立成篇", "叙述式-结果栏内", "字段式公示"):
         return pku_form
+    # 标签密集（≥3）即字段表形态，不要求 source_type=执法公示——
+    # 网页渠道把字段表页/列表页误标成处罚决定书的泄漏由 form 层兜住（实测 L1/L2 仅 8 件翻形，全为目标）
+    if _label_hits(text) >= 3:
+        return "字段表公示"
     if source_type in ("处罚决定书", "不予处罚决定书"):
         return "叙述式-独立成篇"
     if source_type == "执法公示":
