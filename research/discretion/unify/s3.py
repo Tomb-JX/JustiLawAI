@@ -1,17 +1,15 @@
-"""S3 校验层（parse-format-chain-design v1.2 §9）：规则的新角色——确定性阻断校验。
+"""S3 校验层（parse-format-chain-design v1.2 §9 + 接口 v2 适配）：规则的新角色——确定性阻断校验。
 
-校验注册表（每条含严重级）：
-- error：阻断 → 换旗舰重试一次 → 仍败进低置信队列（design §9 失败处置）
+seg-v2（句表分区）语义：模型输出 zones（句号区间）＋字段；覆盖/不重叠由"区间铺满句表"的
+结构校验保证（s1.validate），本层把它作为断言复核；引文类检查随引文接口移除。
+
+校验注册表：
+- error：阻断 → 换旗舰重试一次 → 低置信队列
 - warn：标记入库不阻断
+罚幅对账（两级，Q6）：常量表 legal_caps.json（档次区间制展平）；第十六条合并上限硬约束；
+条号-版本绑定（N6 类）。
 
-罚幅对账（两级，Q6 最高优先 + 第十六条豁免）：
-- 第一级 multi_violation=false：detention_days/fine 受所引法条单行为幅度约束
-  （2012修正第七十条：拘留≤15日、罚款≤3000 元；2025修订幅度库未接——不裁决只提示）；
-- 第二级 multi_violation=true 或合并执行：按第十六条合并上限（拘留≤20 日）裁决 executed_penalty；
-- 未知版本按第一级口径走 warn（不硬拒），detention>20 一律 error（违反第十六条合并上限）。
-
-版本注解不依赖模型（pilot 实测 76/89 未知）：law_version 定版归组装层（D8），本层只查
-模型内部一致性与法定上限越限，不下 law_version 结论。
+版本注解不依赖模型（pilot 实测 76/89 未知）：law_version 定版归组装层（D8）。
 """
 
 from __future__ import annotations
@@ -27,24 +25,20 @@ sys.path.insert(0, str(_HERE))
 sys.path.insert(0, str(_HERE.parent / "harvest"))
 sys.path.insert(0, str(_HERE.parent / "discover"))
 
-from s1 import validate as schema_validate
-from locate import locate, OffsetIndex
-from s1 import data_root
+from s1 import validate as schema_validate, data_root  # noqa: E402
+from locate import OffsetIndex  # noqa: E402
 from parse import CONCLUSION_MARK  # noqa: E402
 from parse_qc import CONCL_ANY, EVID_PAT, GENJV  # noqa: E402  与交付 QC 同源（指令 §3 迁移，单一注册表）
 
 # 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
 # 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
-# 常量表就位后 2025修订不再 warn，直接硬对账。
 BUILTIN_CAPS = {
     "2012修正": {"detention": 15, "fine": 3000, "article": "70"},
 }
-
 EDITION_KEY = {"psal-2012": "2012修正", "psal-2025": "2025修订"}
 
 
 def _flatten_caps(raw: dict) -> dict:
-    """legal_caps.json（laws→psal-xxx→gambling_articles→tiers）→ 单行为上限展平。"""
     out = {}
     for law_key, law in (raw.get("laws") or {}).items():
         edition = EDITION_KEY.get(law_key, law_key)
@@ -81,12 +75,9 @@ try:
 except Exception:
     PENALTY_CAPS = dict(BUILTIN_CAPS)
 
-# 条号-版本绑定（常量表 usage 注记：2012=第70条，2025=第82条；错配=N6 类）
 EDITION_ARTICLE = {k: ("第七十条" if v["article"] == "70" else "第八十二条")
                    for k, v in PENALTY_CAPS.items() if v.get("article")}
-
 ART16_DETENTION_MAX = 20   # 第十六条：合并执行拘留上限
-
 HARD_OUTCOME = {"拘留", "拘留并处罚款", "罚款", "警告", "不予处罚", "不构成违法", "移送刑事"}
 
 
@@ -105,57 +96,53 @@ def _mk(check, severity, detail, seg_types=None):
     return Finding(check, severity, detail, seg_types or [])
 
 
-# ---------- 各校验器（ctx: unified 记录 + S1 输出 + 定位结果） ----------
+# ---------- 区间工具（seg-v2） ----------
+
+def zone_spans(output: dict, sentences: list, index: OffsetIndex | None) -> dict:
+    """zones → {type: [(clean_start, clean_end, orig_start, orig_end), ...]}（原文坐标）。"""
+    spans: dict[str, list] = {}
+    for z in (output.get("zones") or []):
+        typ, a, b = z.get("type"), z.get("from"), z.get("to")
+        if typ not in ("facts", "evidence", "reasoning", "decision", "review"):
+            continue   # meta 不进五段
+        if not (isinstance(a, int) and isinstance(b, int) and 1 <= a <= b <= len(sentences)):
+            continue
+        cs = sentences[a - 1][0]
+        ce = sentences[b - 1][1]
+        os_, oe = (index.span(cs, ce) if index else (cs, ce))
+        spans.setdefault(typ, []).append((cs, ce, os_, oe))
+    return spans
+
+
+def zone_text(spans_by_type: dict, cleaned: str, typ: str) -> str:
+    """该类型的区间文本（cleaned 坐标拼接）。"""
+    parts = [cleaned[cs:ce] for cs, ce, *_ in spans_by_type.get(typ, [])]
+    return "".join(parts)
+
+
+def check_zones_tiling(ctx):
+    """铺满/不重叠断言（s1.validate 已校验，这里以句表坐标复核一遍——实现断言非阻断逻辑）。"""
+    out, sentences = ctx["output"], ctx["sentences"]
+    errs = schema_validate(out, n_sentences=len(sentences))
+    return [_mk("zones_tiling", "error", e) for e in errs if "zone" in e or "铺满" in e or "连续" in e]
+
+
+# ---------- 各校验器 ----------
 
 def check_schema(ctx):
-    errs = schema_validate(ctx["output"])
-    return [_mk("schema", "error", e) for e in errs]
-
-
-def check_quotes(ctx):
-    """引文定位：fail=error（防幻觉硬防线）；exact_multi/ws_multi → 消歧，仍歧义=warn。"""
-    out, locs = ctx["output"], ctx["locates"]
-    findings = []
-    for typ, loc in locs.items():
-        if loc is None:
-            continue
-        if loc.status in ("fail", "empty"):
-            findings.append(_mk("quote", "error", f"引文未命中（{loc.status}，len={loc.note or '-'}）", [typ]))
-        elif loc.status in ("exact_multi", "ws_multi"):
-            if not ctx.get("disambiguated", {}).get(typ):
-                findings.append(_mk("quote", "warn", f"多处命中未消歧（{loc.occurrences} 处）", [typ]))
-            else:
-                findings.append(_mk("quote", "warn", "多处命中经消歧定位", [typ]))
-        elif loc.status == "fuzzy_unique":
-            findings.append(_mk("quote", "warn", f"模糊定位：{loc.note}", [typ]))
-    return findings
-
-
-def check_segments_overlap(ctx):
-    """已唯一定位的段之间不得重叠（error）。"""
-    locs = [loc for typ, loc in ctx["locates"].items()
-            if loc is not None and loc.status in ("exact_unique", "ws_unique") and typ.startswith("seg:")]
-    locs.sort(key=lambda l: l.clean_start)
-    findings = []
-    for a, b in zip(locs, locs[1:]):
-        if b.clean_start < a.clean_end:
-            findings.append(_mk("segments_overlap", "error",
-                                f"段重叠：[{a.clean_start},{a.clean_end}) 与 [{b.clean_start},{b.clean_end})"))
-    return findings
+    errs = schema_validate(ctx["output"], n_sentences=len(ctx["sentences"]))
+    return [_mk("schema", "error", e) for e in errs if "zone" not in e]
 
 
 def check_decision_present(ctx):
-    """有处罚结果的记录必须有 decision 段（error）。"""
     oc = (ctx["output"].get("outcome") or {})
     if oc.get("type") in HARD_OUTCOME:
-        segs = {s.get("type") for s in (ctx["output"].get("segments") or [])}
-        if "decision" not in segs:
-            return [_mk("decision_present", "error", "outcome 有处罚结果但缺 decision 段")]
+        if not ctx["spans"].get("decision"):
+            return [_mk("decision_present", "error", "outcome 有处罚结果但缺 decision 区间")]
     return []
 
 
 def check_outcome_consistency(ctx):
-    """type ↔ detention_days ↔ fine 矩阵（error）。"""
     oc = ctx["output"].get("outcome") or {}
     t = oc.get("type")
     d, f = oc.get("detention_days") or 0, oc.get("fine") or 0
@@ -168,58 +155,35 @@ def check_outcome_consistency(ctx):
         "警告": d == 0 and f == 0,
         "不予处罚": d == 0 and f == 0,
         "不构成违法": d == 0 and f == 0,
-        "移送刑事": True,   # 形态不定，不裁决
+        "移送刑事": True,
     }
     if t in rules and not rules[t]:
         return [_mk("outcome_consistency", "error", f"type={t} 与 detention_days={d}/fine={f} 不匹配")]
     return []
 
 
-def check_article_edition(ctx):
-    """条号-版本绑定（N6 类，常量表 usage 口径：2012=第七十条，2025=第八十二条）。"""
-    oc = ctx["output"].get("outcome") or {}
-    arts = oc.get("articles") or []
-    findings = []
-    for a in arts:
-        text = (a.get("text") or "") + (a.get("edition") or "")
-        edition = a.get("edition") or "未知"
-        if edition in EDITION_ARTICLE and EDITION_ARTICLE[edition] not in text \
-                and any(n in text for n in ("第七十条", "第八十二条")):
-            findings.append(_mk("article_edition", "error",
-                                f"条号-版本错配：edition={edition} 应引 {EDITION_ARTICLE[edition]}（text={text[:24]}）"))
-    return findings
-
-
 def check_penalty_caps(ctx):
-    """两级罚幅对账（Q6）。常量表（legal_caps.json）就位后各版本均硬对账。"""
     oc = ctx["output"].get("outcome") or {}
     d, f = oc.get("detention_days") or 0, oc.get("fine") or 0
     mv = bool(oc.get("multi_violation"))
     ex = oc.get("executed_penalty") or {}
-    ed, ef = ex.get("detention_days") or 0, ex.get("fine") or 0
+    ed = ex.get("detention_days") or 0
     arts = oc.get("articles") or []
     edition = (arts[0].get("edition") if arts else "未知") or "未知"
     findings = []
-
-    # 第十六条合并上限：任何情形拘留合计 >20 日都是硬越限
     top = max(d, ed if mv else 0)
     if top > ART16_DETENTION_MAX:
         findings.append(_mk("penalty_caps", "error",
                             f"拘留 {top} 日超第十六条合并上限 {ART16_DETENTION_MAX} 日（edition={edition}, multi_violation={mv}）"))
         return findings
-
     if mv:
-        # 第二级：合并执行对账
         if ed and ed > ART16_DETENTION_MAX:
             findings.append(_mk("penalty_caps", "error", f"executed_penalty 拘留 {ed} 日超合并上限 20 日"))
         if d > ed and ed:
             findings.append(_mk("penalty_caps", "warn", f"multi_violation=true 但单行为拘留 {d} > 合并 {ed}，复核拆项"))
         return findings
-
-    # 第一级：单行为幅度
     caps = PENALTY_CAPS.get(edition)
     if caps is None:
-        # 未知版本：按可考证幅度做参考对账（warn 不硬拒；版本定版归组装层）
         ref = PENALTY_CAPS.get("2012修正") or {}
         if d > ref.get("detention", 15) or f > ref.get("fine", 3000):
             findings.append(_mk("penalty_caps", "warn",
@@ -234,136 +198,100 @@ def check_penalty_caps(ctx):
     return findings
 
 
+def check_article_edition(ctx):
+    oc = ctx["output"].get("outcome") or {}
+    arts = oc.get("articles") or []
+    findings = []
+    for a in arts:
+        text = (a.get("text") or "") + (a.get("edition") or "")
+        edition = a.get("edition") or "未知"
+        if edition in EDITION_ARTICLE and EDITION_ARTICLE[edition] not in text \
+                and any(n in text for n in ("第七十条", "第八十二条")):
+            findings.append(_mk("article_edition", "error",
+                                f"条号-版本错配：edition={edition} 应引 {EDITION_ARTICLE[edition]}"))
+    return findings
+
+
+def check_facts_quality(ctx):
+    """facts 区间内容质量族（parse_qc 迁移）：定性句收尾（error，边界规则应已 snap——残留=模型越界）、
+    段中定性（warn）、证据句/根据法条混入（warn）、截尾、<30 字（区间粒度下仍为内容质量信号）。"""
+    cleaned = ctx["record"].get("cleaned_text") or ""
+    facts = zone_text(ctx["spans"], cleaned, "facts").strip()
+    st = ctx["record"].get("source_type") or ""
+    findings = []
+    if not facts:
+        if st in ("处罚决定书", "执法公示"):
+            findings.append(_mk("facts_quality", "error", "facts 区间缺失（决定书/公示形态应有事实）"))
+        return findings
+    if facts == cleaned.strip() and len(facts) > 120:
+        findings.append(_mk("facts_quality", "error", "事实区间=全文（分区失败）"))
+    sentences = [p for p in re.split(r"(?<=[。；;])", facts) if p.strip()]
+    if sentences and CONCLUSION_MARK.search(sentences[-1]):
+        findings.append(_mk("facts_quality", "error", f"定性句收尾（snap 未生效？）：…{sentences[-1][:24]}"))
+    for s in sentences[:-1]:
+        if CONCLUSION_MARK.search(s):
+            findings.append(_mk("facts_quality", "warn", f"定性句段中：…{s[:24]}"))
+            break
+    m_any = CONCL_ANY.search(facts)
+    if m_any and not any("定性句" in f.detail for f in findings):
+        findings.append(_mk("facts_quality", "warn", "定性句段中（构成句式）"))
+    if EVID_PAT.search(facts):
+        findings.append(_mk("facts_quality", "warn", "证据句混入事实区间"))
+    if GENJV.search(facts):
+        findings.append(_mk("facts_quality", "warn", "事实区间含根据法条"))
+    if 0 < len(facts) < 30:
+        findings.append(_mk("facts_quality", "warn", "事实区间<30字"))
+    return findings
+
+
 def check_dates(ctx):
-    """日期顺序（error）+ 与信封粗日期交叉（warn）。"""
     out, rec = ctx["output"], ctx["record"]
     dates = out.get("dates") or {}
-    b = (dates.get("behavior") or {}).get("quote")
-    dd = (dates.get("decision") or {}).get("quote")
-    # 模型只给引文不给值：顺序核对用信封粗日期（有则核）
-    eb = rec.get("behavior_date") or ""
-    ed2 = rec.get("decision_date") or ""
+    b, dd = dates.get("behavior"), dates.get("decision")
     findings = []
+    eb, ed2 = rec.get("behavior_date") or "", rec.get("decision_date") or ""
+    if isinstance(b, str) and isinstance(dd, str) and len(b) >= 7 and len(dd) >= 7 and b[:7] > dd[:7]:
+        findings.append(_mk("dates_order", "error", f"模型行为月 {b[:7]} 晚于决定月 {dd[:7]}"))
     if eb and ed2 and len(eb) >= 7 and len(ed2) >= 7 and eb[:7] > ed2[:7]:
         findings.append(_mk("dates_order", "error", f"信封行为月 {eb[:7]} 晚于决定月 {ed2[:7]}"))
+    # 模型值 vs 信封粗值交叉（仅在有值且前缀可比时）
+    if isinstance(b, str) and eb and len(b) >= 7 and len(eb) >= 7 and b[:7] != eb[:7]:
+        findings.append(_mk("dates_order", "warn", f"模型行为月 {b[:7]} ≠ 信封 {eb[:7]}"))
+    if isinstance(dd, str) and ed2 and len(dd) >= 7 and len(ed2) >= 7 and dd[:7] != ed2[:7]:
+        findings.append(_mk("dates_order", "warn", f"模型决定月 {dd[:7]} ≠ 信封 {ed2[:7]}"))
     if b is None and dd is None and rec.get("source_type") != "执法公示":
-        findings.append(_mk("dates_order", "warn", "模型未给出任何日期引文"))
+        findings.append(_mk("dates_order", "warn", "模型未给出任何日期"))
     return findings
 
 
 def check_subject(ctx):
-    """本人写法核验（pilot 实测校准）：facts 引文→pass；正文其他位置（decision/evidence
-    等段或正文本身）→ warn（facts 引文偏短未含人名是合法形态）；全文没有→ error（疑幻觉）。"""
     out, rec = ctx["output"], ctx["record"]
     subj = (out.get("subject") or {}).get("mention")
     if not subj:
-        return []   # subject 缺失是召回问题，不在此阻断
-    facts = [s.get("quote") or "" for s in (out.get("segments") or []) if s.get("type") == "facts"]
-    if facts and any(subj in q for q in facts):
         return []
-    if subj in rec.get("cleaned_text", ""):
-        seg_hit = [s.get("type") for s in (out.get("segments") or [])
-                   if s.get("type") != "facts" and subj in (s.get("quote") or "")]
-        return [_mk("subject", "warn",
-                    f"本人写法见于 {seg_hit or ['正文']} 而非 facts 引文（facts 引文 len="
-                    f"{min((len(q) for q in facts), default=0)}）")]
+    cleaned = rec.get("cleaned_text") or ""
+    facts = zone_text(ctx["spans"], cleaned, "facts").strip()
+    if facts and subj in facts:
+        return []
+    if subj in cleaned:
+        return [_mk("subject", "warn", f"本人写法见于 decision/reasoning 等区间而非 facts（facts len={len(facts)}）")]
     return [_mk("subject", "error", f"本人写法在正文中未找到：{subj[:6]}…（疑幻觉）")]
 
 
 def check_gambling_cross(ctx):
-    """模型 verdict 与预筛交叉（warn → 队列核对）。"""
     gamb = (ctx["output"].get("gambling") or {}).get("verdict")
     pre = ctx["record"]["prefilter"]["gambling"]
     if pre == "是" and gamb == "否":
-        return [_mk("gambling_cross", "warn", f"预筛=是 但模型=否（reason={(ctx['output'].get('gambling') or {}).get('reason','')[:40]}）")]
+        return [_mk("gambling_cross", "warn",
+                    f"预筛=是 但模型=否（reason={(ctx['output'].get('gambling') or {}).get('reason', '')[:40]}）")]
     if pre == "待定" and gamb == "待定":
         return [_mk("gambling_cross", "warn", "预筛与模型均为待定")]
     return []
 
 
-def check_coverage(ctx):
-    """决策类文书主体覆盖 ≥95%（协同指令 §3c）：定位成功的段并集覆盖
-    [首段起点, 末段终点] 区间的比例；引文整体过疏 → error。"""
-    form = ctx["record"].get("form") or ""
-    if not any(k in form for k in ("叙述式-独立成篇", "叙述式-复议")):
-        return []   # 公示/结果栏等形态不按主体覆盖裁决
-    spans = []
-    for typ, loc in (ctx.get("locates") or {}).items():
-        if typ.startswith("seg:") and loc is not None and loc.clean_end > loc.clean_start \
-                and loc.status in ("exact_unique", "ws_unique"):
-            spans.append((loc.clean_start, loc.clean_end))
-    if len(spans) < 2:
-        return []   # 单段无从谈覆盖；段缺失由 decision_present/quote 把关
-    spans.sort()
-    lo, hi = spans[0][0], spans[-1][1]
-    total = hi - lo
-    if total <= 0:
-        return []
-    covered = 0
-    for a, b in spans:
-        covered += b - a
-    ratio = covered / total
-    if ratio < 0.95:
-        return [_mk("coverage", "error", f"五段并集覆盖主体 {ratio:.0%} < 95%（引文过疏或漏段）")]
-    return []
-
-
-def check_facts_quality(ctx):
-    """事实段内容质量族（协同指令 §3：parse_qc 15 项迁移，与交付 QC 同源正则）。
-    对 S1 的 facts 引文检查（引文即模型声称的事实段）：
-    硬：定性句收尾（提示词硬规则违反）、事实段为空、事实=全文；
-    疑：定性句段中、证据句混入、根据法条混入、逗号/非句读截尾、<30 字。"""
-    out = ctx["output"]
-    facts = ""
-    for s in (out.get("segments") or []):
-        if s.get("type") == "facts":
-            facts = (s.get("quote") or "").strip()
-            break
-    if not facts:
-        # 无 facts 段：处罚决定书/公示按形态裁决；复议的 facts 缺失由 decision_present 兜底
-        st = ctx["record"].get("source_type") or ""
-        if st in ("处罚决定书", "执法公示"):
-            return [_mk("facts_quality", "error", "facts 段缺失（决定书/公示形态应有事实）")]
-        return []
-    f = facts
-    findings = []
-    if f == (ctx["record"].get("cleaned_text") or "").strip() and len(f) > 120:
-        findings.append(_mk("facts_quality", "error", "事实段=全文（分段失败）"))
-    # 定性句判定（逐句）：末句含定性/结论词 = 收尾（error，提示词硬规则违反）；
-    # 前面句子含 = 段中（warn）。CONCLUSION_MARK 与 build B 类裁剪同一口径；
-    # parse_qc 的 CONCL_ANY（"已构成…违法/属于情节较重"句式）作为补充 warn。
-    sentences = [p for p in re.split(r"(?<=[。；;])", f) if p.strip()]
-    tail_err = False
-    if sentences and CONCLUSION_MARK.search(sentences[-1]):
-        findings.append(_mk("facts_quality", "error", f"定性句收尾：…{sentences[-1][:24]}"))
-        tail_err = True
-    else:
-        for s in sentences[:-1]:
-            if CONCLUSION_MARK.search(s):
-                findings.append(_mk("facts_quality", "warn", f"定性句段中：…{s[:24]}"))
-                break
-        if not tail_err:
-            m_any = CONCL_ANY.search(f)
-            if m_any:
-                findings.append(_mk("facts_quality", "warn", f"定性句段中（构成句式）：…{f[max(0, m_any.start()-10):m_any.end()+6]}"))
-    m3 = EVID_PAT.search(f)
-    if m3:
-        findings.append(_mk("facts_quality", "warn", "证据句混入事实段"))
-    if GENJV.search(f):
-        findings.append(_mk("facts_quality", "warn", "事实段含根据法条"))
-    if f.endswith(("，", "、", "；")) and len(f) >= 30:
-        findings.append(_mk("facts_quality", "warn", "事实段逗号截尾"))
-    elif f and f[-1] not in "。；：）」】" and not f.endswith(("，", "、")):
-        findings.append(_mk("facts_quality", "warn", "事实段非句读截尾"))
-    if 0 < len(f) < 30:
-        findings.append(_mk("facts_quality", "warn", "事实段<30字"))
-    return findings
-
-
 CHECKS = [
+    ("zones_tiling", check_zones_tiling),
     ("schema", check_schema),
-    ("quotes", check_quotes),
-    ("segments_overlap", check_segments_overlap),
     ("decision_present", check_decision_present),
     ("outcome_consistency", check_outcome_consistency),
     ("penalty_caps", check_penalty_caps),
@@ -372,7 +300,6 @@ CHECKS = [
     ("dates_order", check_dates),
     ("subject", check_subject),
     ("gambling_cross", check_gambling_cross),
-    ("coverage", check_coverage),
 ]
 
 
@@ -381,17 +308,3 @@ def run_checks(ctx: dict) -> list[Finding]:
     for _name, fn in CHECKS:
         findings.extend(fn(ctx))
     return findings
-
-
-def collect_locates(output: dict, cleaned: str, index: OffsetIndex) -> dict:
-    """对 segments + dates 引文逐条定位。键：seg:<type> / date:<k>。"""
-    locs = {}
-    for s in (output.get("segments") or []):
-        typ = s.get("type") or "?"
-        locs[f"seg:{typ}"] = locate(cleaned, s.get("quote") or "", index)
-    dates = output.get("dates") or {}
-    for k in ("behavior", "decision"):
-        q = (dates.get(k) or {}).get("quote")
-        if q:
-            locs[f"date:{k}"] = locate(cleaned, q, index)
-    return locs

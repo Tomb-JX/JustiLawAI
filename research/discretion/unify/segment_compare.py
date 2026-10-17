@@ -22,23 +22,24 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from locate import OffsetIndex, locate  # noqa: E402
+from locate import OffsetIndex  # noqa: E402
 
 SEG_TYPES = ["facts", "evidence", "reasoning", "decision", "review"]
 
 
-def model_spans(output: dict, cleaned: str, index: OffsetIndex) -> dict[str, tuple[int, int] | None]:
-    """S1 引文 → 原文坐标（仅接受唯一/空白归一命中；多处以首处计并标注）。"""
-    spans: dict[str, tuple[int, int] | None] = {}
-    for s in (output.get("segments") or []):
-        typ = s.get("type")
+def model_spans(output: dict, sentences: list, index: OffsetIndex) -> dict[str, list[tuple[int, int]]]:
+    """zones → 原文坐标（每类型可有多段，坐标从句表映射）。"""
+    spans: dict[str, list[tuple[int, int]]] = {}
+    for z in (output.get("zones") or []):
+        typ, a, b = z.get("type"), z.get("from"), z.get("to")
         if typ not in SEG_TYPES:
             continue
-        loc = locate(cleaned, s.get("quote") or "", index)
-        if loc.clean_start >= 0 and loc.status in ("exact_unique", "exact_multi", "ws_unique"):
-            spans[typ] = (loc.orig_start, loc.orig_end)
-        else:
-            spans[typ] = None
+        if not (isinstance(a, int) and isinstance(b, int) and 1 <= a <= b <= len(sentences)):
+            continue
+        cs = sentences[a - 1][0]
+        ce = sentences[b - 1][1]
+        os_, oe = index.span(cs, ce)
+        spans.setdefault(typ, []).append((os_, oe))
     return spans
 
 
@@ -52,16 +53,17 @@ def regex_spans(rec: dict) -> dict[str, tuple[int, int]]:
     return out
 
 
-def prf(model: tuple[int, int] | None, regex: tuple[int, int] | None) -> dict:
-    """字符级 P/R/F1。model=None 记召回缺失；regex=None 记精确缺失（互有缺失单独计数）。"""
-    if model is None and regex is None:
+def prf(model_list: list[tuple[int, int]] | None, regex: tuple[int, int] | None) -> dict:
+    """字符级 P/R/F1（模型侧多段聚合交集）。"""
+    if not model_list and regex is None:
         return {"p": None, "r": None, "f1": None, "both_missing": True}
-    if model is None:
+    if not model_list:
         return {"p": 0.0, "r": None, "f1": 0.0, "model_missing": True}
     if regex is None:
         return {"p": None, "r": 0.0, "f1": None, "regex_missing": True}
-    inter = max(0, min(model[1], regex[1]) - max(model[0], regex[0]))
-    p = inter / (model[1] - model[0]) if model[1] > model[0] else 0.0
+    model_len = sum(b - a for a, b in model_list)
+    inter = sum(max(0, min(b, regex[1]) - max(a, regex[0])) for a, b in model_list)
+    p = inter / model_len if model_len else 0.0
     r = inter / (regex[1] - regex[0]) if regex[1] > regex[0] else 0.0
     f1 = 2 * p * r / (p + r) if p + r > 0 else 0.0
     return {"p": round(p, 4), "r": round(r, 4), "f1": round(f1, 4)}
@@ -95,15 +97,18 @@ def main() -> None:
         uni = unified.get(o["id"])
         if rec is None or uni is None:
             continue
+        sentences = uni.get("sentences") or []
+        if not sentences:
+            continue
         index = OffsetIndex(edits[o["id"]])
-        ms = model_spans(o["output"], uni.get("cleaned_text") or "", index)
+        ms = model_spans(o["output"], sentences, index)
         rs = regex_spans(rec)
         if not rs:
             continue   # 正则侧无分段坐标（未分段件）——不计入分母，单独计数
         n_compared += 1
         for typ in SEG_TYPES:
             m, r = ms.get(typ), rs.get(typ)
-            if m is None:
+            if not m:
                 missing[typ] += 1
             res = prf(m, r)
             if res.get("f1") is not None:

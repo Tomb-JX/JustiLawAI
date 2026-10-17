@@ -141,6 +141,25 @@ def replay_edits(orig: str, edits: dict) -> str:
     return "".join(subs.get(i, ch) for i, ch in enumerate(orig) if not mask[i])
 
 
+# ---------- 句表（seg-v2 分区接口的确定性输入，parse-interface-v2-design §2） ----------
+
+_SENT_ITEM = re.compile(r"[^。！？；\n]*(?:[。！？；]|\n|$)")
+
+
+def sentence_table(cleaned: str) -> list[list[int]]:
+    """cleaned_text → 编号句表 [[start, end], ...]（cleaned 坐标，1 基序号由顺序隐含）。
+    切分：句块＝非分隔符段 + 一个句末标点/换行/文末（消费式 finditer，坐标无缝不吞位）；
+    空白句丢弃；句表是分区调用的确定性坐标基座——覆盖性/不重叠由"区间必须完整铺满
+    句表"的结构校验保证，不依赖模型自觉。"""
+    table: list[list[int]] = []
+    for m in _SENT_ITEM.finditer(cleaned or ""):
+        seg = m.group(0)
+        if seg.strip():
+            lead = len(seg) - len(seg.lstrip())
+            table.append([m.start() + lead, m.start() + len(seg.rstrip())])
+    return table
+
+
 # ---------- 规则（finder：text -> [(start, end, "del" | ("sub", 同长串))]） ----------
 
 def _iter_lines(text: str):

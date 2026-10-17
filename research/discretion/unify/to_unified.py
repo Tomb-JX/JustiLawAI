@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from cleanse import CLEAN_VERSION, CleanResult, cleanse, replay_edits  # noqa: E402
+from cleanse import CLEAN_VERSION, CleanResult, cleanse, replay_edits, sentence_table  # noqa: E402
 from form import detect_form  # noqa: E402
 from prefilter import SAMPLE_TARGET, eval_prefilter, sample_pool  # noqa: E402
 
@@ -116,6 +116,7 @@ def convert(in_path: str, channel: str | None, out_dir: str,
             "harvest_date": rec.get("harvest_date") or "",
             "prefilter": pref,
             "cleaned_text": res.cleaned,
+            "sentences": sentence_table(res.cleaned),
             "extra": extract_extra(rec, ch),
         })
         edits_rows.append({"id": rec["id"], **res.to_edits()})

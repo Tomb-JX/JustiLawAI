@@ -28,11 +28,13 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
-PROMPT_VERSION = "seg-v1"
-# seg-v1 冻结（协同指令 §6.2/§8，2026-10-17）：300 试点批与本文件的提示不再改动；
-# 任何提示修改必须升版 seg-v2 并过规约测试（30–50 件分段歧义率）+ 试点批回归后才能切换。
-# 冻结前提已满足：legal_caps 常量表就位（§4）、S3 注册表含 parse_qc 迁移项（§3）。
-SEG_TYPES = ["facts", "evidence", "reasoning", "decision", "review"]
+from cleanse import sentence_table  # noqa: E402  句表（seg-v2 分区坐标基座）
+
+PROMPT_VERSION = "seg-v2"
+# seg-v1 已冻结归档（试点报告 pilot300：引文命中率 99.92% 但摘引式分段致 coverage 51 件失败）。
+# seg-v2 = 句表分区接口（parse-interface-v2-design §2）：输入为编号句表，输出为 run-length
+# 分区 + 字段——覆盖/不重叠由"区间铺满句表"的结构校验保证；定性句归置由确定性 snap 执行。
+SEG_TYPES = ["facts", "evidence", "reasoning", "decision", "review", "meta"]
 OUTCOME_TYPES = ["不予处罚", "不构成违法", "警告", "罚款", "拘留", "拘留并处罚款", "移送刑事"]
 
 _DEFAULT_DATA = Path(r"D:\02_Dev\Data\justilaw-research")
@@ -51,27 +53,30 @@ def mask(key: str) -> str:
 
 # ---------- seg-v1 提示 ----------
 
-SYSTEM_PROMPT = """你是行政处罚文书的结构化抽取器。输入是清洗后的文书正文（叙述式或字段表/键值行），只输出一个 JSON 对象。
+SYSTEM_PROMPT = """你是行政处罚文书的结构化抽取器。输入是清洗后的文书，以编号句表（[S1]…[SN]）给出。只输出一个 JSON 对象。
 
-【五段定义】segments 数组，每项 {"type": ..., "quote": "逐字原文引文"}：
-- facts：违法事实（"经查/查明/现查明"部分），只写事实，禁止混入定性结论
-- evidence：证据列举（"以上事实有…证据"）
-- reasoning：认定理由与裁量说明（"本局认为/经审查"，含"情节严重/从轻"等定性）
-- decision：处罚决定原文（"决定给予…"）
-- review：复议/诉讼机关的审查意见与结论（如有；无则不给 review 项）
+【分区 zones】把全部 N 个句子依原顺序切成连续区间，每区间一个类型，必须完整铺满 [S1..SN]：
+- facts：违法事实（"经查/查明/现查明"部分）——只写行为事实；
+- evidence：证据列举（"以上事实有…证据"）；
+- reasoning：认定理由与裁量说明，以及一切定性/结论句（"行为已构成赌博""情节严重""从轻处罚"等）；
+- decision：处罚决定及其依据、执行方式（"决定给予…"）；
+- review：复议/诉讼机关的审查意见与结论（无则不设）；
+- meta：表单元数据（案件名称、文号、日期栏、当事人栏等）。
 
-【硬规则】
-1. quote 必须是输入正文中的【逐字】片段：不改标点、不补漏字、不繁简转换；正文没有的不要编造。
-2. 定性句（"行为已构成赌博""情节严重"）归 reasoning，不进 facts。
-3. 文书没有的信息给 null 或 []，不得编造。
-4. 文书明示数项违法行为或"合并执行"时 multi_violation=true 并给 executed_penalty（合并后总额）；否则 false，executed_penalty 两项填 0。
-5. dates 缺失时对应项为 null（引文也给 null）。
-6. articles 每项 {"text": 原文写法, "edition": "2012修正|2025修订|未知"}（按文中版本注解判断）。
-7. gambling：判断本文书是否属赌博案件，verdict 是/否/待定 + 一句 reason。
-8. confidence：high/low。
+【硬性结构规则】
+1. zones 依序衔接：首区间 from=1；相邻区间前一个 to+1=后一个 from；最后区间 to=N。无缝隙、不重叠、不跳句。
+2. 定性/结论句（"已构成""情节严重""决定给予""从轻处罚"等）一律归 reasoning 或 decision，绝不进 facts；facts 的最后一句必须是行为事实陈述。
+3. meta 用于表单元数据行（字段表/公示的名称、文号、日期、当事人栏）。
+
+【字段（基于 facts/decision 区间内容）】
+- 文书没有的信息给 null 或 []，不得编造；dates 缺失给 null。
+- 文书明示数项违法行为或"合并执行"时 multi_violation=true 并给 executed_penalty（合并后总额）；否则 false、executed_penalty 两项填 0。
+- articles 每项 {"text": 原文写法, "edition": "2012修正|2025修订|未知"}。
+- gambling：本文书是否属赌博案件，verdict 是/否/待定 + 一句 reason。
+- confidence：high/low。
 
 【输出 JSON 结构】
-{"segments":[{"type":"facts|evidence|reasoning|decision|review","quote":"…"}],
+{"zones":[{"type":"facts","from":1,"to":10},{"type":"reasoning","from":11,"to":12},{"type":"decision","from":13,"to":14}],
  "subject":{"mention":"本人原写法或null","aliases":[]},
  "outcome":{"type":"不予处罚|不构成违法|警告|罚款|拘留|拘留并处罚款|移送刑事",
    "detention_days":0,"fine":0,"not_executed":"是|否",
@@ -79,14 +84,15 @@ SYSTEM_PROMPT = """你是行政处罚文书的结构化抽取器。输入是清�
    "confiscation":[],"detention_items":[],
    "articles":[{"text":"…","edition":"2012修正|2025修订|未知"}],
    "stated_circumstances":[]},
- "dates":{"behavior":{"quote":null},"decision":{"quote":null}},
+ "dates":{"behavior":"YYYY-MM-DD或null","decision":"YYYY-MM-DD或null"},
  "review":{"result":"维持|变更|撤销|确认违法|程序驳回|无","changed_outcome":null},
  "gambling":{"verdict":"是|否|待定","reason":"…"},
  "confidence":"high|low"}"""
 
 
-def build_user_prompt(form: str, source_type: str, text: str) -> str:
-    return f"[form] {form} | [source_type] {source_type}\n正文：\n{text}"
+def build_user_prompt(form: str, source_type: str, sentences: list[str]) -> str:
+    lines = [f"[S{i}] {t}" for i, t in enumerate(sentences, 1)]
+    return f"[form] {form} | [source_type] {source_type} | 共 {len(sentences)} 句\n句表：\n" + "\n".join(lines)
 
 
 # ---------- 提供商客户端 ----------
@@ -155,18 +161,25 @@ def extract_json(content: str) -> dict:
     raise ValueError("无法提取 JSON")
 
 
-def validate(out: dict) -> list[str]:
-    """软校验：结构/枚举违规列表（S3 硬校验注册表另行实现）。"""
+def validate(out: dict, n_sentences: int = 0) -> list[str]:
+    """结构校验：分区铺满句表（覆盖性/不重叠由结构保证的断言点）+ 字段枚举。"""
     errs = []
-    segs = out.get("segments")
-    if not isinstance(segs, list) or not segs:
-        errs.append("segments 缺失或为空")
-    else:
-        for s in segs:
-            if s.get("type") not in SEG_TYPES:
-                errs.append(f"segment.type 非法: {s.get('type')!r}")
-            if not isinstance(s.get("quote"), str) or not s["quote"].strip():
-                errs.append(f"segment.quote 缺失（type={s.get('type')}）")
+    zones = out.get("zones")
+    if not isinstance(zones, list) or not zones:
+        return ["zones 缺失或为空"]
+    prev_to = 0
+    for z in zones:
+        t, a, b = z.get("type"), z.get("from"), z.get("to")
+        if t not in SEG_TYPES:
+            errs.append(f"zone.type 非法: {t!r}")
+        if not isinstance(a, int) or not isinstance(b, int) or a > b:
+            errs.append(f"zone 区间非法: from={a!r} to={b!r}")
+            continue
+        if a != prev_to + 1:
+            errs.append(f"zones 不连续（有缝隙或重叠）: from={a} 应为 {prev_to + 1}")
+        prev_to = b
+    if n_sentences and prev_to != n_sentences:
+        errs.append(f"zones 未铺满句表: to={prev_to} ≠ {n_sentences}")
     oc = out.get("outcome") or {}
     if oc.get("type") not in OUTCOME_TYPES:
         errs.append(f"outcome.type 非法: {oc.get('type')!r}")
@@ -179,36 +192,6 @@ def validate(out: dict) -> list[str]:
     if out.get("confidence") not in ("high", "low"):
         errs.append(f"confidence 非法: {out.get('confidence')!r}")
     return errs
-
-
-def quote_check(cleaned: str, out: dict) -> dict:
-    """S2-lite 预检：逐字引文在 cleaned_text 的命中情况（唯一/多次/零命中/空白归一后命中）。"""
-    segs = out.get("segments") or []
-    dates = out.get("dates") or {}
-    quotes = [(s.get("type"), s.get("quote") or "") for s in segs]
-    for k in ("behavior", "decision"):
-        q = ((dates.get(k) or {}).get("quote")) or ""
-        if q:
-            quotes.append((f"date_{k}", q))
-    stats = {"n": len(quotes), "unique": 0, "multi": 0, "miss": 0,
-             "miss_but_ws_hit": 0, "miss_list": []}
-    ws = re.compile(r"\s+")
-    for typ, q in quotes:
-        if not q:
-            stats["n"] -= 1
-            continue
-        c = cleaned.count(q)
-        if c == 1:
-            stats["unique"] += 1
-        elif c > 1:
-            stats["multi"] += 1
-        else:
-            if ws.sub("", cleaned).find(ws.sub("", q)) >= 0:
-                stats["miss_but_ws_hit"] += 1
-            else:
-                stats["miss"] += 1
-                stats["miss_list"].append({"type": typ, "quote_head": q[:20], "quote_len": len(q)})
-    return stats
 
 
 # ---------- 运行器 ----------
@@ -232,9 +215,10 @@ class Runner:
 
     def extract_one(self, rec: dict, primary: str) -> dict:
         """单记录抽取：主提供商 → 失败重试 1 次 → 换备提供商 1 次。全程回执。"""
-        user = build_user_prompt(rec["form"], rec["source_type"], rec["cleaned_text"])
-        req_sha = hashlib.sha256(json.dumps([SYSTEM_PROMPT, user], ensure_ascii=False)
-                                 .encode("utf-8")).hexdigest()[:16]
+        cleaned = rec.get("cleaned_text") or ""
+        sentences = sentence_table(cleaned)
+        texts = [cleaned[a:b] for a, b in sentences]
+        user = build_user_prompt(rec["form"], rec["source_type"], texts)
         chain, last_err = [], None
         # 尝试序列：主×2 → 备×1
         seq = [primary, primary] + [p for p in self.order if p != primary][:1]
@@ -252,11 +236,11 @@ class Runner:
                                  error=f"JSON 提取失败: {str(e)[:200]}",
                                  content_sha=hashlib.sha256(content.encode("utf-8")).hexdigest()[:16])
                     raise
-                errs = validate(out)
-                qc = quote_check(rec["cleaned_text"], out)
+                errs = validate(out, n_sentences=len(sentences))
+                zc = {"n_zones": len(out.get("zones") or []), "n_sentences": len(sentences)}
                 chain.append({"provider": pname, "ok": True})
                 return {"id": rec["id"], "provider_used": pname, "attempts": i + 1,
-                        "ok": True, "validation_errors": errs, "quote_check": qc,
+                        "ok": True, "validation_errors": errs, "zone_check": zc,
                         "content_sha": hashlib.sha256(content.encode("utf-8")).hexdigest()[:16],
                         "output": out, "raw": content, "chain": chain}
             except Exception as e:
@@ -374,18 +358,13 @@ def main() -> None:
     runner.close()
 
     ok = [d for d in results if d.get("ok")]
-    qn = sum(d["quote_check"]["n"] for d in ok)
-    qu = sum(d["quote_check"]["unique"] for d in ok)
-    qm = sum(d["quote_check"]["multi"] for d in ok)
-    qw = sum(d["quote_check"]["miss_but_ws_hit"] for d in ok)
-    q0 = sum(d["quote_check"]["miss"] for d in ok)
+    zn = sum(d["zone_check"]["n_zones"] for d in ok)
     summary = {
         "run_id": run_id, "n": len(results), "ok": len(ok),
         "json_ok_rate": round(len(ok) / len(results), 4) if results else 0,
         "validation_clean": sum(1 for d in ok if not d["validation_errors"]),
-        "quote": {"n": qn, "unique": qu, "multi": qm, "miss_ws_hit": qw, "miss": q0,
-                  "exact_unique_rate": round(qu / qn, 4) if qn else 0,
-                  "hit_rate": round((qu + qm + qw) / qn, 4) if qn else 0},
+        "zones": {"total": zn, "avg_per_record": round(zn / len(ok), 2) if ok else 0},
+        "tiling_violations": sum(1 for d in ok if any("铺满" in e or "连续" in e for e in d["validation_errors"])),
         "attempts_dist": dict(Counter(d.get("attempts") for d in results)),
         "provider_used": dict(Counter(d.get("provider_used") for d in results)),
     }
