@@ -84,3 +84,15 @@ def test_validate_v2_tiling():
            "review": {"result": "无"}, "confidence": "high"}
     errs = validate(out, n_sentences=5)
     assert any("连续" in e or "铺满" in e for e in errs)
+
+
+def test_runner_priced_meter():
+    with tempfile.TemporaryDirectory() as td:
+        prices = {"t-model": {"input": 2.0, "output": 8.0}}
+        runner = Runner({"t": _FakeProv("t", "t-model", "never")}, Path(td),
+                        ["t"], total=1, tracker_meta={})
+        runner.cost_meter = __import__("progress").CostMeter(prices)
+        runner.tracker.cost = runner.cost_meter
+        runner.cost_meter.add("t-model", {"prompt_tokens": 500_000, "completion_tokens": 125_000})
+        assert runner.tracker.cost.total()["cost"] == 2.0   # 0.5M×2 + 0.125M×8
+        runner.close()

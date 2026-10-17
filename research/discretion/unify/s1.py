@@ -207,13 +207,11 @@ class Runner:
         self._receipt_f = open(run_dir / "receipts.jsonl", "a", encoding="utf-8", newline="\n")
         self._lock = threading.Lock()
         self.t0 = time.monotonic()
-        # 监控基建：心跳 + 费用 + 熔断
+        # 监控基建：心跳 + 费用（价格表接线）+ 熔断
         prices = load_prices(data_root() / "config" / "s1_prices.json")
-        self.tracker = ProgressTracker(run_dir, total=total, meta={**(tracker_meta or {}),
-                                                                  "provider_primary": order[0] if order else ""})
-        self.tracker.note_cost(self.tracker.cost)
-        self.tracker.cost = self.tracker.cost
-        self._prices = prices
+        self.tracker = ProgressTracker(run_dir, total=total, prices=prices,
+                                       meta={**(tracker_meta or {}),
+                                             "provider_primary": order[0] if order else ""})
         self.cost_meter = self.tracker.cost
         self.dead: set[str] = set()
         self.consec_fail: Counter = Counter()

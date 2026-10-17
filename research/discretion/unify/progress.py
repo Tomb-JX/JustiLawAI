@@ -78,7 +78,7 @@ class CostMeter:
 class ProgressTracker:
     """进度心跳：原子写 progress.json；线程安全（多工位并发回填）。"""
 
-    def __init__(self, run_dir: Path, total: int, meta: dict):
+    def __init__(self, run_dir: Path, total: int, meta: dict, prices: dict | None = None):
         self.path = run_dir / "progress.json"
         self.run_dir = run_dir
         self.meta = meta
@@ -94,7 +94,7 @@ class ProgressTracker:
         self.attempts: Counter = Counter()
         self.err_cats: Counter = Counter()
         self.latencies: list[int] = []
-        self.cost = CostMeter()
+        self.cost = CostMeter(prices)
         self._write()
 
     def begin_record(self) -> None:
