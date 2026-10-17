@@ -27,7 +27,7 @@ from common import DATA_DIR, RAW_DIR, manifest_add, registry_add, report, sha256
 INBOX = DATA_DIR / "inbox"
 DEST = RAW_DIR / "manual"
 
-ALLOWED = {".pdf", ".docx", ".doc", ".html", ".htm", ".csv", ".txt", ".json"}
+ALLOWED = {".pdf", ".docx", ".doc", ".html", ".htm", ".csv", ".txt"}
 
 
 def guess_title(stem: str) -> str:
