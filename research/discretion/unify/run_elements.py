@@ -223,15 +223,14 @@ def _candidates(payload: dict, text_full: str, tag: str, regions=()) -> dict:
     return out
 
 
-ADJ_PROMPT = """同一案件同一字段两位标注教师给出不同结果，请依原文裁决。
-字段：{path}
+ADJ_PROMPT = """同一案件多个字段两位标注教师给出不同结果，逐字段依原文裁决。
 原文（当事人句+事实句）：
 {text}
-候选 A：{a}
-候选 B：{b}
-规则：以原文逐字证据为准；两候选都无据则给新值（附证据）或判"未提及"。
-只输出 JSON：{{"adopt":"A|B|未提及|新值","value":<裁决值或null>,"status":"明确|推断",
-"evidence":[{{"quote":"逐字引文"}}],"reason":"一句话"}}"""
+分歧字段（JSON 数组，每项 path/a/b）：
+{fields}
+规则：以原文逐字证据为准；两候选都无据给新值（附证据）或判"未提及"；逐字段回答。
+只输出 JSON：{{"decisions":[{{"path":"组.字段","adopt":"A|B|未提及|新值","value":<裁决值或null>,
+"status":"明确|推断","evidence":[{{"quote":"逐字引文"}}],"reason":"一句话"}}]}}"""
 
 
 # ---------- 主流程 ----------
@@ -282,6 +281,8 @@ def main() -> None:
     ap.add_argument("--c-provider", default="xiaomi-pro")
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--cap", type=float, default=0.0,
+                    help="本批预算硬顶（元，占位价目估算）；到顶停发新件（已在飞的完成即止），断点缓存可续")
     a = ap.parse_args()
 
     providers, _, _ = load_config()
@@ -326,6 +327,9 @@ def main() -> None:
             f.write(rid + "\n")
 
     def _do_record(rid: str, rec: dict, inp: dict) -> dict:
+        if a.cap and runner.tracker.cost.total()["cost"] >= a.cap:
+            runner.tracker.finish_record(False, 0, "budget_stop")
+            return None, None, None, None
         msgs = teacher_messages(target=inp["target"], facts_text=inp["facts_text"],
                                 meta_text=inp["meta_text"], aliases=inp["aliases"])
         text_full = rec["_text_full"]
@@ -348,23 +352,39 @@ def main() -> None:
             merged, unresolved, diffs = merge_labels(ca, cb, {})
 
             if unresolved:
-                for d in unresolved:
-                    try:
-                        content, meta = providers[a.c_provider].chat(
-                            "只输出一个 JSON 对象。",
-                            ADJ_PROMPT.format(path=d["path"], text=ev_text[:4000],
-                                              a=json.dumps(d["a"], ensure_ascii=False),
-                                              b=json.dumps(d["b"], ensure_ascii=False)))
-                        adjud[d["path"]] = extract_json(content)
-                        runner.tracker.cost.add(providers[a.c_provider].model, meta.get("usage") or {})
-                        runner.receipt(event="call", provider=a.c_provider,
-                                       model=providers[a.c_provider].model, id=rid, tag="C",
-                                       status="ok", **meta)
-                    except Exception as e:
-                        runner.receipt(event="call", provider=a.c_provider, id=rid, tag="C",
-                                       status="fail", error=str(e)[:200],
-                                       category=classify_error(str(e)))
-                        continue   # 仲裁失败→字段保持 unresolved，进复核不炸批
+                # 合并仲裁：一条记录的全部分歧字段一次 C 调用（逐字段串行是主要成本源）
+                try:
+                    fields = json.dumps([{"path": d["path"], "a": d["a"], "b": d["b"]} for d in unresolved],
+                                        ensure_ascii=False)
+                    content, meta = providers[a.c_provider].chat(
+                        "只输出一个 JSON 对象。",
+                        ADJ_PROMPT.format(text=ev_text[:4000], fields=fields[:9000]))
+                    runner.tracker.cost.add(providers[a.c_provider].model, meta.get("usage") or {})
+                    runner.receipt(event="call", provider=a.c_provider,
+                                   model=providers[a.c_provider].model, id=rid, tag="C-batch",
+                                   status="ok", n_fields=len(unresolved), **meta)
+                    dec = extract_json(content)
+                    for d_ in (dec.get("decisions") or []):
+                        if d_.get("path"):
+                            adjud[d_["path"]] = d_
+                except Exception as e:
+                    runner.receipt(event="call", provider=a.c_provider, id=rid, tag="C-batch",
+                                   status="fail", error=str(e)[:200],
+                                   category=classify_error(str(e)))
+                    # 合并仲裁失败 → 逐字段降级一次（预算内），仍失败字段保持 unresolved
+                    for d in unresolved[:4]:
+                        if d["path"] in adjud:
+                            continue
+                        try:
+                            content, meta = providers[a.c_provider].chat(
+                                "只输出一个 JSON 对象。",
+                                ADJ_PROMPT.format(text=ev_text[:4000],
+                                                  fields=json.dumps([{"path": d["path"], "a": d["a"],
+                                                                      "b": d["b"]}], ensure_ascii=False)))
+                            adjud[d["path"]] = (extract_json(content).get("decisions") or [{}])[0]
+                            runner.tracker.cost.add(providers[a.c_provider].model, meta.get("usage") or {})
+                        except Exception:
+                            continue
                 merged, unresolved2, diffs = merge_labels(ca, cb, adjud)
                 unresolved = unresolved2
         # S2 定位：candidates 已带坐标；merged 若含新值/未提及分支再补定位
@@ -404,6 +424,17 @@ def main() -> None:
     work = [w for w in work if w[0] not in done_ids]
     print(f"断点缓存命中 {len(done_ids)} 件，本次待标 {len(work)} 件")
 
+    # 事前预估门槛：budget.jsonl 历史均耗（缺省 0.12 元/件）；估算超 cap 即拒绝起跑
+    hist = [json.loads(l) for l in open(data_root() / "s1_runs" / "budget.jsonl", encoding="utf-8")] \
+        if (data_root() / "s1_runs" / "budget.jsonl").exists() else []
+    per_rec = next((h["cost"] / h["records"] for h in reversed(hist)
+                    if h.get("stage") == PROMPT_VERSION and h.get("records")), 0.12)
+    est = len(work) * per_rec
+    print(f"预估：{len(work)} 件 × ¥{per_rec:.3f}/件（历史均耗）= ¥{est:.2f}"
+          + (f"；cap ¥{a.cap}" if a.cap else "；cap 未设"))
+    if a.cap and est > a.cap:
+        sys.exit(f"[拒绝起跑] 预估 ¥{est:.2f} 超预算 cap ¥{a.cap}——缩小 --limit 或提高 cap，经人工确认后再跑")
+
     results = []
     files = {n: open(ed / n, "a", encoding="utf-8", newline="\n")
              for n in ("labels.jsonl", "A.jsonl", "B.jsonl", "diffs.jsonl")}
@@ -432,6 +463,7 @@ def main() -> None:
                 print(f"  {i}/{len(work)}")
     for fh in files.values():
         fh.close()
+    cost_now = runner.tracker.cost.total()["cost"]
     retry_ids = sorted({w[0] for w in work} - {r["id"] for r in results})
     with open(ed / "queue_retry.csv", "w", encoding="utf-8-sig", newline="\n") as f:
         f.write("id\n")
@@ -450,6 +482,10 @@ def main() -> None:
     }
     (ed / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1),
                                      encoding="utf-8", newline="\n")
+    with open(data_root() / "s1_runs" / "budget.jsonl", "a", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps({"ts": datetime.now().isoformat(timespec="seconds"), "run": str(a.run),
+                            "stage": PROMPT_VERSION, "records": max(n, 1), "cost": round(cost_now, 4),
+                            "cap": a.cap or None}, ensure_ascii=False) + "\n")
     runner.tracker.set_phase("done")
     print(json.dumps(summary, ensure_ascii=False, indent=1))
 

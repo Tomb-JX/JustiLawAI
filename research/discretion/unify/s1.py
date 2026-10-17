@@ -264,6 +264,9 @@ class Runner:
         公示族（zones_det 存在）：分区由确定性规则给定，模型只做字段抽取——分区在解析后覆写。"""
         cleaned = rec.get("cleaned_text") or ""
         sentences = sentence_table(cleaned)
+        if getattr(self, "cap", 0) and self.tracker.cost.total()["cost"] >= self.cap:
+            return {"id": rec["id"], "ok": False, "error": "budget_stop（达 --cap 预算顶，断点可续）",
+                    "chain": []}
         texts = [cleaned[a:b] for a, b in sentences]
         zones_det = rec.get("zones_det")
         user = build_user_prompt(rec["form"], rec["source_type"], texts,
@@ -404,6 +407,8 @@ def main() -> None:
     ap.add_argument("--forms", default="", help="只取 form 前缀匹配的记录（逗号分隔，如 叙述式）；在 pilot 抽样前过滤")
     ap.add_argument("--limit", type=int, default=0, help="直接取前 N 条放行记录（调试）")
     ap.add_argument("--workers", type=int, default=6)
+    ap.add_argument("--cap", type=float, default=0.0,
+                    help="本 run 预算硬顶（元，占位价目）；到顶停发新件，断点缓存可续")
     ap.add_argument("--run-id", default=None)
     a = ap.parse_args()
 
@@ -426,6 +431,7 @@ def main() -> None:
                     total=len(rows),
                     tracker_meta={"run_id": run_id, "prompt_version": PROMPT_VERSION,
                                   "input_batch": a.batch})
+    runner.cap = a.cap
     manifest = {
         "run_id": run_id, "prompt_version": PROMPT_VERSION,
         "config": cfg_meta, "input_batch": a.batch,
@@ -482,6 +488,11 @@ def main() -> None:
     idx[run_id] = {"phase": "done", "n": len(results), "ok": len(ok),
                    "cost": runner.tracker.cost.total(), "updated": datetime.now().isoformat(timespec="seconds")}
     idx_path.write_text(json.dumps(idx, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
+    with open(data_root() / "s1_runs" / "budget.jsonl", "a", encoding="utf-8", newline="\n") as f:
+        f.write(json.dumps({"ts": datetime.now().isoformat(timespec="seconds"), "run": run_id,
+                            "stage": PROMPT_VERSION, "records": max(len(ok), 1),
+                            "cost": runner.tracker.cost.total()["cost"], "cap": a.cap or None},
+                           ensure_ascii=False) + "\n")
 
     ok = [d for d in results if d.get("ok")]
     zn = sum(d["zone_check"]["n_zones"] for d in ok)
