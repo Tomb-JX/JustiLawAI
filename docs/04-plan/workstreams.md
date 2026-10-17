@@ -1,6 +1,6 @@
 # 数据与裁量引擎工作树分工
 
-> 版本 v2.1 · 2026-10-17 · 适用于本项目跨应用并行工作会话
+> 版本 v2.2 · 2026-10-17 · 适用于本项目跨应用并行工作会话
 > 阶段目标与计数口径见 [500 件金标计划](./data-program-500-gold.md)；字段契约见 [数据交付规格](../05-research/data-spec.md)，门禁见 [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)。
 
 **现行交付和金标状态见 [交接文档现势审计](./coordination-audit-2026-10-16.md) 顶部结论与 [r4 交接单](./zcode-web-r4-handoff-2026-10-16.md)**（23:50：r4 隐私关闭件、r5 现行超集，LATEST→r5，金标 0，待金标线内容复检）。下表的提交、数量与任务交接为 18:28 快照；目录归属规则继续适用。
@@ -13,13 +13,15 @@
 
 **2026-10-17 网页线归属变更**：用户把网页发现、公开网页收割及共用交付构建正式移交给 Zcode 中此前完成 r3→r4/r5 修复的同一会话。原 Claude 网页会话停止写入该工作树和外置交付目录；分支名仍带 `claude/` 只是历史命名。执行边界、基线及接续指令见[正式移交单](./zcode-web-discovery-handoff-2026-10-17.md)，本段取代下表“临时接管、Claude 恢复后再写”的旧说法。Zcode 网页前端设计会话仍是另一任务。
 
+**2026-10-17 协调线会话变更（总控交接）**：用户将协调总控移交 Zcode 新协调会话；原 Codex 协调会话停止写入。协调分支 `codex/data-coordination` 的 17 笔历史于交接日首推 origin（此前从未推送），合入 main 仍待审阅。同日更正 §1 两处登记：① 法宝线实际执行分支为 `zcode/pkulaw-agent-stable`（主检出目录检出该分支；`legal-ai-gambling-sentencing-cb2c21` 为历史工作树，作业台 M0/M1 起点）；② 协调行为本行。现势快照与跨线待办清单见[交接文档现势审计](./coordination-audit-2026-10-16.md) 顶部 2026-10-17 节。
+
 ## 1. 工作树登记与当前任务
 
 | 工作线 | 工作树与分支 | 执行会话 | 目标任务与当前交接 |
 |---|---|---|---|
-| 协调总控（本会话） | `data-coordination` · `codex/data-coordination` | 本 Codex 会话 | 调查进度、决策记录、排期、跨线验收与合并顺序；只写协调文档 |
+| 协调总控 | `data-coordination` · `codex/data-coordination` | **Zcode 协调会话（2026-10-17 接管）**；原 Codex 协调会话停止写入 | 调查进度、决策记录、排期、跨线验收与合并顺序；只写协调文档；现势快照见 coordination-audit 顶部 2026-10-17 节 |
 | 网页发现与交付 | `project-data-collection-audit-4bac93` · `claude/project-data-collection-audit-4bac93` | **Zcode 原网页修复会话，现为唯一执行写入者**；原 Claude 网页会话保留历史、停止写入 | 先闭环金标线逐件退回；再做河北＋江苏 2026 叙述式与不予处罚供给；网页来源 L1 和共用 L2/L3 版本交付均由本线负责，详见[正式移交单](./zcode-web-discovery-handoff-2026-10-17.md) |
-| 法宝来源 | `legal-ai-gambling-sentencing-cb2c21` · `claude/legal-ai-gambling-sentencing-cb2c21` | **Zcode：法宝线**；具体会话待核 | 主线 `7e36827` 已产出合并 parsed-1 311 条；统一交付中 258 条 P 来源进入主文件。下一步查跨源事件和可标注率，定向补新法与不予处罚 |
+| 法宝来源 | **`D:/02_Dev/Projects/大创` 主检出目录 · `zcode/pkulaw-agent-stable`**（2026-10-17 更正；`legal-ai-gambling-sentencing-cb2c21` 为历史工作树） | **Zcode：法宝线（主检出会话）** | 作业台 v1.2（常驻服务化/18 倍提速/断点续跑）；台账 P-001–P-927；r5 四项修复已交并入指引；补缺轮 105 下载（不予处罚 63）；两省 YAML 已代录 `50671fd` 待引擎复核。待办：回应引擎 `acfabf6`（I-19 `fine_masked` 落点＋I-02 `text_party`）；同壳件正文通道待查；扩批节奏待用户调度 |
 | 金标质检与标注 | `jolly-cerf-82e544` · `claude/jolly-cerf-82e544` | **Codex 新会话** `01a1450d-9dd3-7fd2-834b-32e14e0788b5`；原 Zcode 会话转交后停止写入 | 保留已有代理试标与未提交 QA 改动；修复抽检 ID／JSON／覆盖率；安全新版已就绪（r4 隐私关闭、r5 现行超集），按 [r4 交接单 §5/§7](./zcode-web-r4-handoff-2026-10-16.md) 完成独立内容复检并签字后冻结 50 件输入（按 r4/r5 主文件哈希重抽），再按用户决定实施异构模型盲标与独立仲裁；模型仲裁集 0/500，D-002 待登记与评审 |
 | 引擎与验收 | `discretion-engine` · `worktree-discretion-engine` | **Claude：引擎线**；具体会话待核 | `parsed-1`／L3 契约、独立自动验收、评测和封存治理 |
 | 主检出历史会话 | `D:/02_Dev/Projects/大创` · `main` | **历史会话待核** | 实际完成 `parsed-1` 和统一构建，最新 L3 为 `delivery/2026-10-16.pk1`；给各归属线交代码、批次与验收哈希后停止跨线写入 |
