@@ -1,0 +1,68 @@
+﻿id,field,type,a_status,a_value,b_status,b_value
+W-000156-d23,conduct.times,int,未提及,-,推断,1
+W-000156-d32,conduct.times,int,未提及,-,推断,1
+W-000156-d42,conduct.times,int,未提及,-,推断,1
+W-000156-d55,conduct.times,int,未提及,-,推断,1
+W-000156-d9,conduct.times,int,未提及,-,推断,1
+W-000297,conduct.times,int,未提及,-,推断,1
+W-000301,conduct.times,int,未提及,-,推断,1
+W-001892,conduct.times,int,推断,1,未提及,-
+W-001983,conduct.times,int,推断,1,未提及,-
+W-000082-22,conduct.duration_days,float,未提及,-,推断,31
+W-000082-26,conduct.duration_days,float,未提及,-,推断,92
+W-000085-38,conduct.duration_days,float,未提及,-,推断,30
+W-000347-1,conduct.duration_days,float,推断,1980,推断,2009
+W-000540,conduct.duration_days,float,未提及,-,推断,30
+W-000608,conduct.duration_days,float,推断,90,推断,3
+W-000890-d6,conduct.duration_days,float,推断,395,推断,390
+W-000581,amounts.personal_stake,amount,明确,"{""min"": 11540, ""max"": 11540}",推断,"{""min"": 12641, ""max"": 12641}"
+W-000608,amounts.personal_stake,amount,推断,"{""min"": 10000, ""max"": 19999}",推断,"{""min"": 10000, ""max"": 99999}"
+W-001059,amounts.personal_stake,amount,明确,"{""min"": 10000, ""max"": null}",明确,"{""min"": 10000, ""max"": 99999}"
+W-000618,amounts.per_bet,amount,未提及,-,推断,"{""min"": 1, ""max"": 2000}"
+W-000892-d8,amounts.per_bet,amount,明确,"{""min"": 100, ""max"": 105}",未提及,-
+W-000098,amounts.onsite_stake_total,amount,明确,"{""min"": 12500, ""max"": 12999}",推断,"{""min"": 12500, ""max"": 12500}"
+W-000156-d32,amounts.onsite_stake_total,amount,明确,"{""min"": 5000, ""max"": null}",明确,"{""min"": 5000, ""max"": 9999}"
+W-000156-d55,amounts.onsite_stake_total,amount,推断,"{""min"": 1330, ""max"": null}",推断,"{""min"": 1330, ""max"": 1330}"
+W-000280,amounts.cumulative_stake,amount,明确,"{""min"": 1612, ""max"": 1612}",未提及,-
+W-000608,amounts.cumulative_stake,amount,推断,"{""min"": 10000, ""max"": 19999}",推断,"{""min"": 10000, ""max"": 99999}"
+W-000892-d8,amounts.cumulative_stake,amount,未提及,-,推断,"{""min"": 205, ""max"": 205}"
+W-000156-d23,amounts.commission,amount,未提及,-,明确,"{""min"": 60, ""max"": 60}"
+W-000301,persons.participant_count,int,未提及,-,推断,2
+W-000401,persons.participant_count,int,推断,2,未提及,-
+W-000581,persons.participant_count,int,未提及,-,推断,2
+W-000884-d19,persons.participant_count,int,推断,2,推断,1
+W-000892-d8,persons.participant_count,int,推断,2,未提及,-
+W-000159-d18,persons.cumulative_participants,int,推断,3,未提及,-
+W-000581,persons.cumulative_participants,int,未提及,-,推断,2
+W-000280,venue.venue_type,enum,推断,"""其他""",推断,"""网络"""
+W-001641,venue.venue_type,enum,推断,"""其他""",推断,"""网络"""
+W-000092,intent.profit_purpose,bool,推断,true,未提及,-
+W-000098,intent.profit_purpose,bool,推断,true,未提及,-
+W-000156-d23,intent.profit_purpose,bool,未提及,-,明确,true
+W-000159-d18,intent.profit_purpose,bool,未提及,-,推断,true
+W-000214,intent.profit_purpose,bool,未提及,-,推断,true
+W-000261,intent.profit_purpose,bool,未提及,-,推断,true
+W-000274,intent.profit_purpose,bool,未提及,-,推断,true
+W-000280,intent.profit_purpose,bool,未提及,-,推断,true
+W-000880-d206,intent.profit_purpose,bool,未提及,-,推断,true
+W-000880-d63,intent.profit_purpose,bool,未提及,-,推断,true
+W-000883-d7,intent.profit_purpose,bool,未提及,-,推断,true
+W-000884-d19,intent.profit_purpose,bool,未提及,-,推断,true
+W-000886-d9,intent.profit_purpose,bool,未提及,-,推断,true
+W-000890-d6,intent.profit_purpose,bool,未提及,-,推断,true
+W-001059,circumstances.admits_and_accepts,bool,推断,false,未提及,-
+W-000261,circumstances.first_offense,bool,未提及,-,推断,false
+W-000465,circumstances.first_offense,bool,未提及,-,推断,true
+W-000274,circumstances.violations_last_year,int,推断,0,未提及,-
+W-000540,circumstances.violations_last_year,int,推断,0,未提及,-
+W-000261,person.pregnant_or_nursing,bool,未提及,-,明确,false
+W-000274,person.pregnant_or_nursing,bool,未提及,-,明确,false
+W-000280,person.pregnant_or_nursing,bool,未提及,-,明确,false
+W-000880-d63,person.pregnant_or_nursing,bool,推断,false,未提及,-
+W-000884-d19,person.pregnant_or_nursing,bool,推断,false,未提及,-
+W-001641,person.pregnant_or_nursing,bool,推断,false,未提及,-
+W-001892,person.pregnant_or_nursing,bool,推断,false,未提及,-
+W-001983,person.pregnant_or_nursing,bool,推断,false,未提及,-
+W-002065-d48,person.pregnant_or_nursing,bool,推断,false,未提及,-
+W-000092,conduct.method,enum,推断,"""麻将""",推断,"""其他"""
+W-000280,conduct.method,enum,明确,"""麻将""",推断,"""网络赌博"""

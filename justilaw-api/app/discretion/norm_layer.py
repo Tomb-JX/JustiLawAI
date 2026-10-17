@@ -270,7 +270,7 @@ def _referral(lib: NormLibrary, f: Facts) -> list[dict]:
         v = values.get(key)
         if v is None:
             continue
-        lo, hi = (v.min, v.max) if isinstance(v, AmountRange) else (v, v)
+        lo, hi = (v.min, v.upper) if isinstance(v, AmountRange) else (v, v)  # 开口上界按正无穷：只能"可能达到"
         if lo >= limit:
             out.append({"item": key, "threshold": limit, "status": "达到"})
         elif hi >= limit:
@@ -296,7 +296,7 @@ def _stake_threshold(lib: NormLibrary, f: Facts) -> dict:
         return {"status": "无法判断"}
     if stake.min >= limit:
         return {"status": "达到赌资较大", "threshold": limit}
-    if stake.max < limit:
+    if stake.upper < limit:
         return {"status": "未达到赌资较大", "threshold": limit}
     return {"status": "可能达到", "threshold": limit}
 
@@ -384,4 +384,4 @@ def per_capita_stake(total: AmountRange, participants: int) -> AmountRange:
     """个人投注额无法确定时按人均计算（公通字〔2005〕30号第六条，待核验）。"""
     if participants <= 0:
         raise ValueError("参赌人数必须为正数")
-    return AmountRange(min=total.min / participants, max=total.max / participants)
+    return AmountRange(min=total.min / participants, max=None if total.max is None else total.max / participants)

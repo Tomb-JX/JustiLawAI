@@ -106,8 +106,13 @@ def batch_checks(folder: Path, files: dict[str, list[dict]]) -> list[dict]:
     versions = Counter((r.get("schema_version"), r.get("pipeline_version")) for rows in files.values() for r in rows)
     if len(versions) > 1:
         add("error", "mixed_versions", f"一批里混有多个版本：{dict(versions)}")
-    if any(v[0] != SCHEMA_VERSION for v in versions):
-        add("error", "schema_version_mismatch", f"要素本体版本应为 {SCHEMA_VERSION}，实为 {list(versions)}")
+    # 交付只带正文和处罚结果，字段口径的次版本变化不改变交付正文契约。
+    major = SCHEMA_VERSION.split(".")[0]
+    if any(str(v[0]).split(".")[0] != major for v in versions):
+        add("error", "schema_version_mismatch", f"要素本体主版本应为 {major}.x，实为 {list(versions)}")
+    elif any(v[0] != SCHEMA_VERSION for v in versions):
+        add("info", "schema_minor_behind", f"交付标的本体版本 {sorted({v[0] for v in versions})}，现行 {SCHEMA_VERSION}；"
+                                          "标注与抽取一律按现行版本")
     spread = []
     events = defaultdict(list)
     for r in main:

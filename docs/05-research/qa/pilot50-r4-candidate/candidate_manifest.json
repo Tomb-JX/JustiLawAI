@@ -1,0 +1,424 @@
+{
+  "status": "candidate_not_frozen",
+  "gold_labels": 0,
+  "model_adjudicated_completed": 0,
+  "human_verified_completed": 0,
+  "planned_label_origin": "model-adjudicated",
+  "planned_human_review": false,
+  "delivery": "2026-10-16.r4",
+  "delivery_file_sha256": "e0c8018d250f078e10ab3f9301873c684a432088a33312f95b0e419036867901",
+  "old_input_sha256": "13d09ee65b7c6f91616d5d61b0ec51bc80fef86344c1772a97891658e5a8e7cc",
+  "prior_delivery_file_sha256": "7719d020af4235cbcb520ec02393cfc36bf3220440472c29dbb1b793b23e1324",
+  "prior_delivery": "2026-10-16.r3",
+  "n_candidate": 50,
+  "n_events": 50,
+  "entries": [
+    {
+      "id": "W-000269",
+      "event_id": "E-b63c6b3e7a",
+      "version": "2026-10-16.r4",
+      "text_sha256": "36fb4eb75f89fce59b2075fa99c4744782b68b31123ec847cf5bb64bc47087d1",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001890",
+      "event_id": "E-ead3bcee35",
+      "version": "2026-10-16.r4",
+      "text_sha256": "a29929a76d9d35d1fd6bfcc6b484946f399a0df9d62806a831f8f02da77b8890",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001544",
+      "event_id": "E-83d14f8504",
+      "version": "2026-10-16.r4",
+      "text_sha256": "48330189563ef80498c26a18b5532140cdb467eb8ca3dc01272d70e57dace93c",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000279",
+      "event_id": "E-df1a805874",
+      "version": "2026-10-16.r4",
+      "text_sha256": "4ed3795c0865fbedca52340025222ceaeeb3084d1fcdaf45fcafbeb66915f271",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001657",
+      "event_id": "E-2a6f619a37",
+      "version": "2026-10-16.r4",
+      "text_sha256": "ac3519c36993985eb8a5368fa69dbc460c7e01a692c5873a49ce8a6e6a572976",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001299",
+      "event_id": "E-41dee29701",
+      "version": "2026-10-16.r4",
+      "text_sha256": "2849c43d570773b6e89609e01728435437e9641da1e774b50f628fc8547d4a5b",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000059",
+      "event_id": "E-b0f1bc2d2b",
+      "version": "2026-10-16.r4",
+      "text_sha256": "8f5ce6573dbe687dedda93aabcc0fd6572c3566ac80ff3d52fe5a415b085a797",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001292",
+      "event_id": "E-9c6330436b",
+      "version": "2026-10-16.r4",
+      "text_sha256": "bf9b00e533c72b563a42fa5c72a9e64bd4c3bd35d1a7db9949889e17d0f71059",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000270",
+      "event_id": "E-e9956c3c90",
+      "version": "2026-10-16.r4",
+      "text_sha256": "bdc5294f6d9b6606f3b1680ec5bb3dd5f6a2dcb36aeacd7c9163ddc6374726d6",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001441",
+      "event_id": "E-e9732db09e",
+      "version": "2026-10-16.r4",
+      "text_sha256": "8a49c501925d63f527b1b545a52365e39ce509d3a466258f7b05f66cc6c7e5c4",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001517",
+      "event_id": "E-27ef4e0c33",
+      "version": "2026-10-16.r4",
+      "text_sha256": "fad4005db8621b5895ce330c6433d0b63baf816ac2f9c1f8483cd5b8f1e51f3a",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000263",
+      "event_id": "E-e858cd3859",
+      "version": "2026-10-16.r4",
+      "text_sha256": "93dd3c9b6b198f33a03a8cff7a6e862adac31038efa1e33b2112b425ca76187f",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001448",
+      "event_id": "E-4099c74e3b",
+      "version": "2026-10-16.r4",
+      "text_sha256": "43d3cf1db1a83cfa19d4c385f89b662ced354d0814d3c04412bb407ebc45522b",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001981",
+      "event_id": "E-7f1c4fa820",
+      "version": "2026-10-16.r4",
+      "text_sha256": "9ea0144fa1fdf83a47e568ac5a1a2870b2b0a9e00a35643dd3bf5d20c8d9fb01",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000280",
+      "event_id": "E-b82acb1c31",
+      "version": "2026-10-16.r4",
+      "text_sha256": "c5054f38b66b897d5c3cbe2ca09142f38126a03aca1f92b8d381e6b8c7be12fd",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001639",
+      "event_id": "E-85296402cb",
+      "version": "2026-10-16.r4",
+      "text_sha256": "5c8ba01900b6e34ea81685448e09242e6015b169dafa0e0879f75cdec55758b8",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001634",
+      "event_id": "E-5b6f6ee232",
+      "version": "2026-10-16.r4",
+      "text_sha256": "afbfe8c9db0eb54337b15b3b33d5fa36493a3981bb4a3ed40281b6ff6227ee0b",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000267",
+      "event_id": "E-e30711b9ed",
+      "version": "2026-10-16.r4",
+      "text_sha256": "6b60b7362ce70153bdf7475842c19f10d3e616bd04c701059a60458be2f4bd68",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-001656",
+      "event_id": "E-1951543967",
+      "version": "2026-10-16.r4",
+      "text_sha256": "5d8286ab90643e59190e6eba0f2f51a9c825ce194ce080ae4b416c33293293b1",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000087-36",
+      "event_id": "E-fcbf595584",
+      "version": "2026-10-16.r4",
+      "text_sha256": "5e34801aeaf5bbff7b8ddc655c2679803baab24c5ce4a02aa73da638461adc5d",
+      "law_version": "新法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000496",
+      "event_id": "E-ce8064b1cd",
+      "version": "2026-10-16.r4",
+      "text_sha256": "12f6f14b47a78ce2bcf8ff211e0fd8fafe5ff3e5ab954fd9cae955425950756d",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000319",
+      "event_id": "E-2d8ffc08a1",
+      "version": "2026-10-16.r4",
+      "text_sha256": "87c59b2e2fa5c44dcb34d841be963d65efb83362d3743d934d382869056747c2",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000397",
+      "event_id": "E-ba6335388c",
+      "version": "2026-10-16.r4",
+      "text_sha256": "909f7eb163f38ced108b81b2df5b44118a1bddd3823540b6703b92a79a9064fb",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000148",
+      "event_id": "E-78cabfa303",
+      "version": "2026-10-16.r4",
+      "text_sha256": "4c36964148e274b45db87d75113dd666fa7f182022d0daac9e2e542d9ac7f46a",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000156-d55",
+      "event_id": "E-1870277cbc",
+      "version": "2026-10-16.r4",
+      "text_sha256": "d7119873a3b6ad887fb045bd6fb835641e341fff1c0a99c12726790ca714113c",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000159-d38",
+      "event_id": "E-bdae8719c2",
+      "version": "2026-10-16.r4",
+      "text_sha256": "492e7c53dc0151731bfaac97ce3cf25719bf6fe1e78c2eec821ede65c98cbcb5",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000156-d13",
+      "event_id": "E-a5c3899e16",
+      "version": "2026-10-16.r4",
+      "text_sha256": "3952cb9a8d02a86710c9fd30f529fc7ab46ec1a21d5213fc3b6ccec435071546",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000880-d63",
+      "event_id": "E-cc7e1525e4",
+      "version": "2026-10-16.r4",
+      "text_sha256": "7a27a63bc32cd5c5435a265417abe5d58a052b70207d8302cec1cdc2003a38be",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000884-d19",
+      "event_id": "E-cace1a8625",
+      "version": "2026-10-16.r4",
+      "text_sha256": "f8d494d0c6d2777f0a115d3d9079477e37a13f34e4ebf5e8d2767d06608a626d",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000330-d7",
+      "event_id": "E-0673470c32",
+      "version": "2026-10-16.r4",
+      "text_sha256": "416f7564bfb9673fb5aa736a74f13972e4c0f9b56f106b30c330a39d893642e0",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000888-d6",
+      "event_id": "E-fe1aae9592",
+      "version": "2026-10-16.r4",
+      "text_sha256": "84dd1c6363b971a5db381efc94abf423342edcc21776f85d67f10896c3d0acc0",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000324-d3",
+      "event_id": "E-43871fd1a3",
+      "version": "2026-10-16.r4",
+      "text_sha256": "7de85f84c2fc48707ce897912130b21c316dd903817ff32296a33d44a6fb26fe",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000880-d45",
+      "event_id": "E-d0e630f886",
+      "version": "2026-10-16.r4",
+      "text_sha256": "ccb5e56524aaefa38c13e47a9f1570785008258413e6a44c048e36aafad2c7f2",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000335-d5",
+      "event_id": "E-5416c1a5bc",
+      "version": "2026-10-16.r4",
+      "text_sha256": "cc88e5f182127ca28a347c6bfff44a0df49970ebbb88e16e23db41b19c118697",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000893-d3",
+      "event_id": "E-26641fd326",
+      "version": "2026-10-16.r4",
+      "text_sha256": "8497576eb313edfd3d35fbf7db2ffbb06013b33069f267e1e59908649d753653",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000352-9",
+      "event_id": "E-d2a7d20ab1",
+      "version": "2026-10-16.r4",
+      "text_sha256": "2d1077c79256d16736a4f31cea4c0a06f4feab32a5a370972097921d8751140d",
+      "law_version": "旧法",
+      "source_type": "执法公示"
+    },
+    {
+      "id": "W-000465",
+      "event_id": "E-62ab89fc59",
+      "version": "2026-10-16.r4",
+      "text_sha256": "61e155b796e4ddc32f74575c36158ef5b1ca224ccff56dc08e6389d7298becc8",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000518",
+      "event_id": "E-30704a7e2e",
+      "version": "2026-10-16.r4",
+      "text_sha256": "443a7f8ad9edc4cfa2825956fbe20b82d3661a29131a2cf28e88e4412217b0fe",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "W-000565",
+      "event_id": "E-426bcbdd74",
+      "version": "2026-10-16.r4",
+      "text_sha256": "98528d13fcdf7725357248af5ef654814dcd19a1ca5a0aa2f622396c6d20abab",
+      "law_version": "旧法",
+      "source_type": "行政复议决定书"
+    },
+    {
+      "id": "W-001059",
+      "event_id": "E-a55ba8d101",
+      "version": "2026-10-16.r4",
+      "text_sha256": "70108372dc78fd5af5473c4671af86cb44cc56a43db955cc9a96381713d72e85",
+      "law_version": "旧法",
+      "source_type": "行政复议决定书"
+    },
+    {
+      "id": "W-000547",
+      "event_id": "E-261f35019d",
+      "version": "2026-10-16.r4",
+      "text_sha256": "a266f47497a21db90fb9e95bd21c71efcb29ffdc86ea9ac2e6766b15d0c6d624",
+      "law_version": "旧法",
+      "source_type": "行政复议决定书"
+    },
+    {
+      "id": "W-000600",
+      "event_id": "E-a25aa8e0a5",
+      "version": "2026-10-16.r4",
+      "text_sha256": "3ec8fdba0794f779af79cdd9e6edbb2642edbf7f15876158f030be22b1aa8e7b",
+      "law_version": "旧法",
+      "source_type": "行政复议决定书"
+    },
+    {
+      "id": "P-216",
+      "event_id": "E-f93690051c",
+      "version": "2026-10-16.r4",
+      "text_sha256": "08644eb3f9f476cac8dc5e2aa46c5aa1580d5d060f08fbb2dbef07f2f4d5800f",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-124",
+      "event_id": "E-74bcd58b5b",
+      "version": "2026-10-16.r4",
+      "text_sha256": "92e6687356d1079f0f0977aabc2ae2458df6d77ebb3f03704d8cdb9b05c0333b",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-261",
+      "event_id": "E-f7ceb6fd90",
+      "version": "2026-10-16.r4",
+      "text_sha256": "5adf5ffd388ced49bdea207ec35a547cbf92142dfa9d574b99d3c7709a06739b",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-202",
+      "event_id": "E-2324261d2b",
+      "version": "2026-10-16.r4",
+      "text_sha256": "c883b0651e244a5d4008a0cf1350cbc5e801f8dcca4ce2e68dcc9d494cfd5817",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-361",
+      "event_id": "E-99f02d7d1c",
+      "version": "2026-10-16.r4",
+      "text_sha256": "d4a3f5c507289ae574975c0eee414a51c818d50e45c6ac44692d065583060fd7",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-355",
+      "event_id": "E-3b4ded0f5e",
+      "version": "2026-10-16.r4",
+      "text_sha256": "97b8fdc32e80a072eeba98e1f143dff228e8ad0a560176b45aa2ea3c3ff08b3e",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-074",
+      "event_id": "E-3884828f06",
+      "version": "2026-10-16.r4",
+      "text_sha256": "d055b149324e5f374c3e8f773d5154d3edde2fb96b3a47cc07ddf54fa2a084aa",
+      "law_version": "旧法",
+      "source_type": "处罚决定书"
+    },
+    {
+      "id": "P-347",
+      "event_id": "E-19bba84b93",
+      "version": "2026-10-16.r4",
+      "text_sha256": "d4f23b34790c3660b9610d1e1db412e95254d26436ffa718acbe5275b431b637",
+      "law_version": "未知",
+      "source_type": "处罚决定书"
+    }
+  ],
+  "freeze_requires": [
+    "source_release_and_independent_privacy_review_pass",
+    "all_return_items_closed_by_id_and_text_hash",
+    "one_case_per_event",
+    "guide_schema_conflicts_recorded_and_versioned",
+    "heterogeneous_models_A_B_C_receive_same_immutable_input"
+  ]
+}

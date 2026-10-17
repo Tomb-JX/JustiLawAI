@@ -1,0 +1,10 @@
+﻿replaces_id,suggested_id,version,text_sha256,event_id,same_source_type,same_outcome_type,status
+W-000324-d3,W-000330-d2,2026-10-16.r3,b21d052a837b754d20325be003f56b9037e83d81c464a9732c35f6d4a562fb3e,E-86e712cef7,True,True,suggestion_requires_independent_review
+W-000465,W-000156-d21,2026-10-16.r3,1894d844195248ab260483c6656275f5e13bb6891642cd826c9ae884f30b944a,E-bb163845ea,False,True,suggestion_requires_independent_review
+W-001059,W-000586,2026-10-16.r3,fd0978d2bae9557e4060fa77d1233e4b0aee38d6672ed659d6d56cf48dbdc456,E-2f2dc6618a,True,True,suggestion_requires_independent_review
+W-000600,W-000152-d18,2026-10-16.r3,2ba7d59d315db9c66d9d2cf19739a20e7b9743f0aa86b6c7a18ebcb0f23b6d1e,E-ec6b75a80e,False,True,suggestion_requires_independent_review
+P-216,P-192,2026-10-16.r3,a4b3c90fd3564961350dda2702a5cd53796ec56577cd83e9a1fcb5f6f61ae8b3,E-3c358e1fd9,True,True,suggestion_requires_independent_review
+P-124,P-174,2026-10-16.r3,d8dc3338e05dc859bb593fd54f3a4a4e6ee3cd272009a6ebb3481d50c23d5cbd,E-e05f6f1624,True,True,suggestion_requires_independent_review
+P-261,P-187,2026-10-16.r3,17e7bde83e2b72f171c7af8028cbe13de9eaff9e1c0a5ada681e5fed186279b0,E-68e0a21d0e,True,True,suggestion_requires_independent_review
+P-361,P-064,2026-10-16.r3,49bb50c3eb14644faadafac8a66ec0519a75a464b186ce1fa10a73c8abd2dc28,E-eeed4ef7b7,True,True,suggestion_requires_independent_review
+P-355,P-350,2026-10-16.r3,cd409fe23f5d043f4a28e2f538502cbc2237d8ed60f80eccbda6f560306f00da,E-8931865c7a,True,True,suggestion_requires_independent_review

@@ -1,0 +1,12 @@
+{
+  "schema_version": "1.1.0",
+  "schema_source_sha256": "4f21ad185d52659042d157ce59f96ffef4c94be66b69d4c748d6b65af2321001",
+  "guide_sha256": "0c369ed70bb1b1a0d3ed88a3597c7aefb8e85043d279f334c6880d435c45e476",
+  "profit_purpose_decision": "engine_schema_1.1.0",
+  "open_amount_decision": "schema_supports_open_bound",
+  "decision_source": "engine_collab_log_2026-10-17",
+  "source_engine_commit": "acfabf6044180f854b5b2b0f0eb316995e10e8e4",
+  "adopted_by": "engine",
+  "adopted_at": "2026-10-17",
+  "note": "Metadata only; does not certify record-level safety or human gold labels"
+}

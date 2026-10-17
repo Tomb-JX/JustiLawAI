@@ -1,0 +1,124 @@
+{
+  "delivery": "2026-10-16.r4",
+  "delivery_file_sha256": "e0c8018d250f078e10ab3f9301873c684a432088a33312f95b0e419036867901",
+  "candidate_count": 50,
+  "receipts_closed": 17,
+  "unresolved": 33,
+  "unresolved_categories": {
+    "risk_or_disagreement": 32,
+    "invalid_or_mismatched_review": 1
+  },
+  "providers": {
+    "deepseek": {
+      "model": "deepseek-v4-pro",
+      "valid_review": 50,
+      "invalid_review": 0,
+      "error_types": {},
+      "aspects": {
+        "privacy": {
+          "pass": 45,
+          "fail": 3,
+          "review": 2
+        },
+        "subject": {
+          "pass": 48,
+          "review": 1,
+          "fail": 1
+        },
+        "facts": {
+          "pass": 41,
+          "fail": 9
+        },
+        "event": {
+          "pass": 48,
+          "review": 2
+        }
+      },
+      "issue_codes": {
+        "contact_or_address": 5,
+        "possible_person_name": 1,
+        "subject_ambiguous": 2,
+        "event_link_ambiguous": 1,
+        "facts_contains_conclusion": 9,
+        "facts_incomplete": 3,
+        "other_uncertainty": 1
+      }
+    },
+    "qwen": {
+      "model": "qwen3.8-max",
+      "valid_review": 50,
+      "invalid_review": 0,
+      "error_types": {},
+      "aspects": {
+        "privacy": {
+          "review": 10,
+          "fail": 5,
+          "pass": 35
+        },
+        "subject": {
+          "pass": 48,
+          "fail": 1,
+          "review": 1
+        },
+        "facts": {
+          "pass": 38,
+          "fail": 10,
+          "review": 2
+        },
+        "event": {
+          "pass": 46,
+          "review": 3,
+          "fail": 1
+        }
+      },
+      "issue_codes": {
+        "contact_or_address": 15,
+        "possible_person_name": 1,
+        "other_person_identifier": 1,
+        "event_link_ambiguous": 3,
+        "facts_incomplete": 9,
+        "subject_ambiguous": 2,
+        "facts_contains_conclusion": 5,
+        "other_uncertainty": 1
+      }
+    },
+    "kimi": {
+      "model": "kimi-k3",
+      "valid_review": 49,
+      "invalid_review": 1,
+      "error_types": {
+        "ValueError": 1
+      },
+      "aspects": {
+        "privacy": {
+          "fail": 4,
+          "pass": 40,
+          "review": 5
+        },
+        "subject": {
+          "pass": 47,
+          "fail": 1,
+          "review": 1
+        },
+        "facts": {
+          "pass": 40,
+          "fail": 8,
+          "review": 1
+        },
+        "event": {
+          "review": 3,
+          "pass": 46
+        }
+      },
+      "issue_codes": {
+        "contact_or_address": 3,
+        "possible_person_name": 6,
+        "facts_incomplete": 5,
+        "facts_contains_conclusion": 4,
+        "other_person_identifier": 3,
+        "other_uncertainty": 2,
+        "subject_ambiguous": 2
+      }
+    }
+  }
+}

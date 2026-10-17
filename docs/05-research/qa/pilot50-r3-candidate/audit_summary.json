@@ -1,0 +1,11 @@
+{
+  "status": "candidate_not_frozen",
+  "n_candidate": 50,
+  "n_events": 50,
+  "return_categories": {
+    "text_changed_since_pilot50_v2": 7,
+    "prior_privacy_or_subject_alignment": 3,
+    "prior_privacy_hash_unchanged": 3,
+    "privacy_revision_needs_recheck": 1
+  }
+}

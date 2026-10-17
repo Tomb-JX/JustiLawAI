@@ -1,0 +1,16 @@
+{
+  "source_version": "2026-10-16.r3",
+  "source_file_sha256": "7719d020af4235cbcb520ec02393cfc36bf3220440472c29dbb1b793b23e1324",
+  "whole_release_status": "not_approved",
+  "subset_status": "review_pending",
+  "n_candidates": 50,
+  "n_events": 50,
+  "n_with_automatic_flags": 9,
+  "flag_counts": {
+    "facts_or_parse_warning": 2,
+    "second_name_detector_signal": 7,
+    "r6_soft_candidate": 2
+  },
+  "n_record_receipts_closed": 0,
+  "n_replacement_suggestions": 9
+}

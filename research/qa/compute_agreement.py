@@ -3,15 +3,17 @@
 
 口径：
   - 每字段分别统计，未提及（value 为空或 status=未提及）视为一个独立类别。
-  - kappa_all：全部试标记录上的 κ（未提及也作为类别参与）——门禁主口径。
+  - kappa_all：全部试标记录上的 κ（未提及也作为类别参与）——参考口径。
+  - kappa_union：至少一方有值的记录上的 κ——门禁主口径。
   - kappa_valued：只在双方都有值（含推断）的记录上的 κ——观察"值能否对上"。
-  - 数值字段（amounts 的 {min,max}、整数、日期）完全一致率在双方都有值的记录上计算。
+  - 数值字段（amounts 的 {min,max}、整数、日期）门禁完全一致率在至少一方有值的记录上计算；
+    双方有值一致率仅作诊断参考。
   - 关键字段集 K 按门禁 §3.1（行为类型、角色、方式、个人赌资、现场赌资、抽头、参赌人数、
     营利目的、一年内处罚次数、年龄）。
   - 证据命中：非"未提及"字段的每段证据 quote 必须能在 text_full 中逐字找到（空白规范化后）。
 
 用法：
-  python compute_agreement.py <annotatorA.jsonl> <annotatorB.jsonl> <pilot50.jsonl> <outdir>
+  python compute_agreement.py <annotatorA.jsonl或目录> <annotatorB.jsonl或目录> <试标输入.jsonl或分片目录> <outdir>
 
 输出：outdir/agreement_report.json、agreement_report.md、disagreements.csv
 """
@@ -57,7 +59,7 @@ NUMERIC = {p for p, t in FIELD_TYPES.items() if t in ("int", "float", "amount", 
 
 KEY_CATEGORICAL = ["conduct.behavior_type", "conduct.role", "conduct.method", "intent.profit_purpose"]
 KEY_NUMERIC = ["amounts.personal_stake", "amounts.onsite_stake_total", "amounts.commission",
-               "persons.participant_count", "circumstances.violations_last_year", "person.age"]
+               "persons.participant_count", "circumstances.last_prior_penalty_date", "person.age"]
 
 ALL_FIELDS = list(FIELD_TYPES)
 
@@ -77,7 +79,12 @@ def is_empty(judg: dict | None) -> bool:
 def equal_values(a, b, ftype: str) -> bool:
     if ftype == "amount":
         try:
-            return abs(float(a["min"]) - float(b["min"])) < 1e-9 and abs(float(a["max"]) - float(b["max"])) < 1e-9
+            same_min = abs(float(a["min"]) - float(b["min"])) < 1e-9
+            max_a, max_b = a["max"], b["max"]
+            same_max = (max_a is None and max_b is None) or (
+                max_a is not None and max_b is not None
+                and abs(float(max_a) - float(max_b)) < 1e-9)
+            return same_min and same_max
         except (TypeError, KeyError, ValueError):
             return False
     if ftype in ("float",):
@@ -121,7 +128,7 @@ def main(argv: list[str]) -> int:
         return out
 
     ann_a, ann_b = load(path_a), load(path_b)
-    pilot = {json.loads(l)["id"]: json.loads(l) for l in path_pilot.read_text(encoding="utf-8").splitlines() if l.strip()}
+    pilot = load(path_pilot)
     ids = sorted(set(ann_a) & set(ann_b), key=lambda i: list(pilot).index(i) if i in pilot else 999)
     missing = (set(pilot) - set(ann_a)) | (set(pilot) - set(ann_b))
     extra = (set(ann_a) | set(ann_b)) - set(pilot)
@@ -134,6 +141,7 @@ def main(argv: list[str]) -> int:
         ftype = FIELD_TYPES[field]
         pairs_all: list[tuple[str, str]] = []
         pairs_valued: list[tuple[str, str]] = []
+        pairs_union: list[tuple[str, str]] = []
         both_equal_valued = 0
         for rid in ids:
             ja = (ann_a[rid].get("fields") or {}).get(field)
@@ -144,6 +152,8 @@ def main(argv: list[str]) -> int:
             cat_a = "未提及" if ea else json.dumps(va, ensure_ascii=False, sort_keys=True)
             cat_b = "未提及" if eb else json.dumps(vb, ensure_ascii=False, sort_keys=True)
             pairs_all.append((cat_a, cat_b))
+            if not (ea and eb):
+                pairs_union.append((cat_a, cat_b))
             if not ea and not eb:
                 pairs_valued.append((cat_a, cat_b))
                 if equal_values(va, vb, ftype):
@@ -166,10 +176,16 @@ def main(argv: list[str]) -> int:
             "key": field in KEY_CATEGORICAL or field in KEY_NUMERIC,
             "n_records": len(ids),
             "n_both_valued": n_both,
-            "presence_agreement": sum(1 for a, b in pairs_all if a == b) / len(ids) if ids else None,
+            "n_union_valued": len(pairs_union),
+            "presence_agreement": (len(ids) - sum(1 for rid in ids
+                if is_empty((ann_a[rid].get("fields") or {}).get(field)) !=
+                   is_empty((ann_b[rid].get("fields") or {}).get(field)))) / len(ids) if ids else None,
             "kappa_all": kappa(pairs_all),
             "kappa_valued": kappa(pairs_valued),
+            "kappa_union": kappa(pairs_union),
             "numeric_exact_rate": (both_equal_valued / n_both) if (field in NUMERIC and n_both) else None,
+            "numeric_exact_rate_union": (both_equal_valued / len(pairs_union))
+                if (field in NUMERIC and pairs_union) else None,
         }
 
     for rid in ids:
@@ -183,13 +199,19 @@ def main(argv: list[str]) -> int:
                     if norm_text(q) and norm_text(q) in text:
                         evidence_hit += 1
 
+    # 现行 G0.3 口径：分类 κ 在"至少一方有值"的记录对上计算（kappa_union）
+    key_cat_union = [f for f in KEY_CATEGORICAL if per_field[f]["kappa_union"] is not None]
+    gate_kappa_union = (sum(per_field[f]["kappa_union"] for f in key_cat_union) / len(key_cat_union)) if key_cat_union else None
     key_cat = [f for f in KEY_CATEGORICAL if per_field[f]["kappa_all"] is not None]
-    key_num_pairs = sum(per_field[f]["n_both_valued"] for f in KEY_NUMERIC)
+    key_num_pairs = sum(per_field[f]["n_union_valued"] for f in KEY_NUMERIC)
     key_num_equal = sum(
         (per_field[f]["numeric_exact_rate"] or 0.0) * per_field[f]["n_both_valued"] for f in KEY_NUMERIC
     )
+    key_num_both_pairs = sum(per_field[f]["n_both_valued"] for f in KEY_NUMERIC)
+    key_numeric_fields_covered = [f for f in KEY_NUMERIC if per_field[f]["n_union_valued"] > 0]
     gate_kappa = (sum(per_field[f]["kappa_all"] for f in key_cat) / len(key_cat)) if key_cat else None
     gate_numeric = (key_num_equal / key_num_pairs) if key_num_pairs else None
+    gate_numeric_both = (key_num_equal / key_num_both_pairs) if key_num_both_pairs else None
 
     report = {
         "annotators": {"A": str(path_a), "B": str(path_b)},
@@ -198,13 +220,22 @@ def main(argv: list[str]) -> int:
         "missing_ids": sorted(missing),
         "extra_ids": sorted(extra),
         "gate_G0_3": {
+            "key_categorical_mean_kappa_union": gate_kappa_union,
+            "key_categorical_fields_used_union": key_cat_union,
             "key_categorical_mean_kappa_all": gate_kappa,
             "key_categorical_fields_used": key_cat,
             "key_numeric_exact_rate": gate_numeric,
             "key_numeric_pairs": key_num_pairs,
+            "key_numeric_exact_rate_both_valued_reference": gate_numeric_both,
+            "key_numeric_both_valued_pairs": key_num_both_pairs,
+            "key_numeric_fields_covered": key_numeric_fields_covered,
             "threshold_kappa": 0.80,
             "threshold_numeric": 0.95,
-            "pass": bool(gate_kappa is not None and gate_kappa >= 0.80
+            "primary_kappa_metric": "kappa_union（现行 G0.3：至少一方有值字段口径）",
+            "pass": bool(not missing and not extra and len(ids) == len(pilot)
+                         and len(key_cat_union) == len(KEY_CATEGORICAL)
+                         and len(key_numeric_fields_covered) == len(KEY_NUMERIC)
+                         and gate_kappa_union is not None and gate_kappa_union >= 0.80
                          and gate_numeric is not None and gate_numeric >= 0.95),
         },
         "evidence": {"total_quotes": evidence_total, "verbatim_hits": evidence_hit,
@@ -223,20 +254,25 @@ def main(argv: list[str]) -> int:
     lines = [
         "# 试标一致性报告（G0.3 口径）", "",
         f"- 记录数 {len(ids)}（缺失 {sorted(missing) or '无'}；多余 {sorted(extra) or '无'}）",
-        f"- 关键分类字段 mean κ(all) = **{gate_kappa}**（门槛 0.80；参与字段：{key_cat}）",
-        f"- 关键数值字段完全一致率 = **{gate_numeric}**（{key_num_pairs} 对；门槛 0.95）",
+        f"- 关键分类字段 mean κ(union，至少一方有值) = **{gate_kappa_union}**（门槛 0.80；参与字段：{key_cat_union}）",
+        f"- 关键分类字段 mean κ(all，未提及计类别) = {gate_kappa}（参考口径）",
+        f"- 关键数值字段完全一致率（union） = **{gate_numeric}**（{key_num_pairs} 对；门槛 0.95）",
+        f"- 关键数值字段完全一致率（双方有值，仅参考） = {gate_numeric_both}（{key_num_both_pairs} 对）",
         f"- 门禁 G0.3 判定：**{'通过' if report['gate_G0_3']['pass'] else '不通过'}**",
         f"- 证据逐字命中 {evidence_hit}/{evidence_total} = {report['evidence']['hit_rate']}",
         f"- 分歧条目 {len(disagreements)} 条，见 disagreements.csv", "",
-        "| 字段 | 类型 | 关键 | 双有值 | κ(all) | κ(valued) | 数值一致率 | 在场一致 |",
-        "|---|---|---|---|---|---|---|---|",
+        "| 字段 | 类型 | 关键 | 双有值 | 至少一方有值 | κ(all) | κ(valued) | κ(union) | 数值一致率（双有值） | 数值一致率（union） | 在场一致 |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for field, s in per_field.items():
         lines.append(
             f"| {field} | {s['type']} | {'★' if s['key'] else ''} | {s['n_both_valued']} | "
+            f"{s['n_union_valued']} | "
             f"{s['kappa_all'] if s['kappa_all'] is not None else '—'} | "
             f"{s['kappa_valued'] if s['kappa_valued'] is not None else '—'} | "
+            f"{s['kappa_union'] if s['kappa_union'] is not None else '—'} | "
             f"{s['numeric_exact_rate'] if s['numeric_exact_rate'] is not None else '—'} | "
+            f"{s['numeric_exact_rate_union'] if s['numeric_exact_rate_union'] is not None else '—'} | "
             f"{s['presence_agreement']:.3f} |"
         )
     (outdir / "agreement_report.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
