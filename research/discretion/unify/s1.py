@@ -336,7 +336,8 @@ def pilot_ids(rows: list[dict], n: int, seed: int = SAMPLE_SEED) -> list[dict]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--batch", required=True, help="unified_raw records.jsonl")
-    ap.add_argument("--provider", default="deepseek", choices=["deepseek", "bailian"])
+    ap.add_argument("--provider", default="deepseek",
+                    help="主提供商（config 键；缺省 deepseek）")
     ap.add_argument("--pilot", type=int, default=0, help="form 分层抽样的记录数（0=全部放行记录）")
     ap.add_argument("--limit", type=int, default=0, help="直接取前 N 条放行记录（调试）")
     ap.add_argument("--workers", type=int, default=6)

@@ -38,6 +38,15 @@ def date_from_quote(quote: str | None) -> str:
     return f"{m.group(4)}-{int(m.group(5)):02d}"
 
 
+def _date_val(d) -> str:
+    """seg-v1: {"quote": …}；seg-v2: 直接字符串。两者兼容。"""
+    if isinstance(d, dict):
+        return date_from_quote(d.get("quote"))
+    if isinstance(d, str):
+        return d
+    return ""
+
+
 def s1_values(out: dict) -> dict:
     oc = out.get("outcome") or {}
     dates = out.get("dates") or {}
@@ -47,8 +56,8 @@ def s1_values(out: dict) -> dict:
         "fine": oc.get("fine") if oc.get("fine") is not None else 0,
         "detention_days": oc.get("detention_days") if oc.get("detention_days") is not None else 0,
         "not_executed": ne or "",
-        "behavior_date": date_from_quote((dates.get("behavior") or {}).get("quote")),
-        "decision_date": date_from_quote((dates.get("decision") or {}).get("quote")),
+        "behavior_date": _date_val(dates.get("behavior")),
+        "decision_date": _date_val(dates.get("decision")),
     }
 
 
