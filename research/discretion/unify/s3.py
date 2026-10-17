@@ -313,7 +313,7 @@ _CN_DIG = {"零": 0, "一": 1, "壹": 1, "二": 2, "贰": 2, "两": 2, "三": 3,
 
 
 def _CN_READ(v: int) -> str:
-    """整数 → 中文小写读法（0-9999 覆盖罚款/拘留表述）。"""
+    """整数 → 中文小写读法（保留；值对账已改反向解析，不再依赖正向生成）。"""
     if v < 0 or v > 9999:
         return ""
     CN = {0: "零", 1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九"}
@@ -339,16 +339,36 @@ def _CN_READ(v: int) -> str:
     return "".join(parts) or "零"
 
 
-def _text_variants(v: int) -> list[str]:
-    """拘留天数/金额的文本匹配变体：阿拉伯、千分位、中文读法。"""
-    out = [str(v), f"{v:,}", _CN_READ(v)]
-    return [x for x in out if x]
+# 金额/天数**反向解析**：正文的"数字+元/日"用 cn2int 解析成数值集合（认阿拉伯、
+# 小写、大写、千分位、混合书写"三佰"），再查模型值成员——正向生成读法会漏大写形态
+# （贰佰肆拾元=240），ds300 实测曾把 52/68 件大写金额误判幻觉，教训在此。
+_NUM_CHARS = "0-9０-９〇零○一二三四五六七八九十百千万萬亿佰仟拾两壹贰貳叁參肆伍陆陸柒捌玖拾"
+_AMOUNT = re.compile(rf"([{_NUM_CHARS}]{{1,16}})[ \t]*元")
+# 字段表公示的金额列常无"元"单位（"罚款金额：300"）——标签+纯数字模式
+_LABEL_AMOUNT = re.compile(r"(?:金额|罚款)[：:]?\s*(\d{1,10})(?![\d.])")
+_DAYS = re.compile(rf"([{_NUM_CHARS}]{{1,8}})[ \t]*(?:日|天)")
+
+
+def _text_numbers(text: str, kind: str) -> set[int]:
+    """正文中 数字+元/日天 的全部数值集合（千分位归一；cn2int 同源 parse.py；
+    金额另含"金额/罚款：数字"标签模式——字段表公示常见）。"""
+    t = re.sub(r"(?<=[0-9０-９])[,，](?=[0-9０-９])", "", text or "")
+    out = set()
+    pat = _AMOUNT if kind == "元" else _DAYS
+    for m in pat.finditer(t):
+        v = cn2int(m.group(1))
+        if v is not None:
+            out.add(int(v))
+    if kind == "元":
+        for m in _LABEL_AMOUNT.finditer(t):
+            out.add(int(m.group(1)))
+    return out
 
 
 def check_value_grounded(ctx):
-    """值-文对账（仔细校验核心件）：模型字段值必须能在正文/对应区间文本中找到，
-    否则视为幻觉值。覆盖：fine（error）、detention_days（warn）、dates（warn）、
-    articles（error，逐字条号）、subject aliases（warn）。fine_masked 件跳过金额对账。"""
+    """值-文对账（仔细校验核心件）：模型字段值必须能在正文找到对应数值/条文——
+    反向解析（正文金额/天数集合 ∋ 模型值）。覆盖：fine（error）、detention_days（warn）、
+    dates（warn）、articles 条号（error）、aliases（warn）。fine_masked 件跳过金额对账。"""
     out = ctx["output"]
     cleaned = ctx["record"].get("cleaned_text") or ""
     spans = ctx["spans"]
@@ -363,13 +383,16 @@ def check_value_grounded(ctx):
     det = oc.get("detention_days") or 0
     fm = bool(oc.get("fine_masked"))
     if fine and not fm:
-        fvars = _text_variants(int(fine))
-        if not any(v in decision_text or v in cleaned for v in fvars):
-            findings.append(_mk("value_grounded", "error", f"罚款 {fine} 元在正文中找不到（疑幻觉数额）"))
+        amts = _text_numbers(decision_text, "元") | _text_numbers(cleaned, "元")
+        # 尾子串兜底：日期粘连长串（"202312284000元"）解析值失真，但 "4000元" 是其后缀
+        if int(fine) not in amts and f"{int(fine)}元" not in cleaned:
+            findings.append(_mk("value_grounded", "error",
+                                f"罚款 {fine} 元不在正文金额集 {sorted(amts)[:6]}（疑幻觉/合并值）"))
     if det:
-        dvars = [x + "日" for x in _text_variants(int(det))] + _text_variants(int(det))
-        if not any(v in decision_text or v in cleaned for v in dvars):
-            findings.append(_mk("value_grounded", "warn", f"拘留 {det} 日的表述未在正文找到（复核）"))
+        days = _text_numbers(decision_text, "日") | _text_numbers(cleaned, "日")
+        if int(det) not in days:
+            findings.append(_mk("value_grounded", "warn",
+                                f"拘留 {det} 日不在正文天数集 {sorted(days)[:6]}（复核）"))
     # 日期：模型值（YYYY-MM-DD/MM）→ 年月日/年月 两种原文形态
     dates = out.get("dates") or {}
     for k in ("behavior", "decision"):
@@ -389,12 +412,18 @@ def check_value_grounded(ctx):
     # articles：条号原文写法（去版本注解）须出现在 decision/reasoning 区间
     art_zone = zone_join(["decision", "reasoning", "facts"])
     art_no = re.compile(r"第[一二三四五六七八九十百零\d]+条(?:第[一二三四五六七八九十\d]+款)?(?:第?[（(]?[一二三四五六七八九十\d]+[)）]?项)?")
+    # 空白归一比对：OCR 中文间空格（"第十一 条第一款"）不应算未命中
+    art_zone_c = re.sub(r"\s+", "", art_zone)
+    cleaned_c = re.sub(r"\s+", "", cleaned)
     for a in (oc.get("articles") or []):
         t = (a.get("text") or "")
-        # 条号提取：法条原文常被书名号/机关名分隔，整串匹配会误报——提取"第X条"式条号部分核对
-        nos = art_no.findall(t.replace("中华人民共和国", "").replace("治安管理处罚法", ""))
-        for no in (nos or [t]):
-            if len(no) >= 3 and no not in art_zone and no not in cleaned:
+        # 条号提取：法条原文常被书名号/机关名分隔，整串匹配会误报——提取"第X条"式条号部分核对；
+        # 无"第"写法（"网络安全法六十三条第一款"）剥法名后试补"第"再核对
+        t_core = re.sub(r"《[^》]*》|（\d{4}[修订]?）|中华人民共和国|治安管理处罚法", "", t).strip()
+        nos = art_no.findall(t_core if "第" in t_core else "第" + t_core.lstrip("第")) or art_no.findall(t)
+        for no in (nos or [t_core]):
+            if len(no) >= 3 and no not in art_zone and no not in cleaned \
+                    and no not in art_zone_c and no not in cleaned_c:
                 findings.append(_mk("value_grounded", "error", f"法条条号未命中：{no}（edition={a.get('edition')}）"))
                 break
     # subject 三档中的 error 档已由 check_subject 承担；此处补 aliases 的存在性（warn）
