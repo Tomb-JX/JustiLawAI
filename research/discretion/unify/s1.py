@@ -271,10 +271,9 @@ def load_config() -> tuple[dict[str, Provider], dict, str]:
     cfg_path = data_root() / "config" / "s1_models.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
     params = cfg.get("params") or {}
-    providers = {
-        "deepseek": Provider("deepseek", cfg["deepseek"], params),
-        "bailian": Provider("bailian", cfg["bailian"], params),
-    }
+    providers = {name: Provider(name, pcfg, params)
+                 for name, pcfg in cfg.items()
+                 if isinstance(pcfg, dict) and pcfg.get("api_key") and pcfg.get("base_url")}
     fp = hashlib.sha256(cfg_path.read_bytes()).hexdigest()[:8]
     masked = {k: {**v, "api_key": mask(v["api_key"])} for k, v in cfg.items()
               if isinstance(v, dict) and "api_key" in v}

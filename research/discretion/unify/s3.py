@@ -23,12 +23,34 @@ from s1 import validate as schema_validate
 from locate import locate, OffsetIndex
 from s1 import data_root
 
-# 法定幅度：优先读引擎导出的常量表（协同指令 §4：$DATA/config/legal_caps.json），
-# 缺省用内置 2012修正第七十条 口径；2025修订待常量表就位后由 warn 升级为硬对账
+# 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
+# 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
+# 常量表就位后 2025修订不再 warn，直接硬对账。
 BUILTIN_CAPS = {
-    "2012修正": {"detention": 15, "fine": 3000},
-    "2025修订": None,   # 幅度库未接
+    "2012修正": {"detention": 15, "fine": 3000, "article": "70"},
 }
+
+EDITION_KEY = {"psal-2012": "2012修正", "psal-2025": "2025修订"}
+
+
+def _flatten_caps(raw: dict) -> dict:
+    """legal_caps.json（laws→psal-xxx→gambling_articles→tiers）→ 单行为上限展平。"""
+    out = {}
+    for law_key, law in (raw.get("laws") or {}).items():
+        edition = EDITION_KEY.get(law_key, law_key)
+        arts = law.get("gambling_articles") or {}
+        det_max = fine_max = 0
+        art_no = ""
+        for no, art in arts.items():
+            if "tiers" not in art:
+                continue
+            art_no = art_no or no
+            for tier in (art.get("tiers") or {}).values():
+                det_max = max(det_max, (tier.get("detention") or [0, 0])[1])
+                fine_max = max(fine_max, (tier.get("fine") or [0, 0])[1])
+        if det_max or fine_max:
+            out[edition] = {"detention": det_max, "fine": fine_max, "article": art_no}
+    return out
 
 
 def _load_caps() -> dict:
@@ -36,18 +58,22 @@ def _load_caps() -> dict:
     if p.exists():
         try:
             raw = json.loads(p.read_text(encoding="utf-8"))
-            caps = raw.get("caps") if isinstance(raw, dict) else raw
-            if isinstance(caps, dict):
+            caps = _flatten_caps(raw)
+            if caps:
                 return caps
         except Exception:
             pass
-    return BUILTIN_CAPS
+    return dict(BUILTIN_CAPS)
 
 
 try:
     PENALTY_CAPS = _load_caps()
 except Exception:
-    PENALTY_CAPS = BUILTIN_CAPS
+    PENALTY_CAPS = dict(BUILTIN_CAPS)
+
+# 条号-版本绑定（常量表 usage 注记：2012=第70条，2025=第82条；错配=N6 类）
+EDITION_ARTICLE = {k: ("第七十条" if v["article"] == "70" else "第八十二条")
+                   for k, v in PENALTY_CAPS.items() if v.get("article")}
 
 ART16_DETENTION_MAX = 20   # 第十六条：合并执行拘留上限
 
@@ -139,8 +165,23 @@ def check_outcome_consistency(ctx):
     return []
 
 
+def check_article_edition(ctx):
+    """条号-版本绑定（N6 类，常量表 usage 口径：2012=第七十条，2025=第八十二条）。"""
+    oc = ctx["output"].get("outcome") or {}
+    arts = oc.get("articles") or []
+    findings = []
+    for a in arts:
+        text = (a.get("text") or "") + (a.get("edition") or "")
+        edition = a.get("edition") or "未知"
+        if edition in EDITION_ARTICLE and EDITION_ARTICLE[edition] not in text \
+                and any(n in text for n in ("第七十条", "第八十二条")):
+            findings.append(_mk("article_edition", "error",
+                                f"条号-版本错配：edition={edition} 应引 {EDITION_ARTICLE[edition]}（text={text[:24]}）"))
+    return findings
+
+
 def check_penalty_caps(ctx):
-    """两级罚幅对账（Q6）。"""
+    """两级罚幅对账（Q6）。常量表（legal_caps.json）就位后各版本均硬对账。"""
     oc = ctx["output"].get("outcome") or {}
     d, f = oc.get("detention_days") or 0, oc.get("fine") or 0
     mv = bool(oc.get("multi_violation"))
@@ -165,12 +206,12 @@ def check_penalty_caps(ctx):
             findings.append(_mk("penalty_caps", "warn", f"multi_violation=true 但单行为拘留 {d} > 合并 {ed}，复核拆项"))
         return findings
 
-    # 第一级：单行为幅度（仅 2012修正有明确幅度；未知版本走 warn 口径）
+    # 第一级：单行为幅度
     caps = PENALTY_CAPS.get(edition)
     if caps is None:
-        if edition == "2025修订":
-            findings.append(_mk("penalty_caps", "warn", "2025修订幅度库未接，未对账"))
-        elif d > 15 or f > 3000:
+        # 未知版本：按可考证幅度做参考对账（warn 不硬拒；版本定版归组装层）
+        ref = PENALTY_CAPS.get("2012修正") or {}
+        if d > ref.get("detention", 15) or f > ref.get("fine", 3000):
             findings.append(_mk("penalty_caps", "warn",
                                 f"版本未知：拘留 {d}/罚款 {f} 超 2012 第七十条参考幅度（15日/3000元），待幅度库/证据核对"))
         return findings
@@ -264,6 +305,7 @@ CHECKS = [
     ("decision_present", check_decision_present),
     ("outcome_consistency", check_outcome_consistency),
     ("penalty_caps", check_penalty_caps),
+    ("article_edition", check_article_edition),
     ("dates_order", check_dates),
     ("subject", check_subject),
     ("gambling_cross", check_gambling_cross),

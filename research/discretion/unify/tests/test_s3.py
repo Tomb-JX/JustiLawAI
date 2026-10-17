@@ -68,11 +68,26 @@ def test_caps_merged_within_art16():
     assert not check_penalty_caps(_ctx(out))
 
 
-def test_caps_2025_pending():
+def test_caps_2025_hard_after_caps_table():
+    # 常量表（legal_caps.json）就位后 2025修订硬对账：单行为罚款上限 5000
     out = {"type": "罚款", "detention_days": 0, "fine": 6000,
            "multi_violation": False,
            "articles": [{"text": "第八十二条", "edition": "2025修订"}]}
-    assert ("penalty_caps", "warn") in _sev(check_penalty_caps(_ctx(out)))
+    assert ("penalty_caps", "error") in _sev(check_penalty_caps(_ctx(out)))
+    ok = {"type": "罚款", "detention_days": 0, "fine": 4500,
+          "multi_violation": False,
+          "articles": [{"text": "第八十二条", "edition": "2025修订"}]}
+    assert not [f for f in check_penalty_caps(_ctx(ok)) if f.severity == "error"]
+
+
+def test_article_edition_binding():
+    from s3 import check_article_edition
+    bad = _ctx({"type": "罚款", "detention_days": 0, "fine": 500,
+                "articles": [{"text": "治安管理处罚法第八十二条", "edition": "2012修正"}]})
+    assert any(f.check == "article_edition" and f.severity == "error" for f in check_article_edition(bad))
+    good = _ctx({"type": "罚款", "detention_days": 0, "fine": 500,
+                 "articles": [{"text": "治安管理处罚法第七十条", "edition": "2012修正"}]})
+    assert check_article_edition(good) == []
 
 
 # ---------- 类型一致性 ----------
