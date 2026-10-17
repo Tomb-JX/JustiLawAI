@@ -215,6 +215,8 @@ class Runner:
         self.cost_meter = self.tracker.cost
         self.dead: set[str] = set()
         self.consec_fail: Counter = Counter()
+        self.last_fail_ts: dict[str, float] = {}
+        self.BREAK_WINDOW_S = 90.0   # 时间窗：窗外旧失败不复累计（瞬时拥塞不锁死）
         self._breaker_lock = threading.Lock()
 
     def receipt(self, **kw) -> None:
@@ -225,18 +227,29 @@ class Runner:
             self._receipt_f.flush()
 
     def _breaker(self, pname: str, err: str) -> str | None:
-        """熔断：balance/auth 一次即判死；其他类连续 3 次判死。返回分类或 None。"""
+        """熔断（带时间窗）：balance/auth 一次即判死；其他类在 90 秒窗内连 3 次才判死；
+        任何一次成功复位连败计数（瞬时拥塞不锁死）。"""
         cat = classify_error(err)
         with self._breaker_lock:
             if cat in ("balance", "auth"):
                 self.dead.add(pname)
                 self.receipt(event="circuit_break", provider=pname, cat=cat, status="dead")
                 return cat
-            self.consec_fail[pname] += 1
+            now = time.monotonic()
+            last = self.last_fail_ts.get(pname)
+            self.last_fail_ts[pname] = now
+            if last is not None and now - last <= self.BREAK_WINDOW_S:
+                self.consec_fail[pname] += 1
+            else:
+                self.consec_fail[pname] = 1
             if self.consec_fail[pname] >= 3:
                 self.dead.add(pname)
                 self.receipt(event="circuit_break", provider=pname, cat=cat, status="dead")
         return cat
+
+    def _breaker_reset(self, pname: str) -> None:
+        with self._breaker_lock:
+            self.consec_fail[pname] = 0
 
     def extract_one(self, rec: dict, primary: str) -> dict:
         """单记录抽取：主提供商 → 失败重试 1 次 → 换备提供商 1 次。熔断跳过判死提供商。全程回执。"""
@@ -278,6 +291,7 @@ class Runner:
                     raise
                 errs = validate(out, n_sentences=len(sentences))
                 zc = {"n_zones": len(out.get("zones") or []), "n_sentences": len(sentences)}
+                self._breaker_reset(pname)   # 成功复位连败计数（时间窗熔断的另一半）
                 chain.append({"provider": pname, "ok": True})
                 try:
                     self.tracker.finish_record(True, i + 1, pname,
@@ -307,14 +321,18 @@ class Runner:
 def load_config() -> tuple[dict[str, Provider], dict, str]:
     cfg_path = data_root() / "config" / "s1_models.json"
     cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
-    params = cfg.get("params") or {}
-    providers = {name: Provider(name, pcfg, params)
-                 for name, pcfg in cfg.items()
-                 if isinstance(pcfg, dict) and pcfg.get("api_key") and pcfg.get("base_url")}
+    gparams = cfg.get("params") or {}
+    providers = {}
+    for name, pcfg in cfg.items():
+        if not (isinstance(pcfg, dict) and pcfg.get("api_key") and pcfg.get("base_url")):
+            continue
+        # 提供商级参数覆盖全局（各模型推理预算/超时不同——共享参数曾致互相拖累）
+        pp = {**gparams, **(pcfg.get("params") or {})}
+        providers[name] = Provider(name, pcfg, pp)
     fp = hashlib.sha256(cfg_path.read_bytes()).hexdigest()[:8]
     masked = {k: {**v, "api_key": mask(v["api_key"])} for k, v in cfg.items()
               if isinstance(v, dict) and "api_key" in v}
-    return providers, {"fingerprint": fp, "providers": masked, "params": params}, cfg_path.name
+    return providers, {"fingerprint": fp, "providers": masked, "params": gparams}, cfg_path.name
 
 
 def sha256_file(path: str) -> str:
