@@ -320,7 +320,7 @@ def main() -> None:
         for rid in manual:
             f.write(rid + "\n")
 
-    def do_record(rid: str, rec: dict, inp: dict) -> dict:
+    def _do_record(rid: str, rec: dict, inp: dict) -> dict:
         msgs = teacher_messages(target=inp["target"], facts_text=inp["facts_text"],
                                 meta_text=inp["meta_text"], aliases=inp["aliases"])
         text_full = rec["_text_full"]
@@ -339,12 +339,22 @@ def main() -> None:
 
             if unresolved:
                 for d in unresolved:
-                    content, _ = providers[a.c_provider].chat(
-                        "只输出一个 JSON 对象。",
-                        ADJ_PROMPT.format(path=d["path"], text=ev_text[:4000],
-                                          a=json.dumps(d["a"], ensure_ascii=False),
-                                          b=json.dumps(d["b"], ensure_ascii=False)))
-                    adjud[d["path"]] = extract_json(content)
+                    try:
+                        content, meta = providers[a.c_provider].chat(
+                            "只输出一个 JSON 对象。",
+                            ADJ_PROMPT.format(path=d["path"], text=ev_text[:4000],
+                                              a=json.dumps(d["a"], ensure_ascii=False),
+                                              b=json.dumps(d["b"], ensure_ascii=False)))
+                        adjud[d["path"]] = extract_json(content)
+                        runner.tracker.cost.add(providers[a.c_provider].model, meta.get("usage") or {})
+                        runner.receipt(event="call", provider=a.c_provider,
+                                       model=providers[a.c_provider].model, id=rid, tag="C",
+                                       status="ok", **meta)
+                    except Exception as e:
+                        runner.receipt(event="call", provider=a.c_provider, id=rid, tag="C",
+                                       status="fail", error=str(e)[:200],
+                                       category=classify_error(str(e)))
+                        continue   # 仲裁失败→字段保持 unresolved，进复核不炸批
                 merged, unresolved2, diffs = merge_labels(ca, cb, adjud)
                 unresolved = unresolved2
         # S2 定位：candidates 已带坐标；merged 若含新值/未提及分支再补定位
@@ -363,6 +373,13 @@ def main() -> None:
                           "n_evidence": sum(len(f.get("evidence") or []) for g in (merged or {}).values() for f in g.values())}}
         runner.tracker.finish_record(bool(merged), 1, "ab")
         return line, pa, pb, diffs
+
+    def do_record(rid, rec, inp):
+        try:
+            return _do_record(rid, rec, inp)
+        except Exception as e:
+            runner.tracker.finish_record(False, 0, "crash", error=str(e)[:150])
+            return {"id": rid, "_crash": str(e)[:150]}, None, None, None
 
     results, a_rows, b_rows, diff_rows = [], [], [], []
     with ThreadPoolExecutor(max_workers=a.workers) as ex:
