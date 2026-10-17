@@ -8,7 +8,7 @@
 结论分三档：
   通过     —— 没有 error；
   部分通过 —— 只有记录级 error：这些记录退回，其余可进入标注；
-  不通过   —— 有批次级 error（文件哈希不符、隐私扫描未过、编号重复等），整批退回。
+  不通过   —— 有批次级 error（文件哈希不符、编号重复等），整批退回。
 门禁差距（完整度、新法件数、不予处罚件数……）单列，不影响结论，但决定还要补采什么。
 """
 from __future__ import annotations
@@ -31,7 +31,7 @@ from app.discretion.schema import SCHEMA_VERSION  # noqa: E402
 
 DATA = Path(os.environ.get("JUSTILAW_DATA_DIR", "D:/02_Dev/Data/justilaw-research"))
 MAIN, ONLY = "admin_cases.schema-1.0.0.jsonl", "admin_outcomes_only.jsonl"
-CHECKER_VERSION = "accept-0.1"
+CHECKER_VERSION = "accept-0.2"
 EVENT_SPREAD_DAYS = 31
 # 门禁与规格 §2 的数量要求（只统计验收通过的主文件记录）
 GATES = {"completeness": 0.80, "t_time": 50, "tier_each": 100, "gold_total": 500}
@@ -77,18 +77,6 @@ def batch_checks(folder: Path, files: dict[str, list[dict]]) -> list[dict]:
                 add("error", "sha256sums_incomplete", f"SHA256SUMS 未列出 {name}")
             elif listed[name] != sha256_file(folder / name):
                 add("error", "file_sha_mismatch", f"{name} 的哈希与 SHA256SUMS 不符（文件可能在发布后被改写）")
-    r6 = folder / "r6_report.json"
-    total = sum(len(v) for v in files.values())
-    if not r6.exists():
-        add("error", "r6_report_missing", "缺少 r6_report.json")
-    else:
-        rep = json.loads(r6.read_text("utf-8"))
-        if rep.get("hard_hit_records", 1) != 0:
-            add("error", "r6_hard_hits", f"隐私扫描硬命中 {rep.get('hard_hit_records')} 条")
-        if rep.get("records") != total:
-            add("warn", "r6_count_mismatch", f"隐私扫描覆盖 {rep.get('records')} 条，两份文件合计 {total} 条")
-        if rep.get("file") and Path(rep["file"]).name not in files:
-            add("info", "r6_file_label", f"r6_report 的 file 字段写的是 {Path(rep['file']).name}")
     ids = Counter(r.get("id") for rows in files.values() for r in rows)
     dup = [i for i, n in ids.items() if n > 1]
     if dup:
@@ -181,8 +169,8 @@ def accept(folder: Path, out_root: Path | None = None) -> dict:
         by_id = {}
         for r in rows:
             issues = R.check_delivery(r)
-            if name == ONLY:  # 只有结果的条目不要求事实段相关项
-                issues = [i for i in issues if i.code not in ("subject_not_in_facts", "conclusion_in_facts")]
+            if name == ONLY:  # 只有结果的条目不要求事实段结论词检查
+                issues = [i for i in issues if i.code != "conclusion_in_facts"]
             if issues:
                 by_id[str(r.get("id"))] = issues
             errs = [i.code for i in issues if i.level == "error"]
@@ -259,7 +247,7 @@ def render_md(rep: dict) -> str:
               f"- 地域：{', '.join(f'{k} {v}' for k, v in list(g['by_province'].items())[:8])}",
               f"- 法律版本：{g['law_version']}；处罚类型：{g['outcome_type']}",
               f"- 有当事人段 {g.get('has_text_party', 0):.0%}；罚款被源文打码 {g.get('fine_masked', 0)} 条（罚款额不作训练目标）",
-              "", "> 自动验收通过只说明契约与隐私扫描规则满足，**不等于内容安全放行**；放行以金标线逐件复检为准。",
+              "", "> 自动验收只说明交付契约满足；原文对外发布须另行遮蔽和专项评审。",
               "", "**门禁差距**：", ""]
     lines += [f"- {x}" for x in g["gaps"]] or ["- 无"]
     return "\n".join(lines) + "\n"

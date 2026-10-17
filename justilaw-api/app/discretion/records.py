@@ -2,7 +2,7 @@
 
 数据分层见 docs/04-plan/project-status.md §4：
   L1 解析层 parsed/<来源>/<批次>/records.jsonl —— 各来源解析器的统一输出，未脱敏；
-  L3 交付层 delivery/<版本>/admin_cases.schema-1.0.0.jsonl —— 构建脚本合并、脱敏后交引擎。
+  L3 交付层 delivery/<版本>/admin_cases.schema-1.0.0.jsonl —— 构建脚本合并原文正本后交引擎。
 
 校验不在第一个错误处停下，而是返回全部问题（Issue），便于出批次报告：
   error = 必须修（交付层的 error 记录会被退回）；warn = 可接受但要报告；info = 提示。
@@ -34,15 +34,9 @@ ALL_SEGMENTS = (PARTY_SEGMENT, *SEGMENTS)
 # 事实段里出现即视为混进了结论。"处以""被拘留"等词不在内：前科描述（"曾因赌博被处以拘留五日"）是事实
 CONCLUSION_WORDS = ("决定给予", "现决定", "情节严重", "从轻处罚", "减轻处罚", "从重处罚")
 
-# 交付层不允许出现的内部或敏感字段（D3：溯源走台账；脱敏后不得保留原始称谓与文号）
-DELIVERY_FORBIDDEN = ("doc_no", "subject_mention", "page_id", "site", "title", "publisher", "url",
-                      "extra", "pkulaw_id", "event_hint")
-PRIVACY_PATTERNS = {
-    "身份证号": re.compile(r"(?<![0-9A-Za-z])\d{17}[\dXx](?![0-9A-Za-z])|(?<!\d)\d{6}(?:19|20)\d{2}[*＊xX]{4,}"),
-    "手机号": re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)"),
-    "网址": re.compile(r"https?://", re.I),
-    "邮箱": re.compile(r"[\w.+-]+@[\w-]+\.[\w.]+"),
-}
+# 渠道内部标记仍只留在解析层；公开文书中的原始文号和本人称谓属于原文正本。
+DELIVERY_FORBIDDEN = ("source_ref", "page_id", "site", "title", "publisher", "url", "extra",
+                      "pkulaw_id", "event_hint", "deidentified", "r6_scan", "subject_alias")
 
 
 @dataclass(frozen=True)
@@ -65,11 +59,9 @@ FIELDS: tuple[F, ...] = (
     F("parser", "str", "必填", "—", False, desc="解析器与版本，如 harvest/parse.py@0.4"),
     F("source_type", "enum", "必填", "必填", False, SOURCE_TYPES, "文书类型"),
     F("source_ref", "str", "必填", "—", False, desc="原文出处（URL、台账引用或法宝引证码）；交付层不得出现"),
-    F("doc_no", "str", "可选", "—", desc="原始文号；交付层只给 doc_no_hash"),
+    F("doc_no", "str", "可选", "可选", desc="原始文号；交付层可随公开原文保留"),
     F("doc_no_hash", "str", "可选", "必填", desc="规范化文号的 SHA-256 前 16 位，无文号时为空"),
     F("harvest_date", "date", "必填", "必填", False, desc="采集日期"),
-    F("deidentified", "flag", "可选", "必填", False, desc="交付层必须为'是'；解析层可写 false"),
-    F("r6_scan", "dict", "—", "必填", False, desc="隐私扫描结果 {passed, date}"),
     F("behavior_date", "date", "可选", "必填", desc="违法行为日期，持续行为取结束日；可只到月"),
     F("decision_date", "date", "可选", "必填", desc="处罚决定日期"),
     F("authority", "str", "可选", "必填", desc="作出决定的机关"),
@@ -78,18 +70,17 @@ FIELDS: tuple[F, ...] = (
     F("province_code", "str", "—", "可选"),
     F("region_level", "str", "—", "可选"),
     F("law_version", "enum", "可选", "必填", False, LAW_VERSIONS, "旧法（2012 修正）/ 新法（2025 修订）/ 未知"),
-    F("subject_mention", "str", "可选", "—", desc="脱敏前本人在正文中的写法（如'王某某'），供脱敏替换为'甲'"),
-    F("subject_alias", "str", "—", "必填", False, desc="本人代称，固定为'甲'"),
+    F("subject_mention", "str", "可选", "可选", desc="本人在公开原文中的写法，供本人定位"),
     F("event_key", "str", "可选", "可选", desc="事件指纹：处罚机关 + 事实段首个日期 + 金额"),
     F("event_id", "str", "—", "必填", False, desc="事件编号，同一事件多人共用"),
     F("linked_ids", "list", "—", "必填", False, desc="关联记录（如复议决定书与原处罚决定书）"),
-    F("text_full", "str", "必填", "必填", False, desc="正文；交付层是脱敏后冻结的正本"),
+    F("text_full", "str", "必填", "必填", False, desc="公开文书原文正本"),
     F("text_sha256", "str", "—", "必填", False, desc="text_full 的 SHA-256"),
     F("segmented", "bool", "必填", "必填", False),
     F("segments", "dict", "可选", "必填", False, desc="各段在 text_full 中的 [起, 止)"),
     F(PARTY_SEGMENT, "str", "可选", "可选",
       desc="当事人段：本人身份、年龄或出生年月、违法经历，取正文中事实段之前的部分；不含其他当事人。"
-           "要素 person.age、circumstances.last_prior_penalty_date 等主要靠它；出生日期按脱敏规则只留到月"),
+           "要素 person.age、circumstances.last_prior_penalty_date 等主要靠它"),
     *(F(s, "str", "可选", "必填") for s in SEGMENTS),
     F("outcome", "dict", "必填", "必填", False, desc="处罚结果（见 OUTCOME_FIELDS）"),
     F("review", "dict", "必填", "必填", False, desc="复议、诉讼结论（见 REVIEW_FIELDS）"),
@@ -225,7 +216,7 @@ def _check_outcome(rec: dict, layer: str) -> list[Issue]:
         return out
     expect = {"罚款": (False, True), "拘留": (True, False), "拘留并处罚款": (True, True),
               "不予处罚": (False, False), "不构成违法": (False, False), "警告": (False, False)}.get(t)
-    # 源打码（法宝线 2026-10-17 提出，引擎复核后改为正式字段）：交付层不带 extra，所以标记放在 outcome.fine_masked；
+    # 源打码：交付层不带 extra，所以标记放在 outcome.fine_masked；
     # 解析层兼容 extra.outcome.masked_amount。打码时只免"罚款为 0"这一项，拘留天数仍须与类型一致
     masked = bool(oc.get("fine_masked") or ((rec.get("extra") or {}).get("outcome") or {}).get("masked_amount"))
     if masked and expect and expect[1] and fine == 0 and (days > 0) == expect[0]:
@@ -333,7 +324,7 @@ def check_parsed(rec: dict) -> list[Issue]:
 
 
 def check_delivery(rec: dict) -> list[Issue]:
-    """交付层（L3）逐条校验，对应数据交付规格 §4。"""
+    """交付层（L3）原文正本逐条校验，对应数据交付规格 §4。"""
     out = _check_fields(rec, FIELDS, "delivery")
     leaked = [k for k in DELIVERY_FORBIDDEN if k in rec]
     if leaked:
@@ -346,26 +337,14 @@ def check_delivery(rec: dict) -> list[Issue]:
     out += _check_fields(rec.get("review") or {}, REVIEW_FIELDS, "delivery", "review.")
     out += _check_quality(rec, "delivery") + _check_segments(rec, "delivery")
     out += _check_outcome(rec, "delivery") + _check_dates_and_law(rec)
-    if rec.get("deidentified") != "是":
-        out.append(Issue("error", "not_deidentified", "deidentified", "交付层必须已脱敏"))
-    if not (rec.get("r6_scan") or {}).get("passed"):
-        out.append(Issue("error", "r6_not_passed", "r6_scan", "隐私扫描未通过或缺失"))
     full = rec.get("text_full") or ""
     if rec.get("text_sha256") and hashlib.sha256(full.encode("utf-8")).hexdigest() != rec["text_sha256"]:
         out.append(Issue("error", "sha_mismatch", "text_sha256", "text_sha256 与正文不符"))
-    if rec.get("subject_alias") not in (None, "甲"):
-        out.append(Issue("error", "bad_alias", "subject_alias", "本人代称必须为'甲'"))
     facts = rec.get("text_facts") or ""
-    if facts and "甲" not in facts:
-        out.append(Issue("error", "subject_not_in_facts", "text_facts", "事实段里找不到本人代称'甲'"))
     if facts and not (rec.get("quality") or {}).get("facts_contains_conclusion"):
         hits = [w for w in CONCLUSION_WORDS if w in facts]
         if hits:
             out.append(Issue("error", "conclusion_in_facts", "text_facts", f"事实段含结论词 {hits}，且未标注"))
-    texts = " ".join(str(rec.get(k) or "") for k in ("text_full", "authority", "source_ref"))
-    for name, pat in PRIVACY_PATTERNS.items():
-        if pat.search(texts):
-            out.append(Issue("error", "privacy_hit", name, f"疑似残留{name}"))
     return out
 
 

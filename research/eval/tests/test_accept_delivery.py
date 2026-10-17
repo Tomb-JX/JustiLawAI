@@ -18,8 +18,6 @@ def write_delivery(folder: Path, main: list[dict], only: list[dict]) -> None:
         p.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), "utf-8")
         sums.append(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {name}")
     (folder / "SHA256SUMS").write_text("\n".join(sums) + "\n", "utf-8")
-    (folder / "r6_report.json").write_text(json.dumps({"file": str(folder / A.MAIN), "records": len(main) + len(only),
-                                                        "hard_hit_records": 0}), "utf-8")
 
 
 def records(n: int, start: int = 1) -> list[dict]:
@@ -37,6 +35,7 @@ def test_clean_delivery_passes(tmp_path):
     write_delivery(src, records(3), records(1, start=10))
     rep = A.accept(src, out_root=tmp_path / "out")
     assert rep["verdict"] == "通过" and rep["accepted_main"] == 3
+    assert not (src / "r6_report.json").exists()
     assert (Path(rep["out_dir"]) / "acceptance.md").exists()
     gaps = rep["gate_stats_on_accepted"]["gaps"]
     assert any("金标目标" in g for g in gaps)
