@@ -425,6 +425,28 @@ def has_amount(facts: str) -> bool:
                 or re.search(rf"({NUM})元", facts or ""))
 
 
+# ---------- B 类：事实段尾部定性句裁剪（协同指令 2026-10-17 §2.3，旧 parse 范畴） ----------
+
+CONCLUSION_MARK = re.compile(
+    r"决定给予|现决定|决定不予|行为已构成|已构成|情节严重|情节较轻|从轻处罚|减轻处罚|从重处罚"
+    r"|不予行政处罚|不予处罚|予以行政处罚")
+
+
+def trim_facts_conclusions(facts: str) -> tuple[str, bool]:
+    """事实段尾部的定性/结论句逐句裁剪。只裁尾部——保住 facts 是原文连续子串的性质
+    （build 的 place_segment 依赖它）；内部混入的结论句不动（facts_contains_conclusion
+    旗标继续承担豁免）。全句皆结论时不动（返回原文, False），避免把事实裁空。"""
+    parts = [p for p in re.split(r"(?<=[。；;])", (facts or "").strip()) if p]
+    dropped = 0
+    while parts and CONCLUSION_MARK.search(parts[-1]):
+        parts.pop()
+        dropped += 1
+    if not dropped:
+        return facts, False
+    new = "".join(parts).strip()
+    return (new, True) if new else (facts, False)
+
+
 # ---------- 组装 ----------
 
 def build_case(base: dict, *, facts: str, evidence: str = "", reasoning: str = "", decision: str = "", review: str = "",

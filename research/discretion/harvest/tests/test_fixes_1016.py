@@ -68,7 +68,7 @@ def test_review_result_program_rejection():
 
 
 def test_inclusion_rejects_boilerplate_summary_items():
-    base = {"outcome": {"type": "罚款"}, "province_code": "530000", "subject_alias": "甲", "review": {"result": "无"}}
+    base = {"outcome": {"type": "罚款"}, "province_code": "530000", "subject_mention": "甲", "review": {"result": "无"}}
     summary = {**base, "text_facts": "违法行为人甲，于2025年10月至2026年1月期间实施了赌博的违法行为，"}
     assert "②事实不足" in inclusion(summary)                         # I-03
     real = {**base, "text_facts": "2023年1月，甲在某村家中以打麻将的方式赌博，现场查获赌资三千元，甲持有赌资五百元。"}
