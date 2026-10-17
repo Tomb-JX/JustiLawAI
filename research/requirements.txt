@@ -1,0 +1,4 @@
+# research 数据链路依赖（网页/法宝/协调共用；pip install -r research/requirements.txt）
+# 版本以实际安装为准；只列数据链路新增依赖，引擎 API 依赖见 justilaw-api/requirements.txt
+zstandard>=0.22    # lake blob 压缩（数据湖设计 §6.1；协调裁定 5）
+# duckdb>=1.0      # lake 只读分析视图（协调 T-L5 / M5 接入时启用）
