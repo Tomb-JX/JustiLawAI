@@ -1,16 +1,30 @@
-# 省级裁量基准模板（复制为 <行政区划代码>.yaml，如 330000.yaml）
-# 数额必须逐字取自官方基准原文并附文号；没有原文时保持 null，引擎会输出"门槛未知"而不是猜测。
+# 省级裁量基准模板（复制为 <行政区划代码>.yaml，如 330000.yaml；实例见 320000 江苏、130000 河北）
+# 数额必须逐字取自官方基准原文并附文号；没有原文时不写 rules，引擎会输出"门槛未知"而不是猜测。
 region: "000000"
 name: 模板
 documents:
-  - number: null            # 如：浙公通字〔2021〕12号
+  - number: null            # 如：苏公规〔2019〕1号
     title: null
     url: null
+    issuer: null
     effective_from: null
     effective_to: null
+    law_basis: null         # 依据哪一版治安管理处罚法制定：psal-2012 / psal-2025
+    new_law_alignment: null # 与 2026 新法的衔接：待核验 / 已核验（附说明）
     verification: {status: 待核验, checked_by: [], checked_at: null}
-    text: null              # 赌博条款相关原文
-stake_threshold:            # "赌资较大"
-  personal_min: null        # 个人赌资起点（元）
-  per_capita_min: null      # 人均赌资起点（元）
+    text: null              # 赌博条款相关原文（逐字）
+bands:                      # 省级档次：名称与原文处罚标准，按从轻到重排列
+  names: []
+  penalty: []
+rules:                      # 按行为类型（schema conduct.behavior_type 的取值）给出分档计量
+  参与赌博:
+    measures:               # 多个计量是"或"的关系，取较高档
+      - field: personal_stake          # 可用：personal_or_per_capita / personal_stake / onsite_stake_total /
+        lower_bounds: []               #       commission / cumulative_stake / times / cumulative_participants
+        label: null
+        # categories:                  # 数额随赌博方式分类时用：[{id, label, methods: [schema 方式取值], lower_bounds}]
+    below_min: null         # 未达第一档下限时原文怎么处理（逐字）
+    elevate: []             # 直接升到某档的情形：{when: civil_servant / minors_involved / venue_public / method_online /
+                            #   venue_public_for_profit, to: 档序号, text: 原文}
+    floor_hint: []          # 只提示、不改档的情形：{when: prior_within_year, to, text}
 serious_circumstances: []   # "情节严重"的列举情形（原文），由 M3 使用

@@ -97,9 +97,43 @@ documents:
       （二）本意见规定的“以上”、“以下”均含本数。
       （三）可同时供多人使用的赌博机，台数按照能够独立供一人进行赌博活动的操作基本单元的数量认定。
       （四）本意见自公布之日起执行，此前省公安厅有关规定与本意见不一致的，以本意见为准。
-stake_threshold:
-  personal_min: 100               # 两档取最低：同类（聚众/网络/赌博机/赌场/“六合彩”及私彩）100 元起，其他赌博活动 500 元起
-  per_capita_min: 100             # 原文“个人赌资或者人均赌资”同档同值
+# 结构化档次（引擎 2026-10-17 复核后改写；原单值 personal_min: 100 会把"其他赌博活动"300 元错判为达到赌资较大，
+# 而原文第六条第（四）项规定未达起罚下限的免予处罚）。数额均逐字取自上方 text 第三、四节；"以上""以下"含本数（第七条第（二）项）。
+# lower_bounds 是第一、二、三档的下限：x ≥ 第 k 个下限即至少落入第 k 档；低于第一个下限为"未达起罚标准"。
+bands:
+  names: [第一档, 第二档, 第三档]
+  penalty:                        # 原文处罚标准，按旧法（2012 修正）数额制定
+    - 处500元以下罚款
+    - 处5日以下拘留
+    - 处10日以上15日以下拘留，并处500元以上3000元以下罚款
+rules:
+  参与赌博:
+    measures:
+      - field: personal_or_per_capita     # 第一节（四）：个人赌资能查实的优先；查不清时用人均赌资
+        categories:
+          - id: 聚众网络机器赌场私彩
+            label: 参与聚众赌博、网络赌博、赌博机赌博、赌场赌博、“六合彩”以及其他私彩方式赌博
+            methods: [网络赌博, 赌博机, 六合彩, 私彩]   # 赌博方式可以直接判为本类；聚众、赌场赌博要素里无法直接判定
+            lower_bounds: [100, 500, 1000]
+          - id: 其他
+            label: 参与其他赌博活动
+            lower_bounds: [500, 2000, 5000]
+    below_min: 赌资数额未达到本意见起罚下限标准的，对赌博人员免予处罚，但应当给予批评教育（第六条第（四）项）
+    elevate:
+      - {when: civil_servant, to: 3, text: 国家工作人员参与赌博的}
+    floor_hint:
+      - {when: prior_within_year, to: 2, text: 一年内因赌博被治安管理处罚后又实施的（须核实前次是否因赌博）}
+  为赌博提供条件:
+    measures:
+      - {field: commission, lower_bounds: [0, 200, 500], label: 非法获利累计}
+      - {field: times, lower_bounds: [1, 2, 3], label: 为赌博提供条件次数}
+      - {field: cumulative_participants, lower_bounds: [1, 5, 10], label: 累计人次}
+    elevate:
+      - {when: minors_involved, to: 3, text: 为未成年人赌博提供条件的}
+      - {when: civil_servant, to: 3, text: 国家工作人员为赌博提供条件的}
+      - {when: method_online, to: 3, text: 通过计算机信息网络平台为赌博提供条件的}
+    floor_hint:
+      - {when: prior_within_year, to: 2, text: 一年内因为赌博提供条件被治安管理处罚后又实施的（须核实前次事由）}
 serious_circumstances:            # 第三节（三）“处 10 日以上 15 日以下拘留”档列举（逐字）
   - 参与聚众赌博、网络赌博、赌博机赌博、赌场赌博、“六合彩”以及其他私彩方式赌博，个人赌资或者人均赌资1000元以上的
   - 参与其他赌博活动，个人赌资或者人均赌资5000元以上的

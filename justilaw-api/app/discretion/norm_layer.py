@@ -47,6 +47,13 @@ class Facts:
     participant_count: int | None = None
     cumulative_participants: int | None = None
     abroad_organized_count: int | None = None
+    # 省级裁量基准分档用（2026-10-17 江苏、河北录入后加）
+    method: str | None = None
+    venue_type: str | None = None
+    civil_servant: bool | None = None
+    minors_involved: bool | None = None
+    profit_purpose: bool | None = None
+    times: int | None = None
 
     @classmethod
     def from_elements(cls, e: GamblingElements) -> "Facts":
@@ -68,6 +75,8 @@ class Facts:
             commission=v(a.commission), cumulative_stake=v(a.cumulative_stake),
             participant_count=v(p.participant_count), cumulative_participants=v(p.cumulative_participants),
             abroad_organized_count=v(p.abroad_organized_count),
+            method=v(e.conduct.method), venue_type=v(e.venue.venue_type), civil_servant=v(p.civil_servant),
+            minors_involved=v(p.minors_involved), profit_purpose=v(e.intent.profit_purpose), times=v(e.conduct.times),
         )
 
 
@@ -283,22 +292,95 @@ def _referral(lib: NormLibrary, f: Facts) -> list[dict]:
     return out
 
 
-def _stake_threshold(lib: NormLibrary, f: Facts) -> dict:
-    if f.behavior_type != "参与赌博":
+# ---------- 省级裁量基准分档（norms/provinces/<区划>.yaml 的 rules） ----------
+# 省级基准把同一法定档次再细分成几档（如江苏：赌资 100 元起罚款、500 元起拘留、1000 元起情节严重）。
+# 这里只按原文数额做确定性分档，并对区间值、归类不明做三值处理；它是"裁量建议"，不改变合法空间 Ω。
+
+def _measure_interval(f: Facts, field_name: str) -> tuple[tuple[float, float], str] | None:
+    """计量 → ([下界, 上界], 说明)。上界开口时为正无穷。"""
+    def rng(a: AmountRange | None):
+        return (a.min, a.upper) if a is not None else None
+    if field_name == "personal_or_per_capita":
+        if f.personal_stake is not None:
+            return rng(f.personal_stake), "个人赌资"
+        if f.onsite_stake_total is not None and f.participant_count:
+            return rng(per_capita_stake(f.onsite_stake_total, f.participant_count)), "人均赌资（现场赌资 ÷ 参赌人数）"
+        return None
+    if field_name in ("personal_stake", "onsite_stake_total", "commission", "cumulative_stake"):
+        r = rng(getattr(f, field_name))
+        return (r, field_name) if r else None
+    v = getattr(f, field_name, None)
+    return ((v, v), field_name) if v is not None else None
+
+
+def _band_index(x: float, bounds: list[float]) -> int:
+    """落在第几档：x ≥ 第 k 个下限即至少第 k 档；0 表示未达第一档。"""
+    return sum(x >= b for b in bounds)
+
+
+def _flag(f: Facts, key: str) -> bool | None:
+    public = None if f.venue_type is None else f.venue_type in ("公共场所", "交通工具")
+    online = True if f.method == "网络赌博" or f.venue_type == "网络" else (None if f.method is None else False)
+    prior = None
+    if f.last_prior_penalty_date and f.behavior_date:
+        prior = 0 <= _months_between(f.last_prior_penalty_date, f.behavior_date) <= 12
+    return {"civil_servant": f.civil_servant, "minors_involved": f.minors_involved, "venue_public": public,
+            "method_online": online, "venue_public_for_profit": _all(public, f.profit_purpose),
+            "prior_within_year": prior}.get(key)
+
+
+def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict:
+    if f.behavior_type not in ("参与赌博", "为赌博提供条件"):
         return {"status": "不适用"}
     prov = lib.provinces.get((f.region or "")[:2] + "0000")
-    th = (prov or {}).get("stake_threshold") or {}
-    if not th or all(v is None for v in th.values()):
+    rules = (prov or {}).get("rules") or {}
+    if f.behavior_type not in rules:
         return {"status": "门槛未知", "reason": "目标省份裁量基准未录入或未核验"}
-    stake = f.personal_stake
-    limit = th.get("personal_min")
-    if stake is None or limit is None:
-        return {"status": "无法判断"}
-    if stake.min >= limit:
-        return {"status": "达到赌资较大", "threshold": limit}
-    if stake.upper < limit:
-        return {"status": "未达到赌资较大", "threshold": limit}
-    return {"status": "可能达到", "threshold": limit}
+    rule, bands = rules[f.behavior_type], prov["bands"]
+    doc = (prov.get("documents") or [{}])[0]
+    notes, used, lo, hi = [], [], None, None
+    for m in rule["measures"]:
+        got = _measure_interval(f, m["field"])
+        if got is None:
+            continue
+        (a, b), how = got
+        if "categories" in m:
+            cats = m["categories"]
+            options = [c for c in cats if f.method in (c.get("methods") or [])] or cats
+            if len(options) > 1:
+                notes.append("赌博方式归类不能从要素确定（如是否属聚众、赌场赌博），按"
+                             + "、".join(c["id"] for c in options) + "分别计算，档次取并集")
+            pairs = [(_band_index(a, c["lower_bounds"]), _band_index(b, c["lower_bounds"])) for c in options]
+            m_lo, m_hi = min(p[0] for p in pairs), max(p[1] for p in pairs)
+        else:
+            m_lo, m_hi = _band_index(a, m["lower_bounds"]), _band_index(b, m["lower_bounds"])
+        lo, hi = max(lo or 0, m_lo), max(hi or 0, m_hi)        # 多个计量是"或"的关系：取较高档
+        used.append(m.get("label") or how)
+    for e in rule.get("elevate") or []:
+        if _flag(f, e["when"]) is True:
+            lo, hi = max(lo or 0, e["to"]), max(hi or 0, e["to"])
+            used.append(e["text"])
+    for e in rule.get("floor_hint") or []:
+        if _flag(f, e["when"]) is True:
+            notes.append(f"可能至少落入{bands['names'][e['to'] - 1]}：{e['text']}")
+    if lo is None:
+        return {"status": "无法判断", "reason": "缺少分档所需的数额或情节", "basis": doc.get("number") or doc.get("title")}
+    names = (["未达起罚标准"] if lo == 0 else []) + [bands["names"][k - 1] for k in range(max(lo, 1), hi + 1)]
+    out = {"bands": names, "band_penalty": [bands["penalty"][k - 1] for k in range(max(lo, 1), hi + 1)],
+           "measures_used": used, "basis": doc.get("number") or doc.get("title"),
+           "verified": (doc.get("verification") or {}).get("status") == "已核验"}
+    if f.behavior_type == "参与赌博":
+        out["status"] = "未达到赌资较大" if hi == 0 else ("达到赌资较大" if lo >= 1 else "可能达到")
+        if lo == 0 and rule.get("below_min"):
+            notes.append(rule["below_min"])
+    else:
+        out["status"] = "未达第一档" if hi == 0 else ("档次确定" if lo == hi else "档次待定")
+    if any("近似" in u for u in used):
+        notes.append("'一场赌资'以现场查获赌资合计近似，两者口径不完全相同")
+    if law is not None and doc.get("law_basis") and doc["law_basis"] != law.law_id:
+        notes.append(f"省级基准依据 {doc['law_basis']} 制定，本案适用 {law.law_id}，数额衔接待法律组核验")
+    out["notes"] = notes
+    return out
 
 
 def _assess_with(lib: NormLibrary, law: Law, f: Facts) -> Assessment:
@@ -324,7 +406,7 @@ def _assess_with(lib: NormLibrary, law: Law, f: Facts) -> Assessment:
     used = {law.law_id, lib.mitigation_rules.get("basis", "").split("#")[0]} if "减轻" in effects else {law.law_id}
     return Assessment(
         law_id=law.law_id, temporal_note="", tiers=tiers, directions=dirs,
-        referral=_referral(lib, f), stake_threshold=_stake_threshold(lib, f),
+        referral=_referral(lib, f), stake_threshold=_stake_threshold(lib, f, law),
         needs_review=list(dict.fromkeys(notes)),
         basis_verified=all(lib.is_verified(d) for d in used if d),
     )
