@@ -1,0 +1,23 @@
+# 河北省治安管理处罚裁量标准中的赌博部分（目标省，用户 2026-10-17 确认）
+# 文件元数据已由北大法宝 MCP 检索核实（2026-10-17，law-keyword get_law_list 标题"河北省公安"、正文"赌资较大"，命中 1 件）。
+# 法宝未给文号；条文原文尚未取得，待法宝线用作业台抓取全文后逐字录入赌博条款。
+# 没有原文前数额保持 null，规范层对"赌资较大"输出"门槛未知"，不猜。
+region: "130000"
+name: 河北省
+documents:
+  - number: null                  # 法宝条目未列文号，抓取全文时补
+    title: 河北省公安厅关于印发《河北省公安机关部分治安管理处罚裁量标准(2021修订版)》的通知
+    url: https://www.pkulaw.com/lar/a36431d30f7f53bb4ca787f63704fc5abdfb.html
+    issuer: 河北省公安厅
+    effectiveness: 地方工作文件
+    timeliness: 现行有效            # 法宝 2026-10-17 标注
+    effective_from: 2021-11-17
+    effective_to: null
+    law_basis: psal-2012
+    new_law_alignment: 待核验
+    verification: {status: 待核验, checked_by: [], checked_at: null}
+    text: null
+stake_threshold:
+  personal_min: null
+  per_capita_min: null
+serious_circumstances: []

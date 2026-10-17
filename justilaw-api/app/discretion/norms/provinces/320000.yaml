@@ -1,0 +1,23 @@
+# 江苏省赌博违法案件裁量基准（目标省，用户 2026-10-17 确认）
+# 文件元数据已由北大法宝 MCP 检索核实（2026-10-17，law-keyword get_law_list，台账 engine/pkulaw_mcp/ledger.csv）。
+# 条文原文尚未取得：语义检索不返回这份通知的条文（实测 2026-10-17），待法宝线用作业台抓取全文后逐字录入。
+# 没有原文前数额保持 null，规范层对"赌资较大"输出"门槛未知"，不猜。
+region: "320000"
+name: 江苏省
+documents:
+  - number: 苏公规〔2019〕1号
+    title: 江苏省公安厅关于印发《赌博违法案件裁量指导意见》的通知
+    url: https://www.pkulaw.com/lar/53e9fff0a2f8f5b900242c3a48749d76bdfb.html
+    issuer: 江苏省公安厅
+    effectiveness: 地方规范性文件
+    timeliness: 现行有效            # 法宝 2026-10-17 标注
+    effective_from: 2019-02-02
+    effective_to: null
+    law_basis: psal-2012            # 依据 2012 修正版第七十条制定
+    new_law_alignment: 待核验       # 2026-01-01 新法施行后是否仍适用、数额是否调整，须法律组核验
+    verification: {status: 待核验, checked_by: [], checked_at: null}
+    text: null
+stake_threshold:
+  personal_min: null
+  per_capita_min: null
+serious_circumstances: []
