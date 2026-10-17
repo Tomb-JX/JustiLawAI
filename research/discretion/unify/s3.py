@@ -17,11 +17,21 @@
 from __future__ import annotations
 
 import json
+import re
+import sys
 from dataclasses import dataclass, field, asdict
+from pathlib import Path
+
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE))
+sys.path.insert(0, str(_HERE.parent / "harvest"))
+sys.path.insert(0, str(_HERE.parent / "discover"))
 
 from s1 import validate as schema_validate
 from locate import locate, OffsetIndex
 from s1 import data_root
+from parse import CONCLUSION_MARK  # noqa: E402
+from parse_qc import CONCL_ANY, EVID_PAT, GENJV  # noqa: E402  与交付 QC 同源（指令 §3 迁移，单一注册表）
 
 # 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
 # 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
@@ -298,6 +308,58 @@ def check_coverage(ctx):
     return []
 
 
+def check_facts_quality(ctx):
+    """事实段内容质量族（协同指令 §3：parse_qc 15 项迁移，与交付 QC 同源正则）。
+    对 S1 的 facts 引文检查（引文即模型声称的事实段）：
+    硬：定性句收尾（提示词硬规则违反）、事实段为空、事实=全文；
+    疑：定性句段中、证据句混入、根据法条混入、逗号/非句读截尾、<30 字。"""
+    out = ctx["output"]
+    facts = ""
+    for s in (out.get("segments") or []):
+        if s.get("type") == "facts":
+            facts = (s.get("quote") or "").strip()
+            break
+    if not facts:
+        # 无 facts 段：处罚决定书/公示按形态裁决；复议的 facts 缺失由 decision_present 兜底
+        st = ctx["record"].get("source_type") or ""
+        if st in ("处罚决定书", "执法公示"):
+            return [_mk("facts_quality", "error", "facts 段缺失（决定书/公示形态应有事实）")]
+        return []
+    f = facts
+    findings = []
+    if f == (ctx["record"].get("cleaned_text") or "").strip() and len(f) > 120:
+        findings.append(_mk("facts_quality", "error", "事实段=全文（分段失败）"))
+    # 定性句判定（逐句）：末句含定性/结论词 = 收尾（error，提示词硬规则违反）；
+    # 前面句子含 = 段中（warn）。CONCLUSION_MARK 与 build B 类裁剪同一口径；
+    # parse_qc 的 CONCL_ANY（"已构成…违法/属于情节较重"句式）作为补充 warn。
+    sentences = [p for p in re.split(r"(?<=[。；;])", f) if p.strip()]
+    tail_err = False
+    if sentences and CONCLUSION_MARK.search(sentences[-1]):
+        findings.append(_mk("facts_quality", "error", f"定性句收尾：…{sentences[-1][:24]}"))
+        tail_err = True
+    else:
+        for s in sentences[:-1]:
+            if CONCLUSION_MARK.search(s):
+                findings.append(_mk("facts_quality", "warn", f"定性句段中：…{s[:24]}"))
+                break
+        if not tail_err:
+            m_any = CONCL_ANY.search(f)
+            if m_any:
+                findings.append(_mk("facts_quality", "warn", f"定性句段中（构成句式）：…{f[max(0, m_any.start()-10):m_any.end()+6]}"))
+    m3 = EVID_PAT.search(f)
+    if m3:
+        findings.append(_mk("facts_quality", "warn", "证据句混入事实段"))
+    if GENJV.search(f):
+        findings.append(_mk("facts_quality", "warn", "事实段含根据法条"))
+    if f.endswith(("，", "、", "；")) and len(f) >= 30:
+        findings.append(_mk("facts_quality", "warn", "事实段逗号截尾"))
+    elif f and f[-1] not in "。；：）」】" and not f.endswith(("，", "、")):
+        findings.append(_mk("facts_quality", "warn", "事实段非句读截尾"))
+    if 0 < len(f) < 30:
+        findings.append(_mk("facts_quality", "warn", "事实段<30字"))
+    return findings
+
+
 CHECKS = [
     ("schema", check_schema),
     ("quotes", check_quotes),
@@ -306,6 +368,7 @@ CHECKS = [
     ("outcome_consistency", check_outcome_consistency),
     ("penalty_caps", check_penalty_caps),
     ("article_edition", check_article_edition),
+    ("facts_quality", check_facts_quality),
     ("dates_order", check_dates),
     ("subject", check_subject),
     ("gambling_cross", check_gambling_cross),

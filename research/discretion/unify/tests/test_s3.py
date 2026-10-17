@@ -174,3 +174,51 @@ def test_caps_loader_prefers_config():
     from s3 import _load_caps
     caps = _load_caps()   # 数据目录暂无 legal_caps.json → 内置口径
     assert "2012修正" in caps
+
+
+# ---------- 事实段内容质量族（parse_qc 迁移，协同指令 §3） ----------
+
+def _fq_ctx(facts, source_type="处罚决定书", cleaned=""):
+    from locate import Located
+    out = {"segments": [{"type": "facts", "quote": facts}]} if facts is not None else {"segments": []}
+    return {"record": {"source_type": source_type, "cleaned_text": cleaned},
+            "output": out,
+            "locates": {"seg:facts": Located("exact_unique", 0, len(facts or ""))},
+            "disambiguated": {}}
+
+
+def test_fq_conclusion_tail_error():
+    from s3 import check_facts_quality
+    f = check_facts_quality(_fq_ctx("张某某在某棋牌室赌博。情节严重。决定给予行政拘留十日。"))
+    assert any(x.severity == "error" and "定性句收尾" in x.detail for x in f)
+
+
+def test_fq_conclusion_mid_warn():
+    from s3 import check_facts_quality
+    f = check_facts_quality(_fq_ctx("张某某在某棋牌室赌博，情节严重，赌资五千元。后被查获。"))
+    assert any(x.severity == "warn" and "定性句段中" in x.detail for x in f)
+
+
+def test_fq_evidence_and_genjv_warn():
+    from s3 import check_facts_quality
+    f1 = check_facts_quality(_fq_ctx("张某某赌博。以上事实有询问笔录证实。"))
+    assert any("证据句混入" in x.detail for x in f1)
+    f2 = check_facts_quality(_fq_ctx("张某某赌博。根据《治安管理处罚法》其行为发生在某月。"))
+    assert any("根据法条" in x.detail for x in f2)
+
+
+def test_fq_truncation_and_short():
+    from s3 import check_facts_quality
+    f1 = check_facts_quality(_fq_ctx("张某某伙同他人在某地以牌九方式赌博多次，现场查获赌资五千元，"))
+    assert any("逗号截尾" in x.detail for x in f1)
+    f2 = check_facts_quality(_fq_ctx("张某某赌博"))
+    assert any("<30字" in x.detail for x in f2)
+
+
+def test_fq_empty_and_eq_full():
+    from s3 import check_facts_quality
+    f1 = check_facts_quality(_fq_ctx("", "处罚决定书"))
+    assert any(x.severity == "error" and "facts 段缺失" in x.detail for x in f1)
+    full = "这是一段很长的正文内容" * 20
+    f2 = check_facts_quality(_fq_ctx(full, cleaned=full))
+    assert any(x.severity == "error" and "事实段=全文" in x.detail for x in f2)

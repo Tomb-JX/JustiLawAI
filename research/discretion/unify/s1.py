@@ -29,6 +29,9 @@ from datetime import datetime
 from pathlib import Path
 
 PROMPT_VERSION = "seg-v1"
+# seg-v1 冻结（协同指令 §6.2/§8，2026-10-17）：300 试点批与本文件的提示不再改动；
+# 任何提示修改必须升版 seg-v2 并过规约测试（30–50 件分段歧义率）+ 试点批回归后才能切换。
+# 冻结前提已满足：legal_caps 常量表就位（§4）、S3 注册表含 parse_qc 迁移项（§3）。
 SEG_TYPES = ["facts", "evidence", "reasoning", "decision", "review"]
 OUTCOME_TYPES = ["不予处罚", "不构成违法", "警告", "罚款", "拘留", "拘留并处罚款", "移送刑事"]
 
