@@ -313,8 +313,9 @@ def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]
         "segmented": bool(rec.get("segmented")),
     }
     dropped = []
+    party = rec.get("text_party") or extract_party(full)
     for k in SEGMENT_KEYS:
-        seg, ok = _relocate_segment(rec.get(k, ""), full)
+        seg, ok = _relocate_segment(party if k == "text_party" else rec.get(k, ""), full)
         out[k] = seg
         if not ok:
             dropped.append(k)

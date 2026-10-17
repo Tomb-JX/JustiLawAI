@@ -94,6 +94,14 @@ def test_to_parsed1_maps_fine_masked():
     assert rec2["outcome"]["fine_masked"] is True
 
 
+def test_to_parsed1_derives_party_when_missing():
+    """旧 legacy 批次没有 text_party：从 text_full 的'现查明'前兜底提取。"""
+    legacy = _legacy_record()
+    legacy.pop("text_party")
+    rec, why = ing.to_parsed1(legacy, batch="b", source="法宝执法库")
+    assert why == "" and rec["text_party"] == "违法行为人张某某，男。"
+
+
 def test_to_parsed1_excludes_out_of_enum():
     rec, why = ing.to_parsed1(_legacy_record(source_type="刑事判决书"), batch="b", source="法宝案例库")
     assert rec is None and "不在契约枚举" in why
