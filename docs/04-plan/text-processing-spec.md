@@ -71,7 +71,7 @@
 
 **交付时去掉的内部字段**：`page_id`、`site`、`publisher`、`gambling`、`in_scope`、`completeness`、`parse_warnings`、`detention_items`、`from_execution_clause`、`ocr`。其中 `ocr`、`completeness`、`parse_warnings` 建议改名放进一个 `quality` 对象保留，用来提示校正时重点看哪里。
 
-## 3. 文本要保住哪些信息（对齐本体 37 个字段）
+## 3. 文本要保住哪些信息（对齐本体 36 个可抽取要素，schema 1.1.0；另 3 项 meta 不由模型抽取）
 
 脱敏不能把要素抽取需要的信息一起抹掉。下表是本体字段与文本证据的对应：
 
