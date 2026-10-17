@@ -28,6 +28,9 @@ LAW_ID = {"旧法": "psal-2012", "新法": "psal-2025"}
 NEW_LAW_FROM = date(2026, 1, 1)
 TIERS = ("L1", "L2", "L3", "L4")   # 金标候选 / 只有结果 / 范围外 / 待核
 SEGMENTS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
+# I-02：当事人段（"现查明"之前的身份、年龄、违法经历）。新增段落，两层都可选，旧交付不受影响
+PARTY_SEGMENT = "text_party"
+ALL_SEGMENTS = (PARTY_SEGMENT, *SEGMENTS)
 # 事实段里出现即视为混进了结论。"处以""被拘留"等词不在内：前科描述（"曾因赌博被处以拘留五日"）是事实
 CONCLUSION_WORDS = ("决定给予", "现决定", "情节严重", "从轻处罚", "减轻处罚", "从重处罚")
 
@@ -84,6 +87,9 @@ FIELDS: tuple[F, ...] = (
     F("text_sha256", "str", "—", "必填", False, desc="text_full 的 SHA-256"),
     F("segmented", "bool", "必填", "必填", False),
     F("segments", "dict", "可选", "必填", False, desc="各段在 text_full 中的 [起, 止)"),
+    F(PARTY_SEGMENT, "str", "可选", "可选",
+      desc="当事人段：本人身份、年龄或出生年月、违法经历，取正文中事实段之前的部分；不含其他当事人。"
+           "要素 person.age、circumstances.last_prior_penalty_date 等主要靠它；出生日期按脱敏规则只留到月"),
     *(F(s, "str", "可选", "必填") for s in SEGMENTS),
     F("outcome", "dict", "必填", "必填", False, desc="处罚结果（见 OUTCOME_FIELDS）"),
     F("review", "dict", "必填", "必填", False, desc="复议、诉讼结论（见 REVIEW_FIELDS）"),
@@ -95,7 +101,8 @@ FIELDS: tuple[F, ...] = (
 OUTCOME_FIELDS: tuple[F, ...] = (
     F("type", "enum", "必填", "必填", True, OUTCOME_TYPES, "处罚类型；L3/L4 分级的记录可为空"),
     F("detention_days", "int", "必填", "必填", False, desc="拘留天数，没有填 0；合并执行取合并后"),
-    F("fine", "num", "必填", "必填", False, desc="罚款（元），没有填 0"),
+    F("fine", "num", "必填", "必填", False, desc="罚款（元），没有填 0；源文把数额打码时填 0 并标 fine_masked"),
+    F("fine_masked", "bool", "可选", "可选", desc="罚款数额被发布方打码（'罚款**元'）：类型可用，罚款额不能作训练目标"),
     F("detention_not_executed", "enum", "必填", "必填", False, ("是", "否")),
     F("confiscation", "str", "可选", "可选"),
     F("articles", "list", "必填", "必填", False),
@@ -218,7 +225,12 @@ def _check_outcome(rec: dict, layer: str) -> list[Issue]:
         return out
     expect = {"罚款": (False, True), "拘留": (True, False), "拘留并处罚款": (True, True),
               "不予处罚": (False, False), "不构成违法": (False, False), "警告": (False, False)}.get(t)
-    if expect and ((days > 0) != expect[0] or (fine > 0) != expect[1]):
+    # 源打码（法宝线 2026-10-17 提出，引擎复核后改为正式字段）：交付层不带 extra，所以标记放在 outcome.fine_masked；
+    # 解析层兼容 extra.outcome.masked_amount。打码时只免"罚款为 0"这一项，拘留天数仍须与类型一致
+    masked = bool(oc.get("fine_masked") or ((rec.get("extra") or {}).get("outcome") or {}).get("masked_amount"))
+    if masked and expect and expect[1] and fine == 0 and (days > 0) == expect[0]:
+        out.append(Issue("warn", "fine_masked", "outcome.fine", "罚款数额被源文打码：档次可用，罚款额不作训练目标"))
+    elif expect and ((days > 0) != expect[0] or (fine > 0) != expect[1]):
         out.append(Issue("error", "outcome_inconsistent", "outcome",
                          f"类型'{t}'与拘留 {days} 天、罚款 {fine} 元不符"))
     if t == "警告":
@@ -260,7 +272,7 @@ def _check_dates_and_law(rec: dict) -> list[Issue]:
 def _check_segments(rec: dict, layer: str) -> list[Issue]:
     full, out = rec.get("text_full") or "", []
     spans = rec.get("segments") or {}
-    for s in SEGMENTS:
+    for s in ALL_SEGMENTS:
         seg = rec.get(s)
         if _empty(seg):
             continue
@@ -275,6 +287,13 @@ def _check_segments(rec: dict, layer: str) -> list[Issue]:
             out.append(Issue("error", "segment_offset_mismatch", f"segments.{s}", f"{s} 的起止位置切不出原段"))
     if rec.get("segmented") and _empty(rec.get("text_facts")) and _empty(rec.get("text_decision")):
         out.append(Issue("warn", "segmented_but_empty", "segmented", "标了已分段，但事实段和决定段都为空"))
+    party, facts = rec.get(PARTY_SEGMENT) or "", rec.get("text_facts") or ""
+    if party and facts:
+        p0, f0 = full.find(party), full.find(facts)
+        if layer == "delivery" and PARTY_SEGMENT in spans and "text_facts" in spans:
+            p0, f0 = spans[PARTY_SEGMENT][0], spans["text_facts"][0]
+        if p0 >= 0 and f0 >= 0 and p0 + len(party) > f0:
+            out.append(Issue("warn", "party_overlaps_facts", PARTY_SEGMENT, "当事人段应在事实段之前，且两段不重叠"))
     return out
 
 

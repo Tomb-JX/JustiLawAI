@@ -157,3 +157,24 @@ def test_corrected_ttest_is_more_conservative_than_naive():
 def test_corrected_ttest_null_case():
     res = m.corrected_resampled_ttest([0.01, -0.01] * 10, 100, 25)
     assert abs(res["mean_diff"]) < TOL and abs(res["p_value"] - 0.5) < 1e-3
+
+
+# ---------- 试标一致性（G0.3）：Cohen's κ 与 sklearn 对齐 ----------
+
+@pytest.mark.parametrize("a,b", [
+    (["参与赌博"] * 9 + ["为赌博提供条件"], ["参与赌博"] * 10),
+    (["是", "∅", "是", "否", "∅", "是"], ["是", "是", "∅", "否", "∅", "否"]),
+    (list("aabbccab"), list("abbbccaa")),
+])
+def test_cohen_kappa_matches_sklearn(a, b):
+    assert abs(m.cohen_kappa(a, b) - skm.cohen_kappa_score(a, b)) <= TOL
+
+
+def test_cohen_kappa_undefined_when_single_category():
+    assert m.cohen_kappa(["是"] * 5, ["是"] * 5) is None
+
+
+def test_value_correct_open_upper_bound():
+    assert m.value_correct((10000, None), (10000, None))
+    assert not m.value_correct((10000, 19999), (10000, None))
+    assert not m.value_correct((10000, None), (10000, 99999))

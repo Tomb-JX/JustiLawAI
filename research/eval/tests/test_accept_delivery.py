@@ -40,6 +40,10 @@ def test_clean_delivery_passes(tmp_path):
     assert (Path(rep["out_dir"]) / "acceptance.md").exists()
     gaps = rep["gate_stats_on_accepted"]["gaps"]
     assert any("金标目标" in g for g in gaps)
+    A.accept(src, out_root=tmp_path / "out")      # 重验同一交付：索引只追加
+    rows = (tmp_path / "out" / "INDEX.csv").read_text("utf-8").splitlines()
+    assert rows[0].startswith("checked_at,delivery_version") and len(rows) == 3
+    assert rows[1].split(",")[1] == "d" and rows[1].split(",")[4] == "通过"
 
 
 def test_bad_record_is_rejected_but_batch_partially_passes(tmp_path):

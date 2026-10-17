@@ -1,6 +1,6 @@
 # 行政案例数据交付规格（数据链路 → 引擎）
 
-> 版本 v0.3 · 2026-10-16 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
+> 版本 v0.4 · 2026-10-17 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
 > 配套：[项目现状总览](../04-plan/project-status.md)（数据分层 §4）· [数据收集计划](../04-plan/data-collection.md) · [文本处理规范](../04-plan/text-processing-spec.md)（数据链路的实现规则）· [标注指南](./annotation-guideline.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
 > v0.2 按文本处理规范 §5 的决策项 D1–D6 修订；v0.3 新增解析层统一中间格式（§6）与自动验收（§4），字段总表（§7）由 `justilaw-api/app/discretion/records.py` 生成，**以代码为准**。
 
@@ -50,6 +50,7 @@
 
 | 段落 | 内容 | 引擎怎么用 |
 |---|---|---|
+| `text_party` | 当事人段：本人的身份、年龄或出生年月、违法经历，即事实段之前、标题和文号之后的部分；有多名当事人时只取本人那一段（可选，I-02） | 模型输入：年龄、前科日期这类要素主要在这里（实测年龄线索在事实段 0%、当事人段 39%）。出生日期按 §1.6 只留到月 |
 | `text_facts` | 查明的违法事实（"经查""查明"部分） | 模型输入：M1 从这里抽取要素 |
 | `text_evidence` | 证据列举 | 辅助核对，不作为模型输入 |
 | `text_reasoning` | 认定理由、情节认定、裁量说明（"本局认为""经审查"部分） | **不作为模型输入**（里面常写着"情节严重""从轻处罚"，等于答案的一部分）；用于标注情节和训练 M6 说理 |
@@ -65,6 +66,7 @@
 | `outcome.type` | 不予处罚 / 不构成违法 / 警告 / 罚款 / 拘留 / 拘留并处罚款 / 移送刑事 |
 | `outcome.detention_days` | 整数，没有填 0；合并执行的取合并后天数 |
 | `outcome.fine` | 元，没有填 0 |
+| `outcome.fine_masked` | 发布方把罚款数额打码（"罚款**元"）时为 `true`，`fine` 填 0。验收只记 warn；这类记录的处罚档次可用，**罚款额不得作训练或评测目标** |
 | `outcome.detention_not_executed` | 是 / 否（依法不执行拘留） |
 | `outcome.confiscation` | 收缴的赌资、赌具描述 |
 | `outcome.articles` | 引用的法条，统一写法如"治安管理处罚法（2012修正）第七十条""治安管理处罚法（2025修订）第八十二条""第二十条第五项" |
@@ -151,7 +153,9 @@
 
 ## 4. 引擎侧的验收（自动执行）
 
-**工具**：`research/.venv/Scripts/python research/eval/accept_delivery.py [交付目录]`。报告写到 `$JUSTILAW_DATA_DIR/engine/acceptance/<管线版本>-<主文件哈希前 8 位>/`，包括 `acceptance.json`、一页摘要 `acceptance.md`、退回清单 `rejected.csv`。
+**工具**：`research/.venv/Scripts/python research/eval/accept_delivery.py [交付目录]`。报告写到 `$JUSTILAW_DATA_DIR/engine/acceptance/<管线版本>-<主文件哈希前 8 位>/`，包括 `acceptance.json`、一页摘要 `acceptance.md`、退回清单 `rejected.csv`。引擎对交付目录只读，所以报告**不**写进 `delivery/<版本>/`。要查某个交付版本对应哪份报告，看 `engine/acceptance/INDEX.csv`：每验收一次追加一行，记录交付版本、主文件哈希、报告目录、结论和时间。
+
+**自动验收通过 ≠ 可以使用。** 它只说明格式、契约和隐私扫描规则都满足，不说明正文已经脱敏干净、事实可以标注。内容安全由金标线逐件复检后放行。`LATEST` 指针只表示"最新"，不表示"已放行"。
 
 **逐条检查**（`records.check_delivery`，每条记录的全部问题一次列出）：
 - 字段、类型、取值符合 §7 总表；`deidentified` 为"是"，`r6_scan.passed` 为真；
@@ -267,6 +271,7 @@
 | `text_sha256` | str | — | 必填 | 否 |  | text_full 的 SHA-256 |
 | `segmented` | bool | 必填 | 必填 | 否 |  |  |
 | `segments` | dict | 可选 | 必填 | 否 |  | 各段在 text_full 中的 [起, 止) |
+| `text_party` | str | 可选 | 可选 | 可 |  | 当事人段：本人身份、年龄或出生年月、违法经历，取正文中事实段之前的部分；不含其他当事人。要素 person.age、circumstances.last_prior_penalty_date 等主要靠它；出生日期按脱敏规则只留到月 |
 | `text_facts` | str | 可选 | 必填 | 可 |  |  |
 | `text_evidence` | str | 可选 | 必填 | 可 |  |  |
 | `text_reasoning` | str | 可选 | 必填 | 可 |  |  |
@@ -280,7 +285,8 @@
 | `extra` | dict | 可选 | — | 可 |  | 来源专有的内部字段（page_id、site、pkulaw_id 等）一律放这里 |
 | `outcome.type` | enum | 必填 | 必填 | 可 | 不予处罚、不构成违法、警告、罚款、拘留、拘留并处罚款、移送刑事 | 处罚类型；L3/L4 分级的记录可为空 |
 | `outcome.detention_days` | int | 必填 | 必填 | 否 |  | 拘留天数，没有填 0；合并执行取合并后 |
-| `outcome.fine` | num | 必填 | 必填 | 否 |  | 罚款（元），没有填 0 |
+| `outcome.fine` | num | 必填 | 必填 | 否 |  | 罚款（元），没有填 0；源文把数额打码时填 0 并标 fine_masked |
+| `outcome.fine_masked` | bool | 可选 | 可选 | 可 |  | 罚款数额被发布方打码（'罚款**元'）：类型可用，罚款额不能作训练目标 |
 | `outcome.detention_not_executed` | enum | 必填 | 必填 | 否 | 是、否 |  |
 | `outcome.confiscation` | str | 可选 | 可选 | 可 |  |  |
 | `outcome.articles` | list | 必填 | 必填 | 否 |  |  |
@@ -304,5 +310,6 @@
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
 | 2026-10-15 | v0.1 | 初版：基于 CAIL 探针教训，规定来源、时间地点、原文分段、处罚结果标签、事实要素、整体构成与交付格式 | 模型组 |
+| 2026-10-17 | v0.4 | §1.3 新增当事人段 `text_party`（I-02，两层都可选，旧交付不受影响）；§1.4 新增 `outcome.fine_masked`，复核法宝线提出的源文打码豁免，并改为正式字段，因为交付层没有 `extra`；§4 增加验收索引 `INDEX.csv`，并写明"自动验收通过"不等于"内容安全放行" | 模型组（引擎） |
 | 2026-10-16 | v0.3 | 新增 §6 解析层统一中间格式 parsed-1（与交付层的区别、自检命令、三个来源的差距）与 §7 字段总表（由 `records.py` 生成）；§4 改为自动验收工具与三档结论，记录首次验收结果；`law_version` 定义为实际适用版本（D8）；决策 D9 | 模型组 |
 | 2026-10-16 | v0.2 | 按文本处理规范 §5 决策 D1–D6 修订：溯源走台账（`doc_no_hash`），日期元数据到日、正文到月，`law_version`，正本冻结与 `segments`，`review.result` 新增"程序驳回"并明确诉讼"驳回诉讼请求"记"维持"，`subject_alias`、`event_id`、`linked_ids`，年龄写法，汇总条目单独交付，`quality` 对象，验收检查补充；新增决策记录 | 模型组 |

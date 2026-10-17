@@ -21,10 +21,32 @@ def value_correct(pred, gold, rel_tol: float = 0.05) -> bool:
         return pred is None and gold is None
     if isinstance(gold, (tuple, list)) and len(gold) == 2 and isinstance(pred, (tuple, list)):
         (p0, p1), (g0, g1) = pred, gold
+        # 上界为 None 表示开口（schema 1.1.0）：开口只与开口匹配，此时只比下界
+        if (p1 is None) != (g1 is None):
+            return False
+        if g1 is None:
+            return abs(p0 - g0) <= rel_tol * max(abs(g0), 1e-9)
         overlap = p0 <= g1 and g0 <= p1
         close = all(abs(p - g) <= rel_tol * max(abs(g), 1e-9) for p, g in ((p0, g0), (p1, g1)))
         return overlap and close
     return pred == gold
+
+
+def cohen_kappa(a: Sequence[Hashable], b: Sequence[Hashable]) -> float | None:
+    """Cohen's κ = (p_o − p_e) / (1 − p_e)。p_o 为实际一致率，p_e 为按两方各自的取值分布算出的碰巧一致率。
+    两方都只用了同一个取值时 p_e = 1，κ 无定义，返回 None（报告里记"无法计算"，不当作 1）。"""
+    if len(a) != len(b):
+        raise ValueError("两组标签长度不同")
+    n = len(a)
+    if n == 0:
+        return None
+    po = sum(x == y for x, y in zip(a, b)) / n
+    ca, cb = {}, {}
+    for x, y in zip(a, b):
+        ca[x] = ca.get(x, 0) + 1
+        cb[y] = cb.get(y, 0) + 1
+    pe = sum(ca[k] * cb.get(k, 0) for k in ca) / (n * n)
+    return None if pe >= 1 else (po - pe) / (1 - pe)
 
 
 def field_accuracy(preds: Sequence, golds: Sequence, rel_tol: float = 0.05) -> float:
