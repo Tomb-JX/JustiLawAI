@@ -241,7 +241,14 @@ class Runner:
                 content, meta = prov.chat(SYSTEM_PROMPT, user)
                 self.receipt(event="call", provider=pname, model=prov.model, id=rec["id"],
                              attempt=i + 1, status="ok", **meta)
-                out = extract_json(content)
+                try:
+                    out = extract_json(content)
+                except Exception as e:
+                    self.receipt(event="extract", provider=pname, model=prov.model, id=rec["id"],
+                                 attempt=i + 1, status="fail",
+                                 error=f"JSON 提取失败: {str(e)[:200]}",
+                                 content_sha=hashlib.sha256(content.encode("utf-8")).hexdigest()[:16])
+                    raise
                 errs = validate(out)
                 qc = quote_check(rec["cleaned_text"], out)
                 chain.append({"provider": pname, "ok": True})
