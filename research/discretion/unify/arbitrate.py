@@ -28,6 +28,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from pathlib import Path
 
+from progress import ProgressTracker  # noqa: E402  监控心跳（裁判调用也留进度）
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from s1 import Provider, load_config  # noqa: E402
@@ -171,6 +173,8 @@ def main() -> None:
     divs = list(csv.DictReader(open(a.divergences, encoding="utf-8-sig")))
 
     decisions = []
+    tracker = ProgressTracker(out_dir, total=len(divs),
+                              meta={"phase_scope": "arbitration", "referee": a.referee or "none"})
     with ThreadPoolExecutor(max_workers=a.workers if arb else 1) as ex:
         futs = {}
         for d in divs:
@@ -182,6 +186,8 @@ def main() -> None:
             futs[ex.submit(resolve, arb, rec, o, d)] = d
         for fut in as_completed(futs):
             decisions.append(fut.result())
+            tracker.finish_record(True, 1, arb.provider.name if arb else "local")
+    tracker.set_phase("done")
 
     with open(out_dir / "decisions.jsonl", "w", encoding="utf-8", newline="\n") as f:
         for d in sorted(decisions, key=lambda x: (x["id"], x["field"])):

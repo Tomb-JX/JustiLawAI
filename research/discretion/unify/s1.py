@@ -29,6 +29,7 @@ from datetime import datetime
 from pathlib import Path
 
 from cleanse import sentence_table  # noqa: E402  句表（seg-v2 分区坐标基座）
+from progress import ProgressTracker, classify_error, load_prices  # noqa: E402  监控基建
 
 PROMPT_VERSION = "seg-v2"
 # seg-v1 已冻结归档（试点报告 pilot300：引文命中率 99.92% 但摘引式分段致 coverage 51 件失败）。
@@ -197,14 +198,26 @@ def validate(out: dict, n_sentences: int = 0) -> list[str]:
 # ---------- 运行器 ----------
 
 class Runner:
-    def __init__(self, providers: dict[str, Provider], run_dir: Path, order: list[str]):
+    def __init__(self, providers: dict[str, Provider], run_dir: Path, order: list[str], total: int = 0,
+                 tracker_meta: dict | None = None):
         self.providers = providers
-        self.order = order          # 主 → 备
+        self.order = order
         self.run_dir = run_dir
         run_dir.mkdir(parents=True, exist_ok=True)
         self._receipt_f = open(run_dir / "receipts.jsonl", "a", encoding="utf-8", newline="\n")
         self._lock = threading.Lock()
         self.t0 = time.monotonic()
+        # 监控基建：心跳 + 费用 + 熔断
+        prices = load_prices(data_root() / "config" / "s1_prices.json")
+        self.tracker = ProgressTracker(run_dir, total=total, meta={**(tracker_meta or {}),
+                                                                  "provider_primary": order[0] if order else ""})
+        self.tracker.note_cost(self.tracker.cost)
+        self.tracker.cost = self.tracker.cost
+        self._prices = prices
+        self.cost_meter = self.tracker.cost
+        self.dead: set[str] = set()
+        self.consec_fail: Counter = Counter()
+        self._breaker_lock = threading.Lock()
 
     def receipt(self, **kw) -> None:
         kw["ts"] = datetime.now().isoformat(timespec="seconds")
@@ -213,19 +226,42 @@ class Runner:
             self._receipt_f.write(json.dumps(kw, ensure_ascii=False) + "\n")
             self._receipt_f.flush()
 
+    def _breaker(self, pname: str, err: str) -> str | None:
+        """熔断：balance/auth 一次即判死；其他类连续 3 次判死。返回分类或 None。"""
+        cat = classify_error(err)
+        with self._breaker_lock:
+            if cat in ("balance", "auth"):
+                self.dead.add(pname)
+                self.receipt(event="circuit_break", provider=pname, cat=cat, status="dead")
+                return cat
+            self.consec_fail[pname] += 1
+            if self.consec_fail[pname] >= 3:
+                self.dead.add(pname)
+                self.receipt(event="circuit_break", provider=pname, cat=cat, status="dead")
+        return cat
+
     def extract_one(self, rec: dict, primary: str) -> dict:
-        """单记录抽取：主提供商 → 失败重试 1 次 → 换备提供商 1 次。全程回执。"""
+        """单记录抽取：主提供商 → 失败重试 1 次 → 换备提供商 1 次。熔断跳过判死提供商。全程回执。"""
         cleaned = rec.get("cleaned_text") or ""
         sentences = sentence_table(cleaned)
         texts = [cleaned[a:b] for a, b in sentences]
         user = build_user_prompt(rec["form"], rec["source_type"], texts)
         chain, last_err = [], None
-        # 尝试序列：主×2 → 备×1
-        seq = [primary, primary] + [p for p in self.order if p != primary][:1]
+        self.tracker.begin_record()
+        # 尝试序列：主×2 → 备×1（判死的提供商跳过）
+        seq = [p for p in ([primary, primary] + [q for q in self.order if q != primary][:1])
+               if p not in self.dead]
+        if not seq:
+            self.tracker.finish_record(False, 0, "", error="all_providers_dead", latency_ms=0)
+            return {"id": rec["id"], "ok": False, "error": "all_providers_dead（熔断：全部提供商判死）",
+                    "chain": []}
         for i, pname in enumerate(seq):
+            if pname in self.dead:
+                continue   # 熔断跳过（同一记录内判死即止，不再浪费重试）
             prov = self.providers[pname]
             try:
                 content, meta = prov.chat(SYSTEM_PROMPT, user)
+                self.cost_meter.add(prov.model, meta.get("usage") or {})
                 self.receipt(event="call", provider=pname, model=prov.model, id=rec["id"],
                              attempt=i + 1, status="ok", **meta)
                 try:
@@ -239,6 +275,8 @@ class Runner:
                 errs = validate(out, n_sentences=len(sentences))
                 zc = {"n_zones": len(out.get("zones") or []), "n_sentences": len(sentences)}
                 chain.append({"provider": pname, "ok": True})
+                self.tracker.finish_record(True, i + 1, pname,
+                                           latency_ms=meta.get("latency_ms", 0))
                 return {"id": rec["id"], "provider_used": pname, "attempts": i + 1,
                         "ok": True, "validation_errors": errs, "zone_check": zc,
                         "content_sha": hashlib.sha256(content.encode("utf-8")).hexdigest()[:16],
@@ -248,6 +286,8 @@ class Runner:
                 self.receipt(event="call", provider=pname, model=prov.model, id=rec["id"],
                              attempt=i + 1, status="fail", error=last_err)
                 chain.append({"provider": pname, "ok": False, "error": last_err})
+                self._breaker(pname, last_err)
+        self.tracker.finish_record(False, len(seq), seq[-1] if seq else "", error=last_err or "?")
         return {"id": rec["id"], "ok": False, "error": last_err, "chain": chain}
 
     def close(self) -> None:
@@ -315,7 +355,10 @@ def main() -> None:
 
     run_id = a.run_id or f"s1-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
     run_dir = data_root() / "s1_runs" / run_id
-    runner = Runner(providers, run_dir, ["deepseek", "bailian"])
+    runner = Runner(providers, run_dir, [a.provider] + [p for p in providers if p != a.provider],
+                    total=len(rows),
+                    tracker_meta={"run_id": run_id, "prompt_version": PROMPT_VERSION,
+                                  "input_batch": a.batch})
     manifest = {
         "run_id": run_id, "prompt_version": PROMPT_VERSION,
         "config": cfg_meta, "input_batch": a.batch,
@@ -355,7 +398,19 @@ def main() -> None:
                 print(f"  进度 {i}/{len(todo)}")
 
     runner.receipt(event="run_end", done=len(results))
+    runner.tracker.set_phase("done")
     runner.close()
+    # 运行索引（监控列表用）
+    idx_path = data_root() / "s1_runs" / "index.json"
+    idx = {}
+    if idx_path.exists():
+        try:
+            idx = json.loads(idx_path.read_text(encoding="utf-8"))
+        except Exception:
+            idx = {}
+    idx[run_id] = {"phase": "done", "n": len(results), "ok": len(ok),
+                   "cost": runner.tracker.cost.total(), "updated": datetime.now().isoformat(timespec="seconds")}
+    idx_path.write_text(json.dumps(idx, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
 
     ok = [d for d in results if d.get("ok")]
     zn = sum(d["zone_check"]["n_zones"] for d in ok)
