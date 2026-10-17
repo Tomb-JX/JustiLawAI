@@ -31,6 +31,7 @@ def _legacy_record(**over) -> dict:
                      "现查明：2024年4月18日，张某某同王某某等人以打麻将方式赌博，现场查获赌资3078元。\n"
                      "根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对张某某行政拘留十日。\n",
         "segmented": True,
+        "text_party": "违法行为人张某某，男。",
         "text_facts": "2024年4月18日，张某某同王某某等人以打麻将方式赌博，现场查获赌资3078元。",
         "text_evidence": "", "text_reasoning": "",
         "text_decision": "对张某某行政拘留十日。",
@@ -69,6 +70,7 @@ def test_to_parsed1_passes_contract_check():
     assert rec["province"] == "江苏" and rec["region"] == ""      # region 留给构建补代码
     assert rec["law_version"] == "旧法"
     assert "张某某" in rec["subject_mention"]                     # 供脱敏替换为"甲"
+    assert rec["text_party"] == "违法行为人张某某，男。"
     assert rec["quality"]["completeness"] == {"has_amount": True, "has_outcome": True}
     assert rec["quality"]["gambling"] == "是"
     assert "pkulaw_id" in rec["extra"]["legacy"]                  # 来源字段进 extra
@@ -76,6 +78,20 @@ def test_to_parsed1_passes_contract_check():
     assert rec["extra"]["outcome"]["detention_items"] == [10]
     issues = [i for i in check_parsed(rec) if i.level == "error"]
     assert issues == [], issues
+
+
+def test_to_parsed1_maps_fine_masked():
+    """I-19：打码罚款写正式字段 outcome.fine_masked（兼容旧 masked_amount）。"""
+    legacy = _legacy_record()
+    legacy["outcome"].update({"type": "罚款", "detention_days": 0, "fine": 0, "fine_masked": True})
+    rec, why = ing.to_parsed1(legacy, batch="b", source="法宝执法库")
+    assert why == "" and rec["outcome"]["fine_masked"] is True
+    assert not [i for i in check_parsed(rec) if i.level == "error"]
+
+    legacy["outcome"].pop("fine_masked")
+    legacy["outcome"]["masked_amount"] = True       # 旧格式兼容
+    rec2, _ = ing.to_parsed1(legacy, batch="b", source="法宝执法库")
+    assert rec2["outcome"]["fine_masked"] is True
 
 
 def test_to_parsed1_excludes_out_of_enum():

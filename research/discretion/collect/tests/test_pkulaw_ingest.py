@@ -209,6 +209,10 @@ def test_outcome_variants():
     oc = outcome_from("对张*三不予处罚", "")
     assert oc["type"] == "不予处罚"
 
+    oc = outcome_from("以**罚款**元", "罚款")     # 源文打码：类型可定、数额缺失
+    assert oc["type"] == "罚款" and oc["fine"] == 0 and oc["fine_masked"] is True
+    assert "masked_amount" not in oc
+
     oc = outcome_from("", "", "")               # 抽不出结果 → 给解析告警留口子
     assert oc["type"] == ""
 
@@ -273,6 +277,9 @@ def test_narrative_doc_parsed_as_facts():
     assert rec["source_type"] == "处罚决定书"            # 有事实 → A 类
     assert rec["segmented"] is True
     assert rec["text_facts"] and rec["text_evidence"] and rec["text_decision"]
+    assert rec["text_party"].startswith("违法行为人张某某")
+    assert rec["text_party"].endswith("户籍地某省某县。")
+    assert rec["text_party"] in rec["text_full"]           # 契约要求段是正文连续子串
     assert rec["behavior_date"] == "2024-04-18"          # 事实段首个日期
     assert rec["decision_date"] == "2024-04-19"          # 落款日期
     oc = rec["outcome"]

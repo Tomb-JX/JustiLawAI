@@ -416,11 +416,11 @@ def test_province_and_region_direct_admin():
 def test_outcome_from_masked_fine():
     import pkulaw_ingest as ingest
     masked = ingest.outcome_from("对张**以**罚款**元。收缴物品：麻将**副。", "罚款、没收违法所得")
-    assert masked["type"] == "罚款" and masked["masked_amount"] is True and masked["fine"] == 0
+    assert masked["type"] == "罚款" and masked["fine_masked"] is True and masked["fine"] == 0
     normal = ingest.outcome_from("对王某某处罚款伍佰元", "")
-    assert normal["type"] == "罚款" and normal["masked_amount"] is False and normal["fine"] == 500
+    assert normal["type"] == "罚款" and normal["fine_masked"] is False and normal["fine"] == 500
     nopen = ingest.outcome_from("决定对李某某不予处罚", "")
-    assert nopen["type"] == "不予处罚" and nopen["masked_amount"] is False
+    assert nopen["type"] == "不予处罚" and nopen["fine_masked"] is False
 
 
 def test_r6_placeholder_mask_excluded():

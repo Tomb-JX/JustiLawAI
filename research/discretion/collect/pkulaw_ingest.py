@@ -155,24 +155,24 @@ def merge_jsonl(path: Path, new_records: list[dict]) -> tuple[list[dict], int]:
 
 # ---------- parsed-1：统一中间格式（L1）——契约见 justilaw-api/app/discretion/records.py ----------
 
-PARSER_ID = "collect/pkulaw_ingest.py@0.2"
+PARSER_ID = "collect/pkulaw_ingest.py@0.3"
 SOURCE_OF_LIB = {"apy": "法宝执法库", "pfnl": "法宝案例库"}
 CONTRACT_TOP_FIELDS = (
     "record_version", "id", "source", "batch", "parser", "source_type", "source_ref", "doc_no",
     "doc_no_hash", "harvest_date", "deidentified", "behavior_date", "decision_date", "authority",
     "region", "province", "law_version", "subject_mention", "event_key", "text_full", "segmented",
-    "segments", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review",
+    "segments", "text_party", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review",
     "outcome", "review", "quality", "extra",
 )
 CONTRACT_SOURCE_TYPES = ("处罚决定书", "不予处罚决定书", "行政复议决定书", "行政判决书", "执法公示", "合作案卷")
 CONTRACT_OUTCOME_TYPES = ("不予处罚", "不构成违法", "警告", "罚款", "拘留", "拘留并处罚款", "移送刑事")
 CONTRACT_REVIEW_RESULTS = ("维持", "变更", "撤销", "确认违法", "程序驳回", "无")
 CONTRACT_LAW_VERSIONS = ("旧法", "新法", "未知")
-CONTRACT_OUTCOME_FIELDS = ("type", "detention_days", "fine", "detention_not_executed",
+CONTRACT_OUTCOME_FIELDS = ("type", "detention_days", "fine", "fine_masked", "detention_not_executed",
                            "confiscation", "articles", "stated_circumstances", "law_version")
 # 与 records.py 的 CONCLUSION_WORDS 保持同步（事实段出现即视为混进结论）
 CONCLUSION_WORDS = ("决定给予", "现决定", "情节严重", "从轻处罚", "减轻处罚", "从重处罚")
-SEGMENT_KEYS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
+SEGMENT_KEYS = ("text_party", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
 
 
 def doc_no_norm(doc_no: str) -> str:
@@ -326,6 +326,7 @@ def to_parsed1(rec: dict, *, batch: str, source: str) -> tuple[dict | None, str]
         "type": oc_type,
         "detention_days": int(oc.get("detention_days") or 0),
         "fine": float(oc.get("fine") or 0),
+        "fine_masked": bool(oc.get("fine_masked") or oc.get("masked_amount")),
         "detention_not_executed": oc.get("detention_not_executed") or "否",
         "confiscation": oc.get("confiscation") or "",
         "articles": list(oc.get("articles") or []),
@@ -1349,7 +1350,7 @@ def outcome_from(result_text: str, penalty_kinds: str, fine_note: str = "") -> d
         "detention_days": days,
         "detention_items": det,
         "fine": fine,
-        "masked_amount": masked_amount,
+        "fine_masked": masked_amount,
         "detention_not_executed": "是" if re.search(r"不执行(?:行政)?拘留|不送(?:达)?拘留所|依法不执行", r) else "否",
         "confiscation": confiscation,
         "articles": [],
@@ -1367,6 +1368,27 @@ def has_amount(facts: str) -> bool:
     f = facts or ""
     return bool(re.search(rf"(赌资|赌注|输赢|抽头|抽水|筹码|充值|台费|彩金|获利|好处费|底注|封顶)[^。]{{0,25}}?({NUM})", f)
                 or re.search(rf"({NUM})元", f))
+
+
+PARTY_MARKERS = ("被处罚人", "违法行为人", "违法嫌疑人", "被处罚对象")
+
+
+def extract_party(body: str) -> str:
+    """'现查明'之前的本人身份段（称谓、年龄、住址、违法经历），必须是正文连续子串。
+
+    取最后一个称谓标记到事实段之间的文字；找不到标记或跨度过长时留空（契约中该段可选）。
+    """
+    idx = (body or "").find("现查明")
+    if idx < 0:
+        return ""
+    window = body[max(0, idx - 800):idx]
+    pos = max((window.rfind(m) for m in PARTY_MARKERS), default=-1)
+    if pos < 0:
+        return ""
+    seg = window[pos:].strip()
+    if not seg or len(seg) > 400 or "现查明" in seg:
+        return ""
+    return seg
 
 
 def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
@@ -1428,6 +1450,7 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
         "region": parsed["region_text"],
         "text_full": parsed["body"],
         "segmented": bool(facts),
+        "text_party": extract_party(parsed["body"]),
         "text_facts": facts,
         "text_evidence": parsed.get("evidence", ""),
         "text_reasoning": parsed.get("reasoning", ""),
