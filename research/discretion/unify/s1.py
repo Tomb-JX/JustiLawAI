@@ -245,12 +245,18 @@ class Runner:
         texts = [cleaned[a:b] for a, b in sentences]
         user = build_user_prompt(rec["form"], rec["source_type"], texts)
         chain, last_err = [], None
-        self.tracker.begin_record()
+        try:
+            self.tracker.begin_record()
+        except Exception:
+            pass   # 心跳失败不影响主管线
         # 尝试序列：主×2 → 备×1（判死的提供商跳过）
         seq = [p for p in ([primary, primary] + [q for q in self.order if q != primary][:1])
                if p not in self.dead]
         if not seq:
-            self.tracker.finish_record(False, 0, "", error="all_providers_dead", latency_ms=0)
+            try:
+                self.tracker.finish_record(False, 0, "", error="all_providers_dead", latency_ms=0)
+            except Exception:
+                pass
             return {"id": rec["id"], "ok": False, "error": "all_providers_dead（熔断：全部提供商判死）",
                     "chain": []}
         for i, pname in enumerate(seq):
@@ -273,8 +279,11 @@ class Runner:
                 errs = validate(out, n_sentences=len(sentences))
                 zc = {"n_zones": len(out.get("zones") or []), "n_sentences": len(sentences)}
                 chain.append({"provider": pname, "ok": True})
-                self.tracker.finish_record(True, i + 1, pname,
-                                           latency_ms=meta.get("latency_ms", 0))
+                try:
+                    self.tracker.finish_record(True, i + 1, pname,
+                                               latency_ms=meta.get("latency_ms", 0))
+                except Exception:
+                    pass
                 return {"id": rec["id"], "provider_used": pname, "attempts": i + 1,
                         "ok": True, "validation_errors": errs, "zone_check": zc,
                         "content_sha": hashlib.sha256(content.encode("utf-8")).hexdigest()[:16],
@@ -285,7 +294,10 @@ class Runner:
                              attempt=i + 1, status="fail", error=last_err)
                 chain.append({"provider": pname, "ok": False, "error": last_err})
                 self._breaker(pname, last_err)
-        self.tracker.finish_record(False, len(seq), seq[-1] if seq else "", error=last_err or "?")
+        try:
+            self.tracker.finish_record(False, len(seq), seq[-1] if seq else "", error=last_err or "?")
+        except Exception:
+            pass
         return {"id": rec["id"], "ok": False, "error": last_err, "chain": chain}
 
     def close(self) -> None:
@@ -397,7 +409,10 @@ def main() -> None:
                 print(f"  进度 {i}/{len(todo)}")
 
     runner.receipt(event="run_end", done=len(results))
-    runner.tracker.set_phase("done")
+    try:
+        runner.tracker.set_phase("done")
+    except Exception:
+        pass
     runner.close()
     # 运行索引（监控列表用）
     idx_path = data_root() / "s1_runs" / "index.json"

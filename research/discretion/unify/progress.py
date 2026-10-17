@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -156,10 +157,25 @@ class ProgressTracker:
         }
 
     def _write(self) -> None:
+        """原子写；Windows 上目标被瞬时占用（读者/杀毒/索引器）时重试，仍失败降级为
+        直接覆盖——心跳是次要组件，任何写失败都不得传播到主管线。"""
+        payload = json.dumps(self._snapshot(), ensure_ascii=False, indent=1)
         tmp = self.path.with_suffix(".tmp")
-        tmp.write_text(json.dumps(self._snapshot(), ensure_ascii=False, indent=1),
-                       encoding="utf-8", newline="\n")
-        os.replace(tmp, self.path)   # 原子替换：读者不会读到半截 JSON
+        for _ in range(5):
+            try:
+                tmp.write_text(payload, encoding="utf-8", newline="\n")
+                os.replace(tmp, self.path)
+                return
+            except PermissionError:
+                time.sleep(0.2)
+            except OSError:
+                break
+        try:   # 降级：直接覆盖（放弃原子性，保住"不崩溃"）
+            self.path.write_text(payload, encoding="utf-8", newline="\n")
+            if tmp.exists():
+                os.remove(tmp)
+        except OSError:
+            pass   # 心跳丢失可容忍（下一条完成时重写）
 
 
 def load_prices(path: Path) -> dict:
