@@ -10,6 +10,7 @@ seg-v2 下引文消歧随引文接口移除（分区坐标来自句表，无需�
 from __future__ import annotations
 
 import argparse
+import csv
 import json
 import sys
 from collections import Counter
@@ -60,6 +61,15 @@ def main() -> None:
     with open(s3_dir / "findings.jsonl", "w", encoding="utf-8", newline="\n") as f:
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
+
+    # 低置信队列（design §9 失败处置落点）：error 件出 CSV 供审阅/重试排程
+    with open(s3_dir / "queue.csv", "w", encoding="utf-8-sig", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["id", "form", "errors"])
+        for r in results:
+            if r["status"] == "error":
+                errs = "; ".join(x["detail"][:60] for x in r["findings"] if x["severity"] == "error")
+                w.writerow([r["id"], r["form"], errs])
 
     by_check: Counter = Counter()
     status_c: Counter = Counter()

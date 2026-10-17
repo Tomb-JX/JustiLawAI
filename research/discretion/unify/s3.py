@@ -168,6 +168,17 @@ def check_outcome_consistency(ctx):
         "移送刑事": True,
     }
     if t in rules and not rules[t]:
+        # 遮蔽金额豁免：正文含"＊＊元"类遮蔽且未填 fine_masked——warn 不 error（值不可知非矛盾）
+        cleaned = ctx["record"].get("cleaned_text") or ""
+        if t in ("罚款", "拘留并处罚款") and (oc.get("fine") or 0) == 0 \
+                and re.search(r"[＊*xX×]{2,}\s*元", cleaned):
+            return [_mk("outcome_consistency", "warn",
+                        f"type={t} 金额被发布方遮蔽（应标 fine_masked）：与 fine=0 不算矛盾")]
+        # 幅度句豁免："7.6万元以上10万元以下"无单值可填——模型填 0 是正确保守，warn 提示标注幅度
+        if t in ("罚款", "拘留并处罚款") and (oc.get("fine") or 0) == 0 \
+                and re.search(r"万元以上[^。]{0,12}以下|[0-9.万]{1,8}元以上", cleaned):
+            return [_mk("outcome_consistency", "warn",
+                        f"type={t} 正文为罚款幅度（无单值），fine=0 待幅度标注")]
         return [_mk("outcome_consistency", "error", f"type={t} 与 detention_days={d}/fine={f} 不匹配")]
     return []
 

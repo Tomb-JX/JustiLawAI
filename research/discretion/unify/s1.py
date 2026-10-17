@@ -92,9 +92,16 @@ SYSTEM_PROMPT = """你是行政处罚文书的结构化抽取器。输入是清�
  "confidence":"high|low"}"""
 
 
-def build_user_prompt(form: str, source_type: str, sentences: list[str]) -> str:
+def build_user_prompt(form: str, source_type: str, sentences: list[str],
+                      subject_mention: str = "") -> str:
     lines = [f"[S{i}] {t}" for i, t in enumerate(sentences, 1)]
-    return f"[form] {form} | [source_type] {source_type} | 共 {len(sentences)} 句\n句表：\n" + "\n".join(lines)
+    head = f"[form] {form} | [source_type] {source_type} | 共 {len(sentences)} 句"
+    if subject_mention:
+        # 目标参数（与 M1 extract(target=…) 同构）：多人并载页唯一定位本人的依据；
+        # 不违信封隔离——隔离防的是抄机关/日期，target 是抽取的必要输入不是答案
+        head += (f"\n[本人] 本案当事人：{subject_mention}；"
+                 "outcome 各值只填本人的处罚，非本人的金额/天数不合并计入；subject.mention 用本人在正文的写法")
+    return head + "\n句表：\n" + "\n".join(lines)
 
 
 # ---------- 提供商客户端 ----------
@@ -259,7 +266,8 @@ class Runner:
         sentences = sentence_table(cleaned)
         texts = [cleaned[a:b] for a, b in sentences]
         zones_det = rec.get("zones_det")
-        user = build_user_prompt(rec["form"], rec["source_type"], texts)
+        user = build_user_prompt(rec["form"], rec["source_type"], texts,
+                                 subject_mention=rec.get("subject_mention") or "")
         if zones_det:
             user += "\n\n[分区] 本件分区已由模板规则确定（facts/decision 等区间以句号给定），输出中无需臆测分区。"
         chain, last_err = [], None
