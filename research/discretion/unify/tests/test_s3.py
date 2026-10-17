@@ -171,14 +171,22 @@ def test_fq_empty_error():
 # ---------- 全注册表冒烟（v2 区间语义） ----------
 
 def test_run_checks_smoke():
-    cleaned = "经查，张某某在某棋牌室赌博。以上事实有询问笔录证实。本机关认为其行为已构成赌博。决定给予行政拘留五日。"
-    sentences = [[0, 13], [13, 27], [27, 45], [45, 57]]
+    from cleanse import sentence_table
+    from locate import OffsetIndex
+    cleaned = ("经查，张某某在某棋牌室赌博。以上事实有询问笔录证实。本机关认为其行为已构成赌博。"
+               "根据治安管理处罚法第七十条之规定，决定给予行政拘留五日，罚款一千五百元。")
+    sentences = sentence_table(cleaned)
+    index = OffsetIndex({"orig_len": len(cleaned), "deletes": [], "subs": []})
     zones = [{"type": "facts", "from": 1, "to": 1},
              {"type": "evidence", "from": 2, "to": 2},
              {"type": "reasoning", "from": 3, "to": 3},
              {"type": "decision", "from": 4, "to": 4}]
-    spans = {"facts": [(0, 13, 0, 13)], "evidence": [(13, 27, 13, 27)],
-             "reasoning": [(27, 45, 27, 45)], "decision": [(45, 57, 45, 57)]}
+    spans = {}
+    for z in zones:
+        cs = sentences[z["from"] - 1][0]
+        ce = sentences[z["to"] - 1][1]
+        a, b = index.span(cs, ce)
+        spans.setdefault(z["type"], []).append((cs, ce, a, b))
     out = {"zones": zones,
            "subject": {"mention": "张某某", "aliases": []},
            "outcome": {"type": "拘留并处罚款", "detention_days": 10, "fine": 1500,
@@ -195,3 +203,43 @@ def test_run_checks_smoke():
     findings = run_checks(ctx)
     errors = [f for f in findings if f.severity == "error"]
     assert not errors, [f.detail for f in errors]
+
+
+# ---------- 值-文对账（仔细校验层） ----------
+
+def test_value_grounded_fine_hallucination():
+    from s3 import check_value_grounded
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 9999,
+                        "fine_masked": False, "articles": []},
+               rec={"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
+                    "form": "叙述式-独立成篇", "cleaned_text": "张某某在某棋牌室赌博。"})
+    f = check_value_grounded(ctx)
+    assert any(x.severity == "error" and "9999" in x.detail for x in f)
+
+
+def test_value_grounded_fine_variants():
+    # 正文写中文数字，模型出阿拉伯——变体匹配应有据
+    from s3 import check_value_grounded
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 500,
+                        "fine_masked": False, "articles": []},
+               rec={"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
+                    "form": "叙述式-独立成篇", "cleaned_text": "决定罚款五百元。"})
+    assert not [x for x in check_value_grounded(ctx) if x.check == "value_grounded"]
+
+
+def test_value_grounded_fine_masked_skipped():
+    from s3 import check_value_grounded
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 0,
+                        "fine_masked": True, "articles": []},
+               rec={"prefilter": {"gambling": "是"}, "source_type": "执法公示",
+                    "form": "字段表公示", "cleaned_text": "决定罚款＊＊＊＊元。"})
+    assert not [x for x in check_value_grounded(ctx) if x.check == "value_grounded"]
+
+
+def test_cn_read():
+    from s3 import _CN_READ
+    assert _CN_READ(3000) == "三千"
+    assert _CN_READ(305) == "三百零五"
+    assert _CN_READ(15) == "十五"
+    assert _CN_READ(10) == "十"
+    assert _CN_READ(500) == "五百"

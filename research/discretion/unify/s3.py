@@ -30,6 +30,7 @@ from locate import OffsetIndex  # noqa: E402
 from parse import CONCLUSION_MARK  # noqa: E402
 from parse_qc import CONCL_ANY, EVID_PAT, GENJV  # noqa: E402  与交付 QC 同源（指令 §3 迁移，单一注册表）
 from zoning import is_public_form  # noqa: E402
+from parse import cn2int  # noqa: E402  中文数字互转（值-文对账用）
 
 # 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
 # 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
@@ -305,6 +306,105 @@ def check_gambling_cross(ctx):
     return []
 
 
+# ---------- 值-文对账（仔细校验层：v2 接口补回 v1 引文锚定的值级 grounding） ----------
+
+_CN_DIG = {"零": 0, "一": 1, "壹": 1, "二": 2, "贰": 2, "两": 2, "三": 3, "叁": 3, "四": 4, "肆": 4,
+           "五": 5, "伍": 5, "六": 6, "陆": 6, "七": 7, "柒": 7, "八": 8, "捌": 8, "九": 9, "玖": 9}
+
+
+def _CN_READ(v: int) -> str:
+    """整数 → 中文小写读法（0-9999 覆盖罚款/拘留表述）。"""
+    if v < 0 or v > 9999:
+        return ""
+    CN = {0: "零", 1: "一", 2: "二", 3: "三", 4: "四", 5: "五", 6: "六", 7: "七", 8: "八", 9: "九"}
+    U = ["", "十", "百", "千"]
+    s = str(v)
+    parts = []
+    n = len(s)
+    zero_pending = False
+    for i, ch in enumerate(s):
+        d = int(ch)
+        u = U[n - 1 - i]
+        if d == 0:
+            if parts:
+                zero_pending = True
+            continue
+        if zero_pending:
+            parts.append("零")
+            zero_pending = False
+        if d == 1 and u == "十" and not parts:
+            parts.append("十")
+        else:
+            parts.append(CN[d] + u)
+    return "".join(parts) or "零"
+
+
+def _text_variants(v: int) -> list[str]:
+    """拘留天数/金额的文本匹配变体：阿拉伯、千分位、中文读法。"""
+    out = [str(v), f"{v:,}", _CN_READ(v)]
+    return [x for x in out if x]
+
+
+def check_value_grounded(ctx):
+    """值-文对账（仔细校验核心件）：模型字段值必须能在正文/对应区间文本中找到，
+    否则视为幻觉值。覆盖：fine（error）、detention_days（warn）、dates（warn）、
+    articles（error，逐字条号）、subject aliases（warn）。fine_masked 件跳过金额对账。"""
+    out = ctx["output"]
+    cleaned = ctx["record"].get("cleaned_text") or ""
+    spans = ctx["spans"]
+    findings = []
+
+    def zone_join(types: list[str]) -> str:
+        return "".join(cleaned[cs:ce] for typ in types for cs, ce, *_ in (spans.get(typ) or []))
+
+    decision_text = zone_join(["decision", "facts"])          # 罚/拘常写在决定段，事实段含赌资数额
+    oc = out.get("outcome") or {}
+    fine = oc.get("fine") or 0
+    det = oc.get("detention_days") or 0
+    fm = bool(oc.get("fine_masked"))
+    if fine and not fm:
+        fvars = _text_variants(int(fine))
+        if not any(v in decision_text or v in cleaned for v in fvars):
+            findings.append(_mk("value_grounded", "error", f"罚款 {fine} 元在正文中找不到（疑幻觉数额）"))
+    if det:
+        dvars = [x + "日" for x in _text_variants(int(det))] + _text_variants(int(det))
+        if not any(v in decision_text or v in cleaned for v in dvars):
+            findings.append(_mk("value_grounded", "warn", f"拘留 {det} 日的表述未在正文找到（复核）"))
+    # 日期：模型值（YYYY-MM-DD/MM）→ 年月日/年月 两种原文形态
+    dates = out.get("dates") or {}
+    for k in ("behavior", "decision"):
+        dv = dates.get(k)
+        if isinstance(dv, str) and len(dv) >= 7:
+            y, m = dv[:4], int(dv[5:7])
+            dday = int(dv[8:10]) if len(dv) >= 10 and dv[8:10].isdigit() else None
+            cands = [f"{y}年{m}月"]
+            if dday:
+                cands.append(f"{y}年{m}月{dday}日")
+                cands.append(f"{y}-{m:02d}-{dday:02d}")
+                cands.append(f"{y}.{m}.{dday}")
+            if not any(c in cleaned for c in cands):
+                # 宽口径：年月任一出现即算有据（公示常见"2026年1月17日"全角点等由 S0 归一）
+                if not (f"{y}年" in cleaned and f"{m}月" in cleaned):
+                    findings.append(_mk("value_grounded", "warn", f"dates.{k}={dv} 在正文中未找到对应年月"))
+    # articles：条号原文写法（去版本注解）须出现在 decision/reasoning 区间
+    art_zone = zone_join(["decision", "reasoning", "facts"])
+    art_no = re.compile(r"第[一二三四五六七八九十百零\d]+条(?:第[一二三四五六七八九十\d]+款)?(?:第?[（(]?[一二三四五六七八九十\d]+[)）]?项)?")
+    for a in (oc.get("articles") or []):
+        t = (a.get("text") or "")
+        # 条号提取：法条原文常被书名号/机关名分隔，整串匹配会误报——提取"第X条"式条号部分核对
+        nos = art_no.findall(t.replace("中华人民共和国", "").replace("治安管理处罚法", ""))
+        for no in (nos or [t]):
+            if len(no) >= 3 and no not in art_zone and no not in cleaned:
+                findings.append(_mk("value_grounded", "error", f"法条条号未命中：{no}（edition={a.get('edition')}）"))
+                break
+    # subject 三档中的 error 档已由 check_subject 承担；此处补 aliases 的存在性（warn）
+    subj = out.get("subject") or {}
+    for al in (subj.get("aliases") or [])[:5]:
+        if isinstance(al, str) and al.strip() and al not in cleaned:
+            findings.append(_mk("value_grounded", "warn", f"alias 未在正文找到：{al[:10]}"))
+    return findings
+
+
 CHECKS = [
     ("zones_tiling", check_zones_tiling),
     ("schema", check_schema),
@@ -312,6 +412,7 @@ CHECKS = [
     ("outcome_consistency", check_outcome_consistency),
     ("penalty_caps", check_penalty_caps),
     ("article_edition", check_article_edition),
+    ("value_grounded", check_value_grounded),
     ("facts_quality", check_facts_quality),
     ("dates_order", check_dates),
     ("subject", check_subject),
