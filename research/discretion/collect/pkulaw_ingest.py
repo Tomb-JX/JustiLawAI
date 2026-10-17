@@ -1380,19 +1380,27 @@ PARTY_MARKERS = ("被处罚人", "违法行为人", "违法嫌疑人", "被处�
 def extract_party(body: str) -> str:
     """'现查明'之前的本人身份段（称谓、年龄、住址、违法经历），必须是正文连续子串。
 
-    取最后一个称谓标记到事实段之间的文字；找不到标记或跨度过长时留空（契约中该段可选）。
+    优先取最后一个称谓标记到事实段之间的文字；部分法宝详情页把姓名直接放在
+    文号与"现查明"之间、没有称谓标签，此时退回最后一个非元数据短行。
     """
     idx = (body or "").find("现查明")
     if idx < 0:
         return ""
     window = body[max(0, idx - 800):idx]
     pos = max((window.rfind(m) for m in PARTY_MARKERS), default=-1)
-    if pos < 0:
-        return ""
-    seg = window[pos:].strip()
-    if not seg or len(seg) > 400 or "现查明" in seg:
-        return ""
-    return seg
+    if pos >= 0:
+        seg = window[pos:].strip()
+        if seg and len(seg) <= 400 and "现查明" not in seg:
+            return seg
+    meta = re.compile(
+        r"行政处罚决定书|行罚决字|〔\d{4}〕|\[\d{4}\]|\d{4}年\d{1,2}月"
+        r"|第[一二三四五六七八九十百零\d]+条|公安局|派出所|人民政府|法宝|原文链接")
+    for line in reversed([x.strip() for x in window.splitlines() if x.strip()]):
+        if line in PARTY_MARKERS or meta.search(line):
+            continue
+        if 2 <= len(line) <= 120:
+            return line
+    return ""
 
 
 def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",

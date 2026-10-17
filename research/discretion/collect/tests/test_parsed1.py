@@ -102,6 +102,13 @@ def test_to_parsed1_derives_party_when_missing():
     assert why == "" and rec["text_party"] == "违法行为人张某某，男。"
 
 
+def test_extract_party_without_marker():
+    """法宝详情页常见：姓名行直接放在文号后，没有'被处罚人'标签。"""
+    body = ("某县公安局行政处罚决定书\n某公（天）行罚决字〔2024〕0325号\n"
+            "张某某。\n现查明：2024年4月18日，张某某赌博。\n")
+    assert ing.extract_party(body) == "张某某。"
+
+
 def test_to_parsed1_direct_admin_region_level():
     """省直管县级市：parsed-1 直接给区划码与层级，构建层不再判无区划。"""
     rec, why = ing.to_parsed1(_legacy_record(authority="仙桃市公安局", region="仙桃市"),
