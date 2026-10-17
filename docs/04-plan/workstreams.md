@@ -42,6 +42,7 @@ Zcode 的网页前端设计会话继续负责平台前端；它不是网页案�
 | 写入方 | 仓库内范围 | 外置数据范围 |
 |---|---|---|
 | 网页 | `research/discretion/discover/**`、`research/discretion/harvest/**`、网页发现／处理设计文档 | 网页源台账与 `parsed/web/**`；共用 `delivery/<版本>/**` 唯一发布者 |
+| 数据湖基建（任务制，2026-10-18 设） | `research/discretion/lake/**`、`docs/02-design/data-lake-design-*.md` | `lake/**`（landing/blobs/catalog/curated/ops）；现由法宝线会话实现（设计者＋首个双写批次），引擎 M4/网页 M2 在各自接入点消费；单写者原则：catalog 事务＋批次级锁 |
 | 法宝 | `research/discretion/collect/**`、法宝采集／解析设计文档 | `inbox/pkulaw/**`、`raw/pkulaw/**`、`ingest/<法宝批次>/**`、`parsed/pkulaw/**`；现有原件只追加和核对，不覆盖 |
 | 金标 | 标注指南建议、质检报告、标注任务与版本台账；需要修改 `harvest/sample_pilot.py` 时提出变更要求，由网页负责人落地 | `qa/**`、`labels/**`；不得修改 L0–L3 正本 |
 | 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`docs/05-research/**` | `engine/acceptance/**`、封存治理产物；读取 L0–L3，不改来源批次 |
