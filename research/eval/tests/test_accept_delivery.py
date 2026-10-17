@@ -35,10 +35,12 @@ def test_clean_delivery_passes(tmp_path):
     write_delivery(src, records(3), records(1, start=10))
     rep = A.accept(src, out_root=tmp_path / "out")
     assert rep["verdict"] == "通过" and rep["accepted_main"] == 3
+    assert rep["annotation_ready"] is False
+    assert "parsed-2" in rep["annotation_readiness_gate"]
     assert not (src / "r6_report.json").exists()
     assert (Path(rep["out_dir"]) / "acceptance.md").exists()
-    gaps = rep["gate_stats_on_accepted"]["gaps"]
-    assert any("金标目标" in g for g in gaps)
+    report_text = (Path(rep["out_dir"]) / "acceptance.md").read_text("utf-8")
+    assert "标注可用性：否" in report_text and "主文件格式通过 3 条" in report_text
     A.accept(src, out_root=tmp_path / "out")      # 重验同一交付：索引只追加
     rows = (tmp_path / "out" / "INDEX.csv").read_text("utf-8").splitlines()
     assert rows[0].startswith("checked_at,delivery_version") and len(rows) == 3

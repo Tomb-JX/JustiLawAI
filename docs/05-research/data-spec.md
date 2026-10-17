@@ -1,6 +1,6 @@
 # 行政案例数据交付规格（数据链路 → 引擎）
 
-> 版本 v0.5 · 2026-10-17 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
+> 版本 v0.5.1 · 2026-10-17 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
 > 配套：[项目现状总览](../04-plan/project-status.md)（数据分层 §4）· [数据收集计划](../04-plan/data-collection.md) · [文本处理规范](../04-plan/text-processing-spec.md)（数据链路的实现规则）· [标注指南](./annotation-guideline.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
 > v0.5 按用户批准的[规范修订案](../04-plan/normative-revision-deid-cancel-2026-10-17.md)改为原文正本；解析层统一中间格式（§6）与自动验收（§4）保留，字段总表（§7）由 `justilaw-api/app/discretion/records.py` 生成，**以代码为准**。
 
@@ -120,7 +120,7 @@
 
 ## 3. 交付格式
 
-- 金标候选：`$JUSTILAW_DATA_DIR/admin/admin_cases.schema-1.0.0.jsonl`；结果条目：同目录 `admin_outcomes_only.jsonl`。每件一行（注意每行末尾要换行），字段如 §1。
+- 交付主文件（历史 L1 分流，r6 不作标注底料）：`$JUSTILAW_DATA_DIR/delivery/<版本>/admin_cases.schema-1.0.0.jsonl`；结果条目：同目录 `admin_outcomes_only.jsonl`。每件一行（注意每行末尾要换行），字段如 §1。
 - 同目录附 `SHA256SUMS`。
 - 内部质量信息放进 `quality` 对象：`ocr`、`completeness`、`parse_warnings`、`ambiguous_persons`、`age_uncertain`、`facts_contains_conclusion`。
 - 每行示例：
@@ -143,11 +143,13 @@
 
 **外发条款**：对外发布、论文附录或第三方共享前，须另行运行[文本处理规范](../04-plan/text-processing-spec.md) §4.2–§4.3 的衍生遮蔽与扫描，并经专项评审。内部验收器不承担外发检查。
 
+**r6 用途边界**：r6 仅是交付格式关口和原文冻结参考。其分段来自旧 `parse.py` 正则，字段来自旧规则抽取，没有模型语义字段，**不可用于标注**。新链路以 `unified_raw` 为原料，经 S1/S2/S3 形成 `parsed-2`；标注可用性挂在 `parsed-2` 的 G2.2 质量证据包。
+
 ## 4. 引擎侧的验收（自动执行）
 
 **工具**：`research/.venv/Scripts/python research/eval/accept_delivery.py [交付目录]`。报告写到 `$JUSTILAW_DATA_DIR/engine/acceptance/<管线版本>-<主文件哈希前 8 位>/`，包括 `acceptance.json`、一页摘要 `acceptance.md`、退回清单 `rejected.csv`。引擎对交付目录只读，所以报告**不**写进 `delivery/<版本>/`。要查某个交付版本对应哪份报告，看 `engine/acceptance/INDEX.csv`：每验收一次追加一行，记录交付版本、主文件哈希、报告目录、结论和时间。
 
-**自动验收通过只说明交付契约满足。** 它不证明事实抽取准确，也不构成对外发布批准；`LATEST` 指针只表示"最新"，不表示"已验收"。
+**自动验收通过只说明交付格式与原文正本自洽。** 对 r6 尤其不代表标注可用；它不证明分段和字段准确，也不构成对外发布批准。`LATEST` 指针只表示"最新"，不表示"已验收"。
 
 **逐条检查**（`records.check_delivery`，每条记录的全部问题一次列出）：
 - 字段、类型、取值符合 §7 总表；渠道内部标记（页面编号、站点、来源网址等）不进入交付；
@@ -166,7 +168,7 @@
 
 **结论**：
 - **通过**：没有 error；
-- **部分通过**：只有记录级 error，这些记录退回，其余进入标注；
+- **部分通过**：只有记录级 error，这些记录退回，其余仅在格式层通过；
 - **不通过**：有批次级 error，整批退回。
 
 门禁差距单独列出，不影响结论，包括信息完整度、新法件数、各档件数、不予处罚件数等。
@@ -181,6 +183,8 @@
 - 信息完整度 40%；
 - 2026 年后的行为只有 7 件；
 - 不予处罚只有 2 件。
+
+以上旧验收中的“可进入标注”为当时的历史表述，**不适用于 r6**。r6 的验收结论只针对格式；`accept-0.2.1` 起在报告中显式标 `annotation_ready=false`。
 
 ## 5. 决策记录（文本处理规范 §5）
 
@@ -211,7 +215,7 @@
 | 本人 | `subject_mention`：本人在正文中的原写法 | 原写法保留，供本人定位 |
 | 分段 | 各段须是正文的连续子串，不要求起止位置 | 必须有 `segments` 起止位置和 `text_sha256` |
 | 事件 | `event_key` 指纹（可选） | `event_id`、`linked_ids`（构建生成） |
-| 分级 | `quality.tier`：L1 金标候选 / L2 只有结果 / L3 范围外 / L4 待核 | 只收 L1（主文件）与 L2（只有结果的文件） |
+| 分级 | `quality.tier`：parsed-1 历史 L1 有事实与结果 / L2 只有结果 / L3 范围外 / L4 待核 | r6 只收 L1（主文件）与 L2（只有结果的文件），不代表标注可用 |
 | 来源专有字段 | 一律放进 `extra`（页面编号、站点、法宝引证码等） | 不得出现 |
 | 缺失值 | `null` 或空字符串都可以；枚举字段的"未知"要写"未知" | 同左 |
 
@@ -281,7 +285,7 @@
 | `outcome.law_version` | enum | 可选 | 可选 | 可 | 旧法、新法、未知 | 若给出须与顶层 law_version 一致 |
 | `review.result` | enum | 必填 | 必填 | 否 | 维持、变更、撤销、确认违法、程序驳回、无 | 诉讼'判决驳回诉讼请求'记'维持'；复议驳回申请、裁定驳回起诉记'程序驳回' |
 | `review.changed_outcome` | dict | 可选 | 可选 | 可 |  |  |
-| `quality.tier` | str | 必填 | 可选 | 否 |  | L1 金标候选 / L2 只有结果 / L3 范围外 / L4 待核（允许'L1-金标候选'写法） |
+| `quality.tier` | str | 必填 | 可选 | 否 |  | parsed-1 历史分级：L1 有事实与结果 / L2 只有结果 / L3 范围外 / L4 待核；不表示标注可用 |
 | `quality.in_scope` | bool | 必填 | 可选 | 否 |  |  |
 | `quality.completeness` | dict | 必填 | 必填 | 否 |  | {has_amount, has_outcome} |
 | `quality.parse_warnings` | list | 必填 | 必填 | 否 |  |  |
@@ -296,6 +300,7 @@
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-17 | v0.5.1 | 更正 r6 用途：格式关口和原文冻结参考，不可用于标注；标注可用性由 parsed-2 G2.2 质量证据包决定 | 模型组（引擎） |
 | 2026-10-17 | v0.5 | 按 D-003 改原文正本；删除主管线脱敏与 R6 字段及验收项，`subject_mention` 定位本人，原文文号可保留；新增外发条款；字段总表同步 `records.py` | 模型组（引擎） |
 | 2026-10-15 | v0.1 | 初版：基于 CAIL 探针教训，规定来源、时间地点、原文分段、处罚结果标签、事实要素、整体构成与交付格式 | 模型组 |
 | 2026-10-17 | v0.4 | §1.3 新增当事人段 `text_party`（I-02，两层都可选，旧交付不受影响）；§1.4 新增 `outcome.fine_masked`，复核法宝线提出的源文打码豁免，并改为正式字段，因为交付层没有 `extra`；§4 增加验收索引 `INDEX.csv`，并写明"自动验收通过"不等于"内容安全放行" | 模型组（引擎） |

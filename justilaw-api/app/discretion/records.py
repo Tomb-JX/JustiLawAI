@@ -106,7 +106,7 @@ REVIEW_FIELDS: tuple[F, ...] = (
     F("changed_outcome", "dict", "可选", "可选"),
 )
 QUALITY_FIELDS: tuple[F, ...] = (
-    F("tier", "str", "必填", "可选", False, desc="L1 金标候选 / L2 只有结果 / L3 范围外 / L4 待核（允许'L1-金标候选'写法）"),
+    F("tier", "str", "必填", "可选", False, desc="parsed-1 历史分级：L1 有事实与结果 / L2 只有结果 / L3 范围外 / L4 待核；不表示标注可用"),
     F("in_scope", "bool", "必填", "可选", False),
     F("completeness", "dict", "必填", "必填", False, desc="{has_amount, has_outcome}"),
     F("parse_warnings", "list", "必填", "必填", False),

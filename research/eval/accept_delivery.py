@@ -7,9 +7,10 @@
 
 结论分三档：
   通过     —— 没有 error；
-  部分通过 —— 只有记录级 error：这些记录退回，其余可进入标注；
+  部分通过 —— 只有记录级 error：这些记录退回，其余格式通过；
   不通过   —— 有批次级 error（文件哈希不符、编号重复等），整批退回。
-门禁差距（完整度、新法件数、不予处罚件数……）单列，不影响结论，但决定还要补采什么。
+本工具只验交付格式和原文正本自洽。r6 的旧正则分段及字段不能作标注输入；
+标注可用性由 parsed-2 的 G2.2 质量证据包决定。
 """
 from __future__ import annotations
 
@@ -31,10 +32,10 @@ from app.discretion.schema import SCHEMA_VERSION  # noqa: E402
 
 DATA = Path(os.environ.get("JUSTILAW_DATA_DIR", "D:/02_Dev/Data/justilaw-research"))
 MAIN, ONLY = "admin_cases.schema-1.0.0.jsonl", "admin_outcomes_only.jsonl"
-CHECKER_VERSION = "accept-0.2"
+CHECKER_VERSION = "accept-0.2.1"
 EVENT_SPREAD_DAYS = 31
 # 门禁与规格 §2 的数量要求（只统计验收通过的主文件记录）
-GATES = {"completeness": 0.80, "t_time": 50, "tier_each": 100, "gold_total": 500}
+GATES = {"completeness": 0.80, "t_time": 50, "tier_each": 100}
 
 
 def sha256_file(path: Path) -> str:
@@ -100,7 +101,7 @@ def batch_checks(folder: Path, files: dict[str, list[dict]]) -> list[dict]:
         add("error", "schema_version_mismatch", f"要素本体主版本应为 {major}.x，实为 {list(versions)}")
     elif any(v[0] != SCHEMA_VERSION for v in versions):
         add("info", "schema_minor_behind", f"交付标的本体版本 {sorted({v[0] for v in versions})}，现行 {SCHEMA_VERSION}；"
-                                          "标注与抽取一律按现行版本")
+                                          "r6 仅作格式关口，新链路按 parsed-2 契约")
     spread = []
     events = defaultdict(list)
     for r in main:
@@ -116,7 +117,7 @@ def batch_checks(folder: Path, files: dict[str, list[dict]]) -> list[dict]:
 
 
 def gate_stats(rows: list[dict]) -> dict:
-    """在验收通过的主文件记录上算门禁相关的数量。"""
+    """r6 格式通过记录的描述性数量；不判定标注门禁。"""
     n = len(rows)
     has_amount = sum(bool(((r.get("quality") or {}).get("completeness") or {}).get("has_amount")) for r in rows)
     severe = sum((r.get("outcome") or {}).get("detention_days", 0) >= 10 for r in rows)
@@ -150,8 +151,6 @@ def gate_stats(rows: list[dict]) -> dict:
             gaps.append(f"{name} {stats[k]} 件 < {GATES['tier_each']}（规格 §2）")
     if stats["no_penalty"] < 30:
         gaps.append(f"不予处罚、不构成违法 {stats['no_penalty']} 件，G3.2 要求单独达标")
-    if n < GATES["gold_total"]:
-        gaps.append(f"可进入标注的记录 {n} 件 < 金标目标 {GATES['gold_total']}（门禁 G1.1，尚需银标与人工校正）")
     stats["gaps"] = gaps
     return stats
 
@@ -195,6 +194,8 @@ def accept(folder: Path, out_root: Path | None = None) -> dict:
         "delivery": str(folder), "main_sha256": main_sha, "pipeline_version": pipeline,
         "verdict": verdict, "batch_checks": batch, "files": per_file,
         "rejected": len(rejected), "accepted_main": len(accepted_main),
+        "annotation_ready": False,
+        "annotation_readiness_gate": "parsed-2 G2.2 质量证据包",
         "gate_stats_on_accepted": gate_stats(accepted_main),
     }
     out = (out_root or DATA / "engine" / "acceptance") / f"{pipeline}-{main_sha[:8]}"
@@ -232,7 +233,8 @@ def render_md(rep: dict) -> str:
     lines = [f"# 交付验收报告：{rep['pipeline_version']}（{rep['main_sha256'][:8]}）", "",
              f"- 验收时间：{rep['checked_at']}，验收程序 {rep['checker']}",
              f"- 交付目录：`{rep['delivery']}`",
-             f"- **结论：{rep['verdict']}**；退回 {rep['rejected']} 条，主文件可进入标注 {rep['accepted_main']} 条", "",
+             f"- **交付格式结论：{rep['verdict']}**；退回 {rep['rejected']} 条，主文件格式通过 {rep['accepted_main']} 条",
+             "- **标注可用性：否**。r6 分段和字段来自旧正则；须等待 parsed-2 的 G2.2 质量证据包。", "",
              "## 批次检查", ""]
     lines += [f"- {b['level']}｜{b['code']}：{b['message']}" for b in rep["batch_checks"]] or ["- 全部通过"]
     for name, f in rep["files"].items():
@@ -240,7 +242,7 @@ def render_md(rep: dict) -> str:
                   "| 级别 | 问题 | 条数 | 说明 | 例 |", "|---|---|---|---|---|"]
         lines += [f"| {s['level']} | `{code}` | {s['count']} | {s['message'][:60]} | {', '.join(s['ids'][:3])} |"
                   for code, s in f["issues"].items()] or ["| — | 无 | 0 | | |"]
-    lines += ["", "## 门禁相关数量（只计验收通过的主文件记录）", "",
+    lines += ["", "## r6 描述性数量（只计格式通过的主文件记录；不计作标注门禁）", "",
               f"- 记录 {g['records']} 条、事件 {g['events']} 个；信息完整度 {g['completeness_has_amount']:.0%}",
               f"- 一般档 {g['tier_general']}、情节严重档 {g['tier_severe']}；2026 年后行为 {g['t_time_behavior_2026']} 件；"
               f"不予处罚与不构成违法 {g['no_penalty']} 件；复议与诉讼来源占 {g['review_or_litigation_share']:.0%}",
@@ -248,7 +250,7 @@ def render_md(rep: dict) -> str:
               f"- 法律版本：{g['law_version']}；处罚类型：{g['outcome_type']}",
               f"- 有当事人段 {g.get('has_text_party', 0):.0%}；罚款被源文打码 {g.get('fine_masked', 0)} 条（罚款额不作训练目标）",
               "", "> 自动验收只说明交付契约满足；原文对外发布须另行遮蔽和专项评审。",
-              "", "**门禁差距**：", ""]
+              "", "**语料覆盖差距（描述性，待 parsed-2 复核）**：", ""]
     lines += [f"- {x}" for x in g["gaps"]] or ["- 无"]
     return "\n".join(lines) + "\n"
 
