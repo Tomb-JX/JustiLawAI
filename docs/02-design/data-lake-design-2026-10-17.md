@@ -507,10 +507,11 @@ CREATE INDEX idx_artifacts_sha ON artifacts(sha256);
 | 首个双写批次 | `merged-20261017-full`，890 条 |
 | 第二个验证批次 | `20261016-2026T作业台-b4-r2`，2 条；复用同一批 blob，验证跨批去重 |
 | P1 批次 | `20261018-P1-r5`，144 条；id P-928–P-1110，build 区划 144/144，text_party 144/144 |
-| blob | 1,034 个；原文 2.20 MB → zstd 1.09 MB |
-| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2）＋ `batch-c57c8429815e0850`（P1-r5） |
-| catalog | artifacts 1,043（1,034 blob + 3 input + 3 records + 3 manifest）/ documents 1,034 / records 1,036 / lineage 9 |
-| verify | blobs 1,034、manifests 3、records 1,036，0 error；lake 8.6 MB |
+| P1b 批次 | `20261018-P1b-r1`，76 条（74 L1）；id P-1111–P-1225，text_party 73/76 |
+| blob | 1,110 个；原文 2.37 MB → zstd 1.17 MB |
+| manifest | `batch-ee759153fcbc10fd`（merged）＋ `batch-46df7f33b2762a42`（b4-r2）＋ `batch-c57c8429815e0850`（P1-r5）＋ `batch-2b7c17ae054debe8`（P1b-r1） |
+| catalog | artifacts 1,122（1,110 blob + 4 input + 4 records + 4 manifest）/ documents 1,110 / records 1,112 / lineage 12 |
+| verify | blobs 1,110、manifests 4、records 1,112，0 error；lake 9.2 MB |
 | 未做 | 网页 M2、引擎 M4、存量迁移、P1 并入 r7 |
 
 T-L1 当前验收：manifest 覆盖首批、blob 可解析、单测绿。P1 新批次落盘后按同一命令补双写即可，采集不等湖。
