@@ -113,7 +113,8 @@ def element_vector(e, case: dict) -> list[float]:
         if path in onehots:
             feats += [float(v == m) if v is not None else nan for m in onehots[path]]
         elif isinstance(v, AmountRange):
-            feats.append(math.log1p((v.min + v.max) / 2))
+            # 开口（"万元以上"）只取下界，不按数量级补上界
+            feats.append(math.log1p(v.min if v.max is None else (v.min + v.max) / 2))
         elif isinstance(v, bool):
             feats.append(float(v))
         elif isinstance(v, (int, float)):

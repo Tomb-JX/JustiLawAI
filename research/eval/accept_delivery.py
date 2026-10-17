@@ -106,8 +106,13 @@ def batch_checks(folder: Path, files: dict[str, list[dict]]) -> list[dict]:
     versions = Counter((r.get("schema_version"), r.get("pipeline_version")) for rows in files.values() for r in rows)
     if len(versions) > 1:
         add("error", "mixed_versions", f"一批里混有多个版本：{dict(versions)}")
-    if any(v[0] != SCHEMA_VERSION for v in versions):
-        add("error", "schema_version_mismatch", f"要素本体版本应为 {SCHEMA_VERSION}，实为 {list(versions)}")
+    # 交付只带正文和处罚结果、不带要素值，本体的次版本变化（字段口径修订）不影响交付本身；主版本不同才退回
+    major = SCHEMA_VERSION.split(".")[0]
+    if any(str(v[0]).split(".")[0] != major for v in versions):
+        add("error", "schema_version_mismatch", f"要素本体主版本应为 {major}.x，实为 {list(versions)}")
+    elif any(v[0] != SCHEMA_VERSION for v in versions):
+        add("info", "schema_minor_behind", f"交付标的本体版本 {sorted({v[0] for v in versions})}，现行 {SCHEMA_VERSION}；"
+                                          "标注与抽取一律按现行版本")
     spread = []
     events = defaultdict(list)
     for r in main:
@@ -143,6 +148,9 @@ def gate_stats(rows: list[dict]) -> dict:
         "tier_severe": severe,
         "review_or_litigation_share": round(review_like / n, 3) if n else 0,
         "no_penalty": outcome.get("不予处罚", 0) + outcome.get("不构成违法", 0),
+        # I-02：当事人段覆盖率（年龄、前科主要在这里）；打码罚款不能作罚款额目标
+        "has_text_party": round(sum(bool(r.get(R.PARTY_SEGMENT)) for r in rows) / n, 3) if n else 0,
+        "fine_masked": sum(bool((r.get("outcome") or {}).get("fine_masked")) for r in rows),
     }
     gaps = []
     if stats["completeness_has_amount"] < GATES["completeness"]:
@@ -211,7 +219,24 @@ def accept(folder: Path, out_root: Path | None = None) -> dict:
             w.writerow([rid, name, ";".join(sorted(set(codes)))])
     (out / "acceptance.md").write_text(render_md(report), "utf-8")
     report["out_dir"] = str(out)
+    append_index(out.parent, report)
     return report
+
+
+INDEX_COLUMNS = ["checked_at", "delivery_version", "main_sha256", "report_dir", "verdict", "rejected", "accepted_main",
+                 "checker"]
+
+
+def append_index(root: Path, rep: dict) -> None:
+    """交付版本 → 报告目录的索引（引擎对 delivery/ 只读，不能把报告放进交付目录）。只追加。"""
+    path = root / "INDEX.csv"
+    new = not path.exists()
+    with path.open("a", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        if new:
+            w.writerow(INDEX_COLUMNS)
+        w.writerow([rep["checked_at"], Path(rep["delivery"]).name, rep["main_sha256"], Path(rep["out_dir"]).name,
+                    rep["verdict"], rep["rejected"], rep["accepted_main"], rep["checker"]])
 
 
 def render_md(rep: dict) -> str:
@@ -232,7 +257,10 @@ def render_md(rep: dict) -> str:
               f"- 一般档 {g['tier_general']}、情节严重档 {g['tier_severe']}；2026 年后行为 {g['t_time_behavior_2026']} 件；"
               f"不予处罚与不构成违法 {g['no_penalty']} 件；复议与诉讼来源占 {g['review_or_litigation_share']:.0%}",
               f"- 地域：{', '.join(f'{k} {v}' for k, v in list(g['by_province'].items())[:8])}",
-              f"- 法律版本：{g['law_version']}；处罚类型：{g['outcome_type']}", "", "**门禁差距**：", ""]
+              f"- 法律版本：{g['law_version']}；处罚类型：{g['outcome_type']}",
+              f"- 有当事人段 {g.get('has_text_party', 0):.0%}；罚款被源文打码 {g.get('fine_masked', 0)} 条（罚款额不作训练目标）",
+              "", "> 自动验收通过只说明契约与隐私扫描规则满足，**不等于内容安全放行**；放行以金标线逐件复检为准。",
+              "", "**门禁差距**：", ""]
     lines += [f"- {x}" for x in g["gaps"]] or ["- 无"]
     return "\n".join(lines) + "\n"
 

@@ -56,6 +56,43 @@ def errors(issues):
     return {i.code for i in issues if i.level == "error"}
 
 
+PARTY = "违法行为人甲，男。"
+
+
+def test_party_segment_is_optional_and_checked():
+    d = delivery()
+    d["text_party"], d["segments"]["text_party"] = PARTY, _span(PARTY)
+    assert errors(R.check_delivery(d)) == set()
+    d["segments"]["text_party"] = [0, 3]
+    assert "segment_offset_mismatch" in errors(R.check_delivery(d))
+    p = parsed()
+    p["text_party"] = "不在正文里的当事人段"
+    assert "segment_not_substring" in errors(R.check_parsed(p))
+
+
+def test_party_segment_must_precede_facts():
+    p = parsed()
+    p["text_party"] = FACTS
+    assert "party_overlaps_facts" in {i.code for i in R.check_parsed(p)}
+
+
+@pytest.mark.parametrize("otype, days, fine, masked, code", [
+    ("罚款", 0, 0, True, None),                            # 源文"罚款**元"：放行，只记警告
+    ("拘留并处罚款", 5, 0, True, None),
+    ("罚款", 0, 0, False, "outcome_inconsistent"),         # 未标打码仍判错
+    ("拘留并处罚款", 0, 0, True, "outcome_inconsistent"),  # 打码只免罚款，拘留天数仍须一致
+])
+def test_masked_fine(otype, days, fine, masked, code):
+    d = delivery()
+    d["outcome"].update({"type": otype, "detention_days": days, "fine": fine})
+    if masked:
+        d["outcome"]["fine_masked"] = True
+    issues = R.check_delivery(d)
+    assert (code in errors(issues)) if code else not errors(issues)
+    if masked and not code:
+        assert "fine_masked" in {i.code for i in issues}
+
+
 def test_valid_records_have_no_errors():
     assert errors(R.check_delivery(delivery())) == set()
     assert errors(R.check_parsed(parsed())) == set()
