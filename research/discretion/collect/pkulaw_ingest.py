@@ -1385,6 +1385,25 @@ def extract_party(body: str) -> str:
     """
     idx = (body or "").find("现查明")
     if idx < 0:
+        # 字段式公示/无事实段：直接找称谓行，取称谓后到句末/换行前的短段
+        for marker in PARTY_MARKERS:
+            pos = body.rfind(marker)
+            if pos < 0:
+                continue
+            after = body[pos + len(marker):]
+            stripped = after.lstrip()
+            if not stripped:
+                continue
+            start = pos + len(marker) + (len(after) - len(stripped))
+            tail = body[start:start + 200]
+            stop = len(tail)
+            for sep, extra in (("\n", 0), ("。", 1)):
+                k = tail.find(sep)
+                if k >= 0:
+                    stop = min(stop, k + extra)
+            seg = body[pos:start + stop].strip()
+            if 2 <= len(seg) <= 200 and seg in body:
+                return seg
         return ""
     window = body[max(0, idx - 800):idx]
     pos = max((window.rfind(m) for m in PARTY_MARKERS), default=-1)

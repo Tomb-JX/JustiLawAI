@@ -109,6 +109,12 @@ def test_extract_party_without_marker():
     assert ing.extract_party(body) == "张某某。"
 
 
+def test_extract_party_without_xianchaming():
+    """字段式公示没有'现查明'：从称谓行取到句末。"""
+    body = "被处罚人张某某。\n处罚结果：罚款五百元。\n"
+    assert ing.extract_party(body) == "被处罚人张某某。"
+
+
 def test_to_parsed1_direct_admin_region_level():
     """省直管县级市：parsed-1 直接给区划码与层级，构建层不再判无区划。"""
     rec, why = ing.to_parsed1(_legacy_record(authority="仙桃市公安局", region="仙桃市"),
