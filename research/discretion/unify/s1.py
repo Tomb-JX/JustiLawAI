@@ -389,6 +389,7 @@ def main() -> None:
     ap.add_argument("--provider", default="deepseek",
                     help="主提供商（config 键；缺省 deepseek）")
     ap.add_argument("--pilot", type=int, default=0, help="form 分层抽样的记录数（0=全部放行记录）")
+    ap.add_argument("--forms", default="", help="只取 form 前缀匹配的记录（逗号分隔，如 叙述式）；在 pilot 抽样前过滤")
     ap.add_argument("--limit", type=int, default=0, help="直接取前 N 条放行记录（调试）")
     ap.add_argument("--workers", type=int, default=6)
     ap.add_argument("--run-id", default=None)
@@ -397,6 +398,9 @@ def main() -> None:
     providers, cfg_meta, _ = load_config()
     rows = [json.loads(l) for l in open(a.batch, encoding="utf-8")]
     rows = [r for r in rows if r["prefilter"]["release"]]
+    if a.forms:
+        prefixes = [f.strip() for f in a.forms.split(",") if f.strip()]
+        rows = [r for r in rows if any(r["form"].startswith(p) for p in prefixes)]
     if a.limit:
         rows = rows[:a.limit]
     elif a.pilot:

@@ -106,3 +106,12 @@ def test_sample_fills_rest():
     picked = sample_pool(pool, target=20, seed=1)
     assert len(picked) == 20
     assert sum(1 for i in picked if i.startswith("X-3-")) == 5  # D 层补齐
+
+
+def test_norm_page_blocked_even_when_yes():
+    # 程序性清单页（min-40 队列 W-000648-45 型）：gambling=是 也不放行
+    rec = {"id": "X-n1", "authority": "某某市文化市场综合行政执法支队",
+           "text_decision": "", "text_review": "", "text_facts": "",
+           "quality": {"gambling": "是", "in_scope": True}}
+    p = eval_prefilter(rec, "对为赌博提供条件等两类行为的处罚 行使该职权的责任：依法查处 送达阶段责任：决定书应依法送达")
+    assert p["norm_page"] is True and p["release"] is False and p["release_reason"] == "norm_page"

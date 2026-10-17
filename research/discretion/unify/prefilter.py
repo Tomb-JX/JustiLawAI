@@ -72,12 +72,21 @@ def stratum_of(rec: dict, cleaned: str) -> str:
     return "D_其余"
 
 
+# 程序性页面（min-40 队列上游修复项 a：权责清单/裁量基准/结果汇总表等非个案页）
+NORM_PAGE = re.compile(r"权责清单|责任清单|事项清单|实施依据.{0,20}责任|送达.{0,6}责任|"
+                       r"行使该职权的责任|^\s*行政处罚结果.{0,20}(索引号|有效性)")
+
+
 def eval_prefilter(rec: dict, cleaned: str) -> dict:
-    """单记录预筛字段（抽样在批级 sample_pool 完成）。"""
+    """单记录预筛字段（抽样在批级 sample_pool 完成）。
+    norm_page（程序性页面，队列件 W-000648-45 类）即使三态=是 也拦截——上游 min-40 稳定化。"""
     q = rec.get("quality") or {}
     gamb = q.get("gambling") or "待定"
+    norm = bool(NORM_PAGE.search((rec.get("authority") or "") + cleaned[:500]))
     borderline = borderline_of(rec, cleaned) if gamb == "是" else ""
-    if gamb in ("是", "待定"):
+    if norm:
+        release, reason = False, "norm_page"
+    elif gamb in ("是", "待定"):
         release, reason = True, f"gamb:{gamb}"
     elif borderline:
         release, reason = True, f"borderline:{borderline}"
@@ -86,6 +95,7 @@ def eval_prefilter(rec: dict, cleaned: str) -> dict:
     return {
         "gambling": gamb,
         "borderline": borderline,
+        "norm_page": norm,
         "release": release,
         "release_reason": reason,
         "stratum": "" if gamb != "否" else stratum_of(rec, cleaned),
