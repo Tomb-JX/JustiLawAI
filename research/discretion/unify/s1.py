@@ -30,6 +30,7 @@ from pathlib import Path
 
 from cleanse import sentence_table  # noqa: E402  句表（seg-v2 分区坐标基座）
 from progress import ProgressTracker, classify_error, load_prices  # noqa: E402  监控基建
+from zoning import merge_fact_fallback  # noqa: E402  facts 兜底合并（正则参照）
 
 PROMPT_VERSION = "seg-v2"
 # seg-v1 已冻结归档（试点报告 pilot300：引文命中率 99.92% 但摘引式分段致 coverage 51 件失败）。
@@ -252,11 +253,15 @@ class Runner:
             self.consec_fail[pname] = 0
 
     def extract_one(self, rec: dict, primary: str) -> dict:
-        """单记录抽取：主提供商 → 失败重试 1 次 → 换备提供商 1 次。熔断跳过判死提供商。全程回执。"""
+        """单记录抽取：主提供商 → 失败重试 1 次 → 换备提供商 1 次。熔断跳过判死提供商。全程回执。
+        公示族（zones_det 存在）：分区由确定性规则给定，模型只做字段抽取——分区在解析后覆写。"""
         cleaned = rec.get("cleaned_text") or ""
         sentences = sentence_table(cleaned)
         texts = [cleaned[a:b] for a, b in sentences]
+        zones_det = rec.get("zones_det")
         user = build_user_prompt(rec["form"], rec["source_type"], texts)
+        if zones_det:
+            user += "\n\n[分区] 本件分区已由模板规则确定（facts/decision 等区间以句号给定），输出中无需臆测分区。"
         chain, last_err = [], None
         try:
             self.tracker.begin_record()
@@ -290,6 +295,15 @@ class Runner:
                                  content_sha=hashlib.sha256(content.encode("utf-8")).hexdigest()[:16])
                     raise
                 errs = validate(out, n_sentences=len(sentences))
+                if zones_det:
+                    out["zones"] = zones_det   # 确定性分区覆写（公示族：模型臆测值不采信）
+                # facts 兜底（全形态）：模型漏标 facts 时按正则参照回填 meta 句
+                if not any(z.get("type") == "facts" for z in (out.get("zones") or [])):
+                    m = merge_fact_fallback(out.get("zones") or [], sentences,
+                                            rec.get("regex_facts_clean"))
+                    if m is not None:
+                        out["zones"] = m
+                        errs = [e for e in errs if "facts" not in e]
                 zc = {"n_zones": len(out.get("zones") or []), "n_sentences": len(sentences)}
                 self._breaker_reset(pname)   # 成功复位连败计数（时间窗熔断的另一半）
                 chain.append({"provider": pname, "ok": True})
@@ -431,6 +445,7 @@ def main() -> None:
         runner.tracker.set_phase("done")
     except Exception:
         pass
+    ok = [d for d in results if d.get("ok")]
     runner.close()
     # 运行索引（监控列表用）
     idx_path = data_root() / "s1_runs" / "index.json"

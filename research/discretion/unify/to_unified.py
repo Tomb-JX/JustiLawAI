@@ -26,6 +26,25 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cleanse import CLEAN_VERSION, CleanResult, cleanse, replay_edits, sentence_table  # noqa: E402
 from form import detect_form  # noqa: E402
 from prefilter import SAMPLE_TARGET, eval_prefilter, sample_pool  # noqa: E402
+from zoning import deterministic_zones, is_public_form  # noqa: E402
+
+
+def _o2c(res: CleanResult):
+    """CleanResult.kept_intervals → orig_span → clean_span 映射函数。"""
+    ivs = res.kept_intervals()
+
+    def o2c(span: tuple[int, int]) -> tuple[int, int] | None:
+        a, b = span
+        cs = ce = None
+        for os_, ol, cls_, cl in ivs:
+            if os_ <= a < os_ + ol:
+                cs = cls_ + (a - os_)
+            if os_ <= b - 1 < os_ + ol:
+                ce = cls_ + (b - 1 - os_) + 1
+        if cs is None or ce is None or ce <= cs:
+            return None
+        return cs, ce
+    return o2c
 
 CHANNEL_BY_SOURCE = {
     "公开网页": "web", "复议专栏": "web",
@@ -95,6 +114,17 @@ def convert(in_path: str, channel: str | None, out_dir: str,
             replay_fail += 1
         form = detect_form(rec.get("source_type") or "", res.cleaned,
                            pku_form=(rec.get("quality") or {}).get("form", "") if ch == "pkulaw" else "")
+        sents = sentence_table(res.cleaned)
+        # 公示族确定性分区（zoning.py）：正则分段（原文坐标）→ 句号区间；非公示族为 None
+        zones_det = None
+        if is_public_form(form):
+            zones_det = deterministic_zones(rec.get("segments") or {}, sents, _o2c(res),
+                                            cleaned=res.cleaned)
+        # 正则 facts 的 clean 坐标（全形态存，供 s1 的 facts 兜底合并）
+        regex_facts_clean = None
+        fpos = (rec.get("segments") or {}).get("text_facts")
+        if isinstance(fpos, list) and len(fpos) == 2:
+            regex_facts_clean = _o2c(res)((fpos[0], fpos[1])) or None
         pref = eval_prefilter(rec, res.cleaned)
         for rule, n in res_decount(res):
             rule_fired[rule] += n
@@ -116,7 +146,9 @@ def convert(in_path: str, channel: str | None, out_dir: str,
             "harvest_date": rec.get("harvest_date") or "",
             "prefilter": pref,
             "cleaned_text": res.cleaned,
-            "sentences": sentence_table(res.cleaned),
+            "sentences": sents,
+            "zones_det": zones_det,
+            "regex_facts_clean": regex_facts_clean,
             "extra": extract_extra(rec, ch),
         })
         edits_rows.append({"id": rec["id"], **res.to_edits()})

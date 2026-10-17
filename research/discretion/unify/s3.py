@@ -29,6 +29,7 @@ from s1 import validate as schema_validate, data_root  # noqa: E402
 from locate import OffsetIndex  # noqa: E402
 from parse import CONCLUSION_MARK  # noqa: E402
 from parse_qc import CONCL_ANY, EVID_PAT, GENJV  # noqa: E402  与交付 QC 同源（指令 §3 迁移，单一注册表）
+from zoning import is_public_form  # noqa: E402
 
 # 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
 # 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
@@ -135,11 +136,19 @@ def check_schema(ctx):
 
 
 def check_decision_present(ctx):
+    """decision 区间要求按形态分治：叙述式=error；公示族（条目为"事实＋处罚"融合摘要，
+    无独立决定句）降为 warn——处罚信息以 outcome 字段为准。复议有 review 区间时同样放宽。"""
     oc = (ctx["output"].get("outcome") or {})
-    if oc.get("type") in HARD_OUTCOME:
-        if not ctx["spans"].get("decision"):
-            return [_mk("decision_present", "error", "outcome 有处罚结果但缺 decision 区间")]
-    return []
+    if oc.get("type") not in HARD_OUTCOME:
+        return []
+    if ctx["spans"].get("decision"):
+        return []
+    form = ctx["record"].get("form") or ""
+    if is_public_form(form):
+        return [_mk("decision_present", "warn", "公示族融合条目无独立 decision 句（处罚在 outcome 字段）")]
+    if ctx["spans"].get("review"):
+        return [_mk("decision_present", "warn", "复议文书：结论在 review 区间，无独立 decision")]
+    return [_mk("decision_present", "error", "outcome 有处罚结果但缺 decision 区间")]
 
 
 def check_outcome_consistency(ctx):
@@ -213,9 +222,14 @@ def check_article_edition(ctx):
 
 
 def check_facts_quality(ctx):
-    """facts 区间内容质量族（parse_qc 迁移）：定性句收尾（error，边界规则应已 snap——残留=模型越界）、
-    段中定性（warn）、证据句/根据法条混入（warn）、截尾、<30 字（区间粒度下仍为内容质量信号）。"""
+    """facts 区间内容质量族（parse_qc 迁移），按形态分治：
+    - 叙述式（决定书/复议）：定性句收尾 = error（M1 输入不得含答案）；事实区间=全文 = error（分区失败）；
+    - 公示族（字段表/标题汇总/混合）：条目是"事实＋定性"融合的压缩摘要——定性收尾降 warn、
+      区间=全文为固有形态（整条目即事实），均不阻断（facts_contains_conclusion 旗标承担引擎豁免）；
+    结构检查（缺失/=<30字/=全文）对所有形态一致。"""
     cleaned = ctx["record"].get("cleaned_text") or ""
+    form = ctx["record"].get("form") or ""
+    narrative = not is_public_form(form)
     facts = zone_text(ctx["spans"], cleaned, "facts").strip()
     st = ctx["record"].get("source_type") or ""
     findings = []
@@ -223,11 +237,13 @@ def check_facts_quality(ctx):
         if st in ("处罚决定书", "执法公示"):
             findings.append(_mk("facts_quality", "error", "facts 区间缺失（决定书/公示形态应有事实）"))
         return findings
-    if facts == cleaned.strip() and len(facts) > 120:
+    if narrative and facts == cleaned.strip() and len(facts) > 120:
         findings.append(_mk("facts_quality", "error", "事实区间=全文（分区失败）"))
     sentences = [p for p in re.split(r"(?<=[。；;])", facts) if p.strip()]
+    tail_sev = "error" if narrative else "warn"
     if sentences and CONCLUSION_MARK.search(sentences[-1]):
-        findings.append(_mk("facts_quality", "error", f"定性句收尾（snap 未生效？）：…{sentences[-1][:24]}"))
+        findings.append(_mk("facts_quality", tail_sev,
+                            f"定性句收尾：…{sentences[-1][:24]}" + ("" if narrative else "（公示族融合语义，降 warn）")))
     for s in sentences[:-1]:
         if CONCLUSION_MARK.search(s):
             findings.append(_mk("facts_quality", "warn", f"定性句段中：…{s[:24]}"))
