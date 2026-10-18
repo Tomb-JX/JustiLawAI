@@ -68,9 +68,9 @@ A/B 按实际端点校验提供方不同；C 使用既有白名单且非 DeepSee
 ## 2026-10-18 新增模块
 
 - 契约与哈希：`element_contract.py`（36 字段契约读取、实现/依赖快照、分歧分类）、`contract_bundle.py`（可执行契约 bundle 导出与哈希冻结）、`field_rules.py`（只读引擎字段定义、只解析批准别名，不新造字段）。
-- 归一与证据：`normalization.py`（证据绑定的中文时间/金额适配；JioNLP 只做表达式解析，不读时钟、不猜事件锚，精度/开口/兼容损失显式）、`evidence_graph.py`（来源锚定候选图；词法绑定只是候选，不可支持/代词/联合关系留 unresolved）、`binding_contract.py`（候选选择编译为字段 grounding，不猜缺失关系）、`section_refs.py`（可重叠细引用，不动 S1 互斥分区）、`evidence_types.py`（半开区间 `[start,end)` 坐标类型）、`locate.py`（quote/句 ID → cleaned → orig，clean→orig 只投影一次）。
+- 归一与证据：`normalization.py`（证据绑定的中文时间/金额适配；JioNLP 只做表达式解析，不读时钟、不猜事件锚，精度/开口/兼容损失显式）、`evidence_graph.py`（来源锚定候选图；当前 `classify_graph_bindings` 是**字段默认映射**，不是证据级主体判定；词法绑定只是候选，代词/联合/未映射 role 留 unresolved/needs_review）、`binding_contract.py`（候选选择编译为字段 grounding，不猜缺失关系）、`section_refs.py`（可重叠细引用，不动 S1 互斥分区）、`evidence_types.py`（半开区间 `[start,end)` 坐标类型）、`locate.py`（quote/句 ID → cleaned → orig，clean→orig 只投影一次）。
 - 结果裁决：`outcome_arbitration.py` / `run_outcomes.py`（保留历史观察值；处罚上限不得用来选候选，规范诊断单独报告）；`arbitrate.py` 的旧法律锚选候选与无预算裁判路径已退役，历史决定不改动；`experiment_plan.py`（事件不交叉的小批计划，只用独立参考评估）。
 - 执行可靠性：`durable_calls.py`（有界尝试、原响应落盘、append-only 尝试账本，不承诺远端恰好一次计费）、`budget_scope.py`（跨进程/跨阶段预算预留与恢复审计）、`provider_contract.py`（提供方协议声明与无密钥执行冻结）、`task_result.py`（执行失败不得伪造“未提及”等字段内容）、`audit_run.py`（只读崩溃恢复/费用审计，不丢截断尾、不重试 HTTP）。
 - 诊断：`observability.py`（36 字段可观测性，与来源真值/准确率严格分开）、`diagnose_pipeline.py`（只读冻结输入的离线图/归一/分节/36 字段报告）。
 
-以上模块只做传输、校验与诊断，不重定义引擎本体。引擎 E-05（七字段裁决规则＋日期/金额归一＋证据语义）落地前只做免费回放；`element-ref-v2` 仍是传输版本，不是 `element-v2` 本体批准。
+以上模块只做传输、校验与诊断，不重定义引擎本体。E-05/绑定 v4 已落地：引擎 `binding_rules.py` 只定语义（8 shared / 28 target）；后处理 `classify_graph_bindings` 目前是**字段默认映射**，不是证据级主体判定；v4 诊断 61 shared / 1120 target / 528 review，`semantic_rules_approved=true`；`resolve_binding` 代码接受 shared/target/lexical，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target，artifact 与代码待统一；528 review 的 `binding_reason` 主要是未映射 role/字段，不是完整主体歧义；无绑定准确率。`element-ref-v2` 仍是传输版本，不是 `element-v2` 本体批准。

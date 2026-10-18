@@ -162,6 +162,8 @@ EP-03 输出 `OriginalSpan / CleanSpan / SentenceRef` 三种不可混用的内�
 
 EP-06 的输入不再是无来源的 `fine=500`，而是候选链：`mention M17 → amount A3 → event penalty-2 → person target-1 → role fine`。原文可有多个 500 元，只有绑定到正确主体/事件/金额角色的候选才能成为结果；`gambling_stake` 与 `fine` 即使相等也不能共证。
 
+**2026-10-18 实现状态（协调层补记）**：EP-06 仍未交付。当前 v4 只做字段默认映射（`field → shared/target`），没有做 mention→amount→event→person→role 的证据级绑定；528 review 的 `binding_reason` 主要是未映射 role/字段；不要把“字段默认分类”当作 EP-06 完成。
+
 这里只需在单文书内建立轻量对象及关系，不需要上图数据库。规则识别明确标签，模型解决同指、复议引用或省略主语等难例，回候选 ID；编译器检查候选属于本次允许视图。法律规范层读取已抽事实并给独立冲突标记，不把合法候选自动当成原文真值。此结构为本项目建议，不是某库已提供行政赌博本体。
 
 ### 6.3 decision 与长文

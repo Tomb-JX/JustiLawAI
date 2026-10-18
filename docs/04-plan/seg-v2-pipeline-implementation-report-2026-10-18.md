@@ -1,6 +1,8 @@
 # 后处理链路第一批实施与开发切片交接（2026-10-18）
 
 依据协调分支 `codex-pipeline-implementation-order-2026-10-18.md` 接管 B 职能，已先合并网页提交 `d254487`（合并提交 `21bd54f`）。本批完成基础错误修复、可恢复调用入口、免费重放与 G2.2a 开发切片冻结；提交在 `codex/seg-v2-design-review` 待审。**没有实际模型调用，没有放行 r7，也没有把旧模型标签认定为参考真值。**
+>
+> **2026-10-18 12:46 更新注记（协调层）**：Gate A2/B 已推进到 v4：`2be05bc` 修正 `fine→None`、`resolve_binding` 接受 `shared_fact`、review 增加 `binding_reason`、`semantic_rules_approved=true`；v4 诊断 61 shared / 1120 target / 528 review。**但 v4 仍是字段默认映射，不是证据级主体判定**；528 review 的 `binding_reason` 主要是未映射 role/字段；contract v4 的 `binding_policy.accept_in_resolve` 仍只写 lexical/target，与代码接受 shared 不一致；无绑定准确率。本文 §5.2“主体—事件—金额角色绑定未交付”对证据级/NLP 绑定仍成立；BIND-03/CONTRACT-01 未关闭。
 
 ## 1. 已落地的最小链路
 
