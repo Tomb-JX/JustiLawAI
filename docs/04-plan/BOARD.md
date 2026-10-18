@@ -16,8 +16,8 @@
 
 | 线 | 最新动作 | 下一步 | 注意 |
 |---|---|---|---|
-| 引擎 | `971fdc3`（已推送）：Gate B 绑定规则 `shared_fact` / `target_specific` / `needs_review`；231 passed；`affcea2` 绑定审计 | 签发 `binding_policy` / 契约采纳 | 规则已交付，但契约包仍是 `binding_policy=null` |
-| 后处理 | `f00b494`（已推送）：Gate A2 + Gate B 分类（61 shared / 752 target / 896 review）；contract bundle 重导；142 passed | 决定 896 needs_review 处置；改主 `binding` 字段 | `e05_binding` 是并行报告；旧 `binding` 仍 1,647 |
+| 引擎 | `3a37c56`（已推送）：binding_rules 增加 `review_reason` 子类（NO_SUBJECT/AMBIGUOUS/IMPLICIT/FIELD_DEFAULT/UNKNOWN_FIELD）；235 passed；上一笔 `971fdc3` 为规则主体 | 签发 `binding_policy` / 契约采纳 | 规则已交付；896 的“为什么 review”现在可分类 |
+| 后处理 | `f00b494`（已推送）：Gate A2 + Gate B 分类（61 shared / 752 target / 896 review）；contract bundle 重导；142 passed | 用 `review_reason` 重跑 Gate B；决定 896 处置；改主 `binding` | `e05_binding` 是并行报告；旧 `binding` 仍 1,647 |
 | 协调 | 共享事件登记上线；`CURRENT.md` 自动生成；已核实 Gate B 过度表述 | 里程碑提交快照 | 不再手抄各线状态 |
 
 ## 当前循环
@@ -47,6 +47,17 @@
 - **未完成**：`classify_graph_bindings` 只写并行的 `e05_binding`，**没有更新主 `binding`**；`resolve_binding` 仍只接受 `lexical_candidate`。contract bundle 仍是 `binding_policy=null`、`semantic_rules_approved=false`、`normalization_policy=proposed_pending_engine_adoption`。
 - 因此“Gate B 全部完成”是过度表述：**分类报告完成，绑定链路和契约采纳未完成**。
 
+## 绑定四层（避免混淆）
+
+| 层 | 做什么 | 当前状态 |
+|---|---|---|
+| 1. 规则定义 | 引擎 `binding_rules.py`：字段默认 shared/target；内容依赖字段按证据文本分类；review_reason 细分原因 | **已完成**（`3a37c56`，235 passed） |
+| 2. 分类诊断 | 后处理 `classify_graph_bindings`：给每个候选加 `e05_binding` 标签并统计 | **已完成**（61 shared / 752 target / 896 review） |
+| 3. 主链路执行 | 更新主 `binding` 字段；`resolve_binding` 接受 shared/target/review，真正把值归到本人/事件 | **未完成**（旧 `binding` 仍 1,647；`resolve_binding` 仍只收 `lexical_candidate`） |
+| 4. 契约采纳 | 引擎签发 `binding_policy`；`semantic_rules_approved=true`；版本号提升 | **未完成**（bundle 仍 `binding_policy=null`、pending） |
+
+**一句话**：现在的“绑定”推进到第 1–2 层（规则 + 分类诊断），第 3 层（主链路执行）和第 4 层（契约采纳）还没做。不要再把“分类完成”说成“绑定完成”。
+
 ## 诊断/回放口径（避免重复劳动）
 
 | 名称 | 输入 | 内容 | 状态 |
@@ -61,7 +72,7 @@
 ## 下一步（按顺序）
 
 1. **引擎**：签发 `binding_policy` / 契约采纳，明确 `normalization_policy` 与 `semantic_rules_approved`；否则 `CONTRACT-01` 不能关闭。
-2. **后处理**：决定 896 `needs_review` 的处置（dev 切片是否接受显式未知）；把 `e05_binding` 接进主 `binding` 或明确保持“仅诊断”；再跑 Gate B；最后重导 contract 一次。
+2. **后处理**：用引擎 `review_reason` 重跑 Gate B 诊断，得到 896 的原因分布；再决定 dev 切片是否接受显式 `needs_review`；把 `e05_binding` 接进主 `binding` 或明确“仅诊断”；最后重导 contract 一次。
 3. **协调**：核对 Gate B 新结果；从 `BOARD.generated.md` 提交快照；不手抄状态。
 4. **只有 Gate B 真正通过 + I-21 门**，才讨论 12 条 smoke；之前不调模型、不放行 r7。
 
