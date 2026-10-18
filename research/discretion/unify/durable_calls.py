@@ -6,6 +6,7 @@ Unknown submitted attempts remain reserved and are not automatically resubmitted
 from __future__ import annotations
 
 import json
+import math
 import os
 import threading
 from pathlib import Path
@@ -49,11 +50,16 @@ def check_models(a, b, c):
 
 class DurableCalls:
     def __init__(self, out: Path, providers: dict, *, prices: dict, cap: float,
-                 max_calls: int, max_input_bytes: int, execute=False):
+                 max_calls: int, max_input_bytes: int, execute=False, budget_scope=None):
+        if (type(cap) not in (int, float) or not math.isfinite(cap) or cap <= 0
+                or type(max_calls) is not int or max_calls <= 0
+                or type(max_input_bytes) is not int or max_input_bytes <= 0):
+            raise ValueError("invalid_call_limits")
         self.out, self.providers, self.prices = Path(out), providers, prices
         self.out.mkdir(parents=True, exist_ok=True)
         self.cap, self.max_calls = cap, max_calls
         self.max_input_bytes, self.execute = max_input_bytes, execute
+        self.budget_scope = budget_scope
         self.lock = threading.Lock()
         self.events = read_rows(self.out / "attempts.jsonl")
         self.raws = {r["key"]: r for r in read_rows(self.out / "raws.jsonl")}
@@ -71,6 +77,8 @@ class DurableCalls:
 
     def call(self, provider_name, msgs, *, context, validator, repairs=1):
         provider = self.providers[provider_name]
+        if type(provider.max_tokens) is not int or provider.max_tokens <= 0:
+            raise ValueError("invalid_provider_max_tokens")
         key = digest({"context": context, "messages": msgs, "provider": provider_identity(provider),
                       "endpoint": provider.base_url, "model": provider.model,
                       "max_tokens": provider.max_tokens, "temperature": provider.temperature})
@@ -101,6 +109,8 @@ class DurableCalls:
         price = self.prices.get(provider.model)
         if not price or not all(k in price for k in ("input", "output")):
             raise ValueError("missing_price:无法预留费用")
+        if any(type(price[k]) not in (int, float) or not math.isfinite(price[k]) or price[k] < 0 for k in ("input", "output")):
+            raise ValueError("invalid_registered_price")
         # UTF-8 bytes + explicit framing allowance is a conservative token estimate;
         # reasoning tokens are bounded by provider max_tokens and charged as output.
         reservation = (size * price["input"] + provider.max_tokens * price["output"]) / 1e6
@@ -113,9 +123,11 @@ class DurableCalls:
             if self.used_calls >= self.max_calls or self.reserved + reservation > self.cap:
                 raise RuntimeError("budget_stop:包含在飞和未知请求的预留")
             attempt = f"{key}:{self.used_calls + 1}"
+            if self.budget_scope:
+                self.budget_scope.reserve(key, reservation, owner=str(self.out.resolve()))
             append(self.out / "attempts.jsonl", {"event": "submitted", "key": key,
                    "attempt_id": attempt, "reservation": reservation, "provider": identity,
-                   "model": provider.model, "context": context, "request_hash": digest(msgs)})
+                   "model": provider.model, "context": context, "request_hash": digest(msgs), "price": price})
             self.used_calls += 1
             self.reserved += reservation
             self.unknown.add(key)
@@ -139,11 +151,15 @@ class DurableCalls:
             append(self.out / "raws.jsonl", raw)  # durable BEFORE parsing/validation
             self.raws[key] = raw
             usage = meta.get("usage") or {}
+            if any(type(usage[k]) is not int or usage[k] < 0 for k in ("prompt_tokens", "completion_tokens") if k in usage):
+                raise ValueError("invalid_provider_usage:保留预留并人工核账")
             charged = ((usage["prompt_tokens"] * price["input"]
                         + usage["completion_tokens"] * price["output"]) / 1e6
                        if all(k in usage for k in ("prompt_tokens", "completion_tokens")) else reservation)
             append(self.out / "attempts.jsonl", {"event": "finished", "key": key,
                    "attempt_id": attempt, "charged": charged, "usage": usage})
+            if self.budget_scope:
+                self.budget_scope.settle(key, charged)
             self.reserved += charged - reservation
             self.unknown.discard(key)
             overrun = charged > reservation
