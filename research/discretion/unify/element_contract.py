@@ -14,7 +14,7 @@ import re
 import sys
 from pathlib import Path
 
-WIRE_VERSION = "element-ref-v2"
+WIRE_VERSION = "element-ref-v3"  # v3：白名单字段推断态放行 value=null（对齐指南 v0.2）
 
 
 def _engine_eval_dir() -> Path:
@@ -139,11 +139,22 @@ def reference_schema(engine) -> dict:
                 "sentence_ids": {"type": "array", "minItems": 1, "uniqueItems": True,
                                  "items": {"type": "string", "minLength": 1}}},
                 "required": ["sentence_ids"], "additionalProperties": False}}
-        item["allOf"] = [{"if": {"properties": {"status": {"const": "未提及"}}},
-                          "then": {"properties": {"value": {"type": "null"},
-                                                    "evidence": {"maxItems": 0}}},
-                          "else": {"properties": {"value": {"not": {"type": "null"}},
-                                                    "evidence": {"minItems": 1}}}}]
+        unmentioned_rule = {
+            "if": {"properties": {"status": {"const": "未提及"}}},
+            "then": {"properties": {"value": {"type": "null"}, "evidence": {"maxItems": 0}}},
+        }
+        explicit_rule = {
+            "if": {"properties": {"status": {"const": "明确"}}},
+            "then": {"properties": {"value": {"not": {"type": "null"}}}},
+        }
+        if path in getattr(engine, "NULLABLE_WHEN_INFERRED", ()):
+            # 指南 v0.2：该三字段"多次/多人/三十余岁"裁定值记 null、状态推断；仅"明确"必须有值。
+            unmentioned_rule["else"] = {"properties": {"evidence": {"minItems": 1}}}
+            item["allOf"] = [unmentioned_rule, explicit_rule]
+        else:
+            unmentioned_rule["else"] = {"properties": {"value": {"not": {"type": "null"}},
+                                                       "evidence": {"minItems": 1}}}
+            item["allOf"] = [unmentioned_rule]
     return schema
 
 
