@@ -4,7 +4,7 @@
 > 上游文档：[解析工程设计 v2.1](./parse-engineering-design-v2-2026-10-17.md)（架构理由）、[网页×法宝原料对比实测](./parse-input-comparison-2026-10-17.md)（两源落差实测）。
 > 实测口径：三个实测脚本跑 parsed-1 两源全量（web-r3 5,001 / pkulaw merged-b2 738），L1/L2 原料口径 = web 1,722 + pkulaw 729 = 2,451 件；聚合统计、零原文输出；event_key 公式经两份生成代码核对。
 >
-> **2026-10-18 现状注记（协调层）**：本文是逐字段格式契约（v1.3），不是当前全部实现。S1 的 `seg-v1` JSON 输出已被 **seg-v2 句表分区 + `element-ref-v2`** 取代；当前实现映射、L5 标签层、实测状态看 [parse-engineering-design-v2 v2.3 §1.1/§3A/§12](./parse-engineering-design-v2-2026-10-17.md)。binding v5：证据感知 3 步；**212 单人 123/1567/655；P1-r6 178 条/186 多人 behavior 158/1570/861**；review 为 unclassified role；代码接受 shared 69.1%，contract 65.5%；L5 `reference_elements=null`；r7 未放行。
+> **2026-10-18 现状注记（协调层）**：本文是逐字段格式契约（v1.3），不是当前全部实现。S1 的 `seg-v1` JSON 输出已被 **seg-v2 句表分区 + `element-ref-v2`** 取代；当前实现映射、L5 标签层、实测状态看 [parse-engineering-design-v2 v2.4 §1.1/§3A/§12](./parse-engineering-design-v2-2026-10-17.md)。当前代码 `60ebb52` 复跑：**212 单人 310/1517/518；P1-r6 178 条 557/1519/513**；scene-level money 把他人个人金额标 shared（P1 254/399、212 57/187），BIND-04 open；review 为 `unclassified role: None` + 多人列表；L5 `reference_elements=null`；r7 未放行。
 
 ## 1. 全链路总图（格式视角）
 

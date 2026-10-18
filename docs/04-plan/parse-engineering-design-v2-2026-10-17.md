@@ -3,6 +3,7 @@
 > 2026-10-17。承接《解析架构 v2》的方向判断，本文是可实施的工程设计：每个子问题先翻译成**标准工程问题**，给出**主流方案族**、**选型**、**置信度**与**匹配度分析**。所有设计以本项目的实测约束为输入，不引入未经论证的组件。
 > **v2.1（2026-10-17）**：脱敏限制已取消（用户决策；规范文档的对应修订由协调层承接，本设计不代改规范）。主管线去掉预脱敏（六阶段→五阶段），定位链减少一级投影，标注证据直接绑定原文正本。修订明细见文末《修订记录》，对规范条款的影响清单见 §11。
 > **v2.2（2026-10-18，协调层代笔）**：保留 v2.1 的 S0–S4 作为架构源头，但当前实现已分化为 **seg-v2 句表分区 + `element-ref-v2` 传输 + E-05 要素/绑定**，不再等同本节的 `seg-v1` JSON。新增 §1.1 实现映射、§3A 要素标签层（L5）、§9.1 实测状态、§10.1 执行状态；旧 S1 输出仅作设计历史参考。当前 `reference_elements=null`，字段准确率仍暂缺；绑定 v5 已做证据感知 3 步，但 212 切片无多人案例，655 review 为 unclassified role，joint 分支未验证。
+> **v2.4（2026-10-18，协调层复跑）**：当前代码 `60ebb52` 复跑 212 310/1517/518、P1 557/1519/513；scene-level money 把他人个人金额标 shared（P1 254/399、212 57/187），与 `personal_stake=TARGET` 冲突；130/130 无 artifact；BIND-03/BIND-04/CONTRACT-01 未关闭。
 > 硬约束（设计前提）：① 证据定位契约——五段必须是交付正本的连续子串，标注证据位置相对正本计算（data-spec §1）；② 可溯源——模型 id+提示版本+输入哈希全程可查；③ 确定性校验不得被模型输出绕过；④ 模型纪律——仅远程旗舰，禁本地小模型。（原 v2.0 的"远程模型调用不得接触未脱敏原文"隐私排序约束随脱敏取消移除。）
 
 ## 0. 现状问题的工程化翻译（总表）
@@ -98,10 +99,10 @@ parsed-1（原文态, 5,739件）
 
 > 解析/分区只把文书变成可用输入；**标签**是另一层。当前项目最大的缺口在这里，不在解析。
 
-- **字段**：7 组 36 字段 + 3 meta；唯一来源 `schema.py`/`element_labels.py`。一人一条记录；`input` 只放 facts/meta 视图与 target/aliases，不能放 decision/reasoning/review/outcome。
+- **字段**：7 组 **36 个要素字段**；`CaseMeta` 的 `region`/`behavior_date`/`decision_date` 是 3 个记录级元数据（登记/来源，教师不输出，不是第 37–39 个要素）；`binding` 是派生标注，不是字段。唯一来源 `schema.py`/`element_labels.py`。一人一条记录；`input` 只放 facts/meta 视图与 target/aliases，不能放 decision/reasoning/review/outcome。
 - **标签形状**：每字段 `{status, value, evidence}`；`status`=明确/推断/未提及；金额 `{min,max}`；日期 ISO；证据 `{quote,start,end}` 必须逐字命中且只来自 facts/meta。
 - **教师**：`element-teacher-v1` 只回 `elements`，不输出 binding；A/B 双盲 + 非 DeepSeek C 仲裁，产物 `model-adjudicated`、`human_review=false`，不计人工真值。
-- **绑定**：每字段/证据标 `shared_fact`/`target_specific`/`needs_review`；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前 **v5 证据感知 3 步**：字段语义 → 证据主体（target/others/无）→ 段落类型。**212 开发切片是单人案卷**（123 shared/1567 target/655 review，joint 分支未触发）；**P1-r6 已有 178 条/186 个多人 behavior 节点**（158 shared/1570 target/861 review），多人分支已实际跑过。仍未做标注准确率；P1 861 / 212 655 review 是 unclassified role（`fine`/`unclassified_count`）；`resolve_binding` 代码接受 shared/target（212：1690/2345=72.1%），contract v4 `accept_in_resolve` 仍只写 lexical/target（212：1567/2345=66.8%）；BIND-03/CONTRACT-01 未关闭。
+- **绑定**：`binding` 是后处理派生标注（`shared_fact`/`target_specific`/`needs_review`），不是要素字段；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前代码 `60ebb52` 复跑：212 单人 310/1517/518；P1-r6 178 条 557/1519/513；review 主要是 `unclassified role: None` + 多人列表。**回归**：scene-level money 把“现场扣押/查获”整段的个人金额标 shared，P1 254/399、212 57/187 是“他人姓名+赌资+金额”，与 `amounts.personal_stake=TARGET` 冲突；130/130 无落盘 artifact；BIND-03/BIND-04/CONTRACT-01 未关闭。
 - **验收**：schema/枚举/版本、证据逐字/坐标/来源、target 可定位、无 decision/reasoning/outcome 泄漏、金额/日期合法、`reference_elements` 非空、字段覆盖率、绑定小样本准确率、A/B 或人工复核。完整格式见 [data-spec §8](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) 与 [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)。
 - **当前状态**：`reference_elements=null`；L5 标签为 0；M1 字段准确率暂缺；M4 只能用历史处罚做基线；r7 未放行。
 
@@ -166,7 +167,7 @@ quote(清理后原文中的引文)
 | M1 诊断 | 64 条；丢弃 59/406=14.5% | 本地学生零样本；字段准确率暂缺 |
 | M2 默认档位内 | 166/176=94.3% | 10 条例外有解释；不修改历史处罚 |
 | M4 B4 | 35.94% vs 多数类 42.19% | 罚款 F1=0；负结果 |
-| binding v5 | 212：123 shared/1567 target/655 review；P1-r6：158/1570/861 | 212 单人；P1-r6 178 条/186 多人 behavior；861 review 为 unclassified role；无准确率；contract/code 不一致 |
+| binding 当前代码 `60ebb52` | 212：310/1517/518；P1-r6：557/1519/513 | scene-level money 把他人个人金额标 shared（P1 254/399、212 57/187）；130/130 无 artifact；无独立准确率；contract/code 不一致；BIND-04 open |
 | L5 标签 | `reference_elements=null` | 未产标签；字段准确率/蒸馏被阻塞 |
 | r7 | 未放行 | S3>5%；正式门禁未过 |
 
@@ -185,8 +186,8 @@ quote(清理后原文中的引文)
 ### 10.1 执行状态（2026-10-18 12:56）
 
 - r6 已交付（1,695/785）；r7 未放行；开发切片 212/121 已冻结。
-- S0–S3 已跑通；E-05/绑定已到 v4，但 L5 标签仍为 0（`reference_elements=null`）。
-- 绑定 v5：212 单人（123/1567/655）；P1-r6 178 条/186 多人 behavior（158/1570/861）；证据感知 3 步已跑，但仍无标注准确率；861 review 为 unclassified role；`resolve_binding` 接受 shared，但 contract `accept_in_resolve` 仍 lexical/target；BIND-03/CONTRACT-01 未关。
+- S0–S3 已跑通；E-05/绑定已到 `60ebb52`，但 L5 标签仍为 0（`reference_elements=null`）。
+- 绑定当前代码复跑：212 310/1517/518；P1-r6 178 条 557/1519/513；scene-level money 回归（P1 254/399、212 57/187 为他人个人金额）；130/130 无 artifact；`resolve_binding` 接受 shared，但 contract `accept_in_resolve` 仍 lexical/target；BIND-03/BIND-04/CONTRACT-01 未关。
 - M1 字段准确率、M4 要素特征、蒸馏都等 L5 标签；当前只能用历史处罚做 M4 文本基线。
 - 无新付费调用；付费烟测需 I-21 六道门。
 
@@ -214,7 +215,7 @@ quote(清理后原文中的引文)
 | L0–L3 原文/解析/交付 | 基本通 | r6 1,695/785；开发切片 212/121；P1-r6 178 | r7 仍需 S3 | S3 <5% + 正式门禁 |
 | S0 清理 | 无 | `cleanse.py`/replay edits | — | — |
 | S1 分区 | 无 | seg-v2 + `element-ref-v2` | — | — |
-| S2 定位/证据图 | **绑定质量** | v5 证据感知 3 步；212 单人 123/1567/655；P1-r6 178 条/186 多人 behavior 158/1570/861 | L5 标签 | unclassified role 处置；多人案例；100–200 准确率；BIND-03 |
+| S2 定位/证据图 | **绑定质量（回归）** | 当前代码 `60ebb52`：212 310/1517/518；P1 557/1519/513；scene-level money 误标他人个人金额 P1 254/399、212 57/187 | L5 标签 | 修 BIND-04；重跑落盘；独立准确率；BIND-03 |
 | S3 校验 | **r7 门** | 26/299=8.7% >5% | r7 | S3 错误分类 + <5% |
 | L5 标签 | **主阻塞** | `reference_elements=null`；无教师批次；字段准确率暂缺 | M1 字段准确率、M4 要素特征、蒸馏 | 标签契约 + 12/36/200–300 批 + 独立验收；I-20 |
 | M1 | 等 L5 | 64 诊断；59/406 丢弃；准确率暂缺 | — | L5 标签 |
@@ -225,9 +226,9 @@ quote(清理后原文中的引文)
 | 付费/发布 | 门禁 | 无新付费批；r7 关门 | 全量/r7 | I-21 六道门 + S3 |
 | 协调/可见性 | 流程 | PUSH/DOC/SCOPE | — | 推送/归档/事件登记 |
 
-**关键区分**：212 开发切片是单人案卷；P1-r6 才是多人绑定样本（178 条/186 个多人 behavior）。两边都还没有标注准确率；P1-r6 861 / 212 655 review 是 unclassified role，不是“主体歧义已解决”。
+**关键区分**：212 开发切片是单人案卷；P1-r6 才是多人绑定样本（178 条/186 个多人 behavior）。两边都还没有标注准确率；当前 review 主要是 `unclassified role: None` 与多人列表；scene-level money 回归见 BIND-04。
 
-> 计数来自 `3d05914` commit message（212: 123/1567/655；P1-r6: 158/1570/861）；尚未生成新的 summary 产物，引用时注意这是 commit 计数而非独立诊断文件。
+> 当前计数来自协调线对 `60ebb52` 的独立复跑（`diagnostics-e05-binding-dev212-20261018-verify` / `...-p1-...-verify`）；`3d05914` 的 123/1567/655 与 158/1570/861 是历史 commit 计数，已被 `60ebb52` 取代。
 
 ## 修订记录
 
@@ -237,3 +238,4 @@ quote(清理后原文中的引文)
 | v2.1 | 2026-10-17 | 脱敏限制取消（用户决策）：删 S1 预脱敏（六阶段→五阶段）；定位链去 deid 投影（③ 直达交付坐标）；标注直接绑定原文正本；deid.py/r6_scan.py/mask_review 降级为衍生/辅助工具；金标回退 A/F 类整类关闭；新增 §11 规范联动清单（规范修订由协调层承接）；新增 §9"原文人名形态"待测项 |
 | v2.2 | 2026-10-18 | 补当前实现映射：seg-v2 句表分区、`element-ref-v2`、E-05 要素/绑定 v4；新增 §1.1、§3A L5 标签层、§9.1 实测状态、§10.1 执行状态；旧 `seg-v1` JSON 仅作历史设计 |
 | v2.3 | 2026-10-18 | 补 v5 证据感知 3 步与 P1-r6 多人绑定（178 条/186 节点，158/1570/861）；新增 §12 当前阻塞在设计中的位置（L5/绑定为主阻塞，r7 独立门） |
+| v2.4 | 2026-10-18 | 独立复跑 `60ebb52`：212 310/1517/518、P1 557/1519/513；登记 scene-level money 回归（P1 254/399、212 57/187）与 BIND-04；字段表述改为 36 要素 + CaseMeta 3 元数据 + binding 派生块 | 协调层代笔（后处理线复核） |
