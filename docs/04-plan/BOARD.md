@@ -16,7 +16,7 @@
 
 | 线 | 最新动作 | 下一步 | 注意 |
 |---|---|---|---|
-| 引擎 | `54150db`（已推送）：`civil_servant`/`abroad_organized_count` 从 shared→target；`ACCEPT_IN_RESOLVE` 加入 `shared_fact`；235 passed；前有 `3a37c56` review_reason | 继续审 `cumulative_stake`/别名接口；签发契约采纳 | 引擎策略已允许 shared；后处理代码/bundle 还未消费 |
+| 引擎 | `54150db`（已推送）：`civil_servant`/`abroad_organized_count` 从 shared→target；`ACCEPT_IN_RESOLVE` 加入 `shared_fact`；235 passed；前有 `3a37c56` review_reason | 补测试；同步契约状态；继续审 `cumulative_stake`/别名 | `54150db` 无测试；12:20 自称“正式采纳”但 contract v2 仍 pending |
 | 后处理 | `90c46a6`（已推送）：主 `binding` + `binding_policy`；v2 诊断 61/752/896；142 passed | 用 `ACCEPT_IN_RESOLVE` 改 `resolve_binding` 和 bundle；重跑 Gate B | 当前仍只 target 752/1709=44.0% 可消费 |
 | 协调 | 共享事件登记上线；`CURRENT.md` 自动生成；已核实并更正口径 | 里程碑提交快照 | 不再手抄各线状态 |
 
@@ -56,7 +56,7 @@
 | 3. 主链路执行 | 更新主 `binding` 字段；`resolve_binding` 接受 shared/target/review，真正把值归到本人/事件 | **部分完成**：`90c46a6` 写主 `binding`；引擎策略已允许 shared；但后处理 `resolve_binding`/bundle 仍只收 lexical/target，当前 target 752/1709=44.0% 可消费 |
 | 4. 契约采纳 | 引擎签发 `binding_policy`；`semantic_rules_approved=true`；版本号提升 | **未完成**：`binding_policy` / `normalization_policy` 仍 `proposed_pending_engine_adoption`；`semantic_rules_approved=false` |
 
-**质量保障现状**：暂无绑定标注准确率；引擎 `54150db` 已修正 `civil_servant` / `abroad_organized_count` 为 target，但 `cumulative_stake` 仍标 shared、target+aliases 仍被当 `all_subjects`；`conduct.times` 多人时标 shared；以上未验证。**“分类完成”不等于质量保证。**
+**质量保障现状**：暂无绑定标注准确率；引擎 `54150db` 已修正 `civil_servant` / `abroad_organized_count` 为 target，但**该提交没有测试**；`cumulative_stake` 仍标 shared、target+aliases 仍被当 `all_subjects`；`conduct.times` 多人时标 shared；引擎 12:20 事件自称“binding_policy 正式采纳”，但 contract v2 仍 `proposed_pending_engine_adoption`、`semantic_rules_approved=false`。**“分类完成”不等于质量保证，也不等于签收。**
 
 **一句话**：现在的“绑定”推进到第 1–2 层（规则 + 分类诊断），第 3 层只做了主字段写入，第 4 层未采纳；**分类完成 ≠ 绑定质量已保证**。
 
@@ -98,8 +98,8 @@
 
 ## 阻塞
 
-- **BIND-03**：绑定质量未证：引擎已修 `civil_servant`/`abroad_organized_count` 并允许 shared；但后处理 `resolve_binding`/bundle 仍未消费 shared，`cumulative_stake`/别名未审，896 review 无处置，无标注准确率（owner 引擎+后处理）。
-- **CONTRACT-01**：`binding_policy`/`normalization_policy` 仍 pending；`semantic_rules_approved=false`；`release_approved=false`（owner 引擎+后处理）。
+- **BIND-03**：绑定质量未证：引擎已修两个字段并允许 shared，但 `54150db` 无测试；后处理 `resolve_binding`/bundle 仍未消费 shared；`cumulative_stake`/别名未审；896 review 无处置；无标注准确率（owner 引擎+后处理）。
+- **CONTRACT-01**：引擎 12:20 事件称“正式采纳”，但 contract v2 仍 `proposed_pending_engine_adoption`；`semantic_rules_approved=false`；`accept_in_resolve` 未含 shared（owner 引擎+后处理）。
 - **PUSH-01**：引擎/后处理已推送；协调事件登记快照待提交。
 
 ## 本看板不做什么
