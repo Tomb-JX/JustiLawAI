@@ -7,7 +7,7 @@
 > 状态标记：✅ 已与用户确认 · 🟡 已展开、待确认 · ⬜ 待展开
 >
 > **2026-10-18 现状注记（协调层代笔）**：D-003 已取消主管线脱敏；下文 §4.4 的“脱敏/deid_map/隐私扫描”按历史理解，当前 `text_full` = 原文正本。§6 的 10-16 进度快照已过期，当前状态看协调 `CURRENT.md`/`BOARD.md`。
-> 当前关键数字（12:46）：r6 1,695 条/785 事件；开发切片 212/121；标签 `reference_elements=null`；M1 诊断丢弃 59/406=14.5%；M2 166/176=94.3%；M4 B4 未超多数类；binding v4 61 shared/1120 target/528 review（字段默认基线；`semantic_rules_approved=true`，但 contract `accept_in_resolve` 仍只写 lexical/target）；r7 未放行。
+> 当前关键数字（13:04）：r6 1,695 条/785 事件；开发切片 212/121；标签 `reference_elements=null`；M1 诊断丢弃 59/406=14.5%；M2 166/176=94.3%；M4 B4 未超多数类；binding v5 61 shared/1120 target/528 review（证据感知 3 步；212 切片无多人案例，528 review 为 unclassified role；`semantic_rules_approved=true`，但 contract `accept_in_resolve` 仍只写 lexical/target）；r7 未放行。
 
 ## 0. 阅读顺序与推进方式
 

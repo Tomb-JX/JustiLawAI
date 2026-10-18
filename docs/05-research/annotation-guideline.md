@@ -218,7 +218,7 @@
 
 **怎么从文本判定一段证据是 shared 还是 target，是后处理线的实现职责**，不是标注员的职责。标注员按 §1 的总原则标注即可：只标目标本人的要素，每个有值的字段都附原文证据。
 
-**2026-10-18 实现状态（协调层代笔）**：引擎只提供语义表（8 shared / 28 target），不提供逐案判定。后处理 v4 目前只做**字段默认映射**，不是证据级主体判定：212 条诊断 61 shared / 1120 target / 528 review；review 的 `binding_reason` 主要是未映射 role/字段，不是完整的主体歧义原因；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target。绑定质量看 BOARD/ISSUES 的 BIND-03/CONTRACT-01；**语义表存在 ≠ 绑定已完成**。绑定不是教师输出的一部分；教师只回 `elements`。
+**2026-10-18 实现状态（协调层代笔）**：引擎只提供语义表（8 shared / 28 target），不提供逐案判定。后处理 v5 已做**证据感知 3 步**（字段语义→证据主体→段落类型）：shared 恒 shared，target 仅本人→target，target 提他人→needs_review；212 条诊断 61 shared / 1120 target / 528 review；**切片无多人案例，joint/other-subject 分支未实际触发**；528 review 全是 unclassified role（`fine`/`unclassified_count`），不是主体歧义；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target。绑定质量看 BOARD/ISSUES 的 BIND-03/CONTRACT-01；**语义表存在/3 步分类 ≠ 绑定质量已证**。绑定不是教师输出的一部分；教师只回 `elements`。
 
 ## 4. 日期与人员
 
@@ -283,6 +283,7 @@
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-18 | v0.4.2 | §3.11 实现状态更新到 v5：证据感知 3 步、切片无多人案例、528 review 为 unclassified role、contract/code 不一致 | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.4.1 | §3.11 补实现状态：引擎语义表、后处理字段默认基线、528 review、contract 不一致；绑定不是教师输出 | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.4 | E-05：新增 §3 字段裁决规则（role/venue/behavior/method/times/participant/age 七字段正反例、多角色/多场所/多行为/多方式优先级、"多次"不猜、含本人计数、年龄模糊记 null）；§3.8–3.9 日期/金额归一化引擎侧唯一规则（JioNLP 仅作实现选项）；§3.10 证据语义（逐字连续、来源限制、S2 坐标）；原 §3→§4、§4→§5、§5→§6 | 模型组（引擎） |
 | 2026-10-17 | v0.3 | D-003：原文输入，`subject_mention` 定位本人；标签文件不另设身份信息字段，外发另行遮蔽评审 | 模型组（引擎） |

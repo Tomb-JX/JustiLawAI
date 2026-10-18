@@ -320,7 +320,7 @@
 - 每个字段/证据标 `shared_fact` / `target_specific` / `needs_review`。
 - 共同事实（现场赌资总额、参赌人数等）在每个相关人记录中重复并标 `shared_fact`；个人事实只归本人；无法判定标 `needs_review`。
 - 引擎语义表 `research/eval/binding_rules.py`（8 shared / 28 target）是权威定义；**具体判定由数据/后处理实现**。`needs_review` 是显式未知，不静默当正确。
-- 当前实现（2026-10-18 12:46，v4）：61 shared / 1120 target / 528 review；仍是字段默认映射，不是逐案证据判定；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target，artifact 与代码待统一；BIND-03/CONTRACT-01 未关闭。
+- 当前实现（2026-10-18 13:04，v5）：61 shared / 1120 target / 528 review；证据感知 3 步（字段语义→证据主体→段落类型）；212 切片无多人案例，joint 分支未触发；528 review 全是 unclassified role；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target，artifact 与代码待统一；BIND-03/CONTRACT-01 未关闭。
 
 ### 8.4 验收
 

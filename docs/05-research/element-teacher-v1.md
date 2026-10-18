@@ -8,7 +8,7 @@
 
 调用 `app.discretion.element_labels.teacher_messages(target=..., facts_text=..., meta_text=..., aliases=...)` 构造消息。系统提示从本体说明动态生成，每次 schema 版本变化须重新冻结提示版本。教师只回七组 `elements`，各字段 `{status,value,evidence}`，`status` 为 `明确`、`推断`、`未提及`。未提及必须 `value=null,evidence=[]`；有值必须附 facts/meta 的连续逐字 `quote`。字段取值、枚举、金额下界和开口上界由 `teacher_output_schema()` 与 `validate_teacher_output()` 校验。只收台费可记 `amounts.commission`，不得据此标营利目的。
 
-**绑定不在教师输出中**：教师只回七组 `elements`，不输出 `binding`；绑定由后处理按引擎语义表 + 证据判定。当前 v4 诊断 61 shared / 1120 target / 528 review，仍是字段默认映射；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target；BIND-03/CONTRACT-01 未关闭。教师契约通过不等于绑定质量验收。
+**绑定不在教师输出中**：教师只回七组 `elements`，不输出 `binding`；绑定由后处理按引擎语义表 + 证据判定。当前 v5 诊断 61 shared / 1120 target / 528 review，已做证据感知 3 步；但 212 切片无多人案例，joint 分支未触发；528 review 为 unclassified role；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target；BIND-03/CONTRACT-01 未关闭。教师契约通过不等于绑定质量验收。
 
 ## S2 定位与 parsed-2 结构（答 I-20 §6.3）
 
