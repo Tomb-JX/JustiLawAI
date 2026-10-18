@@ -6,7 +6,7 @@
 
 - **你从“设计评审”转为“实现负责人”**（B 职能：后处理链路）。
 - 网页端额度耗尽：原网页线只保留 **A 运维下载**（网页发现/收割/下载、120 批续跑、inbox 归位；**新增采集冻结**至链路稳定）。P2 L4 的 Word 下载可交法宝线或另派，不由你负责。
-- 从你接手起，`research/discretion/unify/**` 的写权限归你；网页线不再写后处理代码，其他线不与你并行编辑该目录。
+- 从你接手起，`research/discretion/unify/**` 的写权限归你；**另加网页前处理三文件**：`research/discretion/harvest/{parse.py,parse_qc.py,to_parsed1.py}` 及其对应测试（仅网页原文→parsed-1：HTML 表格行、字段/事件键、QC）。网页线不再写后处理代码，也不与你并行编辑这些文件。
 - 实施蓝本＝**你自己的**工程方案：`seg-v2-engineering-solutions-2026-10-18.md`（EP-01–12）＋《seg-v2 设计独立评审》＋《项目层设计评审》。协调层不重列任务、不额外加限制。
 
 ## 2. 你的职责
@@ -27,7 +27,7 @@
 ## 4. 边界（照旧）
 
 - 工作树/分支：`.claude/worktrees/seg-v2-design-review` / `codex/seg-v2-design-review`；**开工前合并网页分支最新 `d254487`**（当前落后一笔）。
-- 代码写 `research/discretion/unify/**`；数据写 `$DATA/s1_runs`、`$DATA/parsed2`；`unified_raw`/`parsed` 只读。
+- 代码写 `research/discretion/unify/**` + `research/discretion/harvest/{parse.py,parse_qc.py,to_parsed1.py}`（仅网页前处理/parsed-1；`harvest` 其余文件、`discover/**`、`collect/**` 不动）；数据写 `$DATA/s1_runs`、`$DATA/parsed2` 及**新批次**的 `unified_raw`/`parsed` 输出；既有 `unified_raw`/`parsed` 正本只读，不改旧批次。
 - 不放行 r7、不改门禁、不合并 main；推分支待审；批内不改设计。
 
 ## 5. 交付与汇报

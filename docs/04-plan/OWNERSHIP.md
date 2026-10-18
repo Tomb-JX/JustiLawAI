@@ -19,8 +19,8 @@
 |---|---|---|
 | 协调 | `docs/04-plan/{BOARD,DECISIONS,ARTIFACTS,ISSUES,OWNERSHIP}.md`、`handoffs/**`、协调记录 | 其他线代码、数据、交付 |
 | 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`docs/05-research/**` | `research/discretion/unify/**`、`delivery/**` |
-| 后处理 | `research/discretion/unify/**`、管线测试 | 引擎 schema 正本、`delivery/**` |
-| 网页/来源 | `research/discretion/discover/**`、`harvest/**`、发现/收割文档 | 引擎字段语义、标签定义 |
+| 后处理 | `research/discretion/unify/**`；`research/discretion/harvest/{parse.py,parse_qc.py,to_parsed1.py}` 及其对应测试（**仅网页原文→parsed-1 前处理：HTML 表格行、字段/事件键、QC**）；管线测试 | 引擎 schema 正本、`delivery/**`、`discover/**`、`collect/**`、`harvest` 其余文件、既有 `unified_raw`/`parsed` 正本 |
+| 网页/来源 | `research/discretion/discover/**`、`harvest/**`（**`parse.py`/`parse_qc.py`/`to_parsed1.py` 当前写权限归后处理**）、发现/收割文档 | 引擎字段语义、标签定义、`unify/**` |
 | 法宝 | `research/discretion/collect/**`、`ingest/**`、法宝文档 | 引擎字段语义、标签定义 |
 | 数据湖 | `research/discretion/lake/**`、`lake/**` | 各源批次正本 |
 
