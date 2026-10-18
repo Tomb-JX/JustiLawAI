@@ -18,9 +18,9 @@
 | 引擎 M0–M6 概念 | [framework-panorama](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/02-design/framework-panorama.md) §3 | 概念可用；“脱敏正本”/数据进度是旧口径 |
 | 当前进度/指标 | [CURRENT.md](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md)、[BOARD.md](./BOARD.md)、[p0-closure](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/p0-closure-2026-10-18.md) | CURRENT 实时；BOARD 快照；p0 是 E-01–E-04 收口 |
 | 数据 L0–L3 格式 | [data-spec](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) §1/§6/§7/§8；`records.py` | parsed-1/交付 + **L5 标签契约（v0.6.1 §8）**；36 要素字段 + CaseMeta 3 元数据 + binding 派生块 |
-| parsed-2 / seg-v2 | [parse-format-chain-design](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md) v1.4；[parse-engineering-design-v2](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md) v2.4；[unify/README](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/research/discretion/unify/README.md) | 架构 v2.4 + 格式 v1.4；seg-v2/element-ref-v2；不是 L5 标签契约 |
+| parsed-2 / seg-v2 | [parse-format-chain-design](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md) v1.4；[parse-engineering-design-v2](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md) v2.5；[unify/README](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/research/discretion/unify/README.md) | 架构 v2.5 + 格式 v1.4；seg-v2/element-ref-v2；S1 句表分区、S2 locate+evidence-graph-2 |
 | 36 字段/教师/标签 | [annotation-guideline](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；[element-teacher-v1](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/element-teacher-v1.md)；`schema.py`/`element_labels.py` | 7 组 36 要素字段；CaseMeta 3 元数据不是标签字段；binding 是派生标注；§3.11 是绑定语义；代码是字段唯一来源 |
-| 绑定/证据图 | [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；`research/eval/binding_rules.py`；`research/discretion/unify/evidence_graph.py`；[EP-06](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-engineering-solutions-2026-10-18.md) §6.2；[实施报告](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-pipeline-implementation-report-2026-10-18.md) §5.2；[架构 §12](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md) | 当前代码 `60ebb52` 复跑：212 310/1517/518；P1 557/1519/513；scene-level money 误标他人个人金额（P1 254/399、212 57/187）；130/130 无 artifact；BIND-03/BIND-04/CONTRACT-01 |
+| 绑定/证据图 | [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；`research/eval/binding_rules.py`；`research/discretion/unify/evidence_graph.py`；[EP-06](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-engineering-solutions-2026-10-18.md) §6.2；[实施报告](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-pipeline-implementation-report-2026-10-18.md) §5.2；[架构 §12](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md) | 当前代码 `e06a0af`：212 123/611/1611；P1 158/723/1708；shared 全为 count、money shared=0；无独立准确率；规则版语义归属按 B-10 冻结；BIND-03/BIND-04/BIND-05 |
 | 交付/门禁/付费 | [data-spec §4](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md)；[sota-baselines-and-gates](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/sota-baselines-and-gates.md)；[I-21](./issues/I-21-p2-workorder-incident-2026-10-18.md)；[ARTIFACTS](./ARTIFACTS.md) | r6/r7、S3、六道付费门 |
 | 决策/分工 | [DECISIONS](./DECISIONS.md)；[OWNERSHIP](./OWNERSHIP.md) | B-08：引擎契约、数据实现、独立验收 |
 | 历史/不要当依据 | [collab-log](./collab-log.md)；[workstreams](./workstreams.md)；续跑单；[text-processing-spec](./text-processing-spec.md) | 历史/归属参考；脱敏已取消（D-003） |
@@ -45,7 +45,7 @@
 
 **解析与模型调用（Codex/网页分支）**
 - [解析层格式链路设计（v1.4）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md)
-- [解析层 v2 工程设计（v2.3）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md)
+- [解析层 v2 工程设计（v2.5）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md)
 - [全链路模型调用设计 full-record（v1.1）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/model-call-design-full-record-2026-10-18.md)
 - [模型调用全链路反思（D1–D6）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/model-call-design-reflection-2026-10-18.md)
 - [文本处理规范（2026-10-18）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/text-processing-spec.md)
@@ -67,7 +67,7 @@
 
 1. **先确认现状**：`$DATA/coordination/CURRENT.md` → [BOARD.md](./BOARD.md)（快照）→ [ARTIFACTS.md](./ARTIFACTS.md)。
 2. **要理解数据/标签**：`data-spec`（L0–L3 格式）→ `annotation-guideline`（36 字段/证据/§3.11）→ `element-teacher-v1`（教师契约）→ `schema.py`（字段唯一来源）。
-3. **要看解析/seg-v2**：`parse-format-chain-design`（v1.4 格式契约）→ `parse-engineering-design-v2`（v2.3 架构 + §1.1/§3A/§12）→ `unify/README`（模块地图）。
+3. **要看解析/seg-v2**：`parse-format-chain-design`（v1.4 格式契约）→ `parse-engineering-design-v2`（v2.5 架构 + §1.1/§3/§4/§12）→ `unify/README`（模块地图）。
 4. **要看绑定/证据**：`annotation-guideline §3.11`（引擎语义）→ `binding_rules.py`（8 shared/28 target）→ `evidence_graph.py`（后处理实现）→ BOARD/ISSUES 的 BIND-03/BIND-04/CONTRACT-01。
 5. **要看历史**：`collab-log` / `workstreams` / 续跑单；只作历史，不作当前状态。
 
@@ -83,8 +83,8 @@
 
 | 文档 | 权威位置 | 版本/日期 | 状态 | 一句话 |
 |---|---|---|---|---|
-| 解析层格式链路设计 | 网页/Codex 分支 `docs/04-plan/parse-format-chain-design-2026-10-17.md`（`371ee1e`） | **v1.4**（2026-10-18；标题已改 v1.3，v1.4 加现状注记） | **现行格式契约** | 逐字段契约：L0→S0→模型→S2→S3→parsed-2→交付；当前实现映射看 architecture v2.3 §1.1/§12 |
-| 解析层 v2 工程设计（详细版） | 同上 `parse-engineering-design-v2-2026-10-17.md`（`730ad96`） | **v2.4**（2026-10-18） | **现行架构 + 实现映射 + 阻塞映射** | 五阶段管线；§1.1 实现映射、§3A L5 标签层、§9.1 实测、§10.1 执行、**§12 卡点→设计位置**；v2.4 登记 BIND-04 scene 回归 |
+| 解析层格式链路设计 | 网页/Codex 分支 `docs/04-plan/parse-format-chain-design-2026-10-17.md`（`730ad96`） | **v1.4**（2026-10-18；标题已改 v1.3，v1.4 加现状注记） | **现行格式契约** | 逐字段契约：L0→S0→模型→S2→S3→parsed-2→交付；当前实现映射看 architecture v2.5 §1.1/§3/§4/§12 |
+| 解析层 v2 工程设计（详细版） | 同上 `parse-engineering-design-v2-2026-10-17.md`（`15a5863`） | **v2.5**（2026-10-18） | **现行架构 + 实现映射 + 阻塞映射** | S1 改为 seg-v2 句表分区（服务端 quote、6 类 zones、文书字段、zones_det）；S2 改为 locate+evidence-graph-2；§9.1 实测、§10.1 执行、**§12 卡点→设计位置** |
 | parse-v2 模型接口重设计（句表分区） | 同上（`c89ea69`） | 2026-10-17 | **seg-v2 设计依据（草案）** | 把“引文摘录”改为“句表 run-length 分区”；后续评审有修订建议 |
 | 解析架构 v2 | 同上（`19e76c6`） | 2026-10-17 | 背景/方向 | 正则退位、模型承接、规则转校验的量化论证；接口细节以 parse-interface 为准 |
 | 模型调用全链路反思 | 同上（`4b9d0cd`） | 2026-10-18 | **现行问题清单** | D1–D6 六个结构性设计错误、五条调用准入、分歧榜实测 |
@@ -150,9 +150,9 @@
 | `stage-plan-v2` | 六数看板已按 13:04 刷新（M1 59/406）；补充 v5 binding；历史编制注记 | 目标/门禁保留；实时状态仍看 BOARD/CURRENT |
 | `workstreams.md` | 已加 13:04 现状注记；§1 会话表仍是历史 | 职责看 `OWNERSHIP.md`；历史留档 |
 | `coordination-audit-2026-10-16.md` | 10-16/10-17 快照 | 当前状态用 BOARD/CURRENT |
-| `seg-v2-pipeline-implementation-report` | 已加 13:40 复跑注记；§5.2 说 binding 未交付 | 对证据级/NLP 仍成立；当前代码 `60ebb52` 有 scene-level money 回归（BIND-04）；现状看 BOARD/ISSUES |
+| `seg-v2-pipeline-implementation-report` | 已加 13:40 复跑注记；§5.2 说 binding 未交付 | 对证据级/NLP 仍成立；`e06a0af` 已修 BIND-04 scene 回归，当前 212 123/611/1611；现状看 BOARD/ISSUES |
 | `contract-binding-audit-2026-10-18.md`（引擎） | 版本审计；部分版本已被 `f0dd746`/`05485da` 覆盖 | 作审计清单；当前版本看 ARTIFACTS |
-| `parse-format-chain-design` | 标题已改 v1.3，v1.4 加现状注记；仍是逐字段格式契约 | 不是 L5 标签契约；实现映射看 architecture v2.4 §1.1/§3A |
+| `parse-format-chain-design` | 标题已改 v1.3，v1.4 加现状注记；仍是逐字段格式契约 | 不是 L5 标签契约；实现映射看 architecture v2.5 §1.1/§3/§4 |
 | `text-processing-spec` | 包含已取消的脱敏/R6 主管线口径 | D-003 已取消；只作历史/外发衍生参考 |
 | `collab-log.md` | 114KB 历史事件，混有旧状态 | 只追加事件；当前状态看 CURRENT/BOARD |
 | “37 要素”表述 | 主要入口已修（framework/G0/M1）；历史报告仍可能残留 | 以 `schema.py`/`element-teacher-v1` 的 **36 要素字段 + CaseMeta 3 元数据（非第 37–39 要素）+ binding 派生块** 为准 |
