@@ -30,14 +30,19 @@ def diagnose(result: ex.ExtractionResult, row: dict) -> dict:
     views = row["input"]["views"]
     valued = invalid_evidence = 0
     evidence_count = 0
+    valued_by_field = Counter()
+    evidence_by_field = Counter()
     groups = result.elements.model_dump(mode="json")
     for group in GROUPS:
-        for item in groups[group].values():
+        for name, item in groups[group].items():
             if item["value"] is None:
                 continue
             valued += 1
+            path = f"{group}.{name}"
+            valued_by_field[path] += 1
             for ev in item["evidence"]:
                 evidence_count += 1
+                evidence_by_field[path] += 1
                 if not any(ev["quote"] in v["text"] and
                            source[v["start"]:v["end"]] == v["text"] for v in views):
                     invalid_evidence += 1
@@ -48,8 +53,14 @@ def diagnose(result: ex.ExtractionResult, row: dict) -> dict:
         raw_items, raw_valid = [], False
     return {"id": row["id"], "ok": True, "raw_json_valid": raw_valid,
             "raw_items": len(raw_items), "valued_fields": valued,
+            "valued_by_field": dict(valued_by_field),
+            "evidence_by_field": dict(evidence_by_field),
             "evidence_quotes": evidence_count, "evidence_outside_allowed_view": invalid_evidence,
             "dropped": dict(Counter(d.get("reason", "unknown") for d in result.dropped)),
+            "dropped_by_field_reason": {f"{path}|{reason}": n
+                                        for (path, reason), n in Counter(
+                                            (d.get("path", "unknown"), d.get("reason", "unknown"))
+                                            for d in result.dropped).items()},
             "seconds": result.seconds, "eval_tokens": result.eval_tokens}
 
 
@@ -85,10 +96,15 @@ def main() -> int:
     valid = [r for r in report["records"] if r["ok"]]
     report["summary"] = {"completed": len(valid), "failed": len(chosen) - len(valid),
                          "raw_json_valid": sum(r["raw_json_valid"] for r in valid),
+                         "raw_items": sum(r["raw_items"] for r in valid),
                          "valued_fields": sum(r["valued_fields"] for r in valid),
+                         "valued_by_field": dict(sum((Counter(r["valued_by_field"]) for r in valid), Counter())),
+                         "evidence_by_field": dict(sum((Counter(r["evidence_by_field"]) for r in valid), Counter())),
                          "evidence_quotes": sum(r["evidence_quotes"] for r in valid),
                          "evidence_outside_allowed_view": sum(r["evidence_outside_allowed_view"] for r in valid),
-                         "dropped": dict(sum((Counter(r["dropped"]) for r in valid), Counter()))}
+                         "dropped": dict(sum((Counter(r["dropped"]) for r in valid), Counter())),
+                         "dropped_by_field_reason": dict(sum((Counter(r["dropped_by_field_reason"])
+                                                              for r in valid), Counter()))}
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, ensure_ascii=False, indent=2), "utf-8")
     print(json.dumps({"out": str(out), "summary": report["summary"]}, ensure_ascii=False))
