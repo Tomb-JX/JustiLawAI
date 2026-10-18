@@ -32,6 +32,11 @@ class ReviewReason(str, Enum):
     UNKNOWN_FIELD = "unknown_field"  # 未知字段
 
 
+# --- resolve_binding 可消费的绑定类型 ---
+# shared_fact 是场景级事实（如现场赌资总额），resolve 应该接受。
+# needs_review 暂不自动消费，留待人工或后续规则处理。
+ACCEPT_IN_RESOLVE: tuple[str, ...] = ("lexical_candidate", "target_specific", "shared_fact")
+
 # --- 字段级默认绑定类型 ---
 # 有些字段天然属于场景级（shared），有些天然属于个人级（target），
 # 有些取决于证据内容（需按规则判定）。
@@ -43,9 +48,10 @@ FIELD_DEFAULT_BINDING: dict[str, BindingType] = {
     "persons.participant_count": BindingType.SHARED,
     "persons.cumulative_participants": BindingType.SHARED,
     "persons.minors_involved": BindingType.SHARED,
-    "persons.civil_servant": BindingType.SHARED,
     "persons.relatives_only": BindingType.SHARED,
-    "persons.abroad_organized_count": BindingType.SHARED,
+    # civil_servant 和 abroad_organized_count 是关于目标本人的
+    "persons.civil_servant": BindingType.TARGET,
+    "persons.abroad_organized_count": BindingType.TARGET,
     "venue.venue_type": BindingType.SHARED,
     "conduct.method": BindingType.SHARED,
     # 个人级：这些字段的证据总是 target_specific
