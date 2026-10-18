@@ -19,8 +19,11 @@ from s1 import (SYSTEM_PROMPT, build_user_prompt, validate, data_root, load_conf
                 PROMPT_VERSION)
 from cleanse import sentence_table
 from progress import load_prices
+from provider_contract import freeze_execution
+from budget_scope import from_order
+from task_result import failure_record
 
-VERSION = "seg-v2-durable-1"
+VERSION = "seg-v2-durable-2"
 
 
 def request_for(rec):
@@ -101,7 +104,9 @@ def main():
         p.error("仅接受已复核首段小批工单；扩量须另审")
     providers, _, _ = load_config()
     primary = order["provider"]
-    calls = DurableCalls(a.out, providers, prices=load_prices(data_root() / "config/s1_prices.json"),
+    prices = load_prices(data_root() / "config/s1_prices.json")
+    freeze_execution(a.out, order, providers, prices)
+    calls = DurableCalls(a.out, providers, prices=prices, budget_scope=from_order(order, data_root()),
                          cap=order["cap"], max_calls=order["max_calls"],
                          max_input_bytes=order["max_input_bytes"], execute=True)
     lock = a.out / "RUNNING.lock"
@@ -113,19 +118,25 @@ def main():
             if implementation_snapshot() != frozen["implementation"]:
                 raise RuntimeError("implementation_changed:中途不换代码或提示")
             rid = rec["id"]
-            payload = calls.call(primary, requests[rid], context={"id": rid, "plan": digest(frozen)},
-                                 validator=lambda value: validated_output(value, rec), repairs=1)
+            try:
+                payload = calls.call(primary, requests[rid], context={"id": rid, "plan": digest(frozen)},
+                                     validator=lambda value: validated_output(value, rec), repairs=1)
+            except Exception as exc:
+                append(a.out / 'diagnostics.jsonl', failure_record(rid, exc))
+                raise
+            if implementation_snapshot() != frozen['implementation']:
+                raise RuntimeError('implementation_changed_during_call')
             results.append({"id": rid, "ok": True, "output": validated_output(payload, rec),
                             "validation_errors": [], "request_hash": digest(requests[rid]),
                             "prompt_version": VERSION, "release_approved": False})
-        # Raw results are already durable; a failed batch can regenerate this projection offline.
-        temp = a.out / "outputs.tmp"
-        with temp.open("w", encoding="utf-8", newline="\n") as f:
-            for row in results:
-                f.write(json.dumps(row, ensure_ascii=False) + "\n")
-            f.flush()
-            os.fsync(f.fileno())
-        temp.replace(a.out / "outputs.jsonl")
+            # Commit each success before advancing. Restart revalidates cached raw.
+            temp = a.out / "outputs.tmp"
+            with temp.open("w", encoding="utf-8", newline="\n") as f:
+                for row in results:
+                    f.write(json.dumps(row, ensure_ascii=False) + "\n")
+                f.flush()
+                os.fsync(f.fileno())
+            temp.replace(a.out / "outputs.jsonl")
     finally:
         lock.unlink()
 

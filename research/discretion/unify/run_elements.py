@@ -21,6 +21,10 @@ from durable_calls import DurableCalls, append, read_rows, check_models
 from s1 import data_root, load_config
 from progress import load_prices
 from cleanse import replay_edits, sentence_table
+from evidence_types import CleanSpan
+from provider_contract import freeze_execution
+from budget_scope import from_order
+from task_result import failure_record
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
@@ -54,12 +58,15 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
         if typ != "facts" and not (typ == "meta" and sid < first_f):
             continue
         cs, ce = sentences[sid - 1]
-        for part, (a, b) in enumerate(index.project(cs, ce), 1):
+        for part, span in enumerate(index.project_span(CleanSpan(cs, ce), original), 1):
+            a, b = span.start, span.end
             text = original[a:b]
             if text.strip():
                 view.append({"id": f"S{sid}.{part}", "sentence_id": sid, "type": typ,
                              "start": a, "end": b, "text": text})
     if not view:
+        return None
+    if target not in '\n'.join(s['text'] for s in view):
         return None
     aliases = (seg_out or {}).get("subject", {}).get("aliases") or []
     if not isinstance(aliases, list) or any(not isinstance(a, str) or a not in original for a in aliases):
@@ -136,12 +143,54 @@ def load_work(run: Path, unified: Path, parsed: Path):
     return work, rejected
 
 
+def load_slice_work(source: Path):
+    """Use the frozen development view directly; this is not an S3 certificate."""
+    from freeze_slice import leak_reasons
+    from evidence_types import SourceSpan
+    manifest = json.loads(source.with_name('manifest.json').read_text('utf-8'))
+    if hashlib.sha256(source.read_bytes()).hexdigest() != manifest['artifact_hashes']['records.jsonl']:
+        raise ValueError('development_slice_hash_mismatch')
+    entries = {r['id']: r for r in manifest['entries']}
+    rows = read_rows(source)
+    if len({r['id'] for r in rows}) != len(rows) or {r['id'] for r in rows} != entries.keys():
+        raise ValueError('development_slice_id_mismatch')
+    work, rejected = [], []
+    for row in rows:
+        rid = row['id']
+        try:
+            original, inp = row['source_text'], row['input']
+            target, views = inp['target'], inp['views']
+            if (hashlib.sha256(original.encode()).hexdigest() != row['text_orig_sha256']
+                    or row['view_hash'] != digest(views) or row['view_hash'] != entries[rid]['view_hash']):
+                raise ValueError('development_slice_record_hash_mismatch')
+            if not views or target not in '\n'.join(v['text'] for v in views):
+                raise ValueError('development_slice_target_not_visible')
+            allowed = []
+            for i, v in enumerate(views, 1):
+                ref = SourceSpan.from_text(original, v['start'], v['end'])
+                if ref.quote != v['text'] or v['type'] not in {'facts','meta'} or leak_reasons(v['text']):
+                    raise ValueError('development_slice_input_not_isolated')
+                allowed.append({**v, 'id':f'D{i}.1', 'sentence_id':i})
+            facts = '\n'.join(v['text'] for v in views if v['type']=='facts')
+            meta = '\n'.join(v['text'] for v in views if v['type']=='meta')
+            if facts != inp['facts_text'] or meta != inp['meta_text']:
+                raise ValueError('development_slice_view_text_mismatch')
+            compiled = {'target':target,'aliases':[],'facts_text':facts,'meta_text':meta,
+                        'sentence_view':allowed,'regions':[(v['start'],v['end']) for v in allowed],
+                        'view_hash':digest(allowed)}
+            work.append((rid, {**row, '_text_full':original}, compiled))
+        except (ValueError, TypeError, KeyError) as exc:
+            rejected.append({'id':rid,'reason':str(exc)})
+    return work, rejected
+
+
 def main():
     sys.stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--run", type=Path, required=True)
-    p.add_argument("--unified", type=Path, required=True)
-    p.add_argument("--parsed", type=Path, required=True)
+    p.add_argument("--run", type=Path)
+    p.add_argument("--unified", type=Path)
+    p.add_argument("--parsed", type=Path)
+    p.add_argument('--slice', type=Path, help='frozen development records.jsonl; no extra S1 calls')
     p.add_argument("--out", type=Path, required=True, help="new $DATA/s1_runs directory")
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--ids", type=Path, help="预冻结的分层 ID JSON 数组；不按完成顺序取烟测样本")
@@ -149,9 +198,18 @@ def main():
     p.add_argument("--order", type=Path, help="frozen reviewed order JSON; never inferred from defaults")
     args = p.parse_args()
     out = args.out.resolve()
-    if not out.is_relative_to((data_root() / "s1_runs").resolve()) or out == args.run.resolve():
+    if not out.is_relative_to((data_root() / "s1_runs").resolve()) or (args.run and out == args.run.resolve()):
         p.error("只写新的 $DATA/s1_runs 子目录，不写旧 run")
-    work, rejected = load_work(args.run, args.unified, args.parsed)
+    if args.slice:
+        if any((args.run, args.unified, args.parsed)):
+            p.error('--slice 与 --run/--unified/--parsed 二选一')
+        work, rejected = load_slice_work(args.slice)
+        sources = (args.slice, args.slice.with_name('manifest.json'))
+    else:
+        if not all((args.run, args.unified, args.parsed)):
+            p.error('须提供 --slice 或完整网页 S1 三件来源')
+        work, rejected = load_work(args.run, args.unified, args.parsed)
+        sources = (args.run / 'outputs.jsonl', args.unified, args.parsed, args.unified.with_name('edits.rle.jsonl'))
     if args.ids:
         ids = json.loads(args.ids.read_text("utf-8"))
         by_id = {w[0]: w for w in work}
@@ -162,10 +220,10 @@ def main():
         work = work[:args.limit]
     snapshot = contract_snapshot(ENGINE)
     frozen = {"version": WIRE_VERSION, "contract": snapshot,
+              'input_mode': 'development_slice_no_s3_certificate' if args.slice else 's1_s3_qualified',
               "ids": [w[0] for w in work], "views": {rid: inp["view_hash"] for rid, _, inp in work},
               "source_hashes": {str(f.resolve()): hashlib.sha256(f.read_bytes()).hexdigest()
-                                for f in (args.run / "outputs.jsonl", args.unified, args.parsed,
-                                          args.unified.with_name("edits.rle.jsonl"))}}
+                                for f in sources}}
     out.mkdir(parents=True, exist_ok=True)
     manifest = out / "manifest.json"
     if manifest.exists() and json.loads(manifest.read_text("utf-8")) != frozen:
@@ -203,7 +261,9 @@ def main():
     providers, _, _ = load_config()
     names = order["providers"]
     check_models(*(providers[names[k]] for k in ("A", "B", "C")))
-    calls = DurableCalls(out, providers, prices=load_prices(data_root() / "config/s1_prices.json"),
+    prices = load_prices(data_root() / "config/s1_prices.json")
+    freeze_execution(out, order, providers, prices)
+    calls = DurableCalls(out, providers, prices=prices, budget_scope=from_order(order, data_root()),
                          cap=cap, max_calls=maximum, max_input_bytes=order["max_input_bytes"], execute=True)
     lock = out / "RUNNING.lock"
     with lock.open("x", encoding="ascii") as f:
@@ -230,6 +290,8 @@ def main():
                                          context={**context, "tag": "C"}, validator=valid)
                     c = compile_references(payload, inp, rec["_text_full"], ENGINE)
                     merged, unresolved, diffs = merge_valid(*candidates, ENGINE, rec["_text_full"], inp["regions"], c)
+                if contract_snapshot(ENGINE) != snapshot:
+                    raise RuntimeError('contract_changed_during_call:保留 raw，不提交混合契约标签')
                 result = {"id": rid, "status": "valid", "elements": merged,
                           "input": {"target": inp["target"], "facts_text": inp["facts_text"],
                                     "meta_text": inp["meta_text"], "text_full": rec["_text_full"],
@@ -250,10 +312,10 @@ def main():
                     temp.replace(dest)
                 elif digest(json.loads(dest.read_text("utf-8"))) != digest(result):
                     raise RuntimeError("existing_commit_mismatch:不覆盖既有记录")
-                append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs), "status": "valid"})
+                append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs), "status": "valid",
+                       "difference_kinds": dict(__import__("collections").Counter(d["kind"] for d in diffs))})
             except Exception as exc:
-                append(out / "diagnostics.jsonl", {"id": rid, "status": "unresolved",
-                       "error_type": type(exc).__name__, "reason": str(exc)[:500]})
+                append(out / "diagnostics.jsonl", failure_record(rid, exc))
                 # A smoke is fail-fast; never continue through a contract/authority/budget failure.
                 raise
     finally:

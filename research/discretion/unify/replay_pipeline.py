@@ -14,13 +14,13 @@ from pathlib import Path
 from cleanse import replay_edits
 from element_contract import contract_snapshot, digest, validate_located
 from durable_calls import read_rows
-from run_elements import ENGINE, build_inputs, _candidates
+from run_elements import ENGINE, build_inputs, _candidates, load_slice_work
 from locate import OffsetIndex
 from s1 import data_root
 from s3 import run_checks, zone_spans
 from freeze_slice import leak_reasons
 
-VERSION = "pipeline-offline-v2"
+VERSION = "pipeline-offline-v3"
 
 
 def unique(rows):
@@ -32,7 +32,7 @@ def unique(rows):
     return out
 
 
-def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Path | None = None):
+def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Path | None = None, outcomes: Path | None = None):
     if out.exists():
         raise FileExistsError("parsed2 批次不可复用")
     paths = [unified, parsed, unified.with_name("edits.rle.jsonl"), run / "outputs.jsonl"]
@@ -45,6 +45,7 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
     a, b, labels = [unique(read_rows(old / n)) for n in ("A.jsonl", "B.jsonl", "labels.jsonl")]
     records, findings, rejected, audit = [], [], [], []
     counters, element_counts = Counter(), Counter()
+    arbitration_counts = Counter()
     for rid, response in outputs.items():
         if not response.get("ok"):
             rejected.append({"id": rid, "reason": "s1_failed"})
@@ -105,11 +106,13 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
                       "quality": {"s3_status": status, "fact_isolation_flags": fact_flags,
                                   "m1_input_candidate": not fact_flags},
                       "elements_status": "not_available", "release_approved": False,
+                      "outcome_arbitration_status": "not_available",
                       "pipeline_version": VERSION, "s1_prompt_version": "seg-v2"}
             result["s1_confidence_diagnostic"] = response["output"].get("confidence")
             if elements:
                 path = elements / f"record-{rid}.json"
                 if path.exists():
+                    fingerprints[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
                     label = json.loads(path.read_text("utf-8"))
                     if (label.get("status") != "valid" or label.get("view_hash") != inp["view_hash"]
                             or label.get("contract_hash") != digest(contract_snapshot(ENGINE))
@@ -123,6 +126,15 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
                                    "element_schema_version": label["element_schema_version"],
                                    "element_prompt_version": label["element_prompt_version"],
                                    "label_provenance": "model-adjudicated", "human_review": False})
+            if outcomes:
+                from outcome_arbitration import attach_commit
+                for path in (outcomes / f'record-{rid}.json', outcomes / 'manifest.json'):
+                    if path.exists():
+                        fingerprints[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
+                arbitration = attach_commit(rid, original, inp['target'], outcomes)
+                if arbitration:
+                    result.update(outcome_arbitration=arbitration, outcome_arbitration_status=arbitration['status'])
+            arbitration_counts[result['outcome_arbitration_status']] += 1
             element_counts[result["elements_status"]] += 1
             records.append(result)
         except (ValueError, KeyError, IndexError, TypeError) as exc:
@@ -136,6 +148,7 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
               "legacy_label_audited": len(audit), "legacy_labels_promoted": 0,
               "historical_input_differences": sum("historical_input_differs" in r["issues"] for r in audit),
               "element_states": dict(element_counts), "release_approved": False,
+              "outcome_arbitration_states": dict(arbitration_counts),
               "contract": contract_snapshot(ENGINE), "source_hashes": fingerprints}
     out.mkdir(parents=True, exist_ok=False)
     for name, rows in (("records.jsonl", records), ("s3-findings.jsonl", findings),
@@ -154,16 +167,25 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
 def main():
     __import__("sys").stdout.reconfigure(encoding="utf-8")
     p = argparse.ArgumentParser(description=__doc__)
-    p.add_argument("--unified", type=Path, required=True)
-    p.add_argument("--parsed", type=Path, required=True)
-    p.add_argument("--run", type=Path, required=True)
+    p.add_argument("--unified", type=Path)
+    p.add_argument("--parsed", type=Path)
+    p.add_argument("--run", type=Path)
+    p.add_argument('--slice',type=Path)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--elements", type=Path)
+    p.add_argument("--outcomes", type=Path, help='new observed-outcome-2 candidate run; never old arbitration')
     a = p.parse_args()
     if not a.out.resolve().is_relative_to((data_root() / "parsed2").resolve()):
         p.error("只写新的 $DATA/parsed2 子目录")
-    print(json.dumps(assemble(a.unified, a.parsed, a.run, a.out, elements=a.elements),
-                     ensure_ascii=False, indent=2))
+    if a.slice:
+        if any((a.unified,a.parsed,a.run,a.outcomes)):
+            p.error('--slice 模式不混用网页 S1 或观察处罚仲裁来源')
+        report = assemble_slice(a.slice,a.out,elements=a.elements)
+    else:
+        if not all((a.unified,a.parsed,a.run)):
+            p.error('须提供 --slice 或完整网页三件来源')
+        report = assemble(a.unified,a.parsed,a.run,a.out,elements=a.elements,outcomes=a.outcomes)
+    print(json.dumps(report,ensure_ascii=False,indent=2))
 
 
 if __name__ == "__main__":
