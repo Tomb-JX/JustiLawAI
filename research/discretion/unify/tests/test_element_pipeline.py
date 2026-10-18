@@ -113,6 +113,22 @@ def test_projection_keeps_last_character_and_skips_deleted_gap():
     assert all(text[a:b] == s["text"] for s, (a, b) in zip(inp["sentence_view"], inp["regions"]))
 
 
+def test_teacher_view_omits_penalty_header_but_keeps_target_meta():
+    parts = ["处罚种类：罚款500元。", "行政相对人：张某。", "张某参与赌博。", "决定罚款500元。"]
+    text = "".join(parts)
+    ends = [sum(map(len, parts[:i])) for i in range(1, len(parts) + 1)]
+    sentences = [[0, ends[0]], [ends[0], ends[1]], [ends[1], ends[2]], [ends[2], ends[3]]]
+    rec = {"subject_mention": "张某", "text_orig_sha256": hashlib.sha256(text.encode()).hexdigest(),
+           "_text_full": text, "cleaned_text": text, "sentences": sentences}
+    out = {"zones": [{"type": "meta", "from": 1, "to": 2},
+                     {"type": "facts", "from": 3, "to": 3},
+                     {"type": "decision", "from": 4, "to": 4}]}
+    inp = build_inputs(rec, out, OffsetIndex({"orig_len": len(text), "deletes": []}))
+    assert inp["meta_text"] == "行政相对人：张某。"
+    assert inp["facts_text"] == "张某参与赌博。"
+    assert "罚款" not in "\n".join(v["text"] for v in inp["sentence_view"])
+
+
 @pytest.mark.parametrize("a,b", [(-1, 1), (0, 0), (1, 0), (0, 4), (True, 2)])
 def test_invalid_half_open_coordinates_rejected(a, b):
     with pytest.raises(IndexError):

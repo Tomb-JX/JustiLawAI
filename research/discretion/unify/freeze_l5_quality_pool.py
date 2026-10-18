@@ -9,6 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from durable_calls import read_rows
+from freeze_slice import leak_reasons
 
 
 def sha(path: Path) -> str:
@@ -70,6 +71,9 @@ def main() -> None:
         if len(behavior) >= 7 and len(decided) >= 7 and behavior[:7] > decided[:7]:
             counts["contradictory_source_dates"] += 1
             continue
+        if leak_reasons(facts):
+            counts["source_fact_answer_leak"] += 1
+            continue
         match = old_by_source.get((rec["source_id"], rec["text_orig_sha256"]))
         if match and (rec["cleaned_text"] != old[match]["cleaned_text"]
                       or rec["sentences"] != old[match]["sentences"]):
@@ -92,7 +96,7 @@ def main() -> None:
                 "requires_s1": len(missing), "by_split": dict(Counter(x["split"] for x in selected)),
                 "by_batch": dict(Counter(x["source_batch"] for x in selected)),
                 "events": len({x["event_id"] for x in selected}), "records": selected,
-                "warning": "source-screened candidate, not gold; reused old IDs require exact source/hash and cleaned sentence view"}
+                "warning": "source-screened candidate, not gold; source facts also pass conservative answer-leak screen; reused old IDs require exact source/hash and cleaned sentence view"}
     (a.out / "MANIFEST.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", "utf-8")
     print(json.dumps({k: manifest[k] for k in ("selected", "reused", "requires_s1", "events", "by_split", "by_batch", "funnel")}, ensure_ascii=False))
 

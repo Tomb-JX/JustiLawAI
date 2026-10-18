@@ -18,11 +18,13 @@ def run_one(root: Path, batch: Path, name: str) -> dict:
     cmd = [sys.executable, "-B", str(HERE / "run_seg.py"), "--batch", str(batch),
            "--out", str(run), "--ids", str(folder / "ids.json"), "--clause-refine",
            "--execute", "--order", str(folder / "approved-order.json")]
-    result = subprocess.run(cmd, cwd=HERE.parents[2], capture_output=True, text=True, encoding="utf-8")
+    result = subprocess.run(cmd, cwd=HERE.parents[2], capture_output=True, text=True,
+                            encoding="utf-8", errors="replace")
     if result.returncode == 0:
         s3 = [sys.executable, "-B", str(HERE / "run_s3.py"), "--batch", str(batch),
               "--run", str(run), "--out", "s3"]
-        checked = subprocess.run(s3, cwd=HERE.parents[2], capture_output=True, text=True, encoding="utf-8")
+        checked = subprocess.run(s3, cwd=HERE.parents[2], capture_output=True, text=True,
+                                 encoding="utf-8", errors="replace")
     else:
         checked = None
     log = {"batch": name, "s1_exit": result.returncode, "s1_output": (result.stdout + result.stderr)[-3000:],

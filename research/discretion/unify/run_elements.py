@@ -75,6 +75,10 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
                 a, b = span.start, span.end
                 text = original[a:b]
                 if text.strip():
+                    if segment_type == "meta":
+                        from freeze_slice import leak_reasons
+                        if leak_reasons(text):
+                            continue
                     item = {"id": f"S{sid}.{segment_number}.{part}" if refined is not None else f"S{sid}.{part}",
                             "sentence_id": sid, "type": segment_type, "start": a, "end": b,
                             "text": text, **({"fact_role": segment["role"]} if refined is not None and segment_type == "facts" else {})}

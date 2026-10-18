@@ -16,12 +16,16 @@ def sha(path: Path) -> str:
 def main() -> None:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--root", type=Path, required=True)
+    p.add_argument("--pool", type=Path, help="Final screened cohort; defaults to root")
+    p.add_argument("--out", type=Path, help="New combined output directory")
     a = p.parse_args()
-    pool = json.loads((a.root / "MANIFEST.json").read_text("utf-8"))
+    pool_root = a.pool or a.root
+    pool = json.loads((pool_root / "MANIFEST.json").read_text("utf-8"))
     plan = json.loads((a.root / "batch-plan.json").read_text("utf-8"))
     expected = [r["id"] for r in pool["records"]]
     missing = {r["id"] for r in pool["records"] if not r["reuse_output_id"]}
-    reused = {r["id"]: r for r in read_rows(a.root / "input" / "reused-outputs.jsonl")}
+    reused = {r["id"]: r for r in read_rows(a.root / "input" / "reused-outputs.jsonl")
+              if r["id"] in set(expected)}
     if len(reused) != pool["reused"] or set(reused) != set(expected) - missing:
         raise ValueError("reused outputs incomplete")
     paid, versions, batches = {}, set(), []
@@ -39,7 +43,8 @@ def main() -> None:
                     or row.get("request_hash") != manifest["request_hashes"][rid]
                     or row.get("prompt_version") != manifest["version"]):
                 raise ValueError(f"invalid paid output: {rid}")
-            paid[rid] = row
+            if rid in missing:
+                paid[rid] = row
         batches.append({"name": name, "records": len(rows), "manifest_sha256": sha(run / "manifest.json"),
                         "outputs_sha256": sha(run / "outputs.jsonl")})
     if len(versions) != 1 or set(paid) != missing or set(paid) & set(reused):
@@ -47,7 +52,7 @@ def main() -> None:
     version, base, clause, source, _ = next(iter(versions))
     if source != sha(a.root / "input" / "records.jsonl"):
         raise ValueError("source input changed")
-    combined = a.root / "combined"
+    combined = a.out or a.root / "combined"
     combined.mkdir(exist_ok=False)
     out = combined / "outputs.jsonl"
     outputs = {**paid, **reused}
@@ -57,7 +62,7 @@ def main() -> None:
     settled = {x["key"]: x["charged"] for x in ledger if x["event"] == "settled"}
     if reserved != set(settled):
         raise ValueError("unsettled call")
-    provenance = {"version": "l5-quality-s1-combined-1", "pool_sha256": sha(a.root / "MANIFEST.json"),
+    provenance = {"version": "l5-quality-s1-combined-1", "pool_sha256": sha(pool_root / "MANIFEST.json"),
                   "input_sha256": source, "records": len(outputs), "paid_records": len(paid),
                   "reused_records": len(reused), "prompt_version": version,
                   "semantic_prompt_base": base, "clause_refine": clause, "batches": batches,
