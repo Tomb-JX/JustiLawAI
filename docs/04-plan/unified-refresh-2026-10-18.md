@@ -22,6 +22,42 @@ $DATA/unified_raw_refresh/20261018/<channel>/<batch>/
 - canonical 中 `prefilter.release=true` 且 `content_ready` 3,728 条；
 - canonical 中 `release` 且 facts 非空（L5 至少需要 facts）3,557 条。
 
+## 26,185 不是去重后的数量
+
+全量树是 **41 个 parsed 批次的并集**，包含历史批、重复批和同源页。按输出记录粗算：
+
+| 口径 | 数量 |
+|---|---:|
+| 总记录 | 26,185 |
+| 唯一 `id` | 7,333 |
+| 唯一 `text_orig_sha256` | 7,468 |
+| 唯一 `text_orig_sha256 + subject_mention` | 7,476 |
+| 唯一 `doc_no_hash` | 6,726 |
+
+所以 26,185 里有大量跨批重复：web-r2/web-r3/web-r4 同源重叠，旧 pkulaw 批与 merged/P1/P1b 重叠，P2-r1 还有 761 条重复权限页。**该树只做格式转换，没有做事件去重，不能整体直接喂 S1。**
+
+## 当前可用性评级（operational，不是正式 A/B/C 语料评级）
+
+| 级别 | 规则 | 记录数 | web | pkulaw | 说明 |
+|---|---|---:|---:|---:|---|
+| A：S1-ready | canonical + format_ok + release + 有 facts 或 decision | **3,728** | 2,225 | 1,503 | 可进 S1；A 内唯一 id 3,613、唯一 text 3,700 |
+| B：canonical 但未就绪 | canonical + format_ok，但未 release 或无 facts/decision | 2,814 | 2,812 | 2 | 2,675 未 release；139 release 但无内容 |
+| C：canonical 不合格 | canonical 但 format_ok=false | 1,746 | 0 | 1,746 | 全部是 P2-r1（重复权限页/稀疏） |
+| 历史/实验 | 非 canonical | 17,897 | 14,927 | 2,970 | 旧 web/旧 pkulaw/实验批；仅作历史 |
+| 总计 | — | 26,185 | 19,964 | 6,221 | — |
+
+A 级内部：
+
+- 有源 `text_party`：1,112 条（P1/P1b/merged）；
+- 无 `text_party`：2,616 条（web-r4 2,225 + P2-L4word 317 + P1/P1b/merged 中 74 条无 party）；
+- 按源 `event_key` 粗算只有 **1,622** 个 event_key，且跨源公式不一致；这是“事件去重会显著缩小数量”的证据，不是权威事件数。
+
+## 事件去重应该在哪
+
+- `to_unified.py` 是**格式转换器**：逐批转 cleaned_text/sentences/edits/zones_det，不做跨批/事件去重。
+- `freeze_slice` 为开发切片做保守事件分组（event_key/doc_no_hash/重复正文），但只覆盖切片，不是全量树。
+- 正确顺序应是：**先按来源页/文档去重 → 再按 event_key 分事件 → 每个事件保留一人一条记录 → 再进 S1/切片**。不能把 26,185 当成 26,185 个独立事件，也不能把多人事件折叠成一条。
+
 ## 推荐进入 S1 的主批次
 
 | channel | batch | records | released | released+content | released+facts | party_segment |
