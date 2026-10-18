@@ -9,7 +9,7 @@
 1. **实时**：[CURRENT.md](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md)（自动生成；各工作树都能读）。
 2. **设计索引**：[design-docs-index-2026-10-18.md](./design-docs-index-2026-10-18.md)（按主题找现有文档；含文档勘误）。
 3. 本页（提交快照；比 CURRENT 可能旧几分钟）。
-4. [element 契约 handoff](./handoffs/2026-10-18-element-contract-v1.md)（验收命令）；[标注线角色交接](./handoffs/2026-10-18-labeling-role-handoff.md)（新会话接手标注）。
+4. [element 契约 handoff](./handoffs/2026-10-18-element-contract-v1.md)（验收命令）；[标注线角色交接](./handoffs/2026-10-18-labeling-role-handoff.md)（新会话接手标注）；[数据链续跑交接](./handoffs/2026-10-18-data-chain-continuation.md)（额度耗尽后续跑）。
 5. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行）。
 6. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考。
 
