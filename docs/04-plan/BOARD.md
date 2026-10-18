@@ -1,107 +1,93 @@
-# 协调看板（唯一当前状态）
+# 协调看板（提交快照）
 
-> 只放当前循环；历史见 [collab-log.md](./collab-log.md)，决策见 [DECISIONS.md](./DECISIONS.md)，产物见 [ARTIFACTS.md](./ARTIFACTS.md)，阻塞见 [ISSUES.md](./ISSUES.md)。
-> 更新时机：循环开始/结束、阻塞变化、核心指标变化。**不再在其它文档维护“当前状态”。**
-> **各工作树快速读取（引擎/后处理没有本页）**：`D:/02_Dev/Data/justilaw-research/handoff/2026-10-18/CURRENT.md`（本页镜像）。
-
-**最后更新：2026-10-18 11:54**
+> **实时状态以 [`$DATA/coordination/CURRENT.md`](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md) 为准**（共享事件登记自动生成）；本页是 **2026-10-18 12:10 的提交快照**，只在里程碑更新。
+> 事件登记设计：[event-registry.md](./event-registry.md)；运行时 CLI：`D:/02_Dev/Data/justilaw-research/coordination/coord_event.py`；共享镜像：`D:/02_Dev/Data/justilaw-research/handoff/2026-10-18/CURRENT.md`。
+> 历史见 [collab-log.md](./collab-log.md)；决策/产物/阻塞见 [DECISIONS.md](./DECISIONS.md)、[ARTIFACTS.md](./ARTIFACTS.md)、[ISSUES.md](./ISSUES.md)。
 
 ## 五分钟阅读路径
 
-1. 本页（当前循环、下一步、指标、阻塞）。
-2. [handoffs/2026-10-18-element-contract-v1.md](./handoffs/2026-10-18-element-contract-v1.md)（本轮交接与验收命令）。
-3. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行；过期/基线行不要当契约）。
-4. 需要细节再读 [ISSUES.md](./ISSUES.md)、[DECISIONS.md](./DECISIONS.md)。
-5. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考，会把当前状态淹没。
+1. **实时**：[CURRENT.md](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md)（自动生成；各工作树都能读）。
+2. 本页（提交快照；比 CURRENT 可能旧几分钟）。
+3. [本轮 handoff](./handoffs/2026-10-18-element-contract-v1.md)（验收命令）。
+4. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行）。
+5. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考。
 
-## 各线当前状态（11:54）
+## 各线当前状态（12:10）
 
-| 线 | 最后动作 | 下一步 | 注意 |
+| 线 | 最新动作 | 下一步 | 注意 |
 |---|---|---|---|
-| 引擎 | `45a7d1a`（11:24）：E-05 实现包；**无绑定表提交** | 补 `shared_fact` / `target_specific` / `needs_review` 绑定表；推送 7 笔 | 只读 BOARD + handoff + `research/eval/normalization_spec.py` / `evidence_contract.py`；不要读 collab-log |
-| 后处理 | `256d2ce`（11:36）：模块接入；139 passed | 推 7 笔；Gate A2 改 `evidence_graph` 主路径；免费诊断 | A2 不等绑定；不要跑 smoke/模型 |
-| 协调 | `28707b2`：BOARD/规范落地 | 维护 BOARD；不新增状态文档 | 当前状态只在本页 |
+| 引擎 | `971fdc3`（已推送）：Gate B 绑定规则 `shared_fact` / `target_specific` / `needs_review`；231 passed；`affcea2` 绑定审计 | 只做 Gate B 支持；不再新增功能 | 绑定规则已交付，不再等引擎 |
+| 后处理 | `4b7680d`（已推送）：Gate A2 主路径改用 E-05；11:58 A2 诊断已跑；绑定适配 `element_contract.py` 未提交 | 提交绑定适配；跑 Gate B 诊断；对比 binding | A2 诊断 binding 仍 1,647；这是预期 |
+| 协调 | 共享事件登记上线（13 条种子）；`CURRENT.md` 自动生成 | 里程碑把 `BOARD.generated.md` 提交为快照 | 不再手抄各线状态 |
 
 ## 当前循环
 
 | 项 | 内容 |
 |---|---|
-| 目标 | element 契约 v1 定版（schema + 归一化 + 证据 + **主体绑定**），并在 212 条冻结切片上**重跑**一次免费离线诊断（对比 10:28 基线） |
-| Loop owner | **后处理线**（激活交接、跑验收、回报结果） |
-| 贡献方 | 引擎线（绑定规则与版本化）；协调线（看板/路由/验收口径） |
-| 截止 | 2026-10-18 13:15（90 分钟时间盒） |
-| 状态 | **Gate A 模块已提交（主路径待接）；Gate B（绑定）进行中** |
+| 目标 | element 契约 v1 定版（schema + 归一化 + 证据 + **主体绑定**）；212 条 Gate B 诊断；契约只重导一次 |
+| Loop owner | **后处理线** |
+| 贡献方 | 引擎线（绑定规则已交付）；协调线（事件登记/快照/验收口径） |
+| 截止 | 2026-10-18 13:15 |
+| 状态 | **Gate A/A2 完成；Gate B 绑定适配进行中** |
 
-### Gate A：模块接入（11:36 已提交；主路径待接）
+## Gate A / A2：已完成
 
-- 后处理提交 `256d2ce`：新增 `element_contract.py` / `normalization.py` 的 E-05 包装。
-- 后处理单测：**139 passed**（新增接入代码没有单独测试，见 ISSUES CONTRACT-01）。
-- **主路径未接**：`evidence_graph.py` 仍调用旧 `normalize_time` / `normalize_quantity`，没有改用 E-05；集成回放 `replay-e05-integrated-20261018` 的 `element_states` 全 `not_available`，也没有测到新代码。
-- **Gate A2（owner 后处理线；现在可做，不等绑定表）**：把 `evidence_graph` 的金额/日期归一化改走 E-05，补 2–3 个测试，再在 212 条上重跑 `diagnose_pipeline`，输出与 10:28 的 binding 1,647 基线对比。
+- 后处理 `4b7680d`：`evidence_graph` 主路径的金额/日期归一化改用 E-05；已推送。
+- A2 诊断：`$DATA/parsed2/diagnostics-e05-e2e-20261018/summary.json`（`372adbfa…`），212 条：
+  - `normalizer:resolved` 1,704；`normalizer:unresolved` 5；
+  - `requires_explicit_approximation_policy` **97 → 11**；
+  - `reason:e05_parse_failed` 5；
+  - `binding:unresolved` **仍 1,647**（绑定未接，预期）。
+- **A2 是同一 212 条、不同代码路径的重跑**，不是重复 10:28；10:28 是 pre-E-05 基线。
 
-### Gate B：绑定（等引擎）
+## Gate B：绑定（进行中）
 
-- 引擎截至 11:47 尚未提交绑定表；最后一个引擎提交仍是 `45a7d1a`（11:24）。
-- 后处理不需要等整段：Gate A 的提交、测试、免费诊断基线现在就能做；只有**绑定验收**这一步等引擎。
+- 引擎 `971fdc3`：`binding_rules.py` 交付 `shared_fact` / `target_specific` / `needs_review`，10 tests，231 passed，已推送。
+- 后处理 WIP：`element_contract.py` 增加 `binding_rules()` / `classify_bindings()`（未提交）；下一步接进 `evidence_graph` 的绑定分类，跑 Gate B 诊断。
+- 绑定完成后：**只重导一次** contract；旧 11:17 bundle 标 superseded。
 
 ## 诊断/回放口径（避免重复劳动）
 
 | 名称 | 输入 | 内容 | 状态 |
 |---|---|---|---|
-| 工程诊断 10:28 | 212 条 | 图/归一化/证据/36 字段可观测性；binding 1,647 | **pre-E-05 基线，已完成** |
-| post-E-05 回放 11:16 | final300 的 S3 299 条 | S3/装配；`element_states` 全 `not_available` | 已完成；不测要素层 |
-| 集成回放 11:36 | final300 的 S3 299 条 | S3/装配；`element_states` 全 `not_available` | 已完成；不测要素层 |
-| **Gate A2 诊断（待跑）** | 212 条 | `evidence_graph` 主路径改用 E-05 后，重跑图/归一化/证据；binding 预期仍约 1,647 | **待跑；对比 10:28** |
-| **Gate B 诊断（待跑）** | 212 条 | 接入绑定后重跑同一诊断；binding 应变化 | 等引擎绑定 |
+| 工程诊断 10:28 | 212 条 | 图/归一化/证据/36 字段可观测性；binding 1,647 | pre-E-05 基线，已完成 |
+| post-E-05 回放 11:16 / 集成回放 11:36 | final300 的 S3 299 条 | S3/装配；`element_states` 全 `not_available` | 已完成；不测要素层 |
+| **Gate A2 诊断 11:58** | 212 条 | 主路径改用 E-05 后重跑；approx 失败 97→11；binding 仍 1,647 | **已完成** |
+| **Gate B 诊断（待跑）** | 212 条 | 接入绑定后重跑；binding 应变化 | 等后处理适配 |
 
-**不要用 11:16/11:36 的 S3 回放替代 212 诊断**：它们只测 S3/装配，`element_states` 全是 `not_available`。
+**不要用 11:16/11:36 的 S3 回放替代 212 诊断**：它们只测 S3/装配。
 
 ## 下一步（按顺序）
 
-1. **引擎**：补主体绑定规则（`shared_fact` / `target_specific` / `needs_review`），写进 `research/eval/` 契约模块并版本化；推送 7 笔本地提交。
-2. **后处理**：推送 `256d2ce`（当前 7 笔领先 origin）；把 `evidence_graph` 主路径改用 E-05 归一化；补 2–3 个单测；重跑 212 条 `diagnose_pipeline`，输出与 10:28 基线对比（pre-binding）。
-3. **引擎绑定到位后**：后处理接 `shared_fact` / `target_specific`，重跑同一诊断，比较 binding 变化；再重导 contract。
-4. **协调**：核对结果并更新本看板；通过后才讨论 12 条 smoke。
+1. **后处理**：提交 `element_contract.py` 绑定适配；接进 `evidence_graph`；跑 Gate B 212 诊断；把 binding 变化登记到事件区。
+2. **引擎**：只做 Gate B 支持；不再新增功能或效率审计。
+3. **协调**：从 `BOARD.generated.md` 提交里程碑快照；不手抄状态。
+4. **只有 Gate B 通过 + I-21 门**，才讨论 12 条 smoke；之前不调模型、不放行 r7。
 
-## 验收命令
-
-```bash
-# 后处理单测
-python -B -m pytest research/discretion/unify/tests -q -p no:cacheprovider
-
-# 离线诊断（输出目录必须不存在，且位于 $DATA/parsed2/ 下）
-python -B research/discretion/unify/diagnose_pipeline.py \
-  --input D:/02_Dev/Data/justilaw-research/parsed2/dev-slice-20261018-codex-v2/records.jsonl \
-  --out D:/02_Dev/Data/justilaw-research/parsed2/diagnostics-e05-e2e-20261018
-```
-
-**判据**：测试全绿；binding unresolved 与 1,647 基线对比，或给出明确的 `shared_fact` / `target_specific` / `needs_review` 分类；**不产生模型调用**。
-
-## 核心指标（基线，均为 E-05 前）
+## 指标（当前）
 
 | 指标 | 当前值 | 说明 |
 |---|---|---|
-| S3 硬失败 | 26/299 = 8.7% | 11:16 离线回放；r7 要求 <5%，E-05 不改 S3 |
-| binding unresolved | 1,647 / 1,704 候选 | 10:28 工程诊断；本轮要测变化 |
-| M1 丢弃 | 59/406 = 14.5% | validation 64 条；本轮不改 M1 |
-| 字段准确率 | 暂缺 | `reference_elements=null` |
+| S3 硬失败 | 26/299 = 8.7% | 11:16/11:36 S3 回放；r7 要求 <5% |
+| binding unresolved | 1,647 / 1,704 候选 | 10:28 与 A2 同值；绑定未接 |
+| A2 approx 失败 | 97 → 11 | E-05 主路径生效 |
+| A2 e05 parse failed | 5 | 需 Gate B 时复核 |
+| M1 丢弃 | 59/406 = 14.5% | validation 64；pre-E-05 |
 
 ## WIP
 
-- 跨线循环：**1**（本循环）
-- 诊断子任务：0
-- 新功能、新文档：**冻结**（本循环结束前不新增）
+- 跨线循环：**1**（Gate B）
+- 新功能/新文档：冻结；只做 handoff/事件登记内事项
 
 ## 阻塞
 
-- **主体绑定规则未写**（引擎）；这是本轮唯一需要新增的语义规则。
-- **主路径未改用 E-05**：`evidence_graph.py` 仍走旧 JioNLP 归一化；集成回放没有测到新代码。
-- **11:17 contract bundle 已过期**：它早于 11:24 的 E-05 实现包，`normalization_policy` 仍为 `proposed_pending_engine_adoption`；需在绑定完成后重导一次，不要为 Gate A 重导两次。
-- **可见性**：引擎 7 笔、后处理 7 笔提交均未推 origin；交接前必须 push。后处理新增接入代码没有专用单测，需补 2–3 个。
+- **BIND-01**：引擎规则已交付；后处理适配未提交（owner 后处理）。
+- **CONTRACT-01**：A2 已完成；绑定适配/版本号/重导未完成（A2 后处理；B 引擎）。
+- **PUSH-01**：引擎已推送；后处理绑定适配未提交；事件登记快照待提交。
 
 ## 本看板不做什么
 
 - 不重复 `collab-log` 的历史叙述。
-- 不列已完成工单；已完成项只进 `ARTIFACTS` 或历史。
-- 不写“请对接/请关注”这类开放式消息；跨线交接一律用 [handoffs/](./handoffs/) 模板。
-- 不把测试通过等同于消费方跑通；三级完成定义见 [DECISIONS.md](./DECISIONS.md) 的 B-03。
+- 不手抄各线状态；实时看 `CURRENT.md`。
+- 不写“请对接/请关注”；跨线交接用 [handoffs/](./handoffs/)。
+- 不把测试通过等同于消费方跑通；三级完成定义见 DECISIONS B-03。

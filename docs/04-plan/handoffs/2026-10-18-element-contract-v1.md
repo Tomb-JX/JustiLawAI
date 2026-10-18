@@ -5,9 +5,9 @@
 - **Loop owner**：后处理线
 - **创建**：2026-10-18 11:45
 - **截止**：2026-10-18 13:15
-- **状态**：Gate A 模块已提交（11:36）；Gate A2 主路径 + Gate B 绑定 open
+- **状态**：Gate A/A2 已完成（`4b7680d`）；Gate B 绑定适配 WIP
 
-> **依赖关系**：Gate A2（后处理把 `evidence_graph` 主路径改用 E-05）**不依赖绑定表，可立即执行**；只有 Gate B 的主体绑定等引擎。
+> **依赖关系**：Gate A2 已完成；Gate B 的引擎规则已由 `971fdc3` 交付，后处理只需完成适配，不再等引擎。
 
 ## 1. 本轮要拿到什么
 
@@ -62,10 +62,11 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 
 | 项 | 记录 |
 |---|---|
-| 引擎 ack（时间/commit） | 未 ack（截至 11:47；last commit `45a7d1a`，无绑定表） |
-| 后处理 ack（时间/负责人） | 11:36，commit `256d2ce`；工作区干净；**模块级接入，主路径未接** |
-| Gate A2（主路径） | 未完成：`evidence_graph.py` 仍用旧 `normalize_time` / `normalize_quantity` |
-| 单测结果 | 139 passed；新增接入代码无专用单测 |
-| 诊断结果（binding 变化、normalizer、证据问题数） | Gate A 集成回放 `replay-e05-integrated-20261018`：S3 26/299；`element_states` 全 `not_available`；binding 未测 |
+| 引擎 ack（时间/commit） | `971fdc3`（已推送）：binding_rules；shared/target/review；231 passed；另有 `affcea2` 绑定审计 |
+| 后处理 ack（时间/commit） | `4b7680d`（已推送）：Gate A2 主路径改用 E-05；A2 诊断 11:58 |
+| Gate A2（主路径） | **已完成**：`evidence_graph.py` 改用 E-05；A2 诊断 `diagnostics-e05-e2e-20261018`（`372adbfa…`） |
+| Gate B（绑定） | **WIP**：`element_contract.py` 增加 `binding_rules/classify_bindings`（未提交）；待接进 `evidence_graph` 并跑 Gate B 诊断 |
+| 单测结果 | 256d2ce 后 139 passed；A2 commit 带 43 行测试；Gate B 适配后需重跑全部 |
+| 诊断结果（binding 变化、normalizer、证据问题数） | A2：normalizer resolved 1704；binding unresolved **1,647**；approx 失败 **97→11**；e05 parse failed 5 |
 | 新 contract 路径/哈希 | 未重导（等 Gate B 绑定，避免导出两次） |
 | 关闭时间 | 未关闭 |

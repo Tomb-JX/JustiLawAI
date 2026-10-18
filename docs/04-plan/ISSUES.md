@@ -7,9 +7,9 @@
 
 | 编号 | 问题 | Owner | 下一步 | 验收 / 关闭条件 | 状态 |
 |---|---|---|---|---|---|
-| BIND-01 | 主体/事件绑定规则缺失：Codex `evidence_graph` 对共同/间接主体一律 `binding=unresolved`；`resolve_binding` 只接受 `lexical_candidate`；1,647 个候选未解析。引擎截至 11:47 未提交绑定表 | 引擎 | 写 `shared_fact` / `target_specific` / `needs_review` 绑定表与代码；后处理只等这一步，Gate A 不阻塞 | 212 条离线诊断：binding unresolved 下降或全部有明确分类；有正反例；版本化 | **open** |
-| CONTRACT-01 | element 契约未定版：归一化/证据模块已由后处理 `256d2ce` 提交，但 `evidence_graph` 主路径仍用旧 `normalize_time/quantity`；绑定仍缺；11:17 bundle 过期；schema/prompt 版本号未随语义变更提升 | **A2 后处理；B 引擎** | 改 `evidence_graph` 主路径；补 2–3 个接入单测；绑定并入同一契约模块；提升版本号；绑定后重导 contract | 单一 module + 版本 + tests；consumer 能只引一个版本；旧 bundle 标 superseded | **open** |
-| PUSH-01 | 可见性不足：引擎 7 笔、后处理 7 笔提交未推 origin；协调分支已推 `88855e6` | 各线 owner | 交接前 push / commit | handoff 引用的 commit 在 origin 上 | **open** |
+| BIND-01 | 主体/事件绑定规则：引擎 `971fdc3` 已交付 `binding_rules`（shared_fact/target_specific/needs_review，231 passed，已推送）；后处理适配未提交；1,647 个候选仍 unresolved | 后处理 | 接入 `evidence_graph`；跑 Gate B 诊断；登记 binding 变化 | 212 条 Gate B 诊断：binding 下降或全部有明确分类；有正反例；版本化 | **open（引擎已交付）** |
+| CONTRACT-01 | element 契约未定版：A2 主路径已由 `4b7680d` 完成；绑定适配 WIP；11:17 bundle 过期；schema/prompt 版本号未随语义变更提升 | **B 后处理（引擎支持）** | 绑定适配并提交；提升版本号；绑定后重导 contract；补 2–3 个接入单测 | 单一 module + 版本 + tests；consumer 能只引一个版本；旧 bundle 标 superseded | **open（A2 完成）** |
+| PUSH-01 | 可见性：引擎已推送；后处理 `element_contract.py` 绑定适配未提交；协调事件登记/BOARD 快照待提交 | 各线 owner | 交接前 push / commit；协调提交事件登记工具与快照 | handoff 引用的 commit 在 origin 上；CURRENT 可读 | **open** |
 | I-20 | 36 要素参考标签未产出；`reference_elements=null`；字段准确率暂缺 | 引擎 + 后处理 | 契约定版后，按 ≤12 → 200–300 件跑教师参考；过 I-21 门 | 参考批次有版本/哈希；A/B 分歧报告；字段 P/R/F1 可算 | **执行中** |
 | I-21 | 付费批六道门：试点、赌博锚、会签、分批、按 L1 转化率验收、留评审记录 | 协调 | 任何新付费批先登记；未过门不得调用 | 六项记录齐全；L1 转化率达到约定 | **现行（无新付费批）** |
 | R7-01 | r7 未放行：S3 硬失败 26/299=8.7%，门禁 <5% | 后处理 + 协调 | 先做 S3 错误分类；不把 E-05 规则与 S3 混为一谈 | S3 <5%；正式门禁全过 | **blocked** |
