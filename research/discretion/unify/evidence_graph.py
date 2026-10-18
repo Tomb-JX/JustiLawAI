@@ -120,16 +120,20 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
 
 
 def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
-    """Classify graph nodes using engine FIELD_BINDING semantic definition table.
+    """Classify graph nodes with evidence-aware binding (3-step).
 
-    Engine defines semantics (shared vs target); postprocessing implements classification.
-    Updates each node's 'binding' and 'binding_reason' fields.
-    Returns the graph (mutated) with 'binding_summary'.
+    Step 1: Field semantic lookup (FIELD_BINDING table)
+    Step 2: Evidence subject detection (who is mentioned in quote)
+    Step 3: Binding decision (field semantics + evidence content + section type)
+
+    Engine defines semantics; postprocessing implements classification.
     """
     from element_contract import binding_rules
     br = binding_rules()
     field_binding = br.FIELD_BINDING
     target = graph.get("target", "")
+    same_person = frozenset((target, *aliases))
+
     for node in graph.get("nodes", []):
         role = node.get("value_role")
         if not role or role.startswith("unclassified"):
@@ -141,14 +145,58 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
             node["binding"] = "needs_review"
             node["binding_reason"] = f"no field mapping for role: {role}"
             continue
-        # Look up field in semantic definition table
+
+        # Step 1: Field semantic lookup
         binding_type = field_binding.get(field)
         if binding_type is None:
             node["binding"] = "needs_review"
             node["binding_reason"] = f"field not in FIELD_BINDING: {field}"
+            continue
+
+        if binding_type.value == "shared_fact":
+            # SHARED fields: always shared, regardless of evidence
+            node["binding"] = "shared_fact"
+            node["binding_reason"] = f"scene-level field: {field}"
+            continue
+
+        # Step 2: Evidence subject detection
+        quote = node.get("source_ref", {}).get("quote") or ""
+        src_start = (node.get("source_ref") or {}).get("start", 0)
+        subject_refs = node.get("subject_refs") or []
+
+        mentions = set()
+        for ref in subject_refs:
+            # Extract name from quote using coordinates
+            a, b = ref.get("start", 0) - src_start, ref.get("end", 0) - src_start
+            if 0 <= a < b <= len(quote):
+                name = quote[a:b].strip()
+                if name:
+                    mentions.add(name)
+
+        mentions_target = any(m in same_person for m in mentions)
+        mentions_others = any(m not in same_person for m in mentions)
+
+        # Step 3: Binding decision
+        event_kind = node.get("event_kind", "")
+
+        if not mentions:
+            # No subject mentioned: use field default (most common case)
+            node["binding"] = "target_specific"
+            node["binding_reason"] = f"field default, no subject in evidence"
+        elif mentions_target and not mentions_others:
+            # Only target mentioned
+            node["binding"] = "target_specific"
+            node["binding_reason"] = f"only mentions {target}"
+        elif mentions_others:
+            # Others mentioned (with or without target)
+            others = sorted(m for m in mentions if m not in same_person)
+            node["binding"] = "needs_review"
+            node["binding_reason"] = f"mentions others: {others}"
         else:
-            node["binding"] = binding_type.value
-            node["binding_reason"] = f"field default: {field} → {binding_type.value}"
+            # Only non-target subjects (shouldn't happen if target is in same_person)
+            node["binding"] = "needs_review"
+            node["binding_reason"] = f"only mentions non-target: {sorted(mentions)}"
+
     # Add summary
     from collections import Counter
     bindings = [n.get("binding", "needs_review") for n in graph.get("nodes", [])]
