@@ -23,7 +23,7 @@ from app.discretion.schema import AmountRange, KEY_FIELDS, SCHEMA_VERSION  # noq
 from agreement import agreement, normalize  # noqa: E402
 from key_field_presence import MARKERS  # noqa: E402
 
-CHECKER_VERSION = "element-accept-v1"
+CHECKER_VERSION = "element-accept-v2"
 _AMOUNT = re.compile(r"\d+(?:\.\d+)?\s*(?:万)?元(?:以上|余|多|以下)?")
 _NUMBER = re.compile(r"(?<!\d)\d+(?:\.\d+)?(?!\d)")
 
@@ -64,6 +64,124 @@ def _numeric_check(path: str, item: dict) -> bool | None:
     if len(nums) != 1:
         return None
     return float(item["value"]) == float(nums[0])
+
+
+def _classify_divergence(a_item: dict, b_item: dict) -> str:
+    """Classify A/B disagreement on one field into divergence type.
+
+    Returns: 'status_only' (same value, different status),
+             'value' (different values),
+             'evidence_only' (same value+status, different evidence quotes),
+             'absent_vs_present' (one absent, one present).
+    """
+    a_val, b_val = a_item.get("value"), b_item.get("value")
+    a_status, b_status = a_item.get("status"), b_item.get("status")
+    a_absent = a_status == "未提及" or a_val is None
+    b_absent = b_status == "未提及" or b_val is None
+    if a_absent != b_absent:
+        return "absent_vs_present"
+    if a_absent and b_absent:
+        return "evidence_only"
+    if a_val != b_val:
+        return "value"
+    if a_status != b_status:
+        return "status_only"
+    return "evidence_only"
+
+
+def classify_divergences(a_rows: dict[str, dict], b_rows: dict[str, dict]) -> dict:
+    """Classify all A/B divergences by type per field.
+
+    Returns {field: {divergence_type: count, ...}, ...} plus per-field lists of IDs.
+    """
+    ids = sorted(set(a_rows) & set(b_rows))
+    result: dict[str, dict] = {}
+    for rid in ids:
+        a_fields, b_fields = a_rows[rid], b_rows[rid]
+        for path in FIELD_INFO:
+            a_item = a_fields.get(path, {})
+            b_item = b_fields.get(path, {})
+            a_val, b_val = a_item.get("value"), b_item.get("value")
+            a_status = a_item.get("status", "未提及")
+            b_status = b_item.get("status", "未提及")
+            a_absent = a_status == "未提及" or a_val is None
+            b_absent = b_status == "未提及" or b_val is None
+            if a_absent and b_absent:
+                continue
+            if a_status == b_status and a_val == b_val:
+                continue
+            div_type = _classify_divergence(a_item, b_item)
+            entry = result.setdefault(path, {"status_only": 0, "value": 0,
+                                              "evidence_only": 0, "absent_vs_present": 0,
+                                              "status_only_ids": [], "value_ids": [],
+                                              "evidence_only_ids": [], "absent_vs_present_ids": []})
+            entry[div_type] += 1
+            entry[f"{div_type}_ids"].append(rid)
+    return result
+
+
+def compare_predictions(pred_rows: dict[str, dict], ref_rows: dict[str, dict]) -> dict:
+    """Compare M1 extraction predictions against teacher reference labels.
+
+    Returns per-field precision/recall for categorical fields and
+    MAE/accuracy for numeric fields, plus a summary.
+    """
+    from collections import defaultdict
+    ids = sorted(set(pred_rows) & set(ref_rows))
+    if not ids:
+        return {"records_common": 0, "fields": {}, "summary": {}}
+
+    field_stats: dict[str, dict] = {}
+    for path in FIELD_INFO:
+        correct = total = 0
+        pred_present = ref_present = both_present = 0
+        values_match = statuses_match = 0
+        for rid in ids:
+            pred = pred_rows[rid].get(path, {})
+            ref = ref_rows[rid].get(path, {})
+            p_status = pred.get("status", "未提及")
+            r_status = ref.get("status", "未提及")
+            p_absent = p_status == "未提及" or pred.get("value") is None
+            r_absent = r_status == "未提及" or ref.get("value") is None
+            if r_absent:
+                ref_present += 0
+            else:
+                ref_present += 1
+            if not p_absent:
+                pred_present += 1
+            if not p_absent and not r_absent:
+                both_present += 1
+                total += 1
+                if pred.get("value") == ref.get("value"):
+                    values_match += 1
+                    correct += 1
+                if p_status == r_status:
+                    statuses_match += 1
+            elif p_absent != r_absent:
+                total += 1
+
+        precision = values_match / pred_present if pred_present else None
+        recall = values_match / ref_present if ref_present else None
+        f1 = (2 * precision * recall / (precision + recall)) if precision and recall else None
+        field_stats[path] = {
+            "pred_present": pred_present, "ref_present": ref_present,
+            "both_present": both_present, "values_match": values_match,
+            "statuses_match": statuses_match, "total": total,
+            "precision": round(precision, 4) if precision is not None else None,
+            "recall": round(recall, 4) if recall is not None else None,
+            "f1": round(f1, 4) if f1 is not None else None,
+        }
+
+    # Summary over KEY_FIELDS
+    key_stats = {p: s for p, s in field_stats.items() if p in KEY_FIELDS}
+    key_prec = [s["precision"] for s in key_stats.values() if s["precision"] is not None]
+    key_rec = [s["recall"] for s in key_stats.values() if s["recall"] is not None]
+    summary = {
+        "records_common": len(ids),
+        "key_fields_mean_precision": round(sum(key_prec) / len(key_prec), 4) if key_prec else None,
+        "key_fields_mean_recall": round(sum(key_rec) / len(key_rec), 4) if key_rec else None,
+    }
+    return {"records_common": len(ids), "fields": field_stats, "summary": summary}
 
 
 def evaluate(rows: list[dict], a_rows: list[dict] | None = None,
@@ -144,15 +262,29 @@ def evaluate(rows: list[dict], a_rows: list[dict] | None = None,
     evidence_rate = evidence_hit / evidence_total if evidence_total else None
     numeric_rate = numeric_hit / numeric_checked if numeric_checked else None
     arbitration = None
+    divergence_by_field = None
     if a_rows is not None and b_rows is not None:
         a = {str(r["id"]): _flatten(r.get("elements")) for r in a_rows}
         b = {str(r["id"]): _flatten(r.get("elements")) for r in b_rows}
         rep = agreement(a, b)
         union = sum(f["n_union"] for f in rep["fields"])
         disagreements = sum(len(f["disagreements"]) for f in rep["fields"])
+        # E-06: classify divergences by type
+        div_raw = classify_divergences(a, b)
+        div_summary = {}
+        for path, counts in div_raw.items():
+            div_summary[path] = {k: v for k, v in counts.items() if not k.endswith("_ids")}
+        divergence_by_field = div_summary
+        # Aggregate divergence type counts
+        type_totals = {"status_only": 0, "value": 0, "evidence_only": 0, "absent_vs_present": 0}
+        for counts in div_raw.values():
+            for t in type_totals:
+                type_totals[t] += counts.get(t, 0)
         arbitration = {"common_records": rep["records_common"], "union_pairs": union,
                        "disagree_pairs": disagreements,
                        "disagreement_rate": disagreements / union if union else None,
+                       "divergence_types": type_totals,
+                       "divergence_by_field": div_summary,
                        "key_numeric_pairs": rep["gate"]["key_numeric_pairs"],
                        "key_numeric_exact_rate": rep["gate"]["key_numeric_exact_rate"],
                        "source": "research/eval/agreement.py union 口径"}
@@ -174,6 +306,14 @@ def evaluate(rows: list[dict], a_rows: list[dict] | None = None,
                             and evidence_rate is not None and evidence_rate >= .95
                             and arbitration is not None and arbitration["common_records"] == n
                             and not prompt_revision_needed)
+    # E-06: batch criteria for ≤12 smoke and ≤36 spec
+    structural_ok = report["schema_valid_rate"] == 1.0
+    evidence_ok = evidence_rate is not None and evidence_rate >= .95
+    numeric_ok = (report["numeric_consistency_rate"] is None
+                  or report["numeric_consistency_rate"] >= .90)
+    report["smoke_pass"] = (1 <= n <= 12 and structural_ok and evidence_ok and numeric_ok)
+    report["spec_pass"] = (13 <= n <= 36 and structural_ok and evidence_ok
+                           and not prompt_revision_needed)
     return report
 
 
