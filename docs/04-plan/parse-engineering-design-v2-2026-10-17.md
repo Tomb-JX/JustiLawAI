@@ -6,6 +6,7 @@
 > **v2.4（2026-10-18，历史复跑）**：`60ebb52` 复跑 212 310/1517/518、P1 557/1519/513；scene-level money 把他人个人金额标 shared（P1 254/399、212 57/187）；该回归已在 `e06a0af` 修复，见 v2.5。
 > **v2.5（2026-10-18，当前实现）**：S1 已是 **seg-v2 句表分区**——模型输入编号句表，输出 zones + 文书字段，**quote 由服务端从句表生成**，不再由模型写引文；S2 为 `locate.py` + `evidence_graph.py`（`evidence-graph-2`）；绑定 `e06a0af` 后 212 123/611/1611、P1 158/723/1708，money shared=0，`semantic_rules_approved=false`；L5 `reference_elements=null`；S3 26/299=8.7%；r7 未放行。BIND-03/BIND-04/BIND-05 未关闭。
 > **v2.6（2026-10-18，协调层补记）**：补 §3A.1 教师输出完整 36 字段形状与 binding 作用、§3A.2 教师输入视图两条路径（S1 句表驱动 / 冻结切片 parsed-1 视图）、§6.1 S4 输入与校验对象；明确 36 字段之外的忽略信息需求。
+> **v2.7（2026-10-18，协调层补记）**：在 §4.2/§4.3 明确 S2 四类节点不是 36 要素字段，并补 `value_role → element field` 映射表；强调 S2 只产候选与归属，不产 36 字段值。
 > 硬约束（设计前提）：① 证据定位契约——五段必须是交付正本的连续子串，标注证据位置相对正本计算（data-spec §1）；② 可溯源——模型 id+提示版本+输入哈希全程可查；③ 确定性校验不得被模型输出绕过；④ 模型纪律——仅远程旗舰，禁本地小模型。（原 v2.0 的"远程模型调用不得接触未脱敏原文"隐私排序约束随脱敏取消移除。）
 
 ## 0. 现状问题的工程化翻译（总表）
@@ -283,11 +284,31 @@ parsed-1（原文态, 5,739件）
 - `value_role` 由金额前最近的角色关键词决定（本人/携带/持有/赌资、现场赌资合计、抽头/台费、违法所得等）；count/time 另有规则。`event_id` 优先用记录值，否则按小句 span+kind 生成；joint（分别/各自/与/和/伙同/、/等N人）会标 `joint_or_indirect_subject`。
 - 金额/日期走 E-05 归一化：开口金额不补上界，近似值不静默变精确；count 保留区间/未知。
 - **结构限制**：`subject_refs` 只记录 target/aliases，没有其他人物实体；没有跨句代词消解；event_id 可能按小句碎片化；没有形成完整的 mention→amount→event→person→role 链。
+- 这四类（money/count/time/behavior）是**证据候选**，不是 36 个要素字段；节点本身不产出 `amounts.personal_stake` 等字段值。`value_role` 只是在 4.3 里映射到字段路径，用来判断归属。
 
 ### 4.3 绑定与消费
 
 - 引擎 `binding_rules.py` 只定语义（8 shared / 28 target）；`classify_graph_bindings` 做字段语义 → 证据主体 → 决策。当前 `e06a0af` 已删除“现场查获/现场扣押整段标 shared”的捷径；目标专属字段若小句未出现 target，一律 `needs_review`；金额多人列表 → `needs_review`；shared 字段（count 等）才标 `shared_fact`。
 - 当前分布：212 123/611/1611；P1-r6 158/723/1708；shared 全为 count，money shared=0，money 大量 review；`field_accuracy=null`、`semantic_rules_approved=false`。
+- **`value_role` 到 element field 的映射**（只用于归属判断，不产出字段值）：
+
+| 节点 | `value_role` | 映射字段 | 语义 |
+|---|---|---|---|
+| money | `personal_stake` | `amounts.personal_stake` | 本人赌资，target |
+| money | `per_bet` | `amounts.per_bet` | 单注，target |
+| money | `onsite_stake_total` | `amounts.onsite_stake_total` | 现场赌资总额，shared |
+| money | `cumulative_stake` | `amounts.cumulative_stake` | 累计赌资，shared |
+| money | `commission` | `amounts.commission` | 抽头渔利，target |
+| money | `illegal_gain` | `amounts.illegal_gain` | 其他违法所得，target |
+| money | `fine` | 无 | 罚款是处罚结果，不是要素字段 |
+| count | `participant_count` | `persons.participant_count` | 参赌人数，shared |
+| count | `cumulative_participants` | `persons.cumulative_participants` | 累计参赌人数，shared |
+| count | `times` | `conduct.times` | 本人赌博次数，target |
+| time | `birth` | `person.age` | 年龄线索，target |
+| time | `prior_penalty` | `circumstances.last_prior_penalty_date` | 前科日期，target |
+| behavior | — | `conduct.behavior_type`（上下文） | 用于判断行为归属，不直接产出枚举值 |
+
+- **36 字段的值由 L5 教师产出；S2 只产出候选和归属标签，不能把 S2 节点当要素标签。** binding 不改变字段值，只回答“这条值算谁的”。
 - `resolve_binding` 只接受 `target_specific` / `shared_fact`，并核对 target、event_id、value_role 与证据区间；`lexical_candidate` 不再接受；penalty/review 事件不能当 behavior 证据。
 - 规则版语义归属已按 **B-10** 冻结：规则只做格式、证据逐字、来源视图、归一化校验；`shared/target/review` 的语义判断由教师模型在抽取时完成，或由模型化/混合组件完成。当前绑定是保守隔离器，不是已验收的语义归属。
 - 测试：`research/discretion/unify/tests` 当前 **144 passed**；`test_locate.py` 覆盖 exact/ws/multi/删除边界/fuzzy/短引文；`test_engineering_completion.py` 覆盖同数不同人、joint 未决、scene 词不得把他人赌资标 shared、未分类金额 review、契约/resolver 一致、E-05 归一。
@@ -431,3 +452,4 @@ S3 是自动规则校验，S4 是人工复核/评测。S4 的“关键信息核�
 | v2.4 | 2026-10-18 | 独立复跑 `60ebb52`：212 310/1517/518、P1 557/1519/513；登记 scene-level money 回归（P1 254/399、212 57/187）与 BIND-04；字段表述改为 36 要素 + CaseMeta 3 元数据 + binding 派生块 | 协调层代笔（后处理线复核） |
 | v2.5 | 2026-10-18 | 按当前实现重写 S1/S2：S1 改为 seg-v2 句表分区（模型不写 quote，服务端生成；6 类 zones + 文书字段；7 值 outcome；zones_det 公式；final300/S3/边界 F1 实测）；S2 改为 `locate.py` + `evidence-graph-2`（三级定位、候选图、绑定约束、B-10）；更新 §9.1/§10.1/§12 与修订记录 | 协调层代笔（后处理线复核） |
 | v2.6 | 2026-10-18 | 补 §3A.1 教师输出完整 36 字段 JSON、binding 作用与 36 字段外信息清单；补 §3A.2 教师输入视图两条路径；补 §6.1 S4 输入/校验对象（原文 vs 记录，非 S3 系统信息自证） | 协调层代笔（后处理线复核） |
+| v2.7 | 2026-10-18 | §4.2/§4.3 明确 S2 四类节点（money/count/time/behavior）不是 36 要素字段；补 `value_role → element field` 映射表；强调 S2 只产候选/归属，36 字段值由 L5 教师产出 | 协调层代笔（后处理线复核） |
