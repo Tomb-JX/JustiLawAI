@@ -101,7 +101,7 @@ parsed-1（原文态, 5,739件）
 - **字段**：7 组 36 字段 + 3 meta；唯一来源 `schema.py`/`element_labels.py`。一人一条记录；`input` 只放 facts/meta 视图与 target/aliases，不能放 decision/reasoning/review/outcome。
 - **标签形状**：每字段 `{status, value, evidence}`；`status`=明确/推断/未提及；金额 `{min,max}`；日期 ISO；证据 `{quote,start,end}` 必须逐字命中且只来自 facts/meta。
 - **教师**：`element-teacher-v1` 只回 `elements`，不输出 binding；A/B 双盲 + 非 DeepSeek C 仲裁，产物 `model-adjudicated`、`human_review=false`，不计人工真值。
-- **绑定**：每字段/证据标 `shared_fact`/`target_specific`/`needs_review`；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前 **v5 证据感知 3 步**：字段语义 → 证据主体（target/others/无）→ 段落类型。**212 开发切片是单人案卷**（123 shared/1567 target/655 review，joint 分支未触发）；**P1-r6 已有 178 条/186 个多人 behavior 节点**（158 shared/1570 target/861 review），多人分支已实际跑过。仍未做标注准确率；861 review 是 unclassified role（`fine`/`unclassified_count`）；`resolve_binding` 代码接受 shared/target（1181/1709=69.1%，212 口径），contract v4 `accept_in_resolve` 仍只写 lexical/target（1120/1709=65.5%）；BIND-03/CONTRACT-01 未关闭。
+- **绑定**：每字段/证据标 `shared_fact`/`target_specific`/`needs_review`；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前 **v5 证据感知 3 步**：字段语义 → 证据主体（target/others/无）→ 段落类型。**212 开发切片是单人案卷**（123 shared/1567 target/655 review，joint 分支未触发）；**P1-r6 已有 178 条/186 个多人 behavior 节点**（158 shared/1570 target/861 review），多人分支已实际跑过。仍未做标注准确率；P1 861 / 212 655 review 是 unclassified role（`fine`/`unclassified_count`）；`resolve_binding` 代码接受 shared/target（212：1690/2345=72.1%），contract v4 `accept_in_resolve` 仍只写 lexical/target（212：1567/2345=66.8%）；BIND-03/CONTRACT-01 未关闭。
 - **验收**：schema/枚举/版本、证据逐字/坐标/来源、target 可定位、无 decision/reasoning/outcome 泄漏、金额/日期合法、`reference_elements` 非空、字段覆盖率、绑定小样本准确率、A/B 或人工复核。完整格式见 [data-spec §8](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) 与 [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)。
 - **当前状态**：`reference_elements=null`；L5 标签为 0；M1 字段准确率暂缺；M4 只能用历史处罚做基线；r7 未放行。
 
@@ -221,7 +221,7 @@ quote(清理后原文中的引文)
 | M2 | 可用 | 166/176=94.3%；10 例外 | — | 法律组确认例外（不阻塞开发） |
 | M4 | 等 L5 | B4 未超多数类；罚款 F1=0 | — | L5 要素特征 |
 | M5/M6 | 未实现 | — | 后续 | 不在首跑前置 |
-| 契约层 | **artifact/code 不一致** | 代码接受 shared/target 1181/69.1%（212 口径）；contract v4 只写 lexical/target 1120/65.5%；`semantic_rules_approved=true` | L5 生产 | 统一 `accept_in_resolve` + 版本；CONTRACT-01 |
+| 契约层 | **artifact/code 不一致** | 代码接受 shared/target（212：1690/2345=72.1%；P1：1728/2589=66.7%）；contract v4 只写 lexical/target（212：1567/2345=66.8%；P1：1570/2589=60.6%）；`semantic_rules_approved=true` | L5 生产 | 统一 `accept_in_resolve` + 版本；CONTRACT-01 |
 | 付费/发布 | 门禁 | 无新付费批；r7 关门 | 全量/r7 | I-21 六道门 + S3 |
 | 协调/可见性 | 流程 | PUSH/DOC/SCOPE | — | 推送/归档/事件登记 |
 
