@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 def source_page(record_id: str) -> str:
-    return re.sub(r"-(?:d|r)\d+$", "", record_id)
+    return re.sub(r"(?<=\d)-(?:d|r)?\d+$", "", record_id)
 
 
 def reasons(unified: dict, parsed: dict | None) -> list[str]:
@@ -29,6 +29,19 @@ def reasons(unified: dict, parsed: dict | None) -> list[str]:
         out.append("no_located_decision")
     if not (parsed.get("subject_mention") or "").strip():
         out.append("no_source_subject")
+    else:
+        subject = parsed["subject_mention"].strip()
+        facts = parsed.get("text_facts") or ""
+        decision = parsed.get("text_decision") or ""
+        if subject not in facts or subject not in decision:
+            out.append("subject_not_in_both_spans")
+        if facts.count(subject) > 1 and ("*" in subject or "x" in subject.lower()):
+            out.append("ambiguous_masked_subject")
+    if re.search(r"[Xx＊*]{2,4}[年月日]", parsed.get("text_facts") or ""):
+        out.append("masked_behavior_date")
+    if not re.search(r"(?:拘留|罚款)[^。；]{0,30}[一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟\d]+(?:日|元)",
+                     parsed.get("text_decision") or ""):
+        out.append("no_quantified_decision")
     # This is a risk flag, not a definitive topic judgment.
     if not re.search(r"赌博|赌资|赌注|聚赌|以营利为目的.*赌博", parsed.get("text_facts") or ""):
         out.append("facts_without_gambling_evidence")

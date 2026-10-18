@@ -3,7 +3,9 @@
 ## 已落地
 
 1. `research/discretion/unify/s3.py` 的法条对账允许“七十条”与“第七十条”对应，仍按完整条号比较，不将“十条”误配“七十条”。合成正反例测试通过；对 final300 的 W-000350-28 原输出、原句表和 S3 spans 复核后，原有 `value_grounded` error 消失。固定集其他结果尚未整批重跑，不能据此报告新的总硬错率。
-2. 新增 `research/discretion/unify/gold_candidate_audit.py` 离线候选审计，不影响 S1 release。它先排除 final300 同源页面，再要求独立叙述式、原有 release、parsed-1 中可定位的事实和决定、原文主体提示及事实段赌博证据。结果写在 `$DATA/s1_runs/s1-20261018-segv2-final300/gold-candidate-audit-outside-final300.jsonl`：共排除 1356 条同源页记录，其余 3645 条审计，399 条通过。通过仅表示值得人工/语义复核，不是金标。
+2. 新增 `research/discretion/unify/gold_candidate_audit.py` 离线候选审计，不影响 S1 release。初版只识别 `-d/-r` 派生记录，得到 399 条候选；复核后发现 `W-000350-28` 也是同源页派生记录，已修正页面归一，并进一步要求主体在事实与决定原句中均出现、量化处分有原文、脱敏主体不在事实内重复、行为日期未整段遮蔽。最终审计输出为 `$DATA/s1_runs/s1-20261018-segv2-final300/gold-candidate-audit-outside-final300-v2.jsonl`：排除 2735 条 final300 同源页记录，其余 2266 条审计，218 条通过。通过仅表示值得人工/语义复核，不是金标；第一版输出应作废。
+3. 新增 `failure_provenance_audit.py`，输出 `$DATA/s1_runs/s1-20261018-segv2-final300/failure-provenance-audit.jsonl`。固定集 26 件硬错均找到原始 HTML、parsed-1 和 S0 对应记录，逐条列出检查项及各层路径/长度；字段是否在原网页出现仍需按字段人工/结构化核对，脚本不伪称自动归因。
+4. 新增 `fact_spans.py` 的离线契约：句内事实片段用 `cleaned_text` 的 0 基半开字符坐标和原文逐字引用，支持同句只截事实前缀或纯评价句给空片段；不让正则决定事实语义。暂未改 S1 生产输出。
 
 ## 26 件归因优先级
 
