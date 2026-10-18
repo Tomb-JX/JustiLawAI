@@ -174,7 +174,7 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
                 node["binding_reason"] = "behavior clause, no explicit subject"
             continue
 
-        if not role or role.startswith("unclassified"):
+        if not role:
             node["binding"] = "needs_review"
             node["binding_reason"] = f"unclassified role: {role}"
             continue
@@ -274,6 +274,7 @@ def _role_to_field(role: str) -> str | None:
         "behavior": "conduct.behavior_type",
         "penalty": None,  # penalty is not a binding field
         "review": None,
+        "unclassified_count": "persons.participant_count",  # conservative default
     }
     return mapping.get(role)
 
