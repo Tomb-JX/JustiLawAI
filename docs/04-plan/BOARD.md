@@ -18,7 +18,7 @@
 | 线 | 最新动作 | 下一步 | 注意 |
 |---|---|---|---|
 | 引擎 | `1152141`（已推送）：L5 字段边界定版（36 要素 + CaseMeta 3 元数据 + binding 派生块）；语义表 `f0dd746` 未变（8 shared / 28 target，225 passed） | 维护语义表/契约；评估是否采纳 binding contract | 引擎未签后处理实现；binding 规则版已冻结 |
-| 后处理/解析 | `cd19d59`（已推送）：S3 fixed-299 复跑 25/299=8.36%；26 件硬错溯源台账；句内事实 span 离线契约；218 条候选池 | S1 句内 span 模型盲评；表格行上游修复（B-11 已放行 harvest 前处理三文件）；S3 <5% | **218 是候选池不是金标；句内 span 仅 oracle 实验，未接生产；S1 生产契约未改** |
+| 后处理/解析 | `d9999aa`（已推送）：全量 unified_raw 刷新 41 批/26,185 条；format_ok 24,439；canonical released+content 3,728；S3 25/299=8.36%；表格行修复；218 候选池 | 用新 unified 树跑 S1 主批；P2-r1 清理；web party；S1 句内 span 盲评；S3 <5% | **P2-r1 761 条重复权限页不合格；web/P2-L4word party=0；218 候选非金标** |
 | 协调 | `377e495`：标注线角色交接；`CURRENT` 已登记最新 S3/218/溯源；BOARD 刷新 | 维护事件登记与跨线验收 | 不再手抄各线状态 |
 | 标注 | 角色交接已落盘；**尚无新教师批** | 218 候选复核 + L5 spec36 | L5 `reference_elements=null`；binding 不挡教师；边界人工评测未做 |
 
@@ -41,6 +41,7 @@
 - **标注线**：角色交接 `377e495`；尚无新教师批；12 件 smoke 仍是 21 条证据/20 条定位（95.2%），字段准确率未测。
 - **binding**：`e06a0af` 修复 scene 捷径后 212 123/611/1611、P1 158/723/1708；money shared=0，但 money/time 大量 review；规则版语义归属按 B-10 冻结，不再是 Gate。
 - **范围解锁（B-11）**：S1/S3 修复期，后处理可写 `harvest/{parse.py,parse_qc.py,to_parsed1.py}`（网页原文→parsed-1：表格行/字段/事件键/QC）；`discover/**`、`collect/**`、`delivery/**`、引擎代码、`harvest` 其余文件、既有正本仍不动。
+- **全量 unified 刷新（`d9999aa`）**：41 批/26,185 条 → `$DATA/unified_raw_refresh/20261018/`；format_ok 24,439；canonical 8,288；`released+content` 3,728。主批：web-r4、P1-r6、P1b-r2、P2-L4word、merged-full。P2-r1 有 761 条重复 `P-2963` 权限页，`format_ok=false`；web/P2-L4word `text_party=0`，meta 依赖字段受限。
 
 ## Gate A / A2：已完成
 
