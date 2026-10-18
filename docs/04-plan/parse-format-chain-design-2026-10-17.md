@@ -1,8 +1,10 @@
-# 解析层格式链路设计 v1.0（供多轮审核）
+# 解析层格式链路设计 v1.3（供多轮审核）
 
 > 2026-10-17。定位：把《解析工程设计 v2.1》的管线落到**逐字段的数据契约**——每个环节记录：信息是什么、数据格式、字段表、产生层、实测填充率、设计理由。供用户分节审核，预计多轮提问完善；每轮修订在 §17 登记版本。
 > 上游文档：[解析工程设计 v2.1](./parse-engineering-design-v2-2026-10-17.md)（架构理由）、[网页×法宝原料对比实测](./parse-input-comparison-2026-10-17.md)（两源落差实测）。
 > 实测口径：三个实测脚本跑 parsed-1 两源全量（web-r3 5,001 / pkulaw merged-b2 738），L1/L2 原料口径 = web 1,722 + pkulaw 729 = 2,451 件；聚合统计、零原文输出；event_key 公式经两份生成代码核对。
+>
+> **2026-10-18 现状注记（协调层）**：本文是逐字段格式契约（v1.3），不是当前全部实现。S1 的 `seg-v1` JSON 输出已被 **seg-v2 句表分区 + `element-ref-v2`** 取代；当前实现映射、L5 标签层、实测状态看 [parse-engineering-design-v2 v2.2 §1.1/§3A](./parse-engineering-design-v2-2026-10-17.md)。binding v4：61 shared/1120 target/528 review，字段默认映射（非证据级）；代码接受 shared 69.1%，contract 65.5%；L5 `reference_elements=null`；r7 未放行。
 
 ## 1. 全链路总图（格式视角）
 
@@ -397,6 +399,7 @@ user: [form 标签] + cleaned_text（>3,000 字的 36 件按句号粗分 2–3 �
 
 | 版本 | 日期 | 变更 |
 |---|---|---|
+| v1.4 | 2026-10-18 | 加现状注记：S1 的 `seg-v1` JSON 已由 seg-v2 句表分区 + `element-ref-v2` 取代；L5 标签/绑定 v4 状态见 `parse-engineering-design-v2 v2.2`；原逐字段契约不重写 |
 | v1.3 | 2026-10-17 | **S1/S2/S3 全部实现落地**（用户选定模型：deepseek-flash 官方 API + qwen3.8-flash 百炼，密钥入数据目录配置不入仓库，全程调用日志掩码）。双模型 pilot 100（同种子同批对照）：引文命中率两模型均 100%（零幻觉漏网）；deepseek 89/100、qwen 96/100 成功；双模型字段一致率 ≥96.6%（detention_days/review 100%）。S3 首跑（deepseek 89 件）：61 pass / 18 warn / 10 error（错误率 21%→11% 经 subject 三档校准——facts 引文不含人名但正文有属合法形态）；罚幅越限 2 件 warn（4,000/20,000 元待证据核对）；发现：edition 注解 76/89 未知（law_version 定版必须走组装层规则）、五段 reasoning 边界双模型分歧 34/88（seg-v2 提示主攻方向）。实现教训：百炼 base_url 缺 /v1（首跑全 404）、max_tokens 3500 不够（finish=length ×20→6000 修复）。**全量回填未启动，等协调层指示** |
 |---|---|---|
 | v1.2.1 | 2026-10-17 | **W1 实现落地**（`research/discretion/unify/`）：S0 引擎+两源规则册（含键值感知 cell_wrap：标签行→"："、下行新标签保留换行）、form 八值判别、预筛 v2 放行阀（并集词表/borderline/固定种子分层抽样）、unified_raw 转换器（records/edits.rle/stats 三件，只读）。30 单测全绿；两源真实批次首跑：web 5,001（放行 2,327=是1,934+待定253+抽样140，borderline 72，replay 0 失败）+ pkulaw 738（全放行，borderline 40=引证简写类，Word 空白归一 −254 字/件）；全量结构校验 0 残留、独立回放抽样 0 失败。实现教训：无分隔拼接会摧毁字段表块（14 模板词→1）——键值感知为必需；只读输出须先解只读位再重写 |
