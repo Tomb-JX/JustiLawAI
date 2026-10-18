@@ -120,37 +120,32 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
 
 
 def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
-    """Post-process graph nodes with E-05 binding rules (shared_fact/target_specific/needs_review).
+    """Classify graph nodes using engine FIELD_BINDING semantic definition table.
 
-    Updates each node's 'binding' field and adds 'e05_binding' classification.
-    Returns the graph (mutated) with a 'binding_summary' entry.
+    Engine defines semantics (shared vs target); postprocessing implements classification.
+    Updates each node's 'binding' field. Returns the graph (mutated) with 'binding_summary'.
     """
     from element_contract import binding_rules
     br = binding_rules()
-    target = graph.get("target", "")
-    all_subjects = tuple(sorted(set((target, *aliases))))
+    field_binding = br.FIELD_BINDING
     for node in graph.get("nodes", []):
         role = node.get("value_role")
         if not role or role.startswith("unclassified"):
-            node["e05_binding"] = "needs_review"
             node["binding"] = "needs_review"
             continue
-        # Map value_role to field path
         field = _role_to_field(role)
         if field is None:
-            node["e05_binding"] = "needs_review"
             node["binding"] = "needs_review"
             continue
-        quote = node.get("source_ref", {}).get("quote") or ""
-        result = br.classify_binding(field, quote, target_mention=target, all_subjects=all_subjects)
-        node["e05_binding"] = result.binding_type.value
-        node["e05_binding_reason"] = result.reason
-        node["e05_binding_confidence"] = result.confidence
-        # Update main binding field with E-05 classification
-        node["binding"] = result.binding_type.value
+        # Look up field in semantic definition table
+        binding_type = field_binding.get(field)
+        if binding_type is None:
+            node["binding"] = "needs_review"
+        else:
+            node["binding"] = binding_type.value
     # Add summary
-    bindings = [n.get("e05_binding", "needs_review") for n in graph.get("nodes", [])]
     from collections import Counter
+    bindings = [n.get("binding", "needs_review") for n in graph.get("nodes", [])]
     counts = Counter(bindings)
     graph["binding_summary"] = {
         "total": len(bindings),

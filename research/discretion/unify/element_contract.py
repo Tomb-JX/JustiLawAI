@@ -55,15 +55,34 @@ def binding_rules():
 
 
 def classify_bindings(payload: dict, target: str, aliases=()) -> dict:
-    """Classify all evidence bindings using E-05 binding rules.
+    """Classify all evidence bindings using engine FIELD_BINDING semantic definition table.
 
     Returns binding_summary dict with shared_fact/target_specific/needs_review counts.
     """
     br = binding_rules()
-    record = {"elements": payload}
-    all_subjects = tuple(sorted(set((target, *aliases))))
-    bindings = br.classify_record_bindings(record, target_mention=target, all_subjects=all_subjects)
-    return br.binding_summary(bindings)
+    field_binding = br.FIELD_BINDING
+    from collections import Counter
+    counts = Counter()
+    for group_name, group in (payload or {}).items():
+        if not isinstance(group, dict):
+            continue
+        for field_name, item in group.items():
+            if not isinstance(item, dict):
+                continue
+            if item.get("status") == "未提及" or item.get("value") is None:
+                continue
+            path = f"{group_name}.{field_name}"
+            binding_type = field_binding.get(path)
+            if binding_type is None:
+                counts["needs_review"] += 1
+            else:
+                counts[binding_type.value] += 1
+    return {
+        "total": sum(counts.values()),
+        "shared_fact": counts.get("shared_fact", 0),
+        "target_specific": counts.get("target_specific", 0),
+        "needs_review": counts.get("needs_review", 0),
+    }
 
 
 def digest(value) -> str:
