@@ -51,7 +51,7 @@
 
 ## 3. 会话编制（任务制）
 
-> **2026-10-18 12:46 现状注记**：引擎/后处理会话已恢复并交付；本节“待用户开/额度耗尽”是 10-17 的编制快照。当前角色与写入边界看 [OWNERSHIP.md](./OWNERSHIP.md)，状态看 [BOARD.md](./BOARD.md)/`CURRENT.md`。
+> **2026-10-18 13:04 现状注记**：引擎/后处理会话已恢复并交付；本节“待用户开/额度耗尽”是 10-17 的编制快照。当前角色与写入边界看 [OWNERSHIP.md](./OWNERSHIP.md)，状态看 [BOARD.md](./BOARD.md)/`CURRENT.md`。
 
 **活跃（3）**：
 - **后处理链路实现（Codex 原评委端）**：2026-10-18 网页端额度耗尽后接手 B 职能；当前目标 G2.2a 切片→P0 基础正确性→P1 elements v2/免费 replay→P3 付费烟测；蓝本＝[Codex 后处理链路落地任务单](./codex-pipeline-implementation-order-2026-10-18.md)；
@@ -70,7 +70,7 @@
 
 ## 4. 看板（Stage 2 只看六个数）
 
-> 2026-10-18 12:46 刷新（六数表保留原结构；M1 丢弃按最新诊断修正）
+> 2026-10-18 13:04 刷新（六数表保留原结构；M1 丢弃按最新诊断修正）
 
 | # | 指标 | 当前值 | 状态 |
 |---|---|---|---|
@@ -85,7 +85,7 @@
 
 **2026-10-18 10:35 新增**：① **M2 合法空间核对**（E-01，未提交结果）：212 条中可核对 176 条，**166 条落在默认法定选项内（94.3%）**；flags：未引赌博罚则 36、法律版本未知 36、超出默认选项 10、行为日期只到月 36、拘留需合并审查 2、罚款需合并审查 1、非标准结果 1、决定早于行为 1。② **M4 负结果诊断**（E-03）：罚款类 F1=0（10 条真值只预测 1 条）、拘留 F1 0.375、拘留并罚 0.415；输入长度四分位准确率 0.25→0.50，已知 n-gram 非单调。③ **两个 Codex 会话额度耗尽**：后处理线 8 改＋17 新（含 normalization/evidence_graph/outcome_arbitration/contract_bundle）＋10:28 诊断，引擎线 1 改＋3 新＋M2/M4 结果；未提交内容已只读备份，续跑单见 [后处理](./codex-postprocessing-continuation-2026-10-18.md) / [引擎](./codex-engine-continuation-2026-10-18.md)。
 
-**2026-10-18 12:46 刷新**：两个 Codex 会话已恢复并交付——引擎 `f0dd746`（binding_rules 语义-only 8 shared/28 target，225 passed）；后处理 `2be05bc`（v4 binding 61/1120/528，`semantic_rules_approved=true`，`resolve_binding` 接受 shared，但 contract v4 `accept_in_resolve` 仍 lexical/target；`fine→None`）；`reference_elements=null` 未变，M1 字段准确率仍暂缺；BIND-03/CONTRACT-01 仍未关闭；r7 未放行。当前状态以 [BOARD.md](./BOARD.md)/`CURRENT.md` 为准。
+**2026-10-18 13:04 刷新**：两个 Codex 会话已恢复并交付——引擎 `f0dd746`（binding_rules 语义-only 8 shared/28 target，225 passed）；后处理 `05485da`（v5 证据感知 3 步；212 条 61/1120/528，切片无多人案例，528 review 为 unclassified role；`semantic_rules_approved=true`；`resolve_binding` 接受 shared；但 contract v4 `accept_in_resolve` 仍 lexical/target；`fine→None`）；`reference_elements=null` 未变，M1 字段准确率仍暂缺；BIND-03/CONTRACT-01 仍未关闭；r7 未放行。当前状态以 [BOARD.md](./BOARD.md)/`CURRENT.md` 为准。
 
 ## 5. Stage 3 预告（方向，不展开）
 
