@@ -3,13 +3,38 @@
 > **当前产物（切片/契约/诊断/报告）的权威路径、版本与哈希以 [ARTIFACTS.md](./ARTIFACTS.md) 为准；本文件只负责设计文档的版本判定。**
 
 > 用途：告诉各线“该读哪份、哪份已过时”。判定依据：各文档在所属分支的最后提交（哈希/日期）+ 文档内版本号 + 是否被后续评审/决策取代。
+
+## 先读：状态源与主题索引
+
+- **实时状态**：`$DATA/coordination/CURRENT.md`（自动生成）。
+- **提交快照**：[BOARD.md](./BOARD.md)；产物：[ARTIFACTS.md](./ARTIFACTS.md)；决策/问题：[DECISIONS.md](./DECISIONS.md)、[ISSUES.md](./ISSUES.md)。
+- 设计文档按主题查下表；与 CURRENT/BOARD 冲突时，以状态源为准。
+
+### 主题索引（按问题找文档）
+
+| 你想知道 | 先读 | 注意 |
+|---|---|---|
+| 项目目标/阶段/依赖 | [stage-plan-v2](./stage-plan-v2-2026-10-17.md) §0/§2；[项目层评审](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-project-level-design-review-2026-10-18.md) | 目标/门禁现行；六数看板是历史快照，现状看 BOARD |
+| 引擎 M0–M6 概念 | [framework-panorama](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/02-design/framework-panorama.md) §3 | 概念可用；“脱敏正本”/数据进度是旧口径 |
+| 当前进度/指标 | [CURRENT.md](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md)、[BOARD.md](./BOARD.md)、[p0-closure](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/p0-closure-2026-10-18.md) | CURRENT 实时；BOARD 快照；p0 是 E-01–E-04 收口 |
+| 数据 L0–L3 格式 | [data-spec](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) §1/§6/§7；`records.py` | parsed-1/交付格式；**不含 L5 36 字段标签契约** |
+| parsed-2 / seg-v2 | [parse-format-chain-design](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md)；[parse-engineering-design-v2](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md)；[unify/README](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/research/discretion/unify/README.md) | parsed-2 设计；不是标签契约 |
+| 36 字段/教师/标签 | [annotation-guideline](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；[element-teacher-v1](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/element-teacher-v1.md)；`schema.py`/`element_labels.py` | 7 组 36 字段+3 meta；§3.11 是绑定语义；代码是字段唯一来源 |
+| 绑定/证据图 | [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；`research/eval/binding_rules.py`；`research/discretion/unify/evidence_graph.py`；[EP-06](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-engineering-solutions-2026-10-18.md) §6.2；[实施报告](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-pipeline-implementation-report-2026-10-18.md) §5.2 | 引擎定语义、数据做判定；v3 现状/阻塞见 BOARD/ISSUES |
+| 交付/门禁/付费 | [data-spec §4](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md)；[sota-baselines-and-gates](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/sota-baselines-and-gates.md)；[I-21](./issues/I-21-p2-workorder-incident-2026-10-18.md)；[ARTIFACTS](./ARTIFACTS.md) | r6/r7、S3、六道付费门 |
+| 决策/分工 | [DECISIONS](./DECISIONS.md)；[OWNERSHIP](./OWNERSHIP.md) | B-08：引擎契约、数据实现、独立验收 |
+| 历史/不要当依据 | [collab-log](./collab-log.md)；[workstreams](./workstreams.md)；续跑单；[text-processing-spec](./text-processing-spec.md) | 历史/归属参考；脱敏已取消（D-003） |
+
 > **重要：没有单一分支包含全部最新文档。** 每份文档以其归属分支的最新提交为准；合并 main 之前，不要用 main 或协调分支里的镜像副本。
 
 ## 快速打开（绝对路径）
 
 **全局**
-- [框架全景笔记（引擎分支，现行）](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/02-design/framework-panorama.md)
-- [阶段规划 v2（协调分支，现行目标树）](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/stage-plan-v2-2026-10-17.md)
+- [实时状态 CURRENT（自动生成）](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md)
+- [提交快照 BOARD](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/BOARD.md)
+- [产物登记 ARTIFACTS](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/ARTIFACTS.md)
+- [框架全景笔记（引擎分支，概念部分现行）](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/02-design/framework-panorama.md)
+- [阶段规划 v2（目标/门禁现行）](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/stage-plan-v2-2026-10-17.md)
 - [评审驱动协调修订 A-01–A-06](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/review-driven-coordination-revision-2026-10-18.md)
 
 **评审与实施（Codex 分支）**
@@ -38,18 +63,19 @@
 - [I-20 要素字段标注缺口](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/issues/I-20-element-label-gap-2026-10-18.md)
 - [I-21 P2 工单事故](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/issues/I-21-p2-workorder-incident-2026-10-18.md)
 
-## 0. 推荐阅读顺序
+## 0. 推荐阅读顺序（按任务）
 
-1. **先看全局**：`framework-panorama.md`（引擎分支）→ `stage-plan-v2`（协调）→ `seg-v2-project-level-design-review`（Codex）。
-2. **再看数据链路**：`parse-format-chain-design`（读变更日志 v1.3）→ `parse-engineering-design-v2`（v2.1）→ `model-call-design-full-record`（v1.1）→ `seg-v2-pipeline-implementation-report`（最新实施）。
-3. **要看当前决策**：`review-driven-coordination-revision` → `stage-plan-v2` → `I-20` / `I-21`。
-4. **要动手实施**：Codex 的 `seg-v2-engineering-solutions`（EP-01–12）＋ `seg-v2-pipeline-implementation-report`（切片与免费回放）。
+1. **先确认现状**：`$DATA/coordination/CURRENT.md` → [BOARD.md](./BOARD.md)（快照）→ [ARTIFACTS.md](./ARTIFACTS.md)。
+2. **要理解数据/标签**：`data-spec`（L0–L3 格式）→ `annotation-guideline`（36 字段/证据/§3.11）→ `element-teacher-v1`（教师契约）→ `schema.py`（字段唯一来源）。
+3. **要看解析/seg-v2**：`parse-format-chain-design`（读变更日志）→ `parse-engineering-design-v2`（v2.1）→ `unify/README`（模块地图）。
+4. **要看绑定/证据**：`annotation-guideline §3.11`（引擎语义）→ `binding_rules.py`（8 shared/28 target）→ `evidence_graph.py`（后处理实现）→ BOARD/ISSUES 的 BIND-03/CONTRACT-01。
+5. **要看历史**：`collab-log` / `workstreams` / 续跑单；只作历史，不作当前状态。
 
 ## 1. 总体与产品
 
 | 文档 | 权威位置 | 版本/日期 | 状态 | 一句话 |
 |---|---|---|---|---|
-| 框架全景笔记（活文档） | 引擎分支 `discretion-engine/docs/02-design/framework-panorama.md`（`b2bda42`） | 2026-10-17 | **现行** | 项目全景：三层架构、M0–M6、数据六层、门禁；main/协调分支的副本较旧 |
+| 框架全景笔记（活文档） | 引擎分支 `discretion-engine/docs/02-design/framework-panorama.md`（`b2bda42`） | 2026-10-17 | **部分过期** | M0–M6 概念可用；仍有“脱敏正本”旧口径（D-003 已取消）；数据进度是 10-16 快照；现状看 BOARD/CURRENT |
 | 引擎方案 | `docs/02-design/gambling-discretion-engine.md`（`b863408`） | 2026-10-15 | 原始详细设计（历史基线） | 引擎总体方案；后续决策以全景笔记/门禁为准 |
 | 产品需求 | `docs/01-product/requirements.md`（main） | 2026-10-15 前后 | 现行（产品层） | 平台/产品需求，不涉及当前数据链路 |
 
@@ -72,8 +98,8 @@
 
 | 文档 | 权威位置 | 版本/日期 | 状态 | 一句话 |
 |---|---|---|---|---|
-| 行政案例数据交付规格 | 引擎分支 `docs/05-research/data-spec.md`（`4dd4897`） | **v0.5.1**（2026-10-17） | **现行契约** | 原文正本、字段总表由 `records.py` 生成；main 落后 |
-| 要素标注指南 | 引擎分支 `docs/05-research/annotation-guideline.md`（`4355bc4`） | **v0.3**（2026-10-17） | **现行** | 字段唯一来源 `schema.py`；§4 自动生成 |
+| 行政案例数据交付规格 | 引擎分支 `docs/05-research/data-spec.md`（`4dd4897`） | **v0.5.1**（2026-10-17） | **现行（L0–L3/交付）** | 原文正本、字段总表由 `records.py` 生成；**不含 L5 36 字段标签契约**；标签看 annotation-guideline/element-teacher/schema.py |
+| 要素标注指南 | 引擎分支 `docs/05-research/annotation-guideline.md`（`f0dd746`） | **v0.4**（2026-10-18） | **现行** | 36 字段；§3.11 绑定语义（引擎定语义、后处理实现）；§4 自动生成 |
 | 固定对照与阶段门禁 | 引擎分支 `docs/05-research/sota-baselines-and-gates.md`（`4355bc4`） | **v0.6**（预注册稿） | 现行执行口径（待周会冻结） | 8 红线、P0–P5、G1.1/G1.2；B4 定义 |
 | I-20 要素教师 v1 接口 | 引擎分支 `docs/05-research/element-teacher-v1.md`（`113db42`） | 2026-10-18 | **现行接口** | 36 字段（非 37）；教师输入/输出与验收口径 |
 | 要素本体 | 引擎分支 `justilaw-api/app/discretion/schema.py`、`element_labels.py` | 1.1.0 | **字段唯一来源** | 7 组 36 字段＋3 meta；改动需升版 |
@@ -85,20 +111,20 @@
 | seg-v2 设计独立评审 | `seg-v2-design-review` 分支 `docs/04-plan/seg-v2-design-review-2026-10-18.md`（`abe4a94`） | 2026-10-18 | **现行评审结论** | 独立复核 D1–D6/O1–O12、契约/坐标/决策边界 |
 | 问题到工程方案映射（EP-01–12） | 同上 `seg-v2-engineering-solutions-2026-10-18.md`（`b177ef1`） | 2026-10-18 | **现行实施目录** | 工程拆解、JioNLP/cn2an 选型、任务边界；不是外部工单 |
 | 项目层设计评审 | 同上 `seg-v2-project-level-design-review-2026-10-18.md`（`abe4a94`） | 2026-10-18 | **现行阶段依赖依据** | A-01 切片首跑、职责边界、指标层级、两类结果分离 |
-| 后处理链路第一批实施与切片交接 | 同上 `seg-v2-pipeline-implementation-report-2026-10-18.md`（`ba12e6f`） | 2026-10-18 | **最新实施报告** | 92 测试、免费回放、切片 212 条/121 事件、未付费/未放行 r7 |
+| 后处理链路第一批实施与切片交接 | 同上 `seg-v2-pipeline-implementation-report-2026-10-18.md`（`ba12e6f`） | 2026-10-18 | **10:44 快照** | 92 测试、免费回放、切片 212 条/121 事件；§5.2 “binding 未交付”对 NLP 级仍成立；v3 后续见 BOARD/ARTIFACTS |
 | 评审复核回应（F3 勘误等） | 网页分支 `docs/04-plan/seg-v2-review-verification-response-2026-10-18.md`（`d254487`） | 2026-10-18 | 现行勘误 | 坐标混用 64/88、伪全未提及 5 件、88 件改判“已配对落盘” |
 
 ## 5. 协调、规划与问题单
 
 | 文档 | 位置 | 状态 | 一句话 |
 |---|---|---|---|
-| 阶段规划 v2（目标树/会话编制/看板） | 协调分支 `docs/04-plan/stage-plan-v2-2026-10-17.md`（`7950f01`） | **现行** | 阶段二目标 G2.1–G2.6；评审后依赖拆分 |
+| 阶段规划 v2（目标树/会话编制/看板） | 协调分支 `docs/04-plan/stage-plan-v2-2026-10-17.md` | **目标/门禁现行；看板历史** | 阶段二目标 G2.1–G2.6；六数看板是历史快照，现状看 BOARD/CURRENT |
 | 评审驱动协调修订（A-01–A-06） | 协调分支 `review-driven-coordination-revision-2026-10-18.md`（`7dd1372`） | **现行** | 依赖拆分、职责边界、指标层级、两类结果分离 |
 | 数据分布与增量方向 | 协调分支 `data-distribution-2026-10-18.md`（`7dd1372`） | 现行实测 | r7 池 2,918/净新增 404/目标省 1,272；关键词仅为代理 |
 | I-20 要素字段标注缺口 | 协调分支 `issues/I-20-element-label-gap-2026-10-18.md` | 现行问题单 | 36 字段无标签来源；教师契约已交付；切片可先跑诊断 |
 | I-21 P2 工单事故 | 协调分支 `issues/I-21-p2-workorder-incident-2026-10-18.md` | 现行事故单 | 8,400 分换 42 L1；六道门防再犯 |
 | 规范修订案（脱敏取消） | 协调分支 `normative-revision-deid-cancel-2026-10-17.md` | 现行 | 四文档逐条修订蓝本＋五补丁/版本门控 |
-| 协调审计看板 | 协调分支 `coordination-audit-2026-10-16.md` | **现行活看板** | 各线现势、决策、断点；替代旧 project-status |
+| 协调审计看板 | 协调分支 `coordination-audit-2026-10-16.md` | **历史快照** | 10-16/10-17 现势；当前状态用 BOARD/CURRENT |
 
 ## 6. 明确过时/不要作为依据的版本
 
@@ -114,7 +140,26 @@
 | I-20 中任何“37 要素”表述 | 已勘误为 **36 字段**（另 3 项 meta）；以 `schema.py`/element-teacher-v1 为准 |
 | 旧 `admin/`、`pk1–pk4`、`w1`、`r1–r3` 交付 | 已作废/内容不安全；不要用于标注或训练 |
 
+## 6.1 文档勘误（当前必须知道的偏差）
+
+| 文档 | 偏差 | 正确口径/替代 |
+|---|---|---|
+| `framework-panorama.md`（引擎） | 仍写“脱敏正本”；数据进度是 10-16 快照 | 原文正本（D-003）；现状看 BOARD/CURRENT；M0–M6 概念可用 |
+| `data-spec.md`（引擎） | 只覆盖 L0–L3/交付；**没有 L5 36 字段标签契约** | 标签看 `annotation-guideline` + `element-teacher-v1` + `schema.py`；引擎线应补标签合约节或链接 |
+| `annotation-guideline.md`（引擎） | 旧索引写 v0.3；实际已 v0.4 | §3.11 已写“引擎定语义、后处理实现”；36 字段；现行 |
+| `stage-plan-v2` | 六数看板是历史快照；M1 58→59、绑定未列 | 目标/门禁保留；状态看 BOARD/CURRENT |
+| `workstreams.md` | 会话状态、未提交清单、额度耗尽叙述已过期 | 职责看 `OWNERSHIP.md`；历史留档 |
+| `coordination-audit-2026-10-16.md` | 10-16/10-17 快照 | 当前状态用 BOARD/CURRENT |
+| `seg-v2-pipeline-implementation-report` | 10:44 快照；§5.2 说 binding 未交付 | 对 NLP 级仍成立；v3 只是字段默认基线；现状看 BOARD/ISSUES |
+| `contract-binding-audit-2026-10-18.md`（引擎） | 版本审计；部分版本已被 `f0dd746`/`d5330a3` 覆盖 | 作审计清单；当前版本看 ARTIFACTS |
+| `parse-format-chain-design` | 标题仍 v1.0；内容是 parsed-2 设计提案 | 读变更日志 v1.3；不是 L5 标签契约 |
+| `text-processing-spec` | 包含已取消的脱敏/R6 主管线口径 | D-003 已取消；只作历史/外发衍生参考 |
+| `collab-log.md` | 114KB 历史事件，混有旧状态 | 只追加事件；当前状态看 CURRENT/BOARD |
+| 任何“37 要素”表述 | 实际 36 字段 + 3 meta | 以 `schema.py`/`element-teacher-v1` 为准 |
+
 ## 7. 合并状态提醒
 
-- 引擎分支（`113db42`）与 Codex 分支（`ba12e6f`）**均未合并 main**；main 目前含 L4 Word 补救（`6be834f`）但缺上述两线最新提交。
-- 在合并前，跨分支阅读请按本索引的“权威位置”列走；合并后再统一路径。
+- 引擎最新 `f0dd746`（语义-only 8 shared/28 target）；后处理最新 `d5330a3`（v3 字段默认基线/contract adopted）；协调最新见 `git log`。
+- 三条线的最新提交**均未合并 main**；main 不能作为当前设计依据。
+- 合并前，跨分支阅读按本索引“权威位置”走；合并后再统一路径。
+- 当前状态始终以 `$DATA/coordination/CURRENT.md` 为准，BOARD 是提交快照。

@@ -7,10 +7,11 @@
 ## 五分钟阅读路径
 
 1. **实时**：[CURRENT.md](D:/02_Dev/Data/justilaw-research/coordination/CURRENT.md)（自动生成；各工作树都能读）。
-2. 本页（提交快照；比 CURRENT 可能旧几分钟）。
-3. [本轮 handoff](./handoffs/2026-10-18-element-contract-v1.md)（验收命令）。
-4. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行）。
-5. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考。
+2. **设计索引**：[design-docs-index-2026-10-18.md](./design-docs-index-2026-10-18.md)（按主题找现有文档；含文档勘误）。
+3. 本页（提交快照；比 CURRENT 可能旧几分钟）。
+4. [本轮 handoff](./handoffs/2026-10-18-element-contract-v1.md)（验收命令）。
+5. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行）。
+6. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考。
 
 ## 各线当前状态（12:42）
 
