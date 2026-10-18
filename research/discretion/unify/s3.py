@@ -433,8 +433,14 @@ def check_value_grounded(ctx):
         t_core = re.sub(r"《[^》]*》|（\d{4}[修订]?）|中华人民共和国|治安管理处罚法", "", t).strip()
         nos = art_no.findall(t_core if "第" in t_core else "第" + t_core.lstrip("第")) or art_no.findall(t)
         for no in (nos or [t_core]):
-            if len(no) >= 3 and no not in art_zone and no not in cleaned \
-                    and no not in art_zone_c and no not in cleaned_c:
+            # 公示表常省略条号前的“第”（如“治安管理处罚法七十条”）。
+            # 只对完整条号放宽，不把“十条”误配到“七十条”。
+            variants = {no}
+            if no.startswith("第") and "条" in no:
+                variants.add(no[1:])
+            found = any(re.search(rf"(?<![一二三四五六七八九十百零\d第]){re.escape(v)}", zone)
+                        for v in variants for zone in (art_zone_c, cleaned_c))
+            if len(no) >= 3 and not found:
                 findings.append(_mk("value_grounded", "error", f"法条条号未命中：{no}（edition={a.get('edition')}）"))
                 break
     # subject 三档中的 error 档已由 check_subject 承担；此处补 aliases 的存在性（warn）

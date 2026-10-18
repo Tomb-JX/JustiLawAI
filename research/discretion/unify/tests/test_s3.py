@@ -236,6 +236,17 @@ def test_value_grounded_fine_masked_skipped():
     assert not [x for x in check_value_grounded(ctx) if x.check == "value_grounded"]
 
 
+def test_value_grounded_article_optional_di_prefix():
+    from s3 import check_value_grounded
+    rec = {"prefilter": {"gambling": "是"}, "source_type": "执法公示",
+           "form": "字段表公示", "cleaned_text": "依据《中华人民共和国治安管理处罚法》七十条处罚。"}
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 0,
+                        "articles": [{"text": "第七十条", "edition": "2012修正"}]}, rec=rec)
+    assert not [x for x in check_value_grounded(ctx) if x.severity == "error"]
+    rec["cleaned_text"] = "依据《中华人民共和国治安管理处罚法》十条处罚。"
+    assert any(x.severity == "error" for x in check_value_grounded(ctx))
+
+
 def test_cn_read():
     from s3 import _CN_READ
     assert _CN_READ(3000) == "三千"
