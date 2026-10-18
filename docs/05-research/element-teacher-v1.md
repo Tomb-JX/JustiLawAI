@@ -8,7 +8,7 @@
 
 调用 `app.discretion.element_labels.teacher_messages(target=..., facts_text=..., meta_text=..., aliases=...)` 构造消息。系统提示从本体说明动态生成，每次 schema 版本变化须重新冻结提示版本。教师只回七组 `elements`，各字段 `{status,value,evidence}`，`status` 为 `明确`、`推断`、`未提及`。未提及必须 `value=null,evidence=[]`；有值必须附 facts/meta 的连续逐字 `quote`。字段取值、枚举、金额下界和开口上界由 `teacher_output_schema()` 与 `validate_teacher_output()` 校验。只收台费可记 `amounts.commission`，不得据此标营利目的。
 
-**绑定不在教师输出中**：教师只回七组 `elements`，不输出 `binding`；绑定由后处理按引擎语义表 + 证据判定。当前 v5 诊断 61 shared / 1120 target / 528 review，已做证据感知 3 步；但 212 切片无多人案例，joint 分支未触发；528 review 为 unclassified role；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target；BIND-03/CONTRACT-01 未关闭。教师契约通过不等于绑定质量验收。
+**绑定不在教师输出中**：教师只回七组 `elements`（36 字段），不输出 `binding`，也不输出 `CaseMeta`（region/behavior_date/decision_date）；`CaseMeta` 来自登记/来源，`binding` 是 pipeline 后处理元数据。不得把二者塞进 `elements`，也不得自行增删字段；字段变更须引擎 `SCHEMA_VERSION` 升版。当前代码 `60ebb52` 复跑：212 单人 310/1517/518、P1-r6 557/1519/513；scene-level money 回归（P1 254/399、212 57/187 为他人个人金额标 shared）；130/130 无落盘 artifact；BIND-03/BIND-04/CONTRACT-01 未关闭。教师契约通过不等于绑定质量验收。
 
 ## S2 定位与 parsed-2 结构（答 I-20 §6.3）
 

@@ -1,6 +1,6 @@
 # 行政案例数据交付规格（数据链路 → 引擎）
 
-> 版本 v0.6 · 2026-10-18 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"；新增 §8 要素标签契约（L5）
+> 版本 v0.6.1 · 2026-10-18 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"；新增 §8 要素标签契约（L5）
 > 配套：[项目现状总览](../04-plan/project-status.md)（数据分层 §4）· [数据收集计划](../04-plan/data-collection.md) · [文本处理规范](../04-plan/text-processing-spec.md)（数据链路的实现规则）· [标注指南](./annotation-guideline.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
 > v0.5 按用户批准的[规范修订案](../04-plan/normative-revision-deid-cancel-2026-10-17.md)改为原文正本；解析层统一中间格式（§6）与自动验收（§4）保留，字段总表（§7）由 `justilaw-api/app/discretion/records.py` 生成，**以代码为准**。
 
@@ -309,18 +309,21 @@
 
 ### 8.2 reference_elements
 
-- 7 组 36 字段；每字段 `{status, value, evidence}`。
+- **只放 7 组 36 个要素字段**；每字段 `{status, value, evidence}`。
+- `CaseMeta` 的 **3 个记录级元数据**（`region` / `behavior_date` / `decision_date`）由引擎 `schema.py` 定义，来自案件登记/来源，**不由教师抽取，也不是 `reference_elements` 的字段**；不要把它们算成第 37–39 个要素。
 - `status` = 明确 / 推断 / 未提及；未提及必须 `value=null, evidence=[]`。
 - 金额 `{min,max}`，`max=null` 表示开口；日期 ISO `YYYY-MM-DD`。
 - `evidence` = `{quote,start,end}`，必须满足 `text_full[start:end] == quote`，只来自 facts/meta。
 - `label_provenance` = teacher / model-adjudicated / human；`human_review` boolean；`release_approved` boolean。
 
-### 8.3 binding
+### 8.3 binding（派生标注，不是新字段）
 
-- 每个字段/证据标 `shared_fact` / `target_specific` / `needs_review`。
+- `binding` 是 pipeline 对“这条字段/证据算谁的”的**派生标注**，取值 `shared_fact` / `target_specific` / `needs_review`；它**不是 `elements` / `reference_elements` 的新字段**，不得改变 36 字段 schema。
+- 建议放在独立的 `binding` 块（按字段/证据索引），与 `reference_elements` 并列；不要在每个要素字段里塞 `binding` 键。
 - 共同事实（现场赌资总额、参赌人数等）在每个相关人记录中重复并标 `shared_fact`；个人事实只归本人；无法判定标 `needs_review`。
 - 引擎语义表 `research/eval/binding_rules.py`（8 shared / 28 target）是权威定义；**具体判定由数据/后处理实现**。`needs_review` 是显式未知，不静默当正确。
-- 当前实现（2026-10-18 13:04，v5）：61 shared / 1120 target / 528 review；证据感知 3 步（字段语义→证据主体→段落类型）；212 切片无多人案例，joint 分支未触发；528 review 全是 unclassified role；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target，artifact 与代码待统一；BIND-03/CONTRACT-01 未关闭。
+- **字段边界**：36 要素字段 + `CaseMeta` 3 元数据由引擎 schema 定义；数据线不得自行增删字段。任何字段增删/语义变化必须引擎 `SCHEMA_VERSION` 升版并同步契约。
+- 当前实现（2026-10-18 协调复跑，代码 `60ebb52`）：212 单人 310 shared/1517 target/518 review；P1-r6 178 条 557/1519/513；review 主要是 `unclassified role: None` 与多人列表。**质量未证且有回归**：scene 关键词规则把含“现场扣押/现场查获”等词的整段 money 节点标 shared；P1 399 个 scene-level money 节点中 254 个是“他人姓名+赌资+金额”的个人金额（如“现场扣押杭xx赌资12000元…”），212 为 57/187，与 `amounts.personal_stake=TARGET` 冲突。提交说明的 130/130 是自检，无落盘 artifact。BIND-03/BIND-04/CONTRACT-01 未关闭。
 
 ### 8.4 验收
 
@@ -331,6 +334,7 @@
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-18 | v0.6.1 | 澄清 L5 字段边界（36 要素字段；CaseMeta 3 元数据非标签字段；binding 派生块）；同步 `60ebb52` 复跑计数与 scene-level money 回归、130/130 无 artifact | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.6 | 新增 §8 要素标签契约（L5）：一人一条、reference_elements、evidence、binding、验收；与 annotation-guideline/element-teacher-v1 对齐 | 协调层代笔（引擎线复核） |
 | 2026-10-17 | v0.5.1 | 更正 r6 用途：格式关口和原文冻结参考，不可用于标注；标注可用性由 parsed-2 G2.2 质量证据包决定 | 模型组（引擎） |
 | 2026-10-17 | v0.5 | 按 D-003 改原文正本；删除主管线脱敏与 R6 字段及验收项，`subject_mention` 定位本人，原文文号可保留；新增外发条款；字段总表同步 `records.py` | 模型组（引擎） |

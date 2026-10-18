@@ -1,6 +1,6 @@
 # 要素标注指南
 
-> 版本 v0.4 · 2026-10-18 · 对应门禁 G0.3
+> 版本 v0.4.3 · 2026-10-18 · 对应门禁 G0.3
 > 字段定义的唯一来源是 `justilaw-api/app/discretion/schema.py`；本文 §4 的字段表由它自动生成。
 > 配套：[固定对照与阶段门禁](./sota-baselines-and-gates.md) · [数据收集计划](../04-plan/data-collection.md) · [并行工作流与分工](../04-plan/workstreams.md) §5
 
@@ -218,7 +218,9 @@
 
 **怎么从文本判定一段证据是 shared 还是 target，是后处理线的实现职责**，不是标注员的职责。标注员按 §1 的总原则标注即可：只标目标本人的要素，每个有值的字段都附原文证据。
 
-**2026-10-18 实现状态（协调层代笔）**：引擎只提供语义表（8 shared / 28 target），不提供逐案判定。后处理 v5 已做**证据感知 3 步**（字段语义→证据主体→段落类型）：shared 恒 shared，target 仅本人→target，target 提他人→needs_review；212 条诊断 61 shared / 1120 target / 528 review；**切片无多人案例，joint/other-subject 分支未实际触发**；528 review 全是 unclassified role（`fine`/`unclassified_count`），不是主体歧义；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target。绑定质量看 BOARD/ISSUES 的 BIND-03/CONTRACT-01；**语义表存在/3 步分类 ≠ 绑定质量已证**。绑定不是教师输出的一部分；教师只回 `elements`。
+**字段边界（2026-10-18 澄清）**：教师只输出 7 组 **36 个要素字段**；`CaseMeta` 的 `region`/`behavior_date`/`decision_date` 是引擎 schema 的 3 个记录级元数据，来自登记/来源，不由教师抽取，**不是第 37–39 个要素**。`binding` 是 pipeline 的派生标注（shared/target/review），不是要素字段；不得把 `binding` 或 `CaseMeta` 塞进 `elements`。任何字段增删/语义变化必须引擎 `SCHEMA_VERSION` 升版；数据线不得自行改字段。
+
+**2026-10-18 实现状态（协调层复跑）**：引擎只提供语义表（8 shared / 28 target），后处理实现分类。当前代码 `60ebb52` 复跑：212 单人 310 shared/1517 target/518 review；P1-r6 178 条 557/1519/513；review 主要是 `unclassified role: None` 与多人列表。**存在回归**：scene 关键词把“现场扣押/查获”整段的个人金额标 shared，P1 254/399、212 57/187 是“他人姓名+赌资+金额”，与 `amounts.personal_stake=TARGET` 冲突；130/130 无落盘 artifact。BIND-03/BIND-04/CONTRACT-01 未关闭；**语义表存在/分类 ≠ 绑定质量已证**。绑定不是教师输出的一部分；教师只回 `elements`。
 
 ## 4. 日期与人员
 
@@ -283,6 +285,7 @@
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-18 | v0.4.3 | §3.11 澄清字段边界并同步 `60ebb52` 复跑：scene-level money 把他人个人金额标 shared，130/130 无 artifact；BIND-03/BIND-04 未关闭 | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.4.2 | §3.11 实现状态更新到 v5：证据感知 3 步、切片无多人案例、528 review 为 unclassified role、contract/code 不一致 | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.4.1 | §3.11 补实现状态：引擎语义表、后处理字段默认基线、528 review、contract 不一致；绑定不是教师输出 | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.4 | E-05：新增 §3 字段裁决规则（role/venue/behavior/method/times/participant/age 七字段正反例、多角色/多场所/多行为/多方式优先级、"多次"不猜、含本人计数、年龄模糊记 null）；§3.8–3.9 日期/金额归一化引擎侧唯一规则（JioNLP 仅作实现选项）；§3.10 证据语义（逐字连续、来源限制、S2 坐标）；原 §3→§4、§4→§5、§5→§6 | 模型组（引擎） |
