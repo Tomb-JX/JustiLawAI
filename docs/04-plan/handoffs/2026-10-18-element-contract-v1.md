@@ -5,12 +5,12 @@
 - **Loop owner**：后处理线
 - **创建**：2026-10-18 11:45
 - **截止**：2026-10-18 13:15
-- **状态**：Gate A 已完成（11:36）；Gate B（绑定）open
+- **状态**：Gate A 模块已提交（11:36）；Gate A2 主路径 + Gate B 绑定 open
 
 ## 1. 本轮要拿到什么
 
 1. 引擎补齐**主体/事件绑定**规则：`shared_fact` / `target_specific` / `needs_review`，写进 `research/eval/` 的同一契约模块并版本化。
-2. 后处理完成 `element_contract.py` / `normalization.py` 接入并提交；重新导出 contract，对齐 11:24 的 E-05 实现包。
+2. 后处理完成 `element_contract.py` / `normalization.py` 模块接入，并把 `evidence_graph.py` 主路径改用 E-05 归一化；提交并补 2–3 个测试。最终 contract 重导等绑定完成后再做一次。
 3. 在同一 212 条冻结切片上跑一次**免费离线诊断**，给出 binding/normalizer 与基线对比。
 4. 协调据结果更新 BOARD；**本轮不跑 smoke、不调模型、不放行 r7**。
 
@@ -61,7 +61,8 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 | 项 | 记录 |
 |---|---|
 | 引擎 ack（时间/commit） | 未 ack（截至 11:47；last commit `45a7d1a`，无绑定表） |
-| 后处理 ack（时间/负责人） | 11:36，commit `256d2ce`；工作区干净 |
+| 后处理 ack（时间/负责人） | 11:36，commit `256d2ce`；工作区干净；**模块级接入，主路径未接** |
+| Gate A2（主路径） | 未完成：`evidence_graph.py` 仍用旧 `normalize_time` / `normalize_quantity` |
 | 单测结果 | 139 passed；新增接入代码无专用单测 |
 | 诊断结果（binding 变化、normalizer、证据问题数） | Gate A 集成回放 `replay-e05-integrated-20261018`：S3 26/299；`element_states` 全 `not_available`；binding 未测 |
 | 新 contract 路径/哈希 | 未重导（等 Gate B 绑定，避免导出两次） |

@@ -13,13 +13,14 @@
 | Loop owner | **后处理线**（激活交接、跑验收、回报结果） |
 | 贡献方 | 引擎线（绑定规则与版本化）；协调线（看板/路由/验收口径） |
 | 截止 | 2026-10-18 13:15（90 分钟时间盒） |
-| 状态 | **Gate A 已完成；Gate B（绑定）进行中** |
+| 状态 | **Gate A 模块已提交（主路径待接）；Gate B（绑定）进行中** |
 
-### Gate A：接入（已完成 11:36）
+### Gate A：模块接入（11:36 已提交；主路径待接）
 
-- 后处理提交 `256d2ce`：接入引擎 `normalization_spec` + `evidence_contract`；工作区干净。
-- 后处理单测：**139 passed**（但新增接入代码没有单独测试，见 ISSUES CONTRACT-01）。
-- 集成回放 `replay-e05-integrated-20261018`：S3 仍 26/299=8.7%；`element_states` 全 `not_available`，**没有测要素/绑定层**。
+- 后处理提交 `256d2ce`：新增 `element_contract.py` / `normalization.py` 的 E-05 包装。
+- 后处理单测：**139 passed**（新增接入代码没有单独测试，见 ISSUES CONTRACT-01）。
+- **主路径未接**：`evidence_graph.py` 仍调用旧 `normalize_time` / `normalize_quantity`，没有改用 E-05；集成回放 `replay-e05-integrated-20261018` 的 `element_states` 全 `not_available`，也没有测到新代码。
+- **Gate A2（现在可做，不等引擎）**：把 `evidence_graph` 的金额/日期归一化改走 E-05，补 2–3 个测试，再跑免费工程诊断。
 
 ### Gate B：绑定（等引擎）
 
@@ -29,7 +30,7 @@
 ## 下一步（按顺序）
 
 1. **引擎**：补主体绑定规则（`shared_fact` / `target_specific` / `needs_review`），写进 `research/eval/` 契约模块并版本化；推送 7 笔本地提交。
-2. **后处理**：推送 `256d2ce`（当前 7 笔领先 origin）；给新接入补 2–3 个单测；用集成后的代码跑一次免费工程诊断，建立“pre-binding 基线”。
+2. **后处理**：推送 `256d2ce`（当前 7 笔领先 origin）；把 `evidence_graph` 主路径改用 E-05 归一化；补 2–3 个单测；跑一次免费工程诊断，建立“pre-binding 基线”。
 3. **引擎绑定到位后**：后处理接 `shared_fact` / `target_specific`，重跑同一诊断，比较 binding 变化；再重导 contract。
 4. **协调**：核对结果并更新本看板；通过后才讨论 12 条 smoke。
 
@@ -65,6 +66,7 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 ## 阻塞
 
 - **主体绑定规则未写**（引擎）；这是本轮唯一需要新增的语义规则。
+- **主路径未改用 E-05**：`evidence_graph.py` 仍走旧 JioNLP 归一化；集成回放没有测到新代码。
 - **11:17 contract bundle 已过期**：它早于 11:24 的 E-05 实现包，`normalization_policy` 仍为 `proposed_pending_engine_adoption`；需在绑定完成后重导一次，不要为 Gate A 重导两次。
 - **可见性**：引擎 7 笔、后处理 7 笔提交均未推 origin；交接前必须 push。后处理新增接入代码没有专用单测，需补 2–3 个。
 
