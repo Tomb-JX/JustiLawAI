@@ -1,5 +1,7 @@
 # 协作记录
 
+> **2026-10-18 起：本文件转为历史证据，只追加事件，不再作为状态板。当前状态见 [BOARD.md](./BOARD.md)，跨线交接见 [handoffs/](./handoffs/)，决策见 [DECISIONS.md](./DECISIONS.md)。**
+
 > 配套：[并行工作流与分工](./workstreams.md)。**只追加，不修改已有行**；每行一条，写在表格末尾。
 > 本文件在 `.gitattributes` 中设为 `merge=union`：多条工作流同时追加时，git 自动保留双方的行，不会产生冲突。
 
