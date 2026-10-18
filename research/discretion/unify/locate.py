@@ -55,7 +55,22 @@ class OffsetIndex:
 
     def span(self, cs: int, ce: int) -> tuple[int, int]:
         """clean [cs,ce) → 原文 [orig(cs), orig(ce-1)+1)。"""
+        if type(cs) is not int or type(ce) is not int or not 0 <= cs < ce <= len(self.origs):
+            raise IndexError(f"非法 clean 半开区间: {cs}:{ce}/{len(self.origs)}")
         return self.origs[cs], self.origs[ce - 1] + 1
+
+    def project(self, cs: int, ce: int) -> list[tuple[int, int]]:
+        """Project to contiguous original fragments; never reintroduce deleted text."""
+        self.span(cs, ce)  # bounds and coordinate convention are shared
+        result = []
+        start = previous = self.origs[cs]
+        for pos in self.origs[cs + 1:ce]:
+            if pos != previous + 1:
+                result.append((start, previous + 1))
+                start = pos
+            previous = pos
+        result.append((start, previous + 1))
+        return result
 
     def crosses_boundary(self, cs: int, ce: int) -> bool:
         return any(i in self.boundaries for i in range(cs + 1, ce))

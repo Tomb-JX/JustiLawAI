@@ -106,6 +106,13 @@ def build_user_prompt(form: str, source_type: str, sentences: list[str],
 
 # ---------- 提供商客户端 ----------
 
+class ProviderResponseError(RuntimeError):
+    """HTTP response received; retain content/usage even when content is empty."""
+    def __init__(self, message, content, meta):
+        super().__init__(message)
+        self.content, self.meta = content, meta
+
+
 class Provider:
     def __init__(self, name: str, cfg: dict, params: dict):
         self.name = name
@@ -146,8 +153,11 @@ class Provider:
         content = msg.get("content") or ""
         usage = data.get("usage") or {}
         if not content:
-            raise RuntimeError(f"空返回（finish={ (data.get('choices') or [{}])[0].get('finish_reason') }）")
-        return content, {"latency_ms": latency, "usage": usage}
+            raise ProviderResponseError(
+                f"空返回（finish={ (data.get('choices') or [{}])[0].get('finish_reason') }）",
+                content, {"latency_ms": latency, "usage": usage})
+        return content, {"latency_ms": latency, "usage": usage,
+                         "response_model": data.get("model"), "response_id": data.get("id")}
 
 
 # ---------- 输出解析与预检 ----------

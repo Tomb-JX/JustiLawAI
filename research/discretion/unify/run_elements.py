@@ -1,493 +1,263 @@
-"""I-20 要素教师标注管线（网页侧接管线，契约=引擎 element_labels element-v1）。
+"""Versioned element-reference runner. Default is offline planning, never paid calls.
 
-流程：seg-v2 批次（final300）句表 → 每记录取 facts 句 + facts 前 meta 句（**原文切片**，
-经 edits 日志映射回 text_full——引文天然在原文空间，S2 定位=find+唯一性校验）；
-A/B 双盲（A=deepseek-flash，B=xiaomi/mimo-v2.6-flash，D-002：A/B 至多一个与教师同厂）；
-字段级分歧 → C 仲裁（mimo-v2.6-pro，非 deepseek）；
-labels.jsonl 证据 {quote,start,end} 满足 text_full[start:end]==quote；
-验收交引擎 accept_element_labels.py（门槛：结构/哈希 100%、坐标逐字 ≥95%、A/B 配对、分歧 ≤20%）。
-
-用法（仓库根目录）：
-  python research/discretion/unify/run_elements.py --run <s1_runs/final300> \
-      [--limit N] [--smoke]
-产物（s1_runs/<run>/elements/）：A.jsonl、B.jsonl、diffs.jsonl、adjudications.jsonl、
-labels.jsonl、queue_manual.csv、progress.json（心跳）、receipts.jsonl、summary.json。
+Engine element semantics stay engine-owned. This wire version compiles sentence IDs
+to its existing located contract. Old final300/elements is not a writable run target.
 """
-
 from __future__ import annotations
 
 import argparse
+import copy
+import hashlib
 import json
-import os
 import sys
-import re
-import threading
-import time
-from collections import Counter
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-sys.path.insert(0, str(HERE.parent / "discover"))
+from element_contract import (engine_contract, contract_snapshot, digest, messages,
+                              compile_references, merge_valid, validate_located, WIRE_VERSION)
+from locate import OffsetIndex
+from durable_calls import DurableCalls, append, read_rows, check_models
+from s1 import data_root, load_config
+from progress import load_prices
+from cleanse import replay_edits, sentence_table
 
-from s1 import Provider, load_config, extract_json, data_root  # noqa: E402
-from locate import OffsetIndex  # noqa: E402
-from progress import ProgressTracker, load_prices, classify_error  # noqa: E402
+ENGINE = engine_contract()
+FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
 
-ENGINE_API = Path(os.environ.get("JUSTILAW_ENGINE_API")
-                  or r"D:\02_Dev\Projects\大创\.claude\worktrees\discretion-engine\justilaw-api")
-if not (ENGINE_API / "app" / "discretion" / "element_labels.py").exists():
-    sys.exit(f"[停止] 引擎契约不可达：{ENGINE_API}（设 JUSTILAW_ENGINE_API 环境变量）")
-sys.path.insert(0, str(ENGINE_API))
-from app.discretion.element_labels import (  # noqa: E402
-    PROMPT_VERSION, FIELD_INFO, teacher_messages, validate_teacher_output)
-
-LABEL_PROV = "model-adjudicated"
-GROUPS_ORDER = ["conduct", "amounts", "persons", "venue", "intent", "circumstances", "person"]
-
-
-# ---------- 输入构造（原文空间句表） ----------
 
 def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
-    """facts_text=facts 区间句原文拼接；meta_text=facts 前 meta 句；两者空返回 None（人工分流）。
-    target 缺失也返回 None（教师拒绝匿名标注）。"""
-    sm = (rec.get("subject_mention") or "").strip()
-    zones = (seg_out.get("zones") if seg_out else None) or rec.get("zones_det") or []
-    if not zones:
+    """One projection from clean half-open intervals, with no deleted text restored."""
+    target = (rec.get("subject_mention") or "").strip()
+    zones = (seg_out or {}).get("zones") or rec.get("zones_det") or []
+    sentences = rec.get("sentences") or []
+    original = rec.get("_text_full") or ""
+    if not target or not zones or not sentences or target not in original:
         return None
-    sents = rec.get("sentences") or []
-    if not sm or not zones or not sents:
+    if hashlib.sha256(original.encode("utf-8")).hexdigest() != rec["text_orig_sha256"]:
+        raise ValueError("text_hash_mismatch")
+    types = {}
+    previous = 0
+    for zone in zones:
+        a, b = zone.get("from"), zone.get("to")
+        if (type(a) is not int or type(b) is not int or a != previous + 1
+                or not 1 <= a <= b <= len(sentences)
+                or zone.get("type") not in {"facts", "meta", "evidence", "reasoning", "decision", "review"}):
+            raise ValueError("invalid_zones")
+        types.update({sid: zone["type"] for sid in range(a, b + 1)})
+        previous = b
+    if previous != len(sentences):
+        raise ValueError("incomplete_zones")
+    first_f = next((sid for sid, typ in types.items() if typ == "facts"), len(sentences) + 1)
+    view = []
+    for sid, typ in types.items():
+        if typ != "facts" and not (typ == "meta" and sid < first_f):
+            continue
+        cs, ce = sentences[sid - 1]
+        for part, (a, b) in enumerate(index.project(cs, ce), 1):
+            text = original[a:b]
+            if text.strip():
+                view.append({"id": f"S{sid}.{part}", "sentence_id": sid, "type": typ,
+                             "start": a, "end": b, "text": text})
+    if not view:
         return None
-    facts_ids, meta_ids, first_f = [], [], None
-    for z in zones:
-        for s in range(z["from"], z["to"] + 1):
-            if z["type"] == "facts":
-                facts_ids.append(s)
-                if first_f is None:
-                    first_f = s
-            elif z["type"] == "meta":
-                meta_ids.append(s)
-    meta_pre = [s for s in meta_ids if first_f is None or s < first_f]
-    parts = {1: [], 2: []}
-    for group, ids in ((1, facts_ids), (2, meta_pre)):
-        for s in ids:
-            cs, ce = sents[s - 1]
-            try:
-                os_, oe = index.span(cs, ce - 1) if ce - 1 >= cs else (cs, cs + 1)
-            except IndexError:
-                continue
-            parts[group].append((cs, oe if ce - 1 >= cs else cs + 1))
-    text_full = rec.get("_text_full") or ""
-
-    def join_orig(items):
-        out = []
-        for cs, oe in items:
-            a = index.origs[cs] if cs < len(index.origs) else None
-            b = index.origs[oe - 1] if oe - 1 < len(index.origs) else None
-            if a is None or b is None:
-                continue
-            out.append(text_full[a:b + 1])
-        return "\n".join(out)
-
-    def orig_regions(items):
-        out = []
-        for cs, oe in items:
-            if cs >= len(index.origs) or oe - 1 >= len(index.origs):
-                continue
-            out.append((index.origs[cs], index.origs[oe - 1] + 1))
-        return out
-    regions = orig_regions(parts[1]) + orig_regions(parts[2])
-    facts_text = join_orig(parts[1])
-    meta_text = join_orig(parts[2])
-    if not (facts_text.strip() or meta_text.strip()):
-        return None
-    aliases = tuple((seg_out or {}).get("subject", {}).get("aliases") or [])
-    return {"target": sm, "facts_text": facts_text, "meta_text": meta_text,
-            "aliases": aliases, "regions": regions}
-
-
-# ---------- 定位与合并 ----------
-
-_WS = re.compile(r"\s+")
+    aliases = (seg_out or {}).get("subject", {}).get("aliases") or []
+    if not isinstance(aliases, list) or any(not isinstance(a, str) or a not in original for a in aliases):
+        raise ValueError("invalid_alias")
+    return {"target": target, "aliases": aliases, "sentence_view": view,
+            "facts_text": "\n".join(s["text"] for s in view if s["type"] == "facts"),
+            "meta_text": "\n".join(s["text"] for s in view if s["type"] == "meta"),
+            "regions": [(s["start"], s["end"]) for s in view],
+            "view_hash": digest(view)}
 
 
 def locate_evidence(quote: str, text_full: str, regions=()):
-    """原文定位：① 逐字命中——多处时用**教师输入句区间消歧**（取首个完整落在
-    facts/meta 区间内的出现；区间外仍多义 → 复核）；② 空白归一唯一命中→切片回填。"""
-    if not quote:
+    """Legacy replay ONLY: exact, uniquely located inside the allowed input view."""
+    if not isinstance(quote, str) or not quote.strip():
         return None
-    hits = []
-    start = text_full.find(quote)
-    while start >= 0:
-        hits.append((start, start + len(quote)))
-        start = text_full.find(quote, start + 1)
-    if len(hits) == 1:
-        return hits[0]
-    if len(hits) > 1 and regions:
-        inside = [h for h in hits if any(a <= h[0] and h[1] <= b + 1 for a, b in regions)]
-        if len(inside) == 1:
-            return inside[0]
-    if hits:
-        return None  # 歧义且区间无法消歧 → 复核
-    tn = _WS.sub("", text_full)
-    qn = _WS.sub("", quote)
-    if not qn:
-        return None
-    n0 = tn.find(qn)
-    if n0 < 0 or tn.find(qn, n0 + 1) >= 0:
-        return None
-    # 归一位置 → 原文位置
-    idx, skipped = [], 0
-    for i, ch in enumerate(text_full):
-        if ch.isspace():
-            skipped += 1
-            continue
-        idx.append(i)
-    # 只映射前 len(tn) 个非空白字符；重建原文区间含尾部空白
-    a = idx[n0]
-    b_last = idx[min(n0 + len(qn), len(tn)) - 1]
-    b = b_last + 1
-    while b < len(text_full) and text_full[b].isspace():
-        b += 1
-    return a, b
+    hits, start = [], 0
+    while (pos := text_full.find(quote, start)) >= 0:
+        end = pos + len(quote)
+        if not regions or any(a <= pos < end <= b for a, b in regions):
+            hits.append((pos, end))
+        start = pos + 1
+    return hits[0] if len(hits) == 1 else None
 
 
-def merge_labels(a_payload: dict, b_payload: dict, adjud: dict) -> tuple[dict, list[dict]]:
-    """字段级合并：A==B（status+value）直采；分歧查 adjudication（C 裁决 A|B|新值|未提及）。
-    返回 (merged elements, 未决分歧列表)。"""
-    merged, unresolved = {}, []
-    diffs = []
-    for path in FIELD_INFO:
-        g, name = path.split(".")
-        va = ((a_payload or {}).get(g) or {}).get(name) or {"status": "未提及", "value": None, "evidence": []}
-        vb = ((b_payload or {}).get(g) or {}).get(name) or {"status": "未提及", "value": None, "evidence": []}
-        def norm(x):
-            y = json.loads(json.dumps(x, ensure_ascii=False))
-            for e in (y.get("evidence") or []):
-                e.pop("variant", None)
-            return json.dumps(y, sort_keys=True, ensure_ascii=False)
-        same = (va.get("status") == vb.get("status")
-                and norm({"value": va.get("value")}) == norm({"value": vb.get("value")})
-                and {frozenset((e.get("start"), e.get("end")) for e in (va.get("evidence") or []) if not e.get("review"))}
-                == {frozenset((e.get("start"), e.get("end")) for e in (vb.get("evidence") or []) if not e.get("review"))})
-        chosen = None
-        if same:
-            chosen = json.loads(json.dumps(va, ensure_ascii=False))
-            merged.setdefault(g, {})[name] = chosen
-            continue
-        d = {"path": path, "a": va, "b": vb}
-        diffs.append(d)
-        adj = adjud.get(path)
-        if adj is None:
-            unresolved.append(d)
-            continue
-        pick = adj.get("adopt")
-        src = {"A": va, "B": vb}.get(pick)
-        if pick == "未提及":
-            merged.setdefault(g, {})[name] = {"status": "未提及", "value": None, "evidence": []}
-        elif pick == "新值":
-            merged.setdefault(g, {})[name] = {"status": adj.get("status") or "推断", "value": adj.get("value"),
-                                              "evidence": adj.get("evidence") or (va.get("evidence") or [])[:1]}
-        elif src is not None:
-            merged.setdefault(g, {})[name] = json.loads(json.dumps(src, ensure_ascii=False))
-    return merged, unresolved, diffs
-
-
-def _candidates(payload: dict, text_full: str, tag: str, regions=()) -> dict:
-    """S2 定位在 payload 上：每字段 evidence 逐字/归一定位并回填原文切片；
-    定位失败打 review。合并比较与采纳都基于坐标（A/B 同 span 视为一致）。"""
-    out = json.loads(json.dumps(payload or {}, ensure_ascii=False))
-    for gname, g in (out or {}).items():
-        if not isinstance(g, dict):
-            continue
-        for name, fld in g.items():
-            if not isinstance(fld, dict):
-                continue
-            raw = fld.get("evidence") or []
-            if raw and isinstance(raw[0], str):
-                raw = [{"quote": q} for q in raw if isinstance(q, str)]
-            ev = []
-            for e in raw:
-                q = e.get("quote", "") if isinstance(e, dict) else str(e)
-                got = locate_evidence(q, text_full, regions)
-                if got is not None and q in text_full and text_full.find(q) == text_full.rfind(q):
-                    ev.append({"quote": q, "start": text_full.find(q), "end": text_full.find(q) + len(q)})
-                    continue
-                if got is None:
-                    ev.append({"quote": q, "review": True})
-                else:
-                    ev.append({"quote": text_full[got[0]:got[1]], "start": got[0], "end": got[1]})
-            fld["evidence"] = ev
+def _candidates(payload, text_full, tag="", regions=()):
+    issues = ENGINE.validate_teacher_output(payload, evidence_text=text_full)
+    if issues:
+        raise ValueError("invalid_legacy:" + ";".join(f"{i.field}:{i.code}" for i in issues))
+    out = copy.deepcopy(payload)
+    for group in out.values():
+        for field in group.values():
+            for ev in field["evidence"]:
+                found = locate_evidence(ev["quote"], text_full, regions)
+                if found is None:
+                    raise ValueError("legacy_evidence_not_allowed_or_ambiguous")
+                ev["start"], ev["end"] = found
+    validate_located(out, text_full, ENGINE, regions)
     return out
 
 
-ADJ_PROMPT = """同一案件多个字段两位标注教师给出不同结果，逐字段依原文裁决。
-原文（当事人句+事实句）：
-{text}
-分歧字段（JSON 数组，每项 path/a/b）：
-{fields}
-规则：以原文逐字证据为准；两候选都无据给新值（附证据）或判"未提及"；逐字段回答。
-只输出 JSON：{{"decisions":[{{"path":"组.字段","adopt":"A|B|未提及|新值","value":<裁决值或null>,
-"status":"明确|推断","evidence":[{{"quote":"逐字引文"}}],"reason":"一句话"}}]}}"""
+def merge_labels(a_payload, b_payload, adjud=None):
+    """Compatibility name: reject unvalidated legacy merging rather than manufacture nulls."""
+    raise RuntimeError("使用 merge_valid 并显式传原文与允许区间；旧无校验合并接口已停用")
 
 
-# ---------- 主流程 ----------
-
-class ElementsRunner:
-    def __init__(self, providers: dict, out_dir: Path, total: int):
-        self.providers = providers
-        self.out_dir = out_dir
-        out_dir.mkdir(parents=True, exist_ok=True)
-        self.lock = threading.Lock()
-        prices = load_prices(data_root() / "config" / "s1_prices.json")
-        self.tracker = ProgressTracker(out_dir, total=total, prices=prices,
-                                       meta={"prompt_version": PROMPT_VERSION, "stage": "elements"})
-        self._rf = open(out_dir / "receipts.jsonl", "a", encoding="utf-8", newline="\n")
-
-    def receipt(self, **kw):
-        kw["ts"] = datetime.now().isoformat(timespec="seconds")
-        with self.lock:
-            self._rf.write(json.dumps(kw, ensure_ascii=False) + "\n")
-            self._rf.flush()
-
-    def call(self, pname: str, msgs: list[dict], rid: str, tag: str) -> dict | None:
-        prov = self.providers[pname]
+def load_work(run: Path, unified: Path, parsed: Path):
+    from s3 import run_checks, zone_spans
+    records = {r["id"]: r for r in read_rows(unified)}
+    originals = {r["id"]: r for r in read_rows(parsed)}
+    edits = {r["id"]: r for r in read_rows(unified.with_name("edits.rle.jsonl"))}
+    work, rejected = [], []
+    for out in read_rows(run / "outputs.jsonl"):
+        rid = out.get("id")
+        if not out.get("ok"):
+            rejected.append({"id": rid, "reason": "s1_failed"})
+            continue
         try:
-            content, meta = prov.chat(msgs[0]["content"], msgs[1]["content"])
-            self.tracker.cost.add(prov.model, meta.get("usage") or {})
-            self.receipt(event="call", provider=pname, model=prov.model, id=rid, tag=tag,
-                         status="ok", **meta)
-            # 原始响应即时落盘：任何崩溃后重跑可从 raws.jsonl 恢复该调用结果，付费成果不再消失
-            with self.lock:
-                with open(self.out_dir / "raws.jsonl", "a", encoding="utf-8", newline="\n") as rf:
-                    rf.write(json.dumps({"id": rid, "tag": tag, "provider": pname, "content": content},
-                                         ensure_ascii=False) + "\n")
-            return extract_json(content)
-        except Exception as e:
-            self.receipt(event="call", provider=pname, model=prov.model, id=rid, tag=tag,
-                         status="fail", error=str(e)[:200], category=classify_error(str(e)))
-            return None
-
-
-def main() -> None:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--run", required=True, help="seg-v2 正式试点 s1_runs/<id>（提供 zones/target 上下文）")
-    ap.add_argument("--unified", default=str(data_root() / "unified_raw/web/20261017-web-r3/records.jsonl"))
-    ap.add_argument("--parsed", default=str(data_root() / "parsed/web/20261017-web-r3/records.jsonl"))
-    ap.add_argument("--a-provider", default="deepseek")
-    ap.add_argument("--b-provider", default="xiaomi")
-    ap.add_argument("--c-provider", default="xiaomi-pro")
-    ap.add_argument("--limit", type=int, default=0)
-    ap.add_argument("--workers", type=int, default=6)
-    ap.add_argument("--cap", type=float, default=0.0,
-                    help="本批预算硬顶（元，占位价目估算）；到顶停发新件（已在飞的完成即止），断点缓存可续")
-    a = ap.parse_args()
-
-    providers, _, _ = load_config()
-    for p in (a.a_provider, a.b_provider, a.c_provider):
-        if p not in providers:
-            sys.exit(f"未知提供商 {p}（config 键：{list(providers)}）")
-    if a.c_provider == "deepseek" or (a.a_provider == "deepseek" and a.b_provider == "deepseek"):
-        sys.exit("D-002 隔离：裁判须非 deepseek 且 A/B 至多一个 deepseek")
-
-    unified = {r["id"]: r for r in (json.loads(l) for l in open(a.unified, encoding="utf-8"))}
-    parsed = {r["id"]: r.get("text_full") or "" for r in
-              (json.loads(l) for l in open(a.parsed, encoding="utf-8"))}
-    edits = {}
-    for l in open(Path(a.unified).parent / "edits.rle.jsonl", encoding="utf-8"):
-        e = json.loads(l)
-        edits[e["id"]] = e
-    seg = {}
-    for l in open(Path(a.run) / "outputs.jsonl", encoding="utf-8"):
-        o = json.loads(l)
-        if o.get("ok"):
-            seg[o["id"]] = o
-
-    ids = [i for i in seg if i in unified and i in edits]
-    if a.limit:
-        ids = ids[:a.limit]
-    ed = Path(a.run) / "elements"
-    runner = ElementsRunner(providers, ed, total=len(ids))
-
-    manual, work = [], []
-    for rid in ids:
-        rec = dict(unified[rid])
-        rec["_text_full"] = parsed[rid]
-        inp = build_inputs(rec, (seg.get(rid) or {}).get("output"), OffsetIndex(edits[rid]))
-        if inp is None:
-            manual.append(rid)
-        else:
+            rec = dict(records[rid])
+            rec["_text_full"] = originals[rid]["text_full"]
+            if (replay_edits(rec["_text_full"], edits[rid]) != rec["cleaned_text"]
+                    or sentence_table(rec["cleaned_text"]) != rec["sentences"]):
+                raise ValueError("input_or_sentence_table_replay_mismatch")
+            index = OffsetIndex(edits[rid])
+            checks = run_checks({"record": rec, "output": out["output"], "sentences": rec["sentences"],
+                                 "spans": zone_spans(out["output"], rec["sentences"], index)})
+            if any(check.severity == "error" for check in checks):
+                raise ValueError("upstream_s3_error")
+            inp = build_inputs(rec, out["output"], index)
+            if inp is None:
+                raise ValueError("missing_target_or_input")
             work.append((rid, rec, inp))
-    print(f"教师可标 {len(work)} 件；人工分流（facts/meta 全空或无 target）{len(manual)} 件 → queue_manual.csv")
-    with open(ed / "queue_manual.csv", "w", encoding="utf-8-sig", newline="\n") as f:
-        f.write("id\n")
-        for rid in manual:
-            f.write(rid + "\n")
+        except (ValueError, IndexError, KeyError) as exc:
+            rejected.append({"id": rid, "reason": str(exc)[:200]})
+    return work, rejected
 
-    def _do_record(rid: str, rec: dict, inp: dict) -> dict:
-        if a.cap and runner.tracker.cost.total()["cost"] >= a.cap:
-            runner.tracker.finish_record(False, 0, "budget_stop")
-            return None, None, None, None
-        msgs = teacher_messages(target=inp["target"], facts_text=inp["facts_text"],
-                                meta_text=inp["meta_text"], aliases=inp["aliases"])
-        text_full = rec["_text_full"]
-        ev_text = inp["meta_text"] + "\n" + inp["facts_text"]
-        pa = runner.call(a.a_provider, msgs, rid, "A")
-        pb = runner.call(a.b_provider, msgs, rid, "B")
-        if pa is None or pb is None:
-            # 双盲缺一（提供商判死等）→ 不产空标签；引擎验收要求 A/B 配对，本件进重试队列
-            runner.tracker.finish_record(False, 1, "single-blind",
-                                         error="missing_" + ("A" if pa is None else "B"))
-            return None, None, None, None
-        ia = validate_teacher_output(pa, evidence_text=ev_text)
-        ib = validate_teacher_output(pb, evidence_text=ev_text)
-        merged = unresolved = diffs = None
-        adjud = {}
-        if pa and pb:
-            regions = inp.get("regions") or ()
-            ca = _candidates(pa, text_full, "A", regions)
-            cb = _candidates(pb, text_full, "B", regions)
-            merged, unresolved, diffs = merge_labels(ca, cb, {})
 
-            if unresolved:
-                # 合并仲裁：一条记录的全部分歧字段一次 C 调用（逐字段串行是主要成本源）
-                try:
-                    fields = json.dumps([{"path": d["path"], "a": d["a"], "b": d["b"]} for d in unresolved],
-                                        ensure_ascii=False)
-                    content, meta = providers[a.c_provider].chat(
-                        "只输出一个 JSON 对象。",
-                        ADJ_PROMPT.format(text=ev_text[:4000], fields=fields[:9000]))
-                    runner.tracker.cost.add(providers[a.c_provider].model, meta.get("usage") or {})
-                    runner.receipt(event="call", provider=a.c_provider,
-                                   model=providers[a.c_provider].model, id=rid, tag="C-batch",
-                                   status="ok", n_fields=len(unresolved), **meta)
-                    dec = extract_json(content)
-                    for d_ in (dec.get("decisions") or []):
-                        if d_.get("path"):
-                            adjud[d_["path"]] = d_
-                except Exception as e:
-                    runner.receipt(event="call", provider=a.c_provider, id=rid, tag="C-batch",
-                                   status="fail", error=str(e)[:200],
-                                   category=classify_error(str(e)))
-                    # 合并仲裁失败 → 逐字段降级一次（预算内），仍失败字段保持 unresolved
-                    for d in unresolved[:4]:
-                        if d["path"] in adjud:
-                            continue
-                        try:
-                            content, meta = providers[a.c_provider].chat(
-                                "只输出一个 JSON 对象。",
-                                ADJ_PROMPT.format(text=ev_text[:4000],
-                                                  fields=json.dumps([{"path": d["path"], "a": d["a"],
-                                                                      "b": d["b"]}], ensure_ascii=False)))
-                            adjud[d["path"]] = (extract_json(content).get("decisions") or [{}])[0]
-                            runner.tracker.cost.add(providers[a.c_provider].model, meta.get("usage") or {})
-                        except Exception:
-                            continue
-                merged, unresolved2, diffs = merge_labels(ca, cb, adjud)
-                unresolved = unresolved2
-        # S2 定位：candidates 已带坐标；merged 若含新值/未提及分支再补定位
-        loc_fail = sum(1 for g in (merged or {}).values() for fld in g.values()
-                       for e in (fld.get("evidence") or []) if e.get("review"))
-        line = {"id": rid,
-                "input": {"target": inp["target"], "facts_text": inp["facts_text"],
-                          "meta_text": inp["meta_text"], "text_full": text_full,
-                          "text_orig_sha256": rec["text_orig_sha256"]},
-                "elements": merged, "element_schema_version": "1.1.0",
-                "element_prompt_version": PROMPT_VERSION, "label_provenance": LABEL_PROV,
-                "human_review": False,
-                "_diag": {"a_issues": [str(i) for i in (ia or [])], "b_issues": [str(i) for i in (ib or [])],
-                          "n_diffs": len(diffs or []), "n_unresolved": len(unresolved or []),
-                          "loc_fail": loc_fail,
-                          "n_evidence": sum(len(f.get("evidence") or []) for g in (merged or {}).values() for f in g.values())}}
-        runner.tracker.finish_record(bool(merged), 1, "ab")
-        return line, pa, pb, diffs
-
-    def do_record(rid, rec, inp):
-        try:
-            return _do_record(rid, rec, inp)
-        except Exception as e:
-            runner.tracker.finish_record(False, 0, "crash", error=str(e)[:150])
-            return {"id": rid, "_crash": str(e)[:150]}, None, None, None
-
-    # 断点缓存：labels 已有有效行的 id 跳过（停止/崩溃后重跑不重复付费）
-    for name in ("labels.jsonl", "A.jsonl", "B.jsonl", "diffs.jsonl"):
-        if not (ed / name).exists():
-            (ed / name).write_text("", encoding="utf-8", newline="\n")
-    done_ids = set()
-    for l in open(ed / "labels.jsonl", encoding="utf-8"):
-        try:
-            done_ids.add(json.loads(l)["id"])
-        except Exception:
-            pass
-    work = [w for w in work if w[0] not in done_ids]
-    print(f"断点缓存命中 {len(done_ids)} 件，本次待标 {len(work)} 件")
-
-    # 事前预估门槛：budget.jsonl 历史均耗（缺省 0.12 元/件）；估算超 cap 即拒绝起跑
-    hist = [json.loads(l) for l in open(data_root() / "s1_runs" / "budget.jsonl", encoding="utf-8")] \
-        if (data_root() / "s1_runs" / "budget.jsonl").exists() else []
-    per_rec = next((h["cost"] / h["records"] for h in reversed(hist)
-                    if h.get("stage") == PROMPT_VERSION and h.get("records")), 0.12)
-    est = len(work) * per_rec
-    print(f"预估：{len(work)} 件 × ¥{per_rec:.3f}/件（历史均耗）= ¥{est:.2f}"
-          + (f"；cap ¥{a.cap}" if a.cap else "；cap 未设"))
-    if a.cap and est > a.cap:
-        sys.exit(f"[拒绝起跑] 预估 ¥{est:.2f} 超预算 cap ¥{a.cap}——缩小 --limit 或提高 cap，经人工确认后再跑")
-
-    results = []
-    files = {n: open(ed / n, "a", encoding="utf-8", newline="\n")
-             for n in ("labels.jsonl", "A.jsonl", "B.jsonl", "diffs.jsonl")}
-
-    def _w(name, row):
-        with runner.lock:
-            files[name].write(json.dumps(row, ensure_ascii=False) + "\n")
-            files[name].flush()
-
-    with ThreadPoolExecutor(max_workers=a.workers) as ex:
-        futs = [ex.submit(do_record, *w) for w in work]
-        for i, fut in enumerate(as_completed(futs), 1):
-            line, pa, pb, diffs = fut.result()
-            if line is None:
-                continue
-            if line.get("_crash"):
-                print(f"  [崩] {line['id']}: {line['_crash'][:70]}")
-                continue
-            results.append(line)
-            _w("labels.jsonl", {k: v for k, v in line.items() if k != "_diag"})
-            _w("A.jsonl", {"id": line["id"], "elements": pa})
-            _w("B.jsonl", {"id": line["id"], "elements": pb})
-            for d in (diffs or []):
-                _w("diffs.jsonl", {"id": line["id"], **d})
-            if i % 20 == 0 or i == len(work):
-                print(f"  {i}/{len(work)}")
-    for fh in files.values():
-        fh.close()
-    cost_now = runner.tracker.cost.total()["cost"]
-    retry_ids = sorted({w[0] for w in work} - {r["id"] for r in results})
-    with open(ed / "queue_retry.csv", "w", encoding="utf-8-sig", newline="\n") as f:
-        f.write("id\n")
-        for rid in retry_ids:
-            f.write(rid + "\n")
-    n = len(results)
-    summary = {
-        "stage": PROMPT_VERSION, "n": n, "manual": len(manual),
-        "records_with_ab": sum(1 for r in results if r.get("elements")),
-        "fields_diff": sum(r["_diag"]["n_diffs"] for r in results),
-        "unresolved": sum(r["_diag"]["n_unresolved"] for r in results),
-        "evidence_total": sum(r["_diag"].get("n_evidence", 0) for r in results),
-        "evidence_loc_fail": sum(r["_diag"]["loc_fail"] for r in results),
-        "single_blind_or_crash_skipped": len(retry_ids),
-        "cost": runner.tracker.cost.total(),
-    }
-    (ed / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1),
-                                     encoding="utf-8", newline="\n")
-    with open(data_root() / "s1_runs" / "budget.jsonl", "a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps({"ts": datetime.now().isoformat(timespec="seconds"), "run": str(a.run),
-                            "stage": PROMPT_VERSION, "records": max(n, 1), "cost": round(cost_now, 4),
-                            "cap": a.cap or None}, ensure_ascii=False) + "\n")
-    runner.tracker.set_phase("done")
-    print(json.dumps(summary, ensure_ascii=False, indent=1))
+def main():
+    sys.stdout.reconfigure(encoding="utf-8")
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--run", type=Path, required=True)
+    p.add_argument("--unified", type=Path, required=True)
+    p.add_argument("--parsed", type=Path, required=True)
+    p.add_argument("--out", type=Path, required=True, help="new $DATA/s1_runs directory")
+    p.add_argument("--limit", type=int, default=0)
+    p.add_argument("--ids", type=Path, help="预冻结的分层 ID JSON 数组；不按完成顺序取烟测样本")
+    p.add_argument("--execute", action="store_true", help="requires registered smoke order and finite cap")
+    p.add_argument("--order", type=Path, help="frozen reviewed order JSON; never inferred from defaults")
+    args = p.parse_args()
+    out = args.out.resolve()
+    if not out.is_relative_to((data_root() / "s1_runs").resolve()) or out == args.run.resolve():
+        p.error("只写新的 $DATA/s1_runs 子目录，不写旧 run")
+    work, rejected = load_work(args.run, args.unified, args.parsed)
+    if args.ids:
+        ids = json.loads(args.ids.read_text("utf-8"))
+        by_id = {w[0]: w for w in work}
+        if len(ids) != len(set(ids)) or set(ids) - set(by_id):
+            p.error("所选 ID 重复或未通过输入/S3 资格")
+        work = [by_id[rid] for rid in ids]
+    if args.limit:
+        work = work[:args.limit]
+    snapshot = contract_snapshot(ENGINE)
+    frozen = {"version": WIRE_VERSION, "contract": snapshot,
+              "ids": [w[0] for w in work], "views": {rid: inp["view_hash"] for rid, _, inp in work},
+              "source_hashes": {str(f.resolve()): hashlib.sha256(f.read_bytes()).hexdigest()
+                                for f in (args.run / "outputs.jsonl", args.unified, args.parsed,
+                                          args.unified.with_name("edits.rle.jsonl"))}}
+    out.mkdir(parents=True, exist_ok=True)
+    manifest = out / "manifest.json"
+    if manifest.exists() and json.loads(manifest.read_text("utf-8")) != frozen:
+        p.error("run manifest 不匹配，换新批次目录")
+    if not manifest.exists():
+        manifest.write_text(json.dumps(frozen, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    plan = {"eligible": len(work), "rejected": rejected, "contract_hash": digest(snapshot),
+            "execute": args.execute, "release_approved": False}
+    (out / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    if not args.execute:
+        print(json.dumps(plan, ensure_ascii=False))
+        return
+    if not args.order:
+        p.error("付费须提供预登记 --order；默认只离线规划")
+    order = json.loads(args.order.read_text("utf-8"))
+    if (order.get("contract_hash") != digest(snapshot) or order.get("ids") != frozen["ids"]
+            or not order.get("review_record") or not order.get("executor_review")
+            or not order.get("engine_ack") or order.get("free_replay_pass") is not True):
+        p.error("工单未固定本批 ID/契约，或缺复核/知会/免费重放回执")
+    if order.get("stage") == "smoke12":
+        if len(work) > 12 or order.get("cap", 0) > 4:
+            p.error("首段仅允许 ≤12 件 / ¥4")
+    elif order.get("stage") == "spec36":
+        prior = order.get("prior_stage_receipt")
+        if not prior or not Path(prior).is_file():
+            p.error("第二段须有首段验收回执")
+        receipt = json.loads(Path(prior).read_text("utf-8"))
+        if receipt.get("pass") is not True or receipt.get("contract_hash") != digest(snapshot):
+            p.error("首段回执未通过或契约不一致")
+    else:
+        p.error("工单须明确 smoke12/spec36 分段")
+    cap, maximum = order.get("cap", 0), order.get("max_calls", 0)
+    if not 0 < cap <= 12 or not 0 < maximum <= 252 or len(work) > 36:
+        p.error("本 runner 仅支持已评审的小批上界；全量须另审工单")
+    providers, _, _ = load_config()
+    names = order["providers"]
+    check_models(*(providers[names[k]] for k in ("A", "B", "C")))
+    calls = DurableCalls(out, providers, prices=load_prices(data_root() / "config/s1_prices.json"),
+                         cap=cap, max_calls=maximum, max_input_bytes=order["max_input_bytes"], execute=True)
+    lock = out / "RUNNING.lock"
+    with lock.open("x", encoding="ascii") as f:
+        f.write(str(__import__("os").getpid()))
+    try:
+        for rid, rec, inp in work:
+            try:
+                if contract_snapshot(ENGINE) != snapshot:
+                    raise RuntimeError("engine_contract_changed:中途不换契约")
+                if not __import__("re").fullmatch(r"[A-Za-z0-9_-]+", rid):
+                    raise ValueError("unsafe_record_id")
+                context = {"id": rid, "view": inp["view_hash"], "contract": digest(snapshot),
+                           "source": rec["text_orig_sha256"]}
+                def valid(payload):
+                    compile_references(payload, inp, rec["_text_full"], ENGINE)
+                candidates = []
+                for tag in ("A", "B"):
+                    payload = calls.call(names[tag], messages(ENGINE, inp),
+                                         context={**context, "tag": tag}, validator=valid)
+                    candidates.append(compile_references(payload, inp, rec["_text_full"], ENGINE))
+                merged, unresolved, diffs = merge_valid(*candidates, ENGINE, rec["_text_full"], inp["regions"])
+                if unresolved:
+                    payload = calls.call(names["C"], messages(ENGINE, inp, decisions=unresolved),
+                                         context={**context, "tag": "C"}, validator=valid)
+                    c = compile_references(payload, inp, rec["_text_full"], ENGINE)
+                    merged, unresolved, diffs = merge_valid(*candidates, ENGINE, rec["_text_full"], inp["regions"], c)
+                result = {"id": rid, "status": "valid", "elements": merged,
+                          "input": {"target": inp["target"], "facts_text": inp["facts_text"],
+                                    "meta_text": inp["meta_text"], "text_full": rec["_text_full"],
+                                    "text_orig_sha256": rec["text_orig_sha256"]},
+                          "element_schema_version": ENGINE.SCHEMA_VERSION,
+                          "element_prompt_version": ENGINE.PROMPT_VERSION,
+                          "wire_version": WIRE_VERSION, "contract_hash": digest(snapshot),
+                          "view_hash": inp["view_hash"], "label_provenance": "model-adjudicated",
+                          "human_review": False, "release_approved": False}
+                # Per-record immutable commit; resume does not duplicate candidate rows.
+                dest = out / f"record-{rid}.json"
+                if not dest.exists():
+                    temp = dest.with_suffix(".tmp")
+                    with temp.open("w", encoding="utf-8") as f:
+                        json.dump(result, f, ensure_ascii=False)
+                        f.flush()
+                        __import__("os").fsync(f.fileno())
+                    temp.replace(dest)
+                elif digest(json.loads(dest.read_text("utf-8"))) != digest(result):
+                    raise RuntimeError("existing_commit_mismatch:不覆盖既有记录")
+                append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs), "status": "valid"})
+            except Exception as exc:
+                append(out / "diagnostics.jsonl", {"id": rid, "status": "unresolved",
+                       "error_type": type(exc).__name__, "reason": str(exc)[:500]})
+                # A smoke is fail-fast; never continue through a contract/authority/budget failure.
+                raise
+    finally:
+        lock.unlink()
 
 
 if __name__ == "__main__":
