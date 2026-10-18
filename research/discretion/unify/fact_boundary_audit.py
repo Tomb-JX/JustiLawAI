@@ -21,7 +21,8 @@ def evaluate(rec, output):
             "errors": [f.as_dict() for f in findings if f.severity == "error"]}
 
 
-def audit(unified: Path, edits: Path, parsed: Path, baseline: Path, pilot: Path) -> dict:
+def audit(unified: Path, edits: Path, parsed: Path, baseline: Path, pilot: Path,
+          reference: Path | None = None) -> dict:
     recs = {r["id"]: r for r in read_rows(unified)}
     edit_rows = {r["id"]: r for r in read_rows(edits)}
     sources = {r["id"]: r for r in read_rows(parsed)}
@@ -42,17 +43,36 @@ def audit(unified: Path, edits: Path, parsed: Path, baseline: Path, pilot: Path)
                        "pilot_facts_text": new_input["facts_text"] if new_input else None,
                        "pilot_view_hash": new_input["view_hash"] if new_input else None,
                        "fact_view": view})
-    return {"baseline_count": len(old), "baseline_status_counts": {x: list(base_status.values()).count(x)
+    result = {"baseline_count": len(old), "baseline_status_counts": {x: list(base_status.values()).count(x)
                                                               for x in ("error", "warn", "pass")},
             "pilot_count": len(new), "paired": paired, "release_approved": False}
+    if reference:
+        ref = json.loads(reference.read_text("utf-8"))
+        decisions = []
+        for item in ref["records"]:
+            rid = item["id"]
+            if hashlib.sha256(recs[rid]["cleaned_text"].encode()).hexdigest() != item["cleaned_sha256"]:
+                raise ValueError(f"reference source changed: {rid}")
+            if rid in new:
+                actual = {v["clause_id"] for v in fact_view(recs[rid], new[rid]) if "clause_id" in v}
+                expected = {i for role, ids in item["roles"].items()
+                            if role in {"behavior_core", "context_time", "other_case_fact"} for i in ids}
+                decisions.append({"id": rid, "expected_ids": sorted(expected), "actual_ids": sorted(actual),
+                                  "exact_selection": actual == expected})
+        result["reference_review"] = {"status": ref["status"], "reviewed_records": len(ref["records"]),
+                                      "pilot_scored": len(decisions), "exact_selection": sum(
+                                          d["exact_selection"] for d in decisions),
+                                      "role_accuracy": None, "decisions": decisions}
+    return result
 
 
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     for name in ("unified", "edits", "parsed", "baseline", "pilot", "out"):
         p.add_argument("--" + name, type=Path, required=True)
+    p.add_argument("--reference", type=Path)
     a = p.parse_args()
-    result = audit(a.unified, a.edits, a.parsed, a.baseline, a.pilot)
+    result = audit(a.unified, a.edits, a.parsed, a.baseline, a.pilot, a.reference)
     with a.out.open("x", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
     print(json.dumps({k: v for k, v in result.items() if k != "paired"}, ensure_ascii=False))

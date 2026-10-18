@@ -17,7 +17,7 @@ from collections import Counter
 
 from form import LABEL_WORDS
 
-CLEAN_VERSION = "clean:v1.1"
+CLEAN_VERSION = "clean:v1.2"
 
 _CJK_DIGIT = re.compile(r"[一-龥0-9０-９，,、]")
 
@@ -187,12 +187,14 @@ def _finder_nav(text: str):
     return hits
 
 
-# 日期变体：数字间全角点/句号 → 半角点（1:1）
-DATE_VARIANT = re.compile(r"(?<=[0-9０-９])[．。](?=[0-9０-９])")
+# Only normalize punctuation inside a complete numeric calendar date. A broad
+# digit-punctuation-digit rule joined masked account tails to the next sentence.
+DATE_VARIANT = re.compile(r"(?<![0-9０-９])(?:19|20)[0-9０-９]{2}[.．。][0-9０-９]{1,2}[.．。][0-9０-９]{1,2}(?:日)?")
 
 
 def _finder_date(text: str):
-    return [(m.start(), m.end(), ("sub", ".")) for m in DATE_VARIANT.finditer(text)]
+    return [(m.start() + i, m.start() + i + 1, ("sub", "."))
+            for m in DATE_VARIANT.finditer(text) for i, ch in enumerate(m.group()) if ch in "．。"]
 
 
 def _finder_pipe(text: str):

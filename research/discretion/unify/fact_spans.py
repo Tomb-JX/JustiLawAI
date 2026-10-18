@@ -16,6 +16,7 @@ _DATE_ONLY = re.compile(r"^\s*(?:\d{4}年\d{1,2}月\d{1,2}日|\d{4}[-.]\d{1,2}[-
 _HEADING = re.compile(r"^(?:现查明|经查明|主要违法事实|违法事实)[:：]$")
 _GLUED_HEADING_DATE = re.compile(r"^(?:现查明|经查明)(?=\d{4}年)")
 FACT_ROLES = {"behavior_core", "other_case_fact", "context_time"}
+FACT_VIEW_VERSION = "fact-view-v1"
 
 
 def clause_table(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:

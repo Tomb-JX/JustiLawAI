@@ -12,8 +12,7 @@
           14,
           15,
           16,
-          17,
-          19
+          17
         ],
         "context_time": [
           12
@@ -23,6 +22,9 @@
         ],
         "ambiguous": [
           18
+        ],
+        "other_case_fact": [
+          19
         ]
       },
       "quotes": {

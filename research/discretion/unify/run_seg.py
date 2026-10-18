@@ -48,6 +48,9 @@ def request_for(rec, *, clause_refine=False):
                    "账号尾号与日期粘连的子句不要为了保留日期而整段选择。"
                    "关键词只是候选来源，不代表事实。"
                    "输出额外字段 fact_clause_ids（升序不重复整数数组；无事实选 []）。"
+                   "同时输出 fact_clause_roles 对象，键为每个已选 ID 的字符串，值只能是"
+                   "behavior_core（本人行为）、other_case_fact（自首等其他情节）或"
+                   "context_time（明确的事实时间）；无选择则为 {}。"
                    "主 zones 仍必须完整铺满句表。")
         user += "\n候选子句（只选 ID，不计算字符偏移）：\n" + "\n".join(
             f"[C{c['id']}/S{c['sentence']}] {c['text']}" for c in candidates)
@@ -74,6 +77,8 @@ def validated_output(payload, rec, *, clause_refine=False):
     if clause_refine:
         if "fact_clause_ids" not in output:
             raise ValueError("S1_missing_fact_clause_ids")
+        if "fact_clause_roles" not in output:
+            raise ValueError("S1_missing_fact_clause_roles")
         fact_view(rec, output)
     return output
 

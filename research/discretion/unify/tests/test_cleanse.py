@@ -45,6 +45,8 @@ def test_ws_chars_sub():
 
 def test_date_variant():
     assert r("行为时间2023．5。8日。").cleaned == "行为时间2023.5.8日。"
+    assert r("公开日期2023.5。8日。").cleaned == "公开日期2023.5.8日。"
+    assert r("银行卡号*********7。2025年1月16日投案。").cleaned == "银行卡号*********7。2025年1月16日投案。"
     assert r("句号结尾。下句。").cleaned == "句号结尾。下句。"  # 非数字间不触发
 
 

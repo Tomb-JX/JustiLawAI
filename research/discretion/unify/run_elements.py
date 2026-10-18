@@ -25,7 +25,7 @@ from evidence_types import CleanSpan
 from provider_contract import freeze_execution
 from budget_scope import from_order
 from task_result import failure_record
-from fact_spans import fact_view
+from fact_spans import fact_view, FACT_VIEW_VERSION
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
@@ -87,7 +87,8 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
             "facts_text": "\n".join(s["text"] for s in view if s["type"] == "facts"),
             "meta_text": "\n".join(s["text"] for s in view if s["type"] == "meta"),
             "regions": [(s["start"], s["end"]) for s in view],
-            "view_hash": digest(view)}
+            "view_hash": digest(view), "fact_view_version": FACT_VIEW_VERSION if refined is not None else None,
+            "source_sha256": rec["text_orig_sha256"]}
 
 
 def locate_evidence(quote: str, text_full: str, regions=()):
