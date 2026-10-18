@@ -59,7 +59,7 @@ def test_convert_end_to_end():
 
         # web 记录：channel 推导、导航行已清、form、信封
         w = by["W-000001"]
-        assert w["channel"] == "web" and w["clean_version"] == "clean:v1"
+        assert w["channel"] == "web" and w["clean_version"] == "clean:v1.1"
         assert "首页" not in w["cleaned_text"] and "2023.5.8" in w["cleaned_text"]
         assert w["form"] == "叙述式-独立成篇"          # web 的 quality.form=source_type 被真值判别覆盖
         assert w["prefilter"]["release"] is True and w["prefilter"]["release_reason"] == "gamb:是"

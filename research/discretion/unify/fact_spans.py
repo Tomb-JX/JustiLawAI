@@ -7,9 +7,11 @@ not infer semantic boundaries; a model or reviewer must supply them.
 from __future__ import annotations
 
 import re
+from collections import Counter
 
 
 _CLAUSE = re.compile(r"[^，,：:；;。！？\n]*(?:[，,：:；;。！？\n]|$)")
+_MIXED_CUE = re.compile(r"(?:行为.{0,6}(?:构成|违反|属于|属)|情节(?:严重|较重|较轻)|现决定|决定给予)")
 
 
 def clause_table(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
@@ -23,6 +25,15 @@ def clause_table(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
                                 "start": left + match.start(), "end": left + match.end(),
                                 "text": value})
     return clauses
+
+
+def candidate_fact_clauses(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
+    """High-recall prompt candidates; a cue alone never assigns a facts label."""
+    clauses = clause_table(cleaned_text, sentences)
+    counts = Counter(c["sentence"] for c in clauses)
+    candidates = {i for i, (a, b) in enumerate(sentences, 1)
+                  if _MIXED_CUE.search(cleaned_text[a:b]) and counts[i] >= 2}
+    return [c for c in clauses if c["sentence"] in candidates]
 
 
 def resolve_fact_clause_ids(cleaned_text: str, sentences: list[list[int]],
@@ -70,3 +81,29 @@ def validate_fact_spans(cleaned_text: str, sentences: list[list[int]], spans: li
 
 def fact_text(cleaned_text: str, spans: list[dict]) -> str:
     return "".join(cleaned_text[item["start"]:item["end"]] for item in spans)
+
+
+def effective_fact_spans(record: dict, output: dict) -> list[tuple[int, int, int, int]] | None:
+    """Refine only candidate sentences; retain all other S1 facts zones unchanged.
+
+    Returns None for historical outputs without the new key. The primary zones stay
+    intact; this is a separate facts reference layer for S3 and later consumers.
+    """
+    selected = output.get("fact_clause_ids")
+    if selected is None:
+        return None
+    cleaned = record.get("cleaned_text") or ""
+    sentences = record.get("sentences") or []
+    candidates = candidate_fact_clauses(cleaned, sentences)
+    candidate_sentences = {c["sentence"] for c in candidates}
+    picked = resolve_fact_clause_ids(cleaned, sentences, candidates, selected)
+    spans = []
+    for zone in output.get("zones") or []:
+        if zone.get("type") != "facts":
+            continue
+        for sentence_id in range(zone["from"], zone["to"] + 1):
+            if sentence_id not in candidate_sentences:
+                start, end = sentences[sentence_id - 1]
+                spans.append((start, end, start, end))
+    spans.extend((item["start"], item["end"], item["start"], item["end"]) for item in picked)
+    return sorted(spans)

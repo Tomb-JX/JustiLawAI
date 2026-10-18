@@ -12,7 +12,7 @@ from pathlib import Path
 
 
 def source_page(record_id: str) -> str:
-    return re.sub(r"(?<=\d)-(?:d|r)?\d+$", "", record_id)
+    return re.sub(r"(?<=\d)-(?:d|r|t)?\d+$", "", record_id)
 
 
 def reasons(unified: dict, parsed: dict | None) -> list[str]:

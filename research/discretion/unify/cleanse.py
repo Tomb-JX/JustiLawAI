@@ -17,7 +17,7 @@ from collections import Counter
 
 from form import LABEL_WORDS
 
-CLEAN_VERSION = "clean:v1"
+CLEAN_VERSION = "clean:v1.1"
 
 _CJK_DIGIT = re.compile(r"[一-龥0-9０-９，,、]")
 
@@ -228,6 +228,11 @@ def _is_label_line(s: str) -> bool:
     return bool(s) and len(s) <= 14 and any(w in s for w in LABEL_WORDS)
 
 
+def _starts_key_value_line(s: str) -> bool:
+    """Preserve a table cell boundary even when the label and value share a long line."""
+    return any(re.match(rf"^(?:行政处罚|处罚|行政)?{re.escape(w)}\s*[:：]", s) for w in LABEL_WORDS)
+
+
 def _finder_cell_wrap(text: str):
     """短片段裸换行处理（键值感知，v1.2 实现修订）：
     - 前行是模板标签（≤12 字、以标签词开头）且未带冒号 → 换行替换为"："（标签：值 键值行）；
@@ -246,7 +251,7 @@ def _finder_cell_wrap(text: str):
         prev = text[ls:p].strip()
         nl2 = text.find("\n", p + 1)
         nxt = text[p + 1: nl2 if nl2 >= 0 else len(text)].strip()
-        if _is_label_line(nxt):
+        if _is_label_line(nxt) or _starts_key_value_line(nxt):
             continue  # 后行是新键值行：保留换行
         prev_len = p - ls
         nl_next = nl2 if nl2 >= 0 else len(text)

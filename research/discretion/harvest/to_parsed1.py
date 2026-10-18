@@ -18,6 +18,7 @@ parse.py 的内部形状（web_cases.pre_deid.jsonl）照旧保留；本模块�
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import re
 import sys
@@ -34,14 +35,15 @@ from regions import load_regions  # noqa: E402
 from search import data_root  # noqa: E402
 
 RECORD_VERSION = "parsed-1"
-PARSER = "harvest/parse.py@0.6"
+PARSER = "harvest/parse.py@0.7"
 SEGMENTS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
 REVIEW_VALUES = {"维持", "变更", "撤销", "确认违法", "程序驳回", "无"}
 GAMBLING_FACT = re.compile(r"赌|抽头|抽水|六合彩|私彩|牌九|麻将|扑克|炸金花|押宝|牛牛|三公|推筒|跑胡子|下注|投注|彩票")
 BOILERPLATE = re.compile(r"违法行为人|违法嫌疑人|被处罚人|因?实施了?|(?:为赌博提供条件、?)?赌博的?违法行为|的违法行为"
                          r"|于?\d{4}年\d{1,2}月(?:\d{1,2}日)?(?:[初中下上旬末底份]{0,2})?(?:至(?:\d{4}年)?\d{1,2}月(?:\d{1,2}日)?)?(?:间|期间)?"
                          r"|因赌博|参与赌博|进行赌博|[，,。、；\s]")
-INTERNAL = ("page_id", "site", "title", "publisher", "item_index", "needs_ocr", "attachment_files")
+INTERNAL = ("page_id", "site", "title", "publisher", "item_index", "needs_ocr", "attachment_files",
+            "raw_path", "html_table_index", "html_row_index")
 
 
 def facts_sufficient(facts: str, decision: str = "", subject: str | None = None) -> bool:
@@ -143,12 +145,60 @@ def new_batch_dir(base: Path, name: str) -> Path:
     return d
 
 
+def repair_table_batch(source: Path, out: Path, regions: dict[str, dict]) -> dict:
+    """Append-only parsed-1 rebuild: replace only pages with explicit HTML case rows."""
+    from parse import html_table_cases  # noqa: PLC0415
+
+    if out.exists():
+        raise FileExistsError(out)
+    old = [json.loads(line) for line in source.open(encoding="utf-8") if line.strip()]
+    pages = {}
+    manifest = data_root().parent / "harvest" / "pages.jsonl"
+    for row in (json.loads(line) for line in manifest.open(encoding="utf-8") if line.strip()):
+        if row.get("status") == "ok" and row.get("url"):
+            pages[row["url"]] = row
+    replacements = {}
+    for url, page in pages.items():
+        cases = html_table_cases(page)
+        if cases:
+            replacements[url] = [to_record(case, regions, out.name) for case in cases]
+    removed = [row["id"] for row in old if row.get("source_ref") in replacements]
+    kept = [{**row, "batch": out.name} for row in old if row.get("source_ref") not in replacements]
+    repaired = [row for url in sorted(replacements) for row in replacements[url]]
+    records = kept + repaired
+    if len({row["id"] for row in records}) != len(records):
+        raise ValueError("duplicate record ID after table repair")
+    out.mkdir(parents=True)
+    with (out / "records.jsonl").open("w", encoding="utf-8", newline="\n") as stream:
+        for row in records:
+            stream.write(json.dumps(row, ensure_ascii=False) + "\n")
+    stats = {"record_version": RECORD_VERSION, "parser": PARSER, "batch": out.name,
+             "source": str(source), "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
+             "records": len(records), "unchanged_records": len(kept),
+             "table_pages": len(replacements), "old_table_records_removed": len(removed),
+             "table_records_added": len(repaired),
+             "tier": dict(Counter(row["quality"]["tier"] for row in records))}
+    (out / "stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=2), encoding="utf-8")
+    (out / "replacement-manifest.json").write_text(
+        json.dumps({"source_sha256": stats["source_sha256"], "removed_ids": removed,
+                    "added_ids": [row["id"] for row in repaired],
+                    "source_urls": sorted(replacements)}, ensure_ascii=False, indent=2), encoding="utf-8")
+    return stats
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="网页解析产物 → parsed-1")
     ap.add_argument("--src", default="", help="缺省 $DATA/admin/web_cases.pre_deid.jsonl")
     ap.add_argument("--batch", default="", help="批次名，缺省 YYYYMMDD-web")
+    ap.add_argument("--repair-table-from", default="", help="已有 parsed-1 records.jsonl；只重建原 HTML 多列表格页")
     args = ap.parse_args()
     root = data_root().parent
+    if args.repair_table_from:
+        name = args.batch or date.today().strftime("%Y%m%d") + "-table-repair"
+        out = root / "parsed" / "web" / name
+        stats = repair_table_batch(Path(args.repair_table_from), out, load_regions())
+        print(json.dumps(stats, ensure_ascii=False, indent=1), "→", out)
+        return 0
     src = Path(args.src) if args.src else root / "admin" / "web_cases.pre_deid.jsonl"
     cases = [json.loads(l) for l in src.read_text(encoding="utf-8").splitlines() if l.strip()]
     regions = load_regions()

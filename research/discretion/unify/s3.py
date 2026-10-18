@@ -31,6 +31,7 @@ from parse import CONCLUSION_MARK  # noqa: E402
 from parse_qc import CONCL_ANY, EVID_PAT, GENJV  # noqa: E402  与交付 QC 同源（指令 §3 迁移，单一注册表）
 from zoning import is_public_form  # noqa: E402
 from parse import cn2int  # noqa: E402  中文数字互转（值-文对账用）
+from fact_spans import effective_fact_spans  # noqa: E402
 
 # 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
 # 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
@@ -133,7 +134,19 @@ def check_zones_tiling(ctx):
 
 def check_schema(ctx):
     errs = schema_validate(ctx["output"], n_sentences=len(ctx["sentences"]))
-    return [_mk("schema", "error", e) for e in errs if "zone" not in e]
+    findings = [_mk("schema", "error", e) for e in errs if "zone" not in e]
+    try:
+        effective_fact_spans(ctx["record"], ctx["output"])
+    except (ValueError, IndexError, KeyError, TypeError) as exc:
+        findings.append(_mk("schema", "error", f"fact_clause_ids 非法：{exc}"))
+    return findings
+
+
+def _validated_refined_facts(ctx):
+    try:
+        return effective_fact_spans(ctx["record"], ctx["output"])
+    except (ValueError, IndexError, KeyError, TypeError):
+        return None  # schema check reports the malformed reference; keep checking legacy zones
 
 
 def check_decision_present(ctx):
@@ -242,7 +255,8 @@ def check_facts_quality(ctx):
     cleaned = ctx["record"].get("cleaned_text") or ""
     form = ctx["record"].get("form") or ""
     narrative = not is_public_form(form)
-    facts = zone_text(ctx["spans"], cleaned, "facts").strip()
+    refined = _validated_refined_facts(ctx)
+    facts = zone_text({"facts": refined} if refined is not None else ctx["spans"], cleaned, "facts").strip()
     st = ctx["record"].get("source_type") or ""
     findings = []
     if not facts:
@@ -298,7 +312,8 @@ def check_subject(ctx):
     if not subj:
         return []
     cleaned = rec.get("cleaned_text") or ""
-    facts = zone_text(ctx["spans"], cleaned, "facts").strip()
+    refined = _validated_refined_facts(ctx)
+    facts = zone_text({"facts": refined} if refined is not None else ctx["spans"], cleaned, "facts").strip()
     if facts and subj in facts:
         return []
     if subj in cleaned:

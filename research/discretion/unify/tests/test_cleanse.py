@@ -92,6 +92,12 @@ def test_cell_wrap_keeps_newline_before_next_label():
     assert r(text).cleaned == "行政处罚机关：某某县公安局\n行政处罚决定书文号：某公（行）行罚决字〔2023〕5号"
 
 
+def test_cell_wrap_preserves_long_key_value_table_cells():
+    text = ("被处罚人：王*彬\n处罚决定书文号：某公（行）行罚决字〔2023〕304号\n"
+            "处罚依据：《中华人民共和国治安管理处罚法》第七十条\n处罚结果：拘留2日；罚款770元")
+    assert r(text).cleaned == text
+
+
 def test_cell_wrap_value_continuation_joins():
     # 前行已带冒号（值续行）→ 直接拼接
     assert r("案件名称：张某某等人\n赌博案").cleaned == "案件名称：张某某等人赌博案"

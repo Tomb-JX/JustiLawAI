@@ -21,6 +21,7 @@ import json
 import re
 import sys
 from collections import Counter
+from html.parser import HTMLParser
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -415,6 +416,110 @@ def table_rows(title: str, text: str) -> list[str]:
     return rows if len(rows) >= 1 else []
 
 
+class _HtmlRows(HTMLParser):
+    """Read actual table cell boundaries; flattened harvest text cannot recover them."""
+
+    def __init__(self):
+        super().__init__()
+        self.rows: list[tuple[int, int, list[str]]] = []
+        self._row: list[str] | None = None
+        self._cell: list[str] | None = None
+        self._table_ids: list[int] = []
+        self._next_table = 0
+        self._row_counts: Counter = Counter()
+
+    def handle_starttag(self, tag, attrs):
+        if tag == "table":
+            self._next_table += 1
+            self._table_ids.append(self._next_table)
+        elif tag == "tr":
+            self._row = []
+        elif tag in ("td", "th") and self._row is not None:
+            self._cell = []
+
+    def handle_data(self, data):
+        if self._cell is not None:
+            self._cell.append(data)
+
+    def handle_endtag(self, tag):
+        if tag in ("td", "th") and self._cell is not None and self._row is not None:
+            self._row.append(" ".join("".join(self._cell).split()))
+            self._cell = None
+        elif tag == "tr" and self._row:
+            table_id = self._table_ids[-1] if self._table_ids else 0
+            self._row_counts[table_id] += 1
+            self.rows.append((table_id, self._row_counts[table_id], self._row))
+            self._row = None
+        elif tag == "table" and self._table_ids:
+            self._table_ids.pop()
+
+
+def html_table_cases(page: dict) -> list[dict]:
+    """One HTML <tr> per case when a multi-column penalty table is explicit.
+
+    Only pages with a real document-number column and at least five cells qualify.
+    Sparse outcome tables remain outcome-only; no fact or missing number is invented.
+    """
+    raw_path = page.get("raw_path")
+    if not raw_path:
+        return []
+    path = data_root().parent / "harvest" / raw_path
+    if not path.is_file():
+        return []
+    raw = path.read_bytes()
+    html = raw.decode("utf-8", "replace")
+    if html.count("\ufffd") > 10:
+        html = raw.decode("gb18030", "replace")
+    parser = _HtmlRows()
+    parser.feed(html)
+    headers: list[str] = []
+    cases = []
+    active_table = None
+    for table_id, row_index, row in parser.rows:
+        if table_id != active_table:
+            headers = []
+            active_table = table_id
+        if any("文号" in cell or "文书编号" in cell for cell in row) and any("案由" in cell or "违法类别" in cell for cell in row):
+            headers = row
+            continue
+        if len(row) < 5 or not headers:
+            continue
+        doc_cell = next((cell for cell in row if DOC_NO.search(cell)), "")
+        if not doc_cell:
+            continue
+        doc_no = DOC_NO.search(doc_cell).group(1)
+        if not any("赌" in cell for cell in row) or not any("拘留" in cell or "罚款" in cell or re.fullmatch(r"\d+日|\d+元", cell) for cell in row):
+            continue
+        values = dict(zip(headers, row))
+        subject = next((v for k, v in values.items() if "被处罚人" in k or k == "姓名"), "")
+        cause = next((v for k, v in values.items() if "案由" in k or "违法类别" in k), "")
+        basis = next((v for k, v in values.items() if "法律依据" in k or "处罚依据" in k or k == "依据"), "")
+        # Nested result headers (拘留/罚款) add two cells after the date in some tables.
+        result = next((v for k, v in values.items() if "处罚方式" in k or "处罚结果" in k), "")
+        date_idx = next((i for i, h in enumerate(headers) if "裁决时间" in h), -1)
+        if date_idx >= 0 and len(row) >= date_idx + 3:
+            det, fine = row[date_idx + 1:date_idx + 3]
+            if len(row) > len(headers):
+                result = ""  # 跨两列的“处罚结果”表头；首列实际是拘留值
+            if re.fullmatch(r"\d+日", det):
+                result += f"拘留{det}"
+            if re.fullmatch(r"\d+元", fine):
+                result += ("；" if result else "") + f"罚款{fine}"
+        if not result:
+            continue
+        full = "\n".join(filter(None, (f"案由：{cause}" if cause else "", f"被处罚人：{subject}" if subject else "",
+                                        f"处罚决定书文号：{doc_no}", f"处罚依据：{basis}" if basis else "",
+                                        f"处罚结果：{result}")))
+        base = {"page_id": page["page_id"], "id": f"{page.get('manifest_id', '')}-t{len(cases) + 1}",
+                "source_ref": page["url"], "harvest_date": page["fetched_at"][:10],
+                "site": page["site"], "title": page.get("title", ""), "publisher": page.get("publisher", ""),
+                "_context": page.get("publisher", "") + page.get("title", ""), "raw_path": raw_path,
+                "html_table_index": table_id, "html_row_index": row_index}
+        cases.append(build_case(base, facts="", decision=f"处罚结果：{result}", full=full, segmented=True,
+                                authority=page.get("publisher", ""), doc_type="处罚决定"))
+    return cases
+
+
 def authority_of(text: str) -> str:
     m = re.search(r"([一-龥]{2,20}?(?:公安局|公安分局|派出所|人民政府|司法局))", text)
     return m.group(1) if m else ""
@@ -509,6 +614,9 @@ def last_date(text: str) -> str:
 
 
 def parse_page(page: dict, text: str) -> list[dict]:
+    table_cases = html_table_cases(page)
+    if table_cases:
+        return table_cases
     base = {"page_id": page["page_id"], "id": page.get("manifest_id", ""), "source_ref": page["url"],
             "harvest_date": page["fetched_at"][:10], "site": page["site"], "title": page.get("title", ""),
             "publisher": page.get("publisher", ""), "ocr": bool(page.get("ocr"))}

@@ -22,11 +22,12 @@ from progress import load_prices
 from provider_contract import freeze_execution
 from budget_scope import from_order
 from task_result import failure_record
+from fact_spans import candidate_fact_clauses, resolve_fact_clause_ids
 
-VERSION = "seg-v2-durable-2"
+VERSION = "seg-v2-durable-3"
 
 
-def request_for(rec):
+def request_for(rec, *, clause_refine=False):
     sentences = sentence_table(rec["cleaned_text"])
     if sentences != rec.get("sentences"):
         raise ValueError("sentence_table_version_mismatch")
@@ -39,10 +40,18 @@ def request_for(rec):
         system = "你是行政文书字段抽取器。分区由已验证的确定性规则负责，只输出 JSON 字段。\n" + fields[:start] + "{" + fields[end:]
     user = build_user_prompt(rec["form"], rec["source_type"],
                              [rec["cleaned_text"][a:b] for a, b in sentences], rec.get("subject_mention", ""))
+    if clause_refine:
+        candidates = candidate_fact_clauses(rec["cleaned_text"], sentences)
+        system += ("\n【句内事实片段】对下列候选子句，只在事实行为被原文陈述时选择其 ID，"
+                   "纯法律定性、处罚结论、证据、元数据一律不选。关键词只是候选来源，不代表事实。"
+                   "输出额外字段 fact_clause_ids（升序不重复整数数组；无事实选 []）。"
+                   "主 zones 仍必须完整铺满句表。")
+        user += "\n候选子句（只选 ID，不计算字符偏移）：\n" + "\n".join(
+            f"[C{c['id']}/S{c['sentence']}] {c['text']}" for c in candidates)
     return [{"role": "system", "content": system}, {"role": "user", "content": user}]
 
 
-def validated_output(payload, rec):
+def validated_output(payload, rec, *, clause_refine=False):
     if not isinstance(payload, dict):
         raise ValueError("S1 输出必须为对象")
     output = copy.deepcopy(payload)
@@ -59,6 +68,12 @@ def validated_output(payload, rec):
     issues = validate(output, n_sentences=len(rec["sentences"]))
     if issues:
         raise ValueError("S1_invalid:" + ";".join(issues))
+    if clause_refine:
+        if "fact_clause_ids" not in output:
+            raise ValueError("S1_missing_fact_clause_ids")
+        resolve_fact_clause_ids(rec["cleaned_text"], rec["sentences"],
+                                candidate_fact_clauses(rec["cleaned_text"], rec["sentences"]),
+                                output["fact_clause_ids"])
     return output
 
 
@@ -68,6 +83,7 @@ def main():
     p.add_argument("--batch", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
     p.add_argument("--ids", type=Path, help="JSON array of frozen record IDs")
+    p.add_argument("--clause-refine", action="store_true", help="试点：要求模型选择原文子句 ID")
     p.add_argument("--execute", action="store_true")
     p.add_argument("--order", type=Path)
     a = p.parse_args()
@@ -80,8 +96,9 @@ def main():
         if len(selected) != len(set(selected)) or set(selected) - set(by_id):
             p.error("ID 重复或不在放行输入")
         rows = [by_id[rid] for rid in selected]
-    requests = {r["id"]: request_for(r) for r in rows}
+    requests = {r["id"]: request_for(r, clause_refine=a.clause_refine) for r in rows}
     frozen = {"version": VERSION, "semantic_prompt_base": PROMPT_VERSION,
+              "clause_refine": a.clause_refine,
               "implementation": implementation_snapshot(),
               "source_sha256": hashlib.sha256(a.batch.read_bytes()).hexdigest(),
               "ids": [r["id"] for r in rows], "request_hashes": {rid: digest(msg) for rid, msg in requests.items()}}
@@ -120,13 +137,13 @@ def main():
             rid = rec["id"]
             try:
                 payload = calls.call(primary, requests[rid], context={"id": rid, "plan": digest(frozen)},
-                                     validator=lambda value: validated_output(value, rec), repairs=1)
+                                     validator=lambda value: validated_output(value, rec, clause_refine=a.clause_refine), repairs=1)
             except Exception as exc:
                 append(a.out / 'diagnostics.jsonl', failure_record(rid, exc))
                 raise
             if implementation_snapshot() != frozen['implementation']:
                 raise RuntimeError('implementation_changed_during_call')
-            results.append({"id": rid, "ok": True, "output": validated_output(payload, rec),
+            results.append({"id": rid, "ok": True, "output": validated_output(payload, rec, clause_refine=a.clause_refine),
                             "validation_errors": [], "request_hash": digest(requests[rid]),
                             "prompt_version": VERSION, "release_approved": False})
             # Commit each success before advancing. Restart revalidates cached raw.
