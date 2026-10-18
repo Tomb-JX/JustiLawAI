@@ -33,8 +33,8 @@ def test_clause_refine_request_and_effective_facts():
     rec, output = _case()
     prompt = request_for(rec, clause_refine=True)
     assert "[C" in prompt[1]["content"] and "fact_clause_ids" in prompt[0]["content"]
-    output["fact_clause_ids"] = [1, 2]
-    output["fact_clause_roles"] = {"1": "behavior_core", "2": "behavior_core"}
+    output["fact_clause_ids"] = [2]
+    output["fact_clause_roles"] = {"2": "behavior_core"}
     checked = validated_output(output, rec, clause_refine=True)
     effective = effective_fact_spans(rec, checked)
     assert "构成赌博" not in "".join(rec["cleaned_text"][a:b] for a, b, *_ in effective)
@@ -79,9 +79,11 @@ def test_refined_fact_view_is_shared_by_s3_and_element_input():
     projected = "".join(v["text"] for v in view)
     assert "2025年1月1日" in projected and "张某参与赌博" in projected
     assert "现查明" not in projected and "构成赌博" not in projected
-    assert [v["role"] for v in view] == ["context_time", "behavior_core"]
+    assert [v["role"] for v in view] == ["context_time", "narrative_fact"]
     inp = build_inputs(rec, out, OffsetIndex({"orig_len": len(text), "deletes": []}))
     assert "2025年1月1日" in inp["facts_text"]
+    assert next(v["normalized_time"]["start_date"] for v in inp["sentence_view"]
+                if v.get("fact_role") == "context_time") == "2025-01-01"
     assert "现查明" not in inp["facts_text"] and "构成赌博" not in inp["facts_text"]
     findings = check_facts_quality({"record": rec, "output": out, "spans": {"facts": [(0, len(text), 0, len(text))]}})
     assert not [f for f in findings if f.severity == "error" or "定性" in f.detail]
@@ -111,3 +113,18 @@ def test_pure_legal_conclusion_yields_no_fact_view():
            "fact_clause_ids": [], "fact_clause_roles": {}}
     assert candidate_fact_clauses(text, rec["sentences"])
     assert fact_view(rec, out) == []
+
+
+def test_role_contract_rejects_heading_and_date_as_behavior():
+    text = "现查明：2025年1月1日，张某参与赌博，其行为构成赌博。"
+    rec = {"cleaned_text": text, "sentences": sentence_table(text)}
+    clauses = candidate_fact_clauses(text, rec["sentences"])
+    heading, date = clauses[0]["id"], clauses[1]["id"]
+    for cid in (heading, date):
+        out = {"zones": [{"type": "facts", "from": 1, "to": 1}],
+               "fact_clause_ids": [cid], "fact_clause_roles": {str(cid): "behavior_core"}}
+        try:
+            fact_view(rec, out)
+        except ValueError:
+            continue
+        raise AssertionError("invalid role accepted")

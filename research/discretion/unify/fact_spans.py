@@ -15,6 +15,7 @@ _MIXED_CUE = re.compile(r"(?:行为.{0,6}(?:构成|违反|属于|属)|情节(?:�
 _DATE_ONLY = re.compile(r"^\s*(?:\d{4}年\d{1,2}月\d{1,2}日|\d{4}[-.]\d{1,2}[-.]\d{1,2})(?:\d{1,2}时(?:\d{1,2}分)?(?:许|左右)?)?[，,；;]?\s*$")
 _HEADING = re.compile(r"^(?:现查明|经查明|主要违法事实|违法事实)[:：]$")
 _GLUED_HEADING_DATE = re.compile(r"^(?:现查明|经查明)(?=\d{4}年)")
+_TIME_CONTEXT_CUE = re.compile(r"(?:\d{4}|[〇零一二三四五六七八九十]{4})年|\d{1,2}月|\d{1,2}日|\d{1,2}时|当晚|当日|当天|次日|翌日|昨日|同年|当时")
 FACT_ROLES = {"behavior_core", "other_case_fact", "context_time"}
 FACT_VIEW_VERSION = "fact-view-v1"
 
@@ -140,6 +141,8 @@ def fact_view(record: dict, output: dict) -> list[dict] | None:
         if cid not in chosen and cid not in context:
             continue
         if _HEADING.fullmatch(clause["text"].strip()):
+            if declared_roles is not None:
+                raise ValueError("heading_selected_as_fact")
             continue  # Structural heading is never projected as factual evidence.
         prefix = _GLUED_HEADING_DATE.match(clause["text"])
         start = clause["start"] + (prefix.end() if prefix else 0)
@@ -147,7 +150,13 @@ def fact_view(record: dict, output: dict) -> list[dict] | None:
         if cid in context or _DATE_ONLY.fullmatch(value):
             role = "context_time"
         else:
-            role = declared_roles[str(cid)] if declared_roles is not None else "behavior_core"
+            role = declared_roles[str(cid)] if declared_roles is not None else "narrative_fact"
+        if declared_roles is not None and cid in chosen:
+            declared = declared_roles[str(cid)]
+            if declared == "context_time" and not _TIME_CONTEXT_CUE.search(value):
+                raise ValueError("context_time_without_date")
+            if declared == "behavior_core" and _DATE_ONLY.fullmatch(value):
+                raise ValueError("date_only_as_behavior_core")
         view.append({"sentence": clause["sentence"], "start": start,
                      "end": clause["end"], "text": value,
                      "role": role, "source": "linked_date" if cid in context else "model", "clause_id": cid})

@@ -21,11 +21,12 @@ from durable_calls import DurableCalls, append, read_rows, check_models
 from s1 import data_root, load_config
 from progress import load_prices
 from cleanse import replay_edits, sentence_table
-from evidence_types import CleanSpan
+from evidence_types import CleanSpan, SourceSpan
 from provider_contract import freeze_execution
 from budget_scope import from_order
 from task_result import failure_record
 from fact_spans import fact_view, FACT_VIEW_VERSION
+from normalization import normalize_time
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
@@ -69,13 +70,20 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
                     else [{"start": sentences[sid - 1][0], "end": sentences[sid - 1][1], "role": "zone"}])
         segment_type = "facts" if has_refined_facts else typ
         for segment_number, segment in enumerate(segments, 1):
-            for part, span in enumerate(index.project_span(CleanSpan(segment["start"], segment["end"]), original), 1):
+            projected = index.project_span(CleanSpan(segment["start"], segment["end"]), original)
+            for part, span in enumerate(projected, 1):
                 a, b = span.start, span.end
                 text = original[a:b]
                 if text.strip():
-                    view.append({"id": f"S{sid}.{segment_number}.{part}" if refined is not None else f"S{sid}.{part}",
-                                 "sentence_id": sid, "type": segment_type, "start": a, "end": b,
-                                 "text": text, **({"fact_role": segment["role"]} if refined is not None and segment_type == "facts" else {})})
+                    item = {"id": f"S{sid}.{segment_number}.{part}" if refined is not None else f"S{sid}.{part}",
+                            "sentence_id": sid, "type": segment_type, "start": a, "end": b,
+                            "text": text, **({"fact_role": segment["role"]} if refined is not None and segment_type == "facts" else {})}
+                    if item.get("fact_role") == "context_time" and len(projected) == 1:
+                        stripped = text.rstrip("，,；;。 \n")
+                        if stripped:
+                            ref = SourceSpan.from_text(original, a, a + len(stripped))
+                            item["normalized_time"] = normalize_time(stripped, ref)
+                    view.append(item)
     if not view:
         return None
     if target not in '\n'.join(s['text'] for s in view):

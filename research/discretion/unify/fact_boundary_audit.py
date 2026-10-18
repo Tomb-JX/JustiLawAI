@@ -43,9 +43,14 @@ def audit(unified: Path, edits: Path, parsed: Path, baseline: Path, pilot: Path,
                        "pilot_facts_text": new_input["facts_text"] if new_input else None,
                        "pilot_view_hash": new_input["view_hash"] if new_input else None,
                        "fact_view": view})
+    shadow_errors = sum(status == "error" for status in base_status.values())
+    shadow_errors -= sum(base_status[rid] == "error" for rid in new)
+    shadow_errors += sum(item["pilot_s3"]["status"] == "error" for item in paired)
     result = {"baseline_count": len(old), "baseline_status_counts": {x: list(base_status.values()).count(x)
                                                               for x in ("error", "warn", "pass")},
-            "pilot_count": len(new), "paired": paired, "release_approved": False}
+            "pilot_count": len(new), "shadow_mixed_version_errors": shadow_errors,
+            "shadow_warning": "six new S1 outputs plus 293 frozen old outputs; diagnostic, not official fixed-batch gate",
+            "paired": paired, "release_approved": False}
     if reference:
         ref = json.loads(reference.read_text("utf-8"))
         decisions = []
