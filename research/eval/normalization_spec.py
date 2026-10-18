@@ -261,10 +261,18 @@ def validate_amount_against_source(normalized: dict, evidence_text: str) -> bool
     parsed = normalize_amount(mentions[0])
     if parsed is None:
         return True
-    return (round(normalized.get("min", 0), 6) == round(parsed["min"], 6)
-            and (normalized.get("max") is None) == (parsed["max"] is None)
-            and (normalized.get("max") is None
-                 or round(normalized["max"], 6) == round(parsed["max"], 6)))
+    min_ok = round(normalized.get("min", 0), 6) == round(parsed["min"], 6)
+    if not min_ok:
+        return False
+    if (normalized.get("max") is None) == (parsed["max"] is None):
+        # 同为开口或同为闭区间；闭区间再对上限。
+        return parsed["max"] is None or round(normalized["max"], 6) == round(parsed["max"], 6)
+    if normalized.get("max") is None and parsed["max"] is not None:
+        # 归一化为开口（指南"不补上界"）而机械对账只解析出闭区间数额
+        # （正则捕获不到句内的"上不封顶"等）：句中有开口线索即判一致。
+        return bool(re.search(r"上不封顶|以上|超过|至少|逾|不低于|余|多", evidence_text))
+    # parsed 开口而 normalized 补了上界：违反"万元以上记 10000-空"，判不一致。
+    return False
 
 
 def validate_date_against_source(normalized_iso: str, evidence_text: str) -> bool:
