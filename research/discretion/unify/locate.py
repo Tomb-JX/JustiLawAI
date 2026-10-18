@@ -72,6 +72,12 @@ class OffsetIndex:
         result.append((start, previous + 1))
         return result
 
+    def project_span(self, span, original: str):
+        from evidence_types import CleanSpan, SourceSpan
+        if not isinstance(span, CleanSpan):
+            raise TypeError("projection_requires_CleanSpan")
+        return [SourceSpan.from_text(original, a, b) for a, b in self.project(span.start, span.end)]
+
     def crosses_boundary(self, cs: int, ce: int) -> bool:
         return any(i in self.boundaries for i in range(cs + 1, ce))
 

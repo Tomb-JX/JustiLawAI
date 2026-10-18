@@ -1,0 +1,101 @@
+"""Source-grounded candidate graph. Lexical bindings are proposals, never gold.
+
+Explicit subject/event/role edges make same-valued money in different clauses
+distinguishable. Unsupported/pronominal/joint relationships remain unresolved.
+"""
+from __future__ import annotations
+
+import re
+
+from element_contract import digest
+from evidence_types import SourceSpan
+from normalization import NUM, normalize_quantity, normalize_time
+
+VERSION = "evidence-graph-1"
+MONEY = re.compile(fr"(?:不超过|不低于|至少|不足|超过|约|近|逾)?{NUM}(?:(?:到|至|[-~～]){NUM})?[余多]?(?:元|块)(?:以上|以下|左右)?")
+COUNT = re.compile(fr"(?:至少|超过|不足|至多)?{NUM}(?:(?:至|到){NUM})?[余多]?(?:名|个)?(?:人|次|场|台)")
+TIME = re.compile(r"(?:\d{4}|[〇零一二三四五六七八九]{4})年(?:[\d一二三四五六七八九十]+月(?:[\d一二三四五六七八九十]+[日号])?)?(?:(?:至|到)[\d一二三四五六七八九十]+月)?|同年[\d一二三四五六七八九十]+月|去年[\d一二三四五六七八九十]+月|次日|翌日")
+ROLE_PATTERNS = {
+    "personal_stake": r"(?:本人|个人|携带|持有|投入|赌资|赌注|筹码)",
+    "per_bet": r"每局|每注|单注|每把",
+    "onsite_stake_total": r"现场.*(?:赌资|赌款)|赌资.*合计|查获.*赌资",
+    "cumulative_stake": r"累计.*(?:赌资|赌款)|赌资.*累计",
+    "commission": r"抽头|渔利|头钱|水钱|台费|场地费",
+    "illegal_gain": r"违法所得",
+    "fine": r"罚款",
+}
+
+
+def build_graph(original: str, views: list[dict], target: str, aliases=(), *, event_id=None):
+    if not target or target not in original or any(not a or a not in original for a in aliases):
+        raise ValueError("graph_target_not_source_grounded")
+    nodes = []
+    seen = set()
+    for view in views:
+        SourceSpan.from_text(original, view['start'], view['end'])
+        if original[view["start"]:view["end"]] != view["text"]:
+            raise ValueError("graph_view_source_mismatch")
+        bounds, start = [], 0
+        for delimiter in re.finditer(r'[。；;\n]|(?<!\d)[，,]|[，,](?!\d)', view['text']):
+            bounds.append((start, delimiter.end()))
+            start = delimiter.end()
+        if start < len(view['text']):
+            bounds.append((start, len(view['text'])))
+        for cstart, cend in bounds:
+            ca, cb = view["start"] + cstart, view["start"] + cend
+            quote = original[ca:cb]
+            mentions = []
+            for name in sorted(set((target, *aliases)), key=len, reverse=True):
+                for found in re.finditer(re.escape(name), quote):
+                    mentions.append(SourceSpan.from_text(original, ca + found.start(), ca + found.end()).to_dict())
+            event_kind = ("review" if view.get("type") == "review" else "penalty" if view.get("type") == "decision"
+                          else "prior_penalty" if re.search(r"曾|前次|上次|此前", quote) and re.search(r"处罚|拘留|罚款", quote)
+                          else "behavior")
+            ev = event_id or "E-" + digest({"source": SourceSpan.from_text(original, ca, cb).to_dict(), "kind": event_kind})[:20]
+            joint = bool(re.search(r"分别|各自|各有|与|和|伙同|、|等[\d一二三四五六七八九十]+人", quote))
+            for kind, pattern in (("money", MONEY), ("count", COUNT), ("time", TIME)):
+                for match in pattern.finditer(quote):
+                    a, b = ca + match.start(), ca + match.end()
+                    if (kind, a, b) in seen:
+                        continue
+                    seen.add((kind, a, b))
+                    ref = SourceSpan.from_text(original, a, b)
+                    before = quote[:match.start()]
+                    # Select the closest explicit role keyword to THIS amount.
+                    role_hits = [(m.end(), role) for role, pat in ROLE_PATTERNS.items()
+                                 for m in re.finditer(pat, before)] if kind == "money" else []
+                    roles = sorted({role for pos, role in role_hits if pos == max((x[0] for x in role_hits), default=-1)})
+                    role = roles[0] if len(roles) == 1 else None
+                    if kind == "count":
+                        role = ('cumulative_participants' if '累计' in quote else 'participant_count') if ref.quote.endswith('人') and re.search(r'参赌|赌博', quote) else 'times' if ref.quote.endswith(('次','场')) and re.search(r'赌博|参赌|提供条件', quote) else 'unclassified_count'
+                    if kind == "time":
+                        role = "birth" if re.search(r"出生|生于", quote) else "prior_penalty" if event_kind == "prior_penalty" else event_kind
+                    binding = "unresolved"
+                    if mentions and not joint and role:
+                        binding = "lexical_candidate"
+                    normalized = (normalize_time(ref.quote, ref) if kind == "time" else
+                                  normalize_quantity(ref.quote, ref, unit="CNY" if kind == "money" else "count"))
+                    nodes.append({"id": "V-" + digest({"kind": kind, "span": ref.to_dict(), "version": VERSION})[:20],
+                                  "kind": kind, "source_ref": ref.to_dict(), "clause_ref": SourceSpan.from_text(original, ca, cb).to_dict(),
+                                  "sentence_ref": view.get("id"), "target": target, "subject_refs": mentions,
+                                  "event_id": ev, "event_kind": event_kind, "value_role": role,
+                                  "binding": binding, "reason": "joint_or_indirect_subject" if joint or not mentions else "role_unresolved" if not role else None,
+                                  "normalized": normalized, "semantic_approved": False})
+    return {"version": VERSION, "target": target, "nodes": nodes}
+
+
+def resolve_binding(graph, candidate_id, *, target, event_id, value_role, evidence_spans):
+    """Validate explicit edge selection, independently of numeric equality."""
+    matches = [n for n in graph["nodes"] if n["id"] == candidate_id]
+    if len(matches) != 1:
+        raise ValueError("unknown_or_duplicate_candidate")
+    node = matches[0]
+    if (node["target"] != target or node["event_id"] != event_id or node["value_role"] != value_role
+            or node["binding"] != "lexical_candidate"):
+        raise ValueError("subject_event_role_mismatch")
+    ref = node["source_ref"]
+    if not any(a <= ref["start"] < ref["end"] <= b for a, b in evidence_spans):
+        raise ValueError("candidate_outside_cited_evidence")
+    if value_role not in {"fine", "decision", "penalty"} and node["event_kind"] in {"penalty", "review"}:
+        raise ValueError("observed_penalty_is_not_behavior_evidence")
+    return node
