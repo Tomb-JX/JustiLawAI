@@ -25,6 +25,10 @@ _META_FIELDS = {"person.age", "person.pregnant_or_nursing",
                 "circumstances.last_prior_penalty_date",
                 "persons.civil_servant"}
 
+# 指南 v0.2 裁定："多次/数人""三十余岁"等模糊量值记 null、状态推断（仍须附据以推断的原文）。
+# 须与 justilaw-api app/discretion/element_labels.py NULLABLE_WHEN_INFERRED 保持一致。
+NULLABLE_WHEN_INFERRED = ("conduct.times", "persons.participant_count", "person.age")
+
 
 @dataclass(frozen=True)
 class EvidenceIssue:
@@ -98,7 +102,7 @@ class EvidenceValidator:
 
         # 有值时必须有证据
         if status in ("明确", "推断"):
-            if value is None:
+            if value is None and not (status == "推断" and path in NULLABLE_WHEN_INFERRED):
                 issues.append(EvidenceIssue(
                     "present_without_value", path,
                     "状态为'明确'或'推断'时必须给出值"))

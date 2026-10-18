@@ -16,6 +16,8 @@ from .schema import AmountRange, GROUPS, SCHEMA_VERSION, iter_fields
 
 PROMPT_VERSION = "element-v1"
 STATUSES = ("明确", "推断", "未提及")
+# 指南 v0.2 裁定"值记 null、状态推断"的模糊量值字段（其余字段推断时值必须可定）
+NULLABLE_WHEN_INFERRED = ("conduct.times", "persons.participant_count", "person.age")
 FIELD_INFO = {path: (description, next(t for t in get_args(typ) if t is not type(None))
                                if get_args(typ) else typ)
               for path, description, typ in iter_fields()}
@@ -168,7 +170,9 @@ def validate_teacher_output(payload: object, *, evidence_text: str,
                 continue
             if status not in STATUSES:
                 continue
-            if not _valid_value(value, FIELD_INFO[path][1]):
+            if value is None and status == "推断" and path in NULLABLE_WHEN_INFERRED:
+                pass  # 指南 v0.2 裁定：'多次/数人''三十余岁'等模糊量值记 null、状态推断，仍须附据以推断的原文
+            elif not _valid_value(value, FIELD_INFO[path][1]):
                 issues.append(LabelIssue("bad_value", path, "值类型或取值不符合 schema"))
             if not isinstance(evidence, list) or not evidence:
                 issues.append(LabelIssue("evidence_missing", path, "有值时须附逐字证据"))
