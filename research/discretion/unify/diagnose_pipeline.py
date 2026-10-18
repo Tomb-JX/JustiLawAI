@@ -81,7 +81,7 @@ def diagnose_batch(source: Path, out: Path):
             if node["normalized"].get("reason"):
                 totals["reason:" + node["normalized"]["reason"]] += 1
     report = {"version": VERSION, "records": len(rows), "candidate_diagnostics": dict(totals),
-              "field_accuracy": None, "semantic_rules_approved": True, "release_approved": False,
+              "field_accuracy": None, "semantic_rules_approved": False, "release_approved": False,
               "source": str(source.resolve()), "source_sha256": fingerprint,
               "contract": contract, "catalog_hash": catalog["hash"], "normalizer": backend,
               "notes": ["候选召回、规则关联和解析成功均不是语义准确率",

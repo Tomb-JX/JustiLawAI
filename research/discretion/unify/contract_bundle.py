@@ -39,13 +39,13 @@ def make_bundle(engine):
     result = {'version':VERSION,'engine_contract':contract_snapshot(engine),'field_catalog':field_catalog(engine),
               'prompt':engine.teacher_system_prompt(),'output_schema':reference_schema(engine),
               'intermediate_schemas':intermediate_schemas(),'normalizer_backend':backend_fingerprint(),
-              'normalization_policy':{'status':'adopted','default':'lossless-only',
+              'normalization_policy':{'status':'proposed_pending_engine_adoption','default':'lossless-only',
                     'explicit_compatibility_policies':['schema-1.1.0-month-first','schema-1.1.0-close-endpoints','schema-1.1.0-30day-month'],
                     'approximation_default':'no_numeric_projection','aliases_default':'engine-exact-values-only'},
-              'binding_policy':{'status':'adopted',
+              'binding_policy':{'status':'proposed_pending_engine_adoption',
                     'types':['shared_fact','target_specific','needs_review'],
                     'source':'binding_rules.py','version':'binding-rules-v1',
-                    'accept_in_resolve':['lexical_candidate','target_specific']},
+                    'accept_in_resolve':['target_specific','shared_fact']},
               'proof_boundary':'schema/span/candidate validation does not establish semantic accuracy',
               'release_approved':False}
     return {**result,'hash':digest(result)}

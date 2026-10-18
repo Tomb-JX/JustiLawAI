@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 from collections import Counter
 from pathlib import Path
 
@@ -30,6 +31,75 @@ def unique(rows):
             raise ValueError(f"duplicate_id:{row['id']}")
         out[row["id"]] = row
     return out
+
+
+def assemble_slice(source: Path, out: Path, *, elements: Path | None = None):
+    """Assemble a frozen development slice without inventing S1/S3 certificates."""
+    if out.exists():
+        raise FileExistsError("parsed2 批次不可复用")
+    manifest = source.with_name("manifest.json")
+    fingerprints = {str(p.resolve()): hashlib.sha256(p.read_bytes()).hexdigest()
+                    for p in (source, manifest)}
+    work, rejected = load_slice_work(source)
+    by_id = {rid: (rec, inp) for rid, rec, inp in work}
+    records, states = [], Counter()
+    contract_hash = digest(contract_snapshot(ENGINE))
+    for row in read_rows(source):
+        rid = row["id"]
+        if rid not in by_id:
+            continue
+        try:
+            if not re.fullmatch(r"[A-Za-z0-9_-]+", rid):
+                raise ValueError("unsafe_record_id")
+            rec, inp = by_id[rid]
+            original = rec["source_text"]
+            result = dict(row)
+            result.update(record_version="parsed2-development-slice-1", pipeline_version=VERSION,
+                          text_full=original, subject_mention=inp["target"], subject_aliases=[],
+                          facts_view=inp["sentence_view"], source_view_hash=row["view_hash"],
+                          view_hash=inp["view_hash"], text_facts=inp["facts_text"],
+                          text_party=inp["meta_text"],
+                          elements_status="not_available", outcome_arbitration_status="not_available",
+                          human_review=False, release_approved=False, reference_elements=None,
+                          s3_status="not_run_development_slice")
+            if elements:
+                path = elements / f"record-{rid}.json"
+                if path.exists():
+                    fingerprints[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
+                    label = json.loads(path.read_text("utf-8"))
+                    stored = label.get("input") or {}
+                    if (label.get("id") != rid or label.get("status") != "valid"
+                            or label.get("view_hash") != inp["view_hash"]
+                            or label.get("contract_hash") != contract_hash
+                            or any(stored.get(k) != inp[k] for k in ("target", "facts_text", "meta_text"))
+                            or stored.get("text_orig_sha256") != rec["text_orig_sha256"]):
+                        raise ValueError("element_commit_context_mismatch")
+                    validate_located(label["elements"], original, ENGINE, inp["regions"])
+                    result.update(elements=label["elements"], elements_status="candidate_validated",
+                                  element_schema_version=label["element_schema_version"],
+                                  element_prompt_version=label["element_prompt_version"],
+                                  label_provenance="model-adjudicated")
+            states[result["elements_status"]] += 1
+            records.append(result)
+        except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+            rejected.append({"id": rid, "reason": str(exc)[:350]})
+    report = {"version": VERSION, "input_mode": "development_slice_no_s3_certificate",
+              "source_records": len(by_id) + sum(r["id"] not in by_id for r in rejected),
+              "parsed2_candidate_records": len(records), "rejected": len(rejected),
+              "element_states": dict(states), "field_accuracy": None,
+              "s3_certificate": False, "release_approved": False,
+              "contract": contract_snapshot(ENGINE), "source_hashes": fingerprints}
+    if any(hashlib.sha256(Path(p).read_bytes()).hexdigest() != h for p, h in fingerprints.items()):
+        raise RuntimeError("source_changed_during_replay")
+    out.mkdir(parents=True, exist_ok=False)
+    for name, rows in (("records.jsonl", records), ("excluded.jsonl", rejected)):
+        with (out / name).open("x", encoding="utf-8", newline="\n") as f:
+            for item in rows:
+                f.write(json.dumps(item, ensure_ascii=False) + "\n")
+    report["artifact_hashes"] = {p.name: hashlib.sha256(p.read_bytes()).hexdigest()
+                                 for p in out.glob("*.jsonl")}
+    (out / "summary.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", "utf-8")
+    return report
 
 
 def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Path | None = None, outcomes: Path | None = None):

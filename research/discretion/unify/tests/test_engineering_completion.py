@@ -13,7 +13,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from evidence_types import SourceSpan, CleanSpan
 from normalization import normalize_time, normalize_quantity, project_time, project_quantity, derive_age, project_duration_days
-from evidence_graph import build_graph, resolve_binding
+from evidence_graph import build_graph, resolve_binding, classify_graph_bindings
 from field_rules import field_catalog, resolve_enum
 from section_refs import fine_references
 from observability import diagnose, summarize
@@ -139,6 +139,7 @@ def test_same_number_different_person_or_value_role_does_not_share_edges():
     money=[n for n in graph['nodes'] if n['kind']=='money']
     assert len(money)==3
     own=money[0]
+    classify_graph_bindings(graph)
     assert resolve_binding(graph,own['id'],target='甲',event_id=own['event_id'],value_role='personal_stake',evidence_spans=[(0,len(text))])==own
     for node in money[1:]:
         with pytest.raises(ValueError):
@@ -148,6 +149,27 @@ def test_same_number_different_person_or_value_role_does_not_share_edges():
 def test_joint_subject_stays_unresolved():
     graph,_=graph_for('甲与乙共同参赌，赌资合计500元。')
     assert all(n['binding']=='unresolved' for n in graph['nodes'])
+
+
+def test_scene_keyword_cannot_turn_another_persons_stake_into_shared_fact():
+    graph, _ = graph_for('甲在场。现场查获乙携带赌资500元。')
+    classify_graph_bindings(graph)
+    money = next(n for n in graph['nodes'] if n['kind'] == 'money')
+    assert money['value_role'] == 'personal_stake'
+    assert money['binding'] == 'needs_review'
+    with pytest.raises(ValueError, match='subject_event_role_mismatch'):
+        resolve_binding(graph, money['id'], target='甲', event_id=money['event_id'],
+                        value_role='personal_stake', evidence_spans=[(0, len(graph['_original']))])
+
+
+def test_unclassified_scene_amount_stays_review_and_contract_matches_resolver():
+    graph, _ = graph_for('甲在场。现场查获500元。')
+    classify_graph_bindings(graph)
+    money = next(n for n in graph['nodes'] if n['kind'] == 'money')
+    assert money['value_role'] is None and money['binding'] == 'needs_review'
+    policy = make_bundle(ENGINE)['binding_policy']
+    assert policy['status'] == 'proposed_pending_engine_adoption'
+    assert policy['accept_in_resolve'] == ['target_specific', 'shared_fact']
 
 
 def test_section_references_allow_basis_and_outcome_overlap_without_rewriting_zones():
@@ -273,6 +295,7 @@ def test_age_bounds_do_not_turn_identity_age_or_month_into_exact_behavior_age():
 def test_candidate_binding_compiler_checks_subject_event_role_and_value():
     text='甲携带赌资500元。乙携带赌资500元。'
     graph,_=graph_for(text)
+    classify_graph_bindings(graph)
     node=graph['nodes'][0]
     payload=absent()
     payload['amounts']['personal_stake']={'status':'明确','value':{'min':500,'max':500},
@@ -341,7 +364,8 @@ def test_diagnostics_end_to_end_preserves_source_and_has_all_fields(tmp_path):
         'input':{'target':'甲','views':[{'id':'S1','type':'facts','start':0,'end':len(facts),'text':facts}]}})
     before=source.read_bytes()
     report=diagnose_batch(source,tmp_path/'out')
-    assert report['records']==1 and report['field_accuracy'] is None and source.read_bytes()==before
+    assert (report['records']==1 and report['field_accuracy'] is None
+            and report['semantic_rules_approved'] is False and source.read_bytes()==before)
     obs=json.loads((tmp_path/'out/observability.json').read_text('utf-8'))
     assert len(obs['dimensions'][0]['fields'])==36
     graphs=[json.loads(l) for l in (tmp_path/'out/candidate-graphs.jsonl').read_text('utf-8').splitlines()]
@@ -355,7 +379,7 @@ def test_exported_intermediate_schemas_validate_real_adapter_outputs():
         Draft202012Validator(bundle['intermediate_schemas']['TemporalValue']).validate(normalize_time(raw,ref(raw)))
     for raw in ['贰佰肆拾元','3到5万元','超过1000元','约5万元']:
         Draft202012Validator(bundle['intermediate_schemas']['QuantityValue']).validate(normalize_quantity(raw,ref(raw)))
-    assert bundle['normalization_policy']['status']=='adopted'
+    assert bundle['normalization_policy']['status']=='proposed_pending_engine_adoption'
 
 
 def test_new_outcome_commit_revalidated_and_context_mismatch_quarantined(tmp_path):

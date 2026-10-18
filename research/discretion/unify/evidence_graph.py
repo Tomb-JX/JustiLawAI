@@ -11,7 +11,7 @@ from element_contract import digest, normalize_amount_e05, normalize_date_e05, n
 from evidence_types import SourceSpan
 from normalization import NUM, normalize_quantity, normalize_time
 
-VERSION = "evidence-graph-1"
+VERSION = "evidence-graph-2"
 MONEY = re.compile(fr"(?:不超过|不低于|至少|不足|超过|约|近|逾)?{NUM}(?:(?:到|至|[-~～]){NUM})?[余多]?(?:元|块)(?:以上|以下|左右)?")
 COUNT = re.compile(fr"(?:至少|超过|不足|至多)?{NUM}(?:(?:至|到){NUM})?[余多]?(?:名|个)?(?:人|次|场|台)")
 TIME = re.compile(r"(?:\d{4}|[〇零一二三四五六七八九]{4})年(?:[\d一二三四五六七八九十]+月(?:[\d一二三四五六七八九十]+[日号])?)?(?:(?:至|到)[\d一二三四五六七八九十]+月)?|同年[\d一二三四五六七八九十]+月|去年[\d一二三四五六七八九十]+月|次日|翌日")
@@ -100,6 +100,9 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
                                  for m in re.finditer(pat, before)] if kind == "money" else []
                     roles = sorted({role for pos, role in role_hits if pos == max((x[0] for x in role_hits), default=-1)})
                     role = roles[0] if len(roles) == 1 else None
+                    if role is None and kind == "money" and "personal_stake" in roles:
+                        if re.search(r"(?:本人|个人|携带|持有|投入)[^，,。；;]{0,16}赌资?$", before):
+                            role = "personal_stake"
                     if kind == "count":
                         role = ('cumulative_participants' if '累计' in quote else 'participant_count') if ref.quote.endswith('人') and re.search(r'参赌|赌博', quote) else 'times' if ref.quote.endswith(('次','场')) and re.search(r'赌博|参赌|提供条件', quote) else 'unclassified_count'
                     if kind == "time":
@@ -174,18 +177,13 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
                 node["binding_reason"] = "behavior clause, no explicit subject"
             continue
 
-        # Money nodes: check scene-level first, then multi-person context
-        _SCENE_KEYWORDS = ("现场查获", "查获赌资", "赌资共计", "共查获", "现场共", "参赌人员", "现场扣押")
+        # A scene word describes context, not the semantic role of each amount.
+        # In particular, a nearby person's own stake must never become shared.
         if kind == "money":
             clause_ref = node.get("clause_ref") or {}
             clause_text = graph.get("_original", "")[clause_ref.get("start", 0):clause_ref.get("end", 0)]
             if not clause_text:
                 clause_text = node.get("source_ref", {}).get("quote") or ""
-            is_scene = any(kw in clause_text for kw in _SCENE_KEYWORDS)
-            if is_scene:
-                node["binding"] = "shared_fact"
-                node["binding_reason"] = "scene-level money"
-                continue
             list_pattern = re.compile(
                 rf"(?:[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*)*{re.escape(target)}\s*[、和与，,]\s*[\u4e00-\u9fff*]{{1,4}}"
                 rf"|[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*{re.escape(target)}"
@@ -250,9 +248,8 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
 
         # Step 3: Binding decision
         if not mentions_target_in_clause:
-            # No subject mentioned: use field default (most common case)
-            node["binding"] = "target_specific"
-            node["binding_reason"] = "field default, no subject in evidence"
+            node["binding"] = "needs_review"
+            node["binding_reason"] = "target-specific field without explicit target in clause"
         elif mentions_target_in_clause and not mentions_others:
             # Only target mentioned
             node["binding"] = "target_specific"
@@ -262,8 +259,8 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
             node["binding"] = "needs_review"
             node["binding_reason"] = "multi-person evidence: target in list with others"
         else:
-            node["binding"] = "target_specific"
-            node["binding_reason"] = f"field default, no multi-person pattern"
+            node["binding"] = "needs_review"
+            node["binding_reason"] = "subject relationship unresolved"
 
     # Add summary
     from collections import Counter
@@ -307,9 +304,9 @@ def resolve_binding(graph, candidate_id, *, target, event_id, value_role, eviden
     if len(matches) != 1:
         raise ValueError("unknown_or_duplicate_candidate")
     node = matches[0]
-    # Accept lexical_candidate (legacy), target_specific, and shared_fact (E-05 binding)
+    # A lexical candidate alone has no reviewed person/event semantics.
     if (node["target"] != target or node["event_id"] != event_id or node["value_role"] != value_role
-            or node["binding"] not in ("lexical_candidate", "target_specific", "shared_fact")):
+            or node["binding"] not in ("target_specific", "shared_fact")):
         raise ValueError("subject_event_role_mismatch")
     ref = node["source_ref"]
     if not any(a <= ref["start"] < ref["end"] <= b for a, b in evidence_spans):
