@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from dev_slice_first_run import audit, text_input  # noqa: E402
+from dev_slice_first_run import audit, numeric_outcome_audit, text_input  # noqa: E402
 
 
 def sample():
@@ -39,3 +39,12 @@ def test_audit_handles_bad_offsets_without_crash():
     row = sample()
     row["observed_outcome_evidence"]["start"] = None
     assert "outcome_span" in audit([row], {"records": 1, "events": 1})["problem_counts"]
+
+
+def test_numeric_audit_reads_uppercase_chinese_amount():
+    row = sample()
+    row["observed_outcome_evidence"]["quote"] = "对甲行政拘留五日并处罚款人民币叁仟元。"
+    row["observed_outcome"].update(type="拘留并处罚款", detention_days=5, fine=3000)
+    checked = numeric_outcome_audit([row])
+    assert checked["checked"] == {"detention_days": 1, "fine": 1}
+    assert checked["mismatch"] == []
