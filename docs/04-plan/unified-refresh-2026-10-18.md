@@ -58,6 +58,41 @@ A 级内部：
 - `freeze_slice` 为开发切片做保守事件分组（event_key/doc_no_hash/重复正文），但只覆盖切片，不是全量树。
 - 正确顺序应是：**先按来源页/文档去重 → 再按 event_key 分事件 → 每个事件保留一人一条记录 → 再进 S1/切片**。不能把 26,185 当成 26,185 个独立事件，也不能把多人事件折叠成一条。
 
+## 已产出的 S1 输入（去重 + 事件归并）
+
+`$DATA/unified_raw_refresh/20261018-s1/`：
+
+| 项 | 数量 |
+|---|---:|
+| label-ready 记录 | **3,196** |
+| event | **1,790** |
+| grade A / A-salvage | 2,883 / 313 |
+| train / valid / test | 2,202 / 495 / 499 |
+| party_available | 1,320 |
+| no-subject（单独文件，不送教师） | **558** |
+| 唯一 id / 唯一 event+subject | 3,196 / 3,196 |
+| release=false / 空文本 / 空句表 | 0 / 0 / 0 |
+
+批次构成：web-r4 1,507、merged-full 825、P2-r1（salvage）313、P2-L4word 295、P1-r6 156、P1b-r2 100。
+
+去重规则：
+
+- 先按 `(channel, doc_key, subject)` 去来源页/人重复；
+- 再按 `(event_id, subject)` 去事件/人重复；
+- `event_id` 优先源 `event_key`，缺失时用 `doc_no_hash`/`text_sha` 稳定哈希；
+- 每个 event 只落一个 split，同一事件不跨 train/valid/test；
+- 多人事件保留每人一条，不折叠成一条。
+
+S1 离线 plan 已跑通：`$DATA/s1_runs/s1-20261018-dedup-plan/`，plan hash `ee9cb165…`，`executed=false`，无模型调用。
+
+剔除/隔离：
+
+- `not_released` 2,675；`no_facts_or_decision` 139；P2-r1 无内容 384；
+- `duplicate_id_within_batch` 760；`duplicate_page_person` 313；`duplicate_event_person` 263；
+- `no_subject` 558 单独写入 `no_subject.jsonl`，不进教师批；其中 web 486、P2-r1 62、P1b 7、P1 3。
+
+**这仍是 S1 输入，不是标签**：`reference_elements` 仍为 null；A-salvage 来自 P2-r1 清理后的 313 条，不是金标；web/P2-L4word 的 party 缺口仍在。
+
 ## 推荐进入 S1 的主批次
 
 | channel | batch | records | released | released+content | released+facts | party_segment |
