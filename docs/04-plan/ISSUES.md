@@ -8,6 +8,7 @@
 | 编号 | 问题 | Owner | 下一步 | 验收 / 关闭条件 | 状态 |
 |---|---|---|---|---|---|
 | BIND-03 | 绑定质量未证：引擎 `54150db` 已修两字段并允许 shared，但**该提交无测试**；后处理 `resolve_binding`/bundle 仍未消费 shared；`cumulative_stake`/别名接口未审；896 review 无处置；无标注准确率 | 引擎 + 后处理 | 引擎补测试/审剩余字段；后处理接 `ACCEPT_IN_RESOLVE`；做 100–200 候选准确率；再 Gate B | shared/review 有明确消费或显式未知；小样本准确率达标；字段表/别名有测试 | **open** |
+| BIND-04 | 职责倒置：绑定具体判定应由数据/后处理的 NLP/混合模型做；当前由引擎写 regex 规则并自评，896 review 和别名脆弱说明规则基线不足 | 引擎 + 数据/后处理 | 引擎出契约（字段语义/类别/证据/验收）；数据侧做 NLP 基线+标注样本；引擎不签自己的实现 | 契约与实现分离；独立小样本验收；规则只作高精度基线 | **open** |
 | CONTRACT-01 | 契约未签收：引擎 12:20 事件称“binding_policy 正式采纳”，但 contract v2 仍 `proposed_pending_engine_adoption`；`semantic_rules_approved=false`；`accept_in_resolve` 未含 shared | 引擎 + 后处理 | 同步事件与 artifact 状态；后处理更新 bundle/版本；引擎正式签发 | `semantic_rules_approved=true`；binding_policy 状态与事件一致；单一 module+版本 | **open** |
 | PUSH-01 | 可见性：引擎/后处理已推送；协调事件登记工具/快照待提交 | 协调 | 提交并推送本批协调文档 | handoff 引用的 commit 在 origin 上；CURRENT 可读 | **open** |
 | I-20 | 36 要素参考标签未产出；`reference_elements=null`；字段准确率暂缺 | 引擎 + 后处理 | 契约定版后，按 ≤12 → 200–300 件跑教师参考；过 I-21 门 | 参考批次有版本/哈希；A/B 分歧报告；字段 P/R/F1 可算 | **执行中** |
