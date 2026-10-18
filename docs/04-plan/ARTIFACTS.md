@@ -16,15 +16,15 @@
 | 工程诊断（pre-E-05） | `$DATA/parsed2/engineering-diagnostics-20261018-codex-v1/summary.json` | 文件 SHA `3c092cb5…` | 后处理 | 协调、引擎 | **基线（pre-E-05，已完成）**（binding unresolved 1,647 / 1,704） |
 | Gate A2 212 诊断 | `$DATA/parsed2/diagnostics-e05-e2e-20261018/summary.json` | 文件 SHA `372adbfa…`；212 条 | 后处理 | 协调 | **已完成**（normalizer 1704；binding 1,647；approx 失败 97→11；e05 parse failed 5） |
 | Gate B 212 诊断（v2） | `$DATA/parsed2/diagnostics-e05-binding-v2-20261018/summary.json` | 文件 SHA `3ffeca2b…`；212 条 | 后处理 | 协调 | **已完成**（binding 61 shared / 752 target / 896 review；主字段已写） |
-| 引擎绑定规则（Gate B） | 引擎 `research/eval/binding_rules.py` | commit `971fdc3` + `3a37c56`（review_reason） | 引擎 | 后处理 | **现行**（shared/target/review；235 passed） |
-| Gate B contract bundle（v2） | `$DATA/s1_runs/contract-e05-binding-v2-bundle/contract.json` | 文件 SHA `403f2618…`；内部 digest `1d0b0873…` | 后处理 | 引擎、验收 | **待采纳**（`binding_policy` 有类型/版本但仍 `proposed_pending_engine_adoption`；`semantic_rules_approved=false`） |
+| 引擎绑定规则（Gate B） | 引擎 `research/eval/binding_rules.py` | commit `971fdc3` + `3a37c56`（review_reason）+ `54150db`（字段修正/`ACCEPT_IN_RESOLVE` 含 shared） | 引擎 | 后处理 | **现行**（shared/target/review；235 passed） |
+| Gate B contract bundle（v2） | `$DATA/s1_runs/contract-e05-binding-v2-bundle/contract.json` | 文件 SHA `403f2618…`；内部 digest `1d0b0873…` | 后处理 | 引擎、验收 | **待采纳/待更新**（`binding_policy` 仍 `proposed_pending_engine_adoption`；`accept_in_resolve` 仍是 lexical/target，未含引擎新允许的 shared） |
 | 共享事件登记 | `$DATA/coordination/events.jsonl`、`CURRENT.md`、`coord_event.py` | 13 条种子事件（12:03） | 协调 | 全部 | **现行**（实时状态源；BOARD 是里程碑快照） |
 | 12 条 smoke 计划 | `$DATA/s1_runs/smoke12-elements-e05-plan/plan.json` | 文件 SHA `93a3a36d…`；`execute=false`、`release_approved=false` | 后处理 | 协调 | **计划未执行**（等免费诊断通过 + I-21 门） |
 | 法定 caps | `$DATA/config/legal_caps.json` | 文件 SHA `aedf5a23…` | 协调导出 | 引擎 | **现行**（E-01 核对使用；是否转正见 ISSUES） |
 | 后处理 E-05 接入（Gate A） | 后处理 `research/discretion/unify/element_contract.py`、`normalization.py` | commit `256d2ce`（11:36）；文件 SHA `5d36c89f…`、`2f28259b…` | 后处理 | 后处理、引擎 | **已提交并推送**（139 passed；模块级） |
 | E-05 主路径接入（Gate A2） | 后处理 `research/discretion/unify/evidence_graph.py` | commit `4b7680d`；文件 SHA `00063ffc…` | 后处理 | 后处理 | **已完成并推送**（A2 诊断 11:58） |
 | 集成回放（Gate A） | `$DATA/parsed2/replay-e05-integrated-20261018/summary.json` | 文件 SHA `133f1b85…` | 后处理 | 协调 | **基线**（S3 26/299；`element_states` 全 `not_available`；不测绑定） |
-| 主体绑定（Gate B） | 引擎 `binding_rules.py` + 后处理 `classify_graph_bindings` | `971fdc3`/`3a37c56` + `f00b494`/`90c46a6`；分类 61/752/896 | 引擎 + 后处理 | 引擎、验收 | **部分完成**（主 `binding` 已写；shared/review 不可消费；质量未验证） |
+| 主体绑定（Gate B） | 引擎 `binding_rules.py` + 后处理 `classify_graph_bindings` | `971fdc3`/`3a37c56`/`54150db` + `f00b494`/`90c46a6`；分类 61/752/896 | 引擎 + 后处理 | 引擎、验收 | **部分完成**（主 `binding` 已写；引擎允许 shared；后处理代码/bundle 未接；质量未验证） |
 | 当前交付 | L3 指针 **r6**；r7 未放行 | 见 [stage-plan-v2](./stage-plan-v2-2026-10-17.md) | 网页/法宝 | 全部 | **r7 关闭**（S3 <5% 未达） |
 | 协调规范 | `BOARD.md` / `DECISIONS.md` / `ARTIFACTS.md` / `ISSUES.md` / `OWNERSHIP.md` / `handoffs/` | commit 见本批 | 协调 | 全部 | **现行** |
 
