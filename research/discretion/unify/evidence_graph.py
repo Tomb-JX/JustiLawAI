@@ -116,7 +116,20 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
                                   "event_id": ev, "event_kind": event_kind, "value_role": role,
                                   "binding": binding, "reason": "joint_or_indirect_subject" if joint or not mentions else "role_unresolved" if not role else None,
                                   "normalized": normalized, "semantic_approved": False})
-    return {"version": VERSION, "target": target, "nodes": nodes}
+            # Behavior node: capture clauses that mention the target (for evidence-aware binding)
+            if target in quote:
+                clause_key = ("behavior", ca, cb)
+                if clause_key not in seen:
+                    seen.add(clause_key)
+                    ref = SourceSpan.from_text(original, ca, cb)
+                    nodes.append({"id": "V-" + digest({"kind": "behavior", "span": ref.to_dict(), "version": VERSION})[:20],
+                                  "kind": "behavior", "source_ref": ref.to_dict(), "clause_ref": ref.to_dict(),
+                                  "sentence_ref": view.get("id"), "target": target, "subject_refs": mentions,
+                                  "event_id": ev, "event_kind": event_kind, "value_role": None,
+                                  "binding": "unresolved", "reason": None,
+                                  "normalized": {"raw": quote, "source_ref": ref.to_dict(), "resolution": "resolved",
+                                                 "kind": "behavior_clause", "e05": False}, "semantic_approved": False})
+    return {"version": VERSION, "target": target, "nodes": nodes, "_original": original}
 
 
 def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
@@ -136,6 +149,31 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
 
     for node in graph.get("nodes", []):
         role = node.get("value_role")
+        kind = node.get("kind", "")
+
+        # Behavior nodes: use evidence-aware binding (no field lookup needed)
+        if kind == "behavior":
+            clause_ref = node.get("clause_ref") or {}
+            clause_text = graph.get("_original", "")[clause_ref.get("start", 0):clause_ref.get("end", 0)]
+            if not clause_text:
+                clause_text = node.get("source_ref", {}).get("quote") or ""
+            mentions_target = target in clause_text
+            list_pattern = re.compile(
+                rf"(?:[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*)*{re.escape(target)}\s*[、和与，,]\s*[\u4e00-\u9fff*]{{1,4}}"
+                rf"|[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*{re.escape(target)}"
+            )
+            has_others = bool(list_pattern.search(clause_text))
+            if has_others:
+                node["binding"] = "needs_review"
+                node["binding_reason"] = "multi-person behavior: target in list with others"
+            elif mentions_target:
+                node["binding"] = "target_specific"
+                node["binding_reason"] = "behavior clause, only target mentioned"
+            else:
+                node["binding"] = "target_specific"
+                node["binding_reason"] = "behavior clause, no explicit subject"
+            continue
+
         if not role or role.startswith("unclassified"):
             node["binding"] = "needs_review"
             node["binding_reason"] = f"unclassified role: {role}"
@@ -160,42 +198,50 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
             continue
 
         # Step 2: Evidence subject detection
-        quote = node.get("source_ref", {}).get("quote") or ""
-        src_start = (node.get("source_ref") or {}).get("start", 0)
-        subject_refs = node.get("subject_refs") or []
+        # Use clause_ref (full clause) for person detection, not source_ref (matched pattern)
+        clause_ref = node.get("clause_ref") or {}
+        clause_text = graph.get("_original", "")[clause_ref.get("start", 0):clause_ref.get("end", 0)]
+        if not clause_text:
+            clause_text = node.get("source_ref", {}).get("quote") or ""
 
-        mentions = set()
-        for ref in subject_refs:
-            # Extract name from quote using coordinates
-            a, b = ref.get("start", 0) - src_start, ref.get("end", 0) - src_start
-            if 0 <= a < b <= len(quote):
-                name = quote[a:b].strip()
-                if name:
-                    mentions.add(name)
+        # Detect if clause mentions target in a multi-person list context
+        # Pattern: "甲、乙、丙" or "甲和乙" or "甲，乙" near target
+        mentions_target_in_clause = target in clause_text
+        mentions_others = False
 
-        mentions_target = any(m in same_person for m in mentions)
-        mentions_others = any(m not in same_person for m in mentions)
+        if mentions_target_in_clause:
+            # Look for list patterns around target: names separated by 、和与,，
+            list_pattern = re.compile(
+                rf"(?:[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*)*{re.escape(target)}\s*[、和与，,]\s*[\u4e00-\u9fff*]{{1,4}}"
+                rf"|[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*{re.escape(target)}"
+            )
+            for m in list_pattern.finditer(clause_text):
+                segment = m.group()
+                # Extract names from the segment
+                names = re.findall(r"[\u4e00-\u9fff*]{1,4}", segment)
+                for name in names:
+                    if name != target and len(name) >= 2:
+                        mentions_others = True
+                        break
+                if mentions_others:
+                    break
 
         # Step 3: Binding decision
-        event_kind = node.get("event_kind", "")
-
-        if not mentions:
+        if not mentions_target_in_clause:
             # No subject mentioned: use field default (most common case)
             node["binding"] = "target_specific"
-            node["binding_reason"] = f"field default, no subject in evidence"
-        elif mentions_target and not mentions_others:
+            node["binding_reason"] = "field default, no subject in evidence"
+        elif mentions_target_in_clause and not mentions_others:
             # Only target mentioned
             node["binding"] = "target_specific"
             node["binding_reason"] = f"only mentions {target}"
         elif mentions_others:
-            # Others mentioned (with or without target)
-            others = sorted(m for m in mentions if m not in same_person)
+            # Others mentioned alongside target
             node["binding"] = "needs_review"
-            node["binding_reason"] = f"mentions others: {others}"
+            node["binding_reason"] = "multi-person evidence: target in list with others"
         else:
-            # Only non-target subjects (shouldn't happen if target is in same_person)
-            node["binding"] = "needs_review"
-            node["binding_reason"] = f"only mentions non-target: {sorted(mentions)}"
+            node["binding"] = "target_specific"
+            node["binding_reason"] = f"field default, no multi-person pattern"
 
     # Add summary
     from collections import Counter

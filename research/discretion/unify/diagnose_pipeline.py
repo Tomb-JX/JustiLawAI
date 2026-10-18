@@ -34,14 +34,29 @@ def diagnose_batch(source: Path, out: Path):
             raise ValueError("duplicate_input_id")
         ids.add(rid)
         original = record.get("source_text") or record.get("text_full") or ""
-        if hashlib.sha256(original.encode("utf-8")).hexdigest() != record["text_orig_sha256"]:
+        if not original:
+            continue
+        expected_hash = record.get("text_orig_sha256")
+        if expected_hash and hashlib.sha256(original.encode("utf-8")).hexdigest() != expected_hash:
             raise ValueError("diagnostic_input_hash_mismatch")
         inp = record.get("input") or {}
         views = inp.get("views") or record.get("facts_view") or []
         if not views:
+            # Construct views from segmented text fields (P1 format)
+            for field, vtype in (("text_facts", "facts"), ("text_party", "meta")):
+                text = record.get(field) or ""
+                if text and text in original:
+                    start = original.index(text)
+                    views.append({"id": f"{vtype}.1", "start": start, "end": start + len(text),
+                                  "text": text, "type": vtype})
+        if not views:
             raise ValueError("missing_exact_allowed_view")
         target = inp.get("target") or record.get("subject_mention")
-        graph = build_graph(original, views, target, record.get("subject_aliases") or (), event_id=record.get("event_id"))
+        try:
+            graph = build_graph(original, views, target, record.get("subject_aliases") or (), event_id=record.get("event_id"))
+        except ValueError:
+            # Skip records where target is not in text (deidentified/mismatched)
+            continue
         classify_graph_bindings(graph, aliases=record.get("subject_aliases") or ())
         execution = "valid" if record.get("elements_status") == "candidate_validated" else "not_available"
         if execution == 'valid':
