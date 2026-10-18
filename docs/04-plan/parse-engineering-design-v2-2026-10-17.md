@@ -2,9 +2,10 @@
 
 > 2026-10-17。承接《解析架构 v2》的方向判断，本文是可实施的工程设计：每个子问题先翻译成**标准工程问题**，给出**主流方案族**、**选型**、**置信度**与**匹配度分析**。所有设计以本项目的实测约束为输入，不引入未经论证的组件。
 > **v2.1（2026-10-17）**：脱敏限制已取消（用户决策；规范文档的对应修订由协调层承接，本设计不代改规范）。主管线去掉预脱敏（六阶段→五阶段），定位链减少一级投影，标注证据直接绑定原文正本。修订明细见文末《修订记录》，对规范条款的影响清单见 §11。
-> **v2.2（2026-10-18，协调层代笔）**：保留 v2.1 的 S0–S4 作为架构源头，但当前实现已分化为 **seg-v2 句表分区 + `element-ref-v2` 传输 + E-05 要素/绑定**，不再等同本节的 `seg-v1` JSON。新增 §1.1 实现映射、§3A 要素标签层（L5）、§9.1 实测状态、§10.1 执行状态；旧 S1 输出仅作设计历史参考。当前 `reference_elements=null`，字段准确率仍暂缺；绑定 v5 已做证据感知 3 步，但 212 切片无多人案例，655 review 为 unclassified role，joint 分支未验证。（此段为 v2.2 历史注记，当前见 v2.5。）
+> **v2.2（2026-10-18，协调层代笔）**：保留 v2.1 的 S0–S4 作为架构源头，但当前实现已分化为 **seg-v2 句表分区 + `element-ref-v2` 传输 + E-05 要素/绑定**，不再等同本节的 `seg-v1` JSON。新增 §1.1 实现映射、§3A 要素标签层（L5）、§9.1 实测状态、§10.1 执行状态；旧 S1 输出仅作设计历史参考。当前 `reference_elements=null`，字段准确率仍暂缺；绑定 v5 已做证据感知 3 步，但 212 切片无多人案例，655 review 为 unclassified role，joint 分支未验证。（此段为 v2.2 历史注记，当前见 v2.6。）
 > **v2.4（2026-10-18，历史复跑）**：`60ebb52` 复跑 212 310/1517/518、P1 557/1519/513；scene-level money 把他人个人金额标 shared（P1 254/399、212 57/187）；该回归已在 `e06a0af` 修复，见 v2.5。
 > **v2.5（2026-10-18，当前实现）**：S1 已是 **seg-v2 句表分区**——模型输入编号句表，输出 zones + 文书字段，**quote 由服务端从句表生成**，不再由模型写引文；S2 为 `locate.py` + `evidence_graph.py`（`evidence-graph-2`）；绑定 `e06a0af` 后 212 123/611/1611、P1 158/723/1708，money shared=0，`semantic_rules_approved=false`；L5 `reference_elements=null`；S3 26/299=8.7%；r7 未放行。BIND-03/BIND-04/BIND-05 未关闭。
+> **v2.6（2026-10-18，协调层补记）**：补 §3A.1 教师输出完整 36 字段形状与 binding 作用、§3A.2 教师输入视图两条路径（S1 句表驱动 / 冻结切片 parsed-1 视图）、§6.1 S4 输入与校验对象；明确 36 字段之外的忽略信息需求。
 > 硬约束（设计前提）：① 证据定位契约——五段必须是交付正本的连续子串，标注证据位置相对正本计算（data-spec §1）；② 可溯源——模型 id+提示版本+输入哈希全程可查；③ 确定性校验不得被模型输出绕过；④ 模型纪律——仅远程旗舰，禁本地小模型。（原 v2.0 的"远程模型调用不得接触未脱敏原文"隐私排序约束随脱敏取消移除。）
 
 ## 0. 现状问题的工程化翻译（总表）
@@ -180,6 +181,86 @@ parsed-1（原文态, 5,739件）
 - **验收**：schema/枚举/版本、证据逐字/坐标/来源、target 可定位、无 decision/reasoning/outcome 泄漏、金额/日期合法、`reference_elements` 非空、字段覆盖率、绑定小样本准确率、A/B 或人工复核。完整格式见 [data-spec §8](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) 与 [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)。
 - **当前状态**：`reference_elements=null`；L5 标签为 0；M1 字段准确率暂缺；M4 只能用历史处罚做基线；r7 未放行。当前 12 件烟测的 21 条证据有 20 条定位成功（95.2%），但字段准确率仍未测。
 
+### 3A.1 教师输出的完整形状（36 字段）
+
+下面是一条**示意记录**的教师输出。值和证据是为展示形状虚构的；真实批次必须逐字来自 facts/meta。
+
+```json
+{
+  "conduct": {
+    "behavior_type": {"status": "明确", "value": "参与赌博", "evidence": [{"quote": "沈xx参与赌博"}]},
+    "role": {"status": "明确", "value": "参赌者", "evidence": [{"quote": "沈xx参与赌博"}]},
+    "method": {"status": "明确", "value": "麻将", "evidence": [{"quote": "以麻将方式赌博"}]},
+    "times": {"status": "明确", "value": 1, "evidence": [{"quote": "2022年5月16日"}]},
+    "duration_days": {"status": "未提及", "value": null, "evidence": []},
+    "cheating": {"status": "未提及", "value": null, "evidence": []}
+  },
+  "amounts": {
+    "personal_stake": {"status": "明确", "value": {"min": 500, "max": 500}, "evidence": [{"quote": "携带赌资500元"}]},
+    "per_bet": {"status": "未提及", "value": null, "evidence": []},
+    "onsite_stake_total": {"status": "明确", "value": {"min": 17000, "max": 17000}, "evidence": [{"quote": "现场查获赌资共计17000元"}]},
+    "cumulative_stake": {"status": "未提及", "value": null, "evidence": []},
+    "commission": {"status": "未提及", "value": null, "evidence": []},
+    "illegal_gain": {"status": "未提及", "value": null, "evidence": []}
+  },
+  "persons": {
+    "participant_count": {"status": "明确", "value": 5, "evidence": [{"quote": "参赌人员5人"}]},
+    "cumulative_participants": {"status": "未提及", "value": null, "evidence": []},
+    "minors_involved": {"status": "未提及", "value": null, "evidence": []},
+    "civil_servant": {"status": "未提及", "value": null, "evidence": []},
+    "relatives_only": {"status": "未提及", "value": null, "evidence": []},
+    "abroad_organized_count": {"status": "未提及", "value": null, "evidence": []}
+  },
+  "venue": {
+    "venue_type": {"status": "明确", "value": "经营场所", "evidence": [{"quote": "某棋牌室"}]}
+  },
+  "intent": {
+    "profit_purpose": {"status": "未提及", "value": null, "evidence": []}
+  },
+  "circumstances": {
+    "last_prior_penalty_date": {"status": "未提及", "value": null, "evidence": []},
+    "surrendered": {"status": "明确", "value": true, "evidence": [{"quote": "主动到案"}]},
+    "truthful_statement": {"status": "未提及", "value": null, "evidence": []},
+    "admits_and_accepts": {"status": "未提及", "value": null, "evidence": []},
+    "remedied_consequence": {"status": "未提及", "value": null, "evidence": []},
+    "victim_forgiveness": {"status": "未提及", "value": null, "evidence": []},
+    "coerced_or_lured": {"status": "未提及", "value": null, "evidence": []},
+    "meritorious": {"status": "未提及", "value": null, "evidence": []},
+    "instigated_others": {"status": "未提及", "value": null, "evidence": []},
+    "retaliation": {"status": "未提及", "value": null, "evidence": []},
+    "obstructed_police": {"status": "未提及", "value": null, "evidence": []},
+    "minor_circumstance": {"status": "未提及", "value": null, "evidence": []},
+    "first_offense": {"status": "未提及", "value": null, "evidence": []},
+    "violations_last_year": {"status": "未提及", "value": null, "evidence": []}
+  },
+  "person": {
+    "age": {"status": "明确", "value": 35, "evidence": [{"quote": "35岁"}]},
+    "pregnant_or_nursing": {"status": "未提及", "value": null, "evidence": []}
+  }
+}
+```
+
+注意：
+
+- 36 个字段必须全部出现；未提及也显式写 `status=未提及, value=null, evidence=[]`。
+- 教师只输出这 7 组；不输出 `CaseMeta`（region/behavior_date/decision_date）、`binding`、`outcome`，也没有字段级 confidence（S1 的 `confidence` 是文书级自评，不是要素字段）。
+- `evidence` 在教师阶段只有 `quote`；S2 定位后才会补 `start/end`，并要求 `text_full[start:end] == quote`。
+- 金额是 `{min,max}`；开口金额 `max=null`；日期 ISO；枚举/布尔/整数按字段定义。
+- 这是一条一人记录；多人案件拆成多条，各自调用。
+
+**binding 在这里的作用**：它不改变这 36 个字段的值，只给字段/证据加归属标签。`personal_stake`、`role`、`commission`、`profit_purpose` 等是 target（本人）；`participant_count`、`onsite_stake_total`、`venue_type`、`method` 等是 shared（场景级）；`needs_review` 表示无法证明归谁，不能消费。也就是说，binding 解决“这条值算谁的”，不解决“值是多少”。
+
+**当前 36 字段之外、但可能被忽略的信息**：其他人的身份/关系、共犯或主从关系、跨句代词、金额与事件的对应、同一事件的多条行为、场所地址、法条适用、处罚结果、案件元数据。这些不在 36 字段里；有些属于 S2/绑定，有些属于 CaseMeta 或后续本体扩展，不能塞进 `elements`。
+
+### 3A.2 教师输入视图怎么来
+
+教师输入只有两段文字：`facts_text` 和 `meta_text`，加上 `target` 与 `aliases`。视图映射有两条路径：
+
+1. **S1 驱动路径**（`run_elements.build_inputs`）：用 S1 的 zones（句号 ID）+ 句表 + `OffsetIndex`，把 facts 句和 facts 之前的 meta 句投影回原文；丢弃 evidence/reasoning/decision/review；句子若跨 S0 删除边界，会拆成多个原文片段；最后生成 `facts_text`、`meta_text`、`regions`、`view_hash`。这里确实**再次使用句号表**，但只是把 S1 已经选好的句子区间映射回原文，不是重新分段。
+2. **冻结开发切片路径**（`freeze_slice`）：直接用 parsed-1 的 `text_party`/`text_facts` 在原文中的唯一精确位置构造 meta/facts 视图；它不走 S1 句表，也不重新分段；同样做泄漏规则过滤、target 可见性和哈希校验。
+
+两条路径的共同规则：只保留 facts 与 facts 之前的 meta；target 必须出现在视图里；aliases 必须是原文里的写法；不带 decision/reasoning/review/outcome。教师看到的是原文句子，不是摘要或清洗后的改写。
+
 ## 4. S2 定位与候选证据图（当前：`locate.py` + `evidence_graph.py`）
 
 > 当前 S2 不是单一的“引文定位”，而是两段：`locate.py` 负责 quote → 原文坐标；`evidence_graph.py` 负责小句 → 候选证据节点 + 归一化 + 绑定。最新代码 `e06a0af`，图版本 `evidence-graph-2`。
@@ -225,6 +306,19 @@ parsed-1（原文态, 5,739件）
 2. **低置信队列**：mask_review 复用为可选显示辅助（原为脱敏取证基建，随取消降级为阅读遮蔽工具）；队列量预估 = 校验失败率 × 全量（pilot 先测）。
 3. **主动采样**：按模型 self-confidence=low 与校验告警密度优先抽样（不确定性采样，标准做法）。
 4. **金标回退重基线**：33 件金标回退中 A/F 两类（脱敏伪影、隐私泄漏）随取消整类关闭，仅需处理解析类回退（B/C/D/E）；正式金标计数仍为 0，切换文本基座无已签署标注需要迁移。
+
+### 6.1 S4 到底输入什么、校验什么
+
+S4 不是自动校验层，也不是把 S3 的“系统信息”再录一遍。它是人工角色，四个活动的输入不同：
+
+| S4 活动 | 输入 | 输出/校验对象 |
+|---|---|---|
+| 分段评测集 | 原文 + 句表 | 人工标五段起止；不输入 36 要素 |
+| 低置信队列 | 原始记录 + S1 zones/文书字段 + S3 findings | 人工看原文核对；当前没有 36 要素教师输出可核对 |
+| 主动采样 | confidence / 告警密度 | 选出要复核的件；不是抽取 |
+| 金标回退重基线 | 解析回退件 | 处理解析回退，不是要素标注 |
+
+S3 是自动规则校验，S4 是人工复核/评测。S4 的“关键信息核对”是**原文 vs 记录**，S3 findings 只是线索，不是答案；S4 不会把 S3 的系统信息当成真值再录一遍。当前 L5 教师标签还没产出（`reference_elements=null`），所以低置信队列里也没有 36 要素可核对；S4 现在核对的是 S1 的 zones、文书级字段和解析回退，不是要素标签。
 
 ## 7. 版本治理与溯源
 
@@ -336,3 +430,4 @@ parsed-1（原文态, 5,739件）
 | v2.3 | 2026-10-18 | 补 v5 证据感知 3 步与 P1-r6 多人绑定（178 条/186 节点，158/1570/861）；新增 §12 当前阻塞在设计中的位置（L5/绑定为主阻塞，r7 独立门） | 协调层代笔（引擎线复核） |
 | v2.4 | 2026-10-18 | 独立复跑 `60ebb52`：212 310/1517/518、P1 557/1519/513；登记 scene-level money 回归（P1 254/399、212 57/187）与 BIND-04；字段表述改为 36 要素 + CaseMeta 3 元数据 + binding 派生块 | 协调层代笔（后处理线复核） |
 | v2.5 | 2026-10-18 | 按当前实现重写 S1/S2：S1 改为 seg-v2 句表分区（模型不写 quote，服务端生成；6 类 zones + 文书字段；7 值 outcome；zones_det 公式；final300/S3/边界 F1 实测）；S2 改为 `locate.py` + `evidence-graph-2`（三级定位、候选图、绑定约束、B-10）；更新 §9.1/§10.1/§12 与修订记录 | 协调层代笔（后处理线复核） |
+| v2.6 | 2026-10-18 | 补 §3A.1 教师输出完整 36 字段 JSON、binding 作用与 36 字段外信息清单；补 §3A.2 教师输入视图两条路径；补 §6.1 S4 输入/校验对象（原文 vs 记录，非 S3 系统信息自证） | 协调层代笔（后处理线复核） |
