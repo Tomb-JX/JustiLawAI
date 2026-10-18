@@ -224,32 +224,65 @@ def compile_references(payload: object, inp: dict, text_full: str, engine) -> di
 def check_money_support(payload):
     """Local monetary grounding only, NOT a claim of semantic entailment.
 
-    Existing engine rules decide ranges. Unsupported forms are quarantined rather
-    than borrowing a different amount from the rest of the document.
+    指南 v0.2 的开口与多值语义必须被承认：'10元起押、上不封顶' → (10,null)，
+    '2元和4元的底注' → (2,4)，逐项列出需加总 → (sum,sum)，列举带'等' → (sum,null)。
+    对账集合只取自本字段自己的 evidence quotes（不借全文），端点必须逐字有据；
+    错得离谱的区间合成由 C 仲裁与人工复核兜底——过严闸的代价是丢弃合规标注。
     """
     from app.discretion.extract import parse_amount
     from s3 import _text_numbers
     tokens = re.compile(r"(?:约|近|超过|至少|逾|不足|不低于)?[0-9０-９〇零一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟两.,，]+[余多]?元(?:以上|以下)?")
+    open_top = re.compile(r"上不封顶|以上|超过|至少|逾|不低于|余|多")
+    additive_etc = re.compile(r"等")
     for name, item in payload.get("amounts", {}).items():
         if item["status"] == "未提及":
             continue
         supported = set()
+        points = []       # 本字段证据内所有确切数额（可重复，供加总）
+        mins = set()      # 单 token 下界集合
+        quote_open = False
+        quote_etc = False
         for ev in item["evidence"]:
-            for match in tokens.finditer(ev["quote"]):
+            quote = ev.get("quote", "")
+            if open_top.search(quote):
+                quote_open = True
+            if additive_etc.search(quote):
+                quote_etc = True
+            for match in tokens.finditer(quote):
                 value = parse_amount(match.group())
                 if value is not None:
                     supported.add((value.min, value.max))
+                    if value.min is not None:
+                        mins.add(value.min)
+                        if value.max == value.min:
+                            points.append(value.min)
                 else:
                     # Exact upper/lowercase numerals supported by the existing S3 parser.
                     if not re.search(r"约|近|超过|至少|逾|不足|以上|以下|余|多", match.group()):
-                        supported.update((n, n) for n in _text_numbers(match.group(), "元"))
+                        nums = list(_text_numbers(match.group(), "元"))
+                        supported.update((n, n) for n in nums)
+                        points.extend(nums)
+                        mins.update(nums)
         value = item["value"]
-        if (value["min"], value["max"]) not in supported:
+        mn, mx = value["min"], value["max"]
+        direct = (mn, mx) in supported
+        ok = direct
+        if not ok and mn is not None:
+            if mx is None and mn in mins and quote_open:
+                ok = True  # '上不封顶/以上' 类开区间：下界逐字有据
+            elif mx is not None and mx >= mn and mn in points and mx in points:
+                ok = True  # 多值列举合成区间：两端点都是证据内确切数额
+            elif points and mn == sum(points) and (mx == sum(points) or (mx is None and quote_etc)):
+                ok = True  # 指南加总：逐项列出合计；'等' → 上界开口
+        if not ok:
             raise ValueError(f"numeric_evidence_unsupported:amounts.{name}")
-        # E-05 归一化对账：校验金额是否与证据文本一致
-        for ev in item["evidence"]:
-            if not validate_amount_e05(value, ev.get("quote", "")):
-                raise ValueError(f"e05_amount_mismatch:amounts.{name}")
+        # E-05 归一化对账只对"单一数额直取"形态有效：合成/加总/开区间的值天然跨
+        # quote（每条 quote 只含一个被加数），逐 quote 机械对账与第一层接地互斥；
+        # 此类值的第一层端点/求和接地即权威，跳过第二层。
+        if direct:
+            for ev in item["evidence"]:
+                if not validate_amount_e05(value, ev.get("quote", "")):
+                    raise ValueError(f"e05_amount_mismatch:amounts.{name}")
 
 
 def validate_located(payload, text_full: str, engine, regions=()) -> None:
