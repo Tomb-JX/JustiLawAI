@@ -17,6 +17,38 @@ from pathlib import Path
 WIRE_VERSION = "element-ref-v2"
 
 
+def _engine_eval_dir() -> Path:
+    """Resolve research/eval/ from the engine worktree (E-05 approval package location)."""
+    sibling_api = Path(__file__).resolve().parents[3].parent / "discretion-engine/justilaw-api"
+    api_path = Path(os.environ.get("JUSTILAW_ENGINE_API") or sibling_api)
+    eval_dir = api_path.parent / "research" / "eval"
+    if not (eval_dir / "normalization_spec.py").is_file():
+        raise RuntimeError("E-05 批准包不可达；research/eval/normalization_spec.py 缺失")
+    return eval_dir
+
+
+def _load_e05_module(name: str):
+    """Lazy-load an E-05 approval module from research/eval/."""
+    eval_dir = _engine_eval_dir()
+    mod_name = f"e05_{name}"
+    if mod_name not in sys.modules:
+        spec = importlib.util.spec_from_file_location(mod_name, str(eval_dir / f"{name}.py"))
+        mod = importlib.util.module_from_spec(spec)
+        sys.modules[mod_name] = mod
+        spec.loader.exec_module(mod)
+    return sys.modules[mod_name]
+
+
+def normalization_spec():
+    """Return the E-05 normalization_spec module (lazy-loaded)."""
+    return _load_e05_module("normalization_spec")
+
+
+def evidence_contract():
+    """Return the E-05 evidence_contract module (lazy-loaded)."""
+    return _load_e05_module("evidence_contract")
+
+
 def digest(value) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                      separators=(",", ":")).encode("utf-8")).hexdigest()
@@ -129,6 +161,15 @@ def compile_references(payload: object, inp: dict, text_full: str, engine) -> di
     issues = engine.validate_teacher_output(result, evidence_text=text_full, located=True)
     if issues:
         raise ValueError("engine_validation:" + ";".join(f"{i.field}:{i.code}" for i in issues))
+    # E-05 证据语义校验（§3.10）：来源限制 facts/meta、逐字连续、坐标
+    e05_issues = validate_evidence_contract(
+        result, text_full,
+        facts_text=inp.get("facts_text") or "",
+        meta_text=inp.get("meta_text") or "", located=True)
+    e05_errors = [i for i in e05_issues if i.severity == "error"]
+    if e05_errors:
+        raise ValueError("e05_evidence_contract:" + ";".join(
+            f"{i.field}:{i.code}" for i in e05_errors))
     check_money_support(result)
     return result
 
@@ -158,6 +199,10 @@ def check_money_support(payload):
         value = item["value"]
         if (value["min"], value["max"]) not in supported:
             raise ValueError(f"numeric_evidence_unsupported:amounts.{name}")
+        # E-05 归一化对账：校验金额是否与证据文本一致
+        for ev in item["evidence"]:
+            if not validate_amount_e05(value, ev.get("quote", "")):
+                raise ValueError(f"e05_amount_mismatch:amounts.{name}")
 
 
 def validate_located(payload, text_full: str, engine, regions=()) -> None:
@@ -200,3 +245,50 @@ def merge_valid(a: dict, b: dict, engine, text_full: str, regions=(), c=None):
     if not unresolved:
         validate_located(merged, text_full, engine, regions)
     return merged, unresolved, differences
+
+
+# --- E-05 approval package integration ---
+
+def validate_evidence_contract(payload: dict, text_full: str,
+                               facts_text: str = "", meta_text: str = "",
+                               *, located: bool = True) -> list:
+    """E-05 证据语义校验（§3.10 全 6 条规则）。
+
+    Call after S2 positioning, before storage. Returns list of EvidenceIssue.
+    Empty list = pass. When facts_text and meta_text are both empty, source
+    restriction checks are skipped (caller did not provide source context).
+    """
+    ec = evidence_contract()
+    # When source texts are unavailable, disable source restriction checks
+    # to avoid false positives on legitimate evidence.
+    effective_facts = facts_text if facts_text else text_full
+    effective_meta = meta_text if meta_text else ""
+    record = {"id": "?", "input": {"text_full": text_full,
+              "facts_text": effective_facts, "meta_text": effective_meta},
+              "elements": payload}
+    return ec.EvidenceValidator().validate_record(record, located=located)
+
+
+def normalize_amount_e05(text: str) -> dict | None:
+    """E-05 权威金额归一化。返回 {"min": float, "max": float|None} 或 None。"""
+    return normalization_spec().normalize_amount(text)
+
+
+def normalize_date_e05(text: str):
+    """E-05 权威日期归一化。返回 (date, status) 或 None。"""
+    return normalization_spec().normalize_date(text)
+
+
+def normalize_duration_e05(text: str) -> float | None:
+    """E-05 权威持续时间归一化（天）。"""
+    return normalization_spec().normalize_duration(text)
+
+
+def validate_amount_e05(normalized: dict, evidence_text: str) -> bool:
+    """E-05 金额归一化对账。True=一致或无法机械对账。"""
+    return normalization_spec().validate_amount_against_source(normalized, evidence_text)
+
+
+def validate_date_e05(normalized_iso: str, evidence_text: str) -> bool:
+    """E-05 日期归一化对账。True=一致或无法解析。"""
+    return normalization_spec().validate_date_against_source(normalized_iso, evidence_text)

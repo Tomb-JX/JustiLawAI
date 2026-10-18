@@ -239,3 +239,38 @@ def project_duration_days(value, *, policy=None):
         return {'value': duration.get('day', 0) + 7 * duration.get('week', 0) + 30 * duration.get('month', 0),
                 'losses': ['calendar_month_to_30_days'], 'policy': policy}
     return {'value': None, 'reason': 'calendar_duration_not_fixed_days', 'losses': []}
+
+
+# --- E-05 approval package: authoritative normalization ---
+# These functions delegate to normalization_spec.py (engine-side authority).
+# The JioNLP-based functions above remain for complex cases (anchors, relative dates).
+# For simple amount/date/duration normalization, prefer these E-05 functions.
+
+def normalize_amount_e05(text: str) -> dict | None:
+    """E-05 权威金额归一化。返回 {"min": float, "max": float|None} 或 None。"""
+    from element_contract import normalize_amount_e05 as _fn
+    return _fn(text)
+
+
+def normalize_date_e05(text: str):
+    """E-05 权威日期归一化。返回 (date, status) 或 None。"""
+    from element_contract import normalize_date_e05 as _fn
+    return _fn(text)
+
+
+def normalize_duration_e05(text: str) -> float | None:
+    """E-05 权威持续时间归一化（天）。"""
+    from element_contract import normalize_duration_e05 as _fn
+    return _fn(text)
+
+
+def validate_amount_e05(normalized: dict, evidence_text: str) -> bool:
+    """E-05 金额归一化对账。True=一致或无法机械对账。"""
+    from element_contract import validate_amount_e05 as _fn
+    return _fn(normalized, evidence_text)
+
+
+def validate_date_e05(normalized_iso: str, evidence_text: str) -> bool:
+    """E-05 日期归一化对账。True=一致或无法解析。"""
+    from element_contract import validate_date_e05 as _fn
+    return _fn(normalized_iso, evidence_text)
