@@ -375,3 +375,46 @@ def test_new_outcome_commit_revalidated_and_context_mismatch_quarantined(tmp_pat
     path.write_text(json.dumps(result),'utf-8')
     with pytest.raises(ValueError,match='context_mismatch'):
         attach_commit('T1',text,'甲',tmp_path)
+
+
+# --- E-05 integration tests ---
+
+def test_e05_money_adapter():
+    """E-05 money normalization produces compatible graph node format."""
+    from evidence_graph import _e05_money
+    text = "甲携带赌资3910元。"
+    ref = SourceSpan.from_text(text, 5, 10)
+    r = _e05_money("3910元", ref)
+    assert r["kind"] == "exact"
+    assert r["lower"] == "3910.0"
+    assert r["upper"] == "3910.0"
+    assert r["unit"] == "CNY"
+    assert r["resolution"] == "resolved"
+    assert r["e05"] is True
+
+
+def test_e05_time_adapter():
+    """E-05 date normalization produces compatible graph node format."""
+    from evidence_graph import _e05_time
+    text = "2025年8月15日处罚。"
+    ref = SourceSpan.from_text(text, 0, 10)
+    r = _e05_time("2025年8月15日", ref)
+    assert r["kind"] == "calendar_range"
+    assert r["start_date"] == "2025-08-15"
+    assert r["precision"] == "day"
+    assert r["resolution"] == "resolved"
+    assert r["e05"] is True
+
+
+def test_e05_graph_normalization_integration():
+    """build_graph uses E-05 for money/time normalization."""
+    text = "甲携带赌资500元，2025年8月被处罚。"
+    views = [{"id": "S1.1", "start": 0, "end": len(text), "text": text, "type": "facts"}]
+    graph = build_graph(text, views, "甲")
+    money_nodes = [n for n in graph["nodes"] if n["kind"] == "money"]
+    time_nodes = [n for n in graph["nodes"] if n["kind"] == "time"]
+    assert len(money_nodes) >= 1
+    assert money_nodes[0]["normalized"]["e05"] is True
+    assert money_nodes[0]["normalized"]["unit"] == "CNY"
+    if time_nodes:
+        assert time_nodes[0]["normalized"]["e05"] is True

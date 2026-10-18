@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import re
 
-from element_contract import digest
+from element_contract import digest, normalize_amount_e05, normalize_date_e05, normalize_duration_e05
 from evidence_types import SourceSpan
 from normalization import NUM, normalize_quantity, normalize_time
 
@@ -24,6 +24,40 @@ ROLE_PATTERNS = {
     "illegal_gain": r"违法所得",
     "fine": r"罚款",
 }
+
+
+def _e05_money(quote: str, ref) -> dict:
+    """E-05 authoritative money normalization, output compatible with graph node format."""
+    result = normalize_amount_e05(quote)
+    if result is None:
+        return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
+                "kind": "unknown", "resolution": "unresolved", "reason": "e05_parse_failed"}
+    return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
+            "unit": "CNY",
+            "kind": "exact" if result["min"] == result.get("max") else "lower_bound" if result.get("max") is None else "interval",
+            "operator": "=" if result["min"] == result.get("max") else ">=" if result.get("max") is None else "~",
+            "lower": str(result["min"]), "upper": str(result["max"]) if result.get("max") is not None else None,
+            "lower_inclusive": True, "upper_inclusive": result.get("max") is not None,
+            "resolution": "resolved", "e05": True}
+
+
+def _e05_time(quote: str, ref) -> dict:
+    """E-05 authoritative date normalization, output compatible with graph node format."""
+    result = normalize_date_e05(quote)
+    if result is None:
+        # Try duration
+        dur = normalize_duration_e05(quote)
+        if dur is not None:
+            return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
+                    "kind": "duration", "resolution": "resolved", "duration": dur, "e05": True}
+        return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
+                "kind": "unknown", "resolution": "unresolved", "reason": "e05_parse_failed"}
+    d, status = result
+    return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
+            "kind": "calendar_range", "resolution": "resolved",
+            "precision": "day" if status == "明确" else "month",
+            "start_date": d.isoformat(), "end_date": d.isoformat(),
+            "e05": True}
 
 
 def build_graph(original: str, views: list[dict], target: str, aliases=(), *, event_id=None):
@@ -73,8 +107,9 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
                     binding = "unresolved"
                     if mentions and not joint and role:
                         binding = "lexical_candidate"
-                    normalized = (normalize_time(ref.quote, ref) if kind == "time" else
-                                  normalize_quantity(ref.quote, ref, unit="CNY" if kind == "money" else "count"))
+                    normalized = (_e05_time(ref.quote, ref) if kind == "time" else
+                                  _e05_money(ref.quote, ref) if kind == "money" else
+                                  normalize_quantity(ref.quote, ref, unit="count"))
                     nodes.append({"id": "V-" + digest({"kind": kind, "span": ref.to_dict(), "version": VERSION})[:20],
                                   "kind": kind, "source_ref": ref.to_dict(), "clause_ref": SourceSpan.from_text(original, ca, cb).to_dict(),
                                   "sentence_ref": view.get("id"), "target": target, "subject_refs": mentions,
