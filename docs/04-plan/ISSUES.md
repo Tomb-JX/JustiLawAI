@@ -11,7 +11,7 @@
 | CONTRACT-01 | 契约未采纳：`accept_in_resolve` 已与 resolver 一致（target/shared），但 `binding_policy=proposed_pending_engine_adoption`、`semantic_rules_approved=false`；引擎尚未采纳/拒绝 | 引擎 + 后处理 | 引擎明确采纳/拒绝；规则版冻结后再定版 | 单一 module+版本；engine ack；artifact 与代码一致 | **open** |
 | I-20 | 36 要素参考标签未产出；`reference_elements=null`；218 条候选池（非金标）已产出；字段准确率暂缺 | 引擎 + 后处理 + 标注 | 复核 218 候选；合格子集跑 12 → 36 → 200–300；过 I-21 门 | 参考批次有版本/哈希；A/B 分歧报告；字段 P/R/F1 可算 | **执行中** |
 | I-22 | 批次质量：P2-r1 有 761 条重复 `P-2963` 权限页（duplicate_ids=760，format_ok=false，仅 591 条 facts/40 条 decision）；web-r4、P2-L4word `text_party=0`；全量刷新 canonical released+content 仅 3,728 | 后处理 + 来源 | 清理 P2-r1 重复/非文书；补 web party；按 `QUALIFIED.md` 跑 S1 主批 | P2-r1 format_ok 或明确弃用；party 策略明确；S1 主批可复现 | **open** |
-| I-24 | S1 输入仍有 **558 条无 target**（web 486 / P2-r1 62 / P1b 7 / P1 3），已单列 `no_subject.jsonl`，不进教师；web/P2-L4word `party=0` | 后处理 + 来源 | 补 target/party 或明确弃权；no_subject 不进入 label-ready | 计数稳定；策略记录；S1/教师输入无空 target | **open** |
+| I-24 | S1 输入仍有 **558 条无 target**（web 486 / P2-r1 62 / P1b 7 / P1 3），已单列 `no_subject.jsonl`；party 回收后仍有 **736 条无 party**（web 735、pkulaw 1）；web 未回收 2,737、P2-r1 763 | 后处理 + 来源 | 补 target；web 表格/复议/处罚摘要的 party 再回收或弃权；P2-r1 清理 | no_subject 计数稳定；party 策略记录；S1/教师输入无空 target | **open** |
 | I-21 | 付费批六道门：试点、赌博锚、会签、分批、按 L1 转化率验收、留评审记录 | 协调 | 任何新付费批先登记；未过门不得调用 | 六项记录齐全；L1 转化率达到约定 | **现行（无新付费批）** |
 | R7-01 | r7 未放行：S3 硬失败 25/299=8.36%，门禁 <5% | 后处理 + 协调 | 按 26 件溯源修 facts/decision/表格行；固定 299 分母复跑 | S3 <5%；正式门禁全过；边界人工评测有分母 | **blocked** |
 | DOC-01 | 陈旧“37 字段”表述：引擎 architecture 已改 36；其他文档触碰时同步 | 各文档归属线 | 下次触碰该文档时改为 36；不为此单开循环 | grep 无现行文档写 37 | **open（低）** |

@@ -44,6 +44,7 @@
 - **全量 unified 刷新（`d9999aa`）**：41 批/26,185 条 → `$DATA/unified_raw_refresh/20261018/`；format_ok 24,439；canonical 8,288；`released+content` 3,728。主批：web-r4、P1-r6、P1b-r2、P2-L4word、merged-full。P2-r1 有 761 条重复 `P-2963` 权限页，`format_ok=false`；web/P2-L4word `text_party=0`，meta 依赖字段受限。
 - **26,185 不是去重数**：唯一 id 7,333、唯一文本 7,468、唯一 text+subject 7,476；A 级 3,728（唯一 id 3,613、唯一事件键粗算 1,622）。`to_unified` 只做格式转换。
 - **S1 输入已产出（`a787352`）**：`20261018-s1/` 3,196 条 / 1,790 事件；唯一 id 与 event+subject；split 2,202/495/499；A 2,883 + A-salvage 313；party 1,320；`no_subject` 558 单列；S1 离线 plan `ee9cb165…` 通过。**不是标签**，P2-r1 salvage/party 缺口仍要标。
+- **party 批量回收（`7b0d9ff`）**：2,691 条 source-grounded（句 2,041/表 650）；`20261018-s1-party/` 3,196 条 / 1,790 事件，party_available **2,460**（原 1,320；web 772、pkulaw 1,688）；仍无 party 736；no_subject 558 不变；plan `17da2993…`。回收是规则结果，非人工审核。
 
 ## Gate A / A2：已完成
 
