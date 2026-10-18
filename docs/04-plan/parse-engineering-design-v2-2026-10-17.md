@@ -7,6 +7,7 @@
 > **v2.5（2026-10-18，当前实现）**：S1 已是 **seg-v2 句表分区**——模型输入编号句表，输出 zones + 文书字段，**quote 由服务端从句表生成**，不再由模型写引文；S2 为 `locate.py` + `evidence_graph.py`（`evidence-graph-2`）；绑定 `e06a0af` 后 212 123/611/1611、P1 158/723/1708，money shared=0，`semantic_rules_approved=false`；L5 `reference_elements=null`；S3 26/299=8.7%；r7 未放行。BIND-03/BIND-04/BIND-05 未关闭。
 > **v2.6（2026-10-18，协调层补记）**：补 §3A.1 教师输出完整 36 字段形状与 binding 作用、§3A.2 教师输入视图两条路径（S1 句表驱动 / 冻结切片 parsed-1 视图）、§6.1 S4 输入与校验对象；明确 36 字段之外的忽略信息需求。
 > **v2.7（2026-10-18，协调层补记）**：在 §4.2/§4.3 明确 S2 四类节点不是 36 要素字段，并补 `value_role → element field` 映射表；强调 S2 只产候选与归属，不产 36 字段值。
+> **v2.8（2026-10-18，协调层补记）**：修正层间位置——L5 明确为独立标签支线（非 S0–S4 阶段）；S1/L5 分工移到 §3A.0；§3A 不再重复 binding 细节，binding 唯一说明处为 §4.3；开发切片标注为非生产链路；S4 明确为人工层。
 > 硬约束（设计前提）：① 证据定位契约——五段必须是交付正本的连续子串，标注证据位置相对正本计算（data-spec §1）；② 可溯源——模型 id+提示版本+输入哈希全程可查；③ 确定性校验不得被模型输出绕过；④ 模型纪律——仅远程旗舰，禁本地小模型。（原 v2.0 的"远程模型调用不得接触未脱敏原文"隐私排序约束随脱敏取消移除。）
 
 ## 0. 现状问题的工程化翻译（总表）
@@ -44,6 +45,8 @@ parsed-1（原文态, 5,739件）
   S4 人工     低置信队列审核（mask_review 显示辅助）+ 分段评测集标注（100–200件金标准）
 ```
 
+> **层间顺序说明**：S0–S4 是解析管线；**L5 要素标签（§3A）是独立的标签支线，不在 S0–S4 的顺序里**。L5 消费 S1 的 facts/meta 视图，可与 S2/S3 并行；§3A 放在 S1 后面只为阅读顺序，不代表“先 L5 再 S2”。
+
 **脱敏取消（v2.1 关键决策，2026-10-17）**：原 v2.0 将模型调用排在预脱敏之后（模型只见遮蔽文本）。该隐私排序随脱敏限制取消一并解除：主管线不再有预脱敏，模型直接处理清理后的原文。量化收益（数据源：《完全去掉脱敏的链路影响模拟》§2）：
 
 1. **定位链三级投影减为两级**——五段坐标直接绑定交付正本，少一级投影＝少一类错位源；
@@ -64,7 +67,7 @@ parsed-1（原文态, 5,739件）
 | S1 模型分区 | **seg-v2**：句表 + run-length zones；模型只给 `from/to` 句号，服务端从句表生成 quote/坐标；`run_seg.py`；公示族 `zones_det` 确定性分区 | `s1_runs/seg-v2-*`；final300 299/300 成功、zones 铺满违例 0；`element-ref-v2` 是传输版本，不是 `element-v2` 本体批准 |
 | S2 定位/证据图 | `locate.py` + `evidence_graph.py`；quote → 原文坐标；小句 → money/count/time/behavior 候选节点；`evidence-graph-2` | 候选图/证据；当前绑定 `e06a0af`：212 123/611/1611、P1 158/723/1708；money shared=0；无独立准确率；BIND-03/BIND-04/BIND-05 |
 | S3 校验 | `s3.py`/`run_checks`；S3 硬失败 26/299=8.7% | parsed-2 候选；r7 要求 <5% |
-| L5 要素标签 | 7 组 36 要素字段；`CaseMeta` 3 元数据（非标签）；教师 `element-teacher-v1` 只输出 elements；A/B/C 仲裁；binding 是派生块 | **`reference_elements=null`**；无字段准确率 |
+| L5 要素标签（独立支线，非 S0–S4 阶段） | 7 组 36 要素字段；`CaseMeta` 3 元数据（非标签）；教师 `element-teacher-v1` 只输出 elements；A/B/C 仲裁；binding 是 S2 派生块 | **`reference_elements=null`**；无字段准确率 |
 | 交付 | r6 可用；r7 未放行 | r6 是格式/原文参考，不是标注底料 |
 
 **边界**：S1 的文书字段（outcome/subject/dates/review/gambling）仍供 S3/装配；segments 由 zones 从句表生成，不再是模型引文。要素标签与绑定见 §3A，不在 S1 一次调用里完成。
@@ -158,7 +161,11 @@ parsed-1（原文态, 5,739件）
   facts 边界跨模型稳定（0.768 vs 0.769，±0.001）；decision 是最低、最不确定的段，正则只取“结果部分”、模型给“依据+结果+执行”的完整块，口径不同，F1 低有构造性成分。**人工标注的 100–200 件五段边界评测集仍未做**，所以不能把这些 F1 当分段准确率。
 - S1 质量直接决定 L5 输入：facts 缺失/decision 误分会变成要素教师的输入错误；当前 L5 `reference_elements=null`，字段准确率仍未测。
 
-### 3.5 为什么 S1 与 L5 要素教师分开
+## 3A. 要素标签层（L5，2026-10-18 补）
+
+> 解析/分区只把文书变成可用输入；**标签**是另一层。当前项目最大的缺口在这里，不在解析。L5 是独立标签支线，不是 S0–S4 阶段；它消费 S1 的 facts/meta 视图，与 S2/S3 并行。
+
+### 3A.0 为什么 S1 与 L5 要素教师分开
 
 | | S1 seg-v2 | L5 要素教师 |
 |---|---|---|
@@ -171,15 +178,13 @@ parsed-1（原文态, 5,739件）
 
 核心是**输入可见性**：S1 必须看 decision 才能抽 `outcome.type`、法条和执行方式；L5 教师如果看 decision，就可能从“拘留十日”反推 `profit_purpose` 或 `role`，把处罚结论泄漏进要素标签。要素标签必须只来自事实。其次，两者粒度/输出/质量分母不同，分开才能定位是分段错了还是要素抽错了。再次，S1 每份文书一次解析调用，L5 是标注阶段 A/B/C 盲标调用，输入、输出、阶段都不同，不是重复调用。
 
-## 3A. 要素标签层（L5，2026-10-18 补）
-
-> 解析/分区只把文书变成可用输入；**标签**是另一层。当前项目最大的缺口在这里，不在解析。
+回到 L5 本身的字段与契约：
 
 - **字段**：7 组 **36 个要素字段**；`CaseMeta` 的 `region`/`behavior_date`/`decision_date` 是 3 个记录级元数据（登记/来源，教师不输出，不是第 37–39 个要素）；`binding` 是派生标注，不是字段。唯一来源 `schema.py`/`element_labels.py`。一人一条记录；`input` 只放 facts/meta 视图与 target/aliases，不能放 decision/reasoning/review/outcome。
 - **标签形状**：每字段 `{status, value, evidence}`；`status`=明确/推断/未提及；金额 `{min,max}`；日期 ISO；证据 `{quote,start,end}` 必须逐字命中且只来自 facts/meta。
 - **教师**：`element-teacher-v1` 只回 `elements`，不输出 binding；A/B 双盲 + 非 DeepSeek C 仲裁，产物 `model-adjudicated`、`human_review=false`，不计人工真值。
-- **绑定**：`binding` 是后处理派生标注（`shared_fact`/`target_specific`/`needs_review`），不是要素字段；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前代码 `e06a0af`：212 单人 123 shared/611 target/1611 review；P1-r6 178 条 158/723/1708；shared 全部是 count（`participant_count`/`unclassified_count`），money 的 shared 为 0；money 大量进入 review（212 1032、P1 1085），time 也多为 review。`field_accuracy=null`、`semantic_rules_approved=false`，契约 `binding_policy=proposed_pending_engine_adoption`。规则版语义归属已按 **B-10** 冻结（语义归属不得用规则实现，规则只做格式/证据/归一化校验）；**BIND-03/BIND-04/BIND-05 未关闭**。130/130 无落盘 artifact，不能作为准确率。
-- **验收**：schema/枚举/版本、证据逐字/坐标/来源、target 可定位、无 decision/reasoning/outcome 泄漏、金额/日期合法、`reference_elements` 非空、字段覆盖率、绑定小样本准确率、A/B 或人工复核。完整格式见 [data-spec §8](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) 与 [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)。
+- **绑定不是 L5 输出**：`binding` 是 S2 的派生标注（`shared_fact`/`target_specific`/`needs_review`），不改变 36 字段值；教师不输出 binding。当前分布、规则冻结与 BIND-03/04/05 见 §4.3，本节不重复。
+- **验收**：schema/枚举/版本、证据逐字/坐标/来源、target 可定位、无 decision/reasoning/outcome 泄漏、金额/日期合法、`reference_elements` 非空、字段覆盖率、A/B 或人工复核。**L5 验收不含 binding；binding 验收见 §4.3。** 完整格式见 [data-spec §8](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) 与 [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)。
 - **当前状态**：`reference_elements=null`；L5 标签为 0；M1 字段准确率暂缺；M4 只能用历史处罚做基线；r7 未放行。当前 12 件烟测的 21 条证据有 20 条定位成功（95.2%），但字段准确率仍未测。
 
 ### 3A.1 教师输出的完整形状（36 字段）
@@ -249,7 +254,7 @@ parsed-1（原文态, 5,739件）
 - 金额是 `{min,max}`；开口金额 `max=null`；日期 ISO；枚举/布尔/整数按字段定义。
 - 这是一条一人记录；多人案件拆成多条，各自调用。
 
-**binding 在这里的作用**：它不改变这 36 个字段的值，只给字段/证据加归属标签。`personal_stake`、`role`、`commission`、`profit_purpose` 等是 target（本人）；`participant_count`、`onsite_stake_total`、`venue_type`、`method` 等是 shared（场景级）；`needs_review` 表示无法证明归谁，不能消费。也就是说，binding 解决“这条值算谁的”，不解决“值是多少”。
+**binding 不在本节**：binding 是 S2 的派生标注，不改变 36 字段值；其作用、`value_role` 映射和当前状态见 §4.3。
 
 **当前 36 字段之外、但可能被忽略的信息**：其他人的身份/关系、共犯或主从关系、跨句代词、金额与事件的对应、同一事件的多条行为、场所地址、法条适用、处罚结果、案件元数据。这些不在 36 字段里；有些属于 S2/绑定，有些属于 CaseMeta 或后续本体扩展，不能塞进 `elements`。
 
@@ -257,8 +262,8 @@ parsed-1（原文态, 5,739件）
 
 教师输入只有两段文字：`facts_text` 和 `meta_text`，加上 `target` 与 `aliases`。视图映射有两条路径：
 
-1. **S1 驱动路径**（`run_elements.build_inputs`）：用 S1 的 zones（句号 ID）+ 句表 + `OffsetIndex`，把 facts 句和 facts 之前的 meta 句投影回原文；丢弃 evidence/reasoning/decision/review；句子若跨 S0 删除边界，会拆成多个原文片段；最后生成 `facts_text`、`meta_text`、`regions`、`view_hash`。这里确实**再次使用句号表**，但只是把 S1 已经选好的句子区间映射回原文，不是重新分段。
-2. **冻结开发切片路径**（`freeze_slice`）：直接用 parsed-1 的 `text_party`/`text_facts` 在原文中的唯一精确位置构造 meta/facts 视图；它不走 S1 句表，也不重新分段；同样做泄漏规则过滤、target 可见性和哈希校验。
+1. **S1 驱动路径（生产链路）**（`run_elements.build_inputs`）：用 S1 的 zones（句号 ID）+ 句表 + `OffsetIndex`，把 facts 句和 facts 之前的 meta 句投影回原文；丢弃 evidence/reasoning/decision/review；句子若跨 S0 删除边界，会拆成多个原文片段；最后生成 `facts_text`、`meta_text`、`regions`、`view_hash`。这里确实**再次使用句号表**，但只是把 S1 已经选好的句子区间映射回原文，不是重新分段。
+2. **冻结开发切片路径（开发期临时样本，不是生产链路）**（`freeze_slice`）：直接用 parsed-1 的 `text_party`/`text_facts` 在原文中的唯一精确位置构造 meta/facts 视图；它不走 S1 句表，也不重新分段；同样做泄漏规则过滤、target 可见性和哈希校验。它只用于诊断/烟测，不代表生产 S1 路径。
 
 两条路径的共同规则：只保留 facts 与 facts 之前的 meta；target 必须出现在视图里；aliases 必须是原文里的写法；不带 decision/reasoning/review/outcome。教师看到的是原文句子，不是摘要或清洗后的改写。
 
@@ -274,11 +279,12 @@ parsed-1（原文态, 5,739件）
   2. **ws**：双方去空白后匹配，唯一/多处 → `ws_unique` / `ws_multi`。
   3. **fuzzy**：引文前 10 字锚点 + `difflib` 最长连续公共块；块长 ≥60% 才采纳，返回 `fuzzy_unique` 并标 `note` 进审计；不足 60% 直接 `fail`。
 - `SourceSpan` 强类型：`text_sha256 + start + end + quote`，构造与 `verify()` 都要求 `text[start:end] == quote`；坐标系统一 `original-python-char`。
-- 当前主路径的保守点：`run_elements.locate_evidence` 只在允许区间内做**唯一精确匹配**，找不到就拒收；三级 `locate()` 已实现并有单测，但还不是教师证据的默认兜底。`build_graph` 直接用 S1 视图区间，不经过 `locate()`。
+- 当前主路径的保守点：`run_elements.locate_evidence` 只在允许区间内做**唯一精确匹配**，找不到就拒收；三级 `locate()` 已实现并有单测，但还不是教师证据的默认兜底。`build_graph` 直接用上游视图区间（生产 S1 路径的 views，或开发切片的 views），不经过 `locate()`。
 
 ### 4.2 `build_graph()`：候选证据图
 
 - 输入：原文、允许视图（facts/meta 等）、target、aliases、event_id。先校验 target/aliases 在原文、每个 view 的 `start/end/text` 与原文一致，否则报错，不凑坐标。
+- 视图有两个来源：**生产 S1 路径**（S1 zones → `build_inputs`）和**开发切片**（`freeze_slice`/P1 兜底）。开发切片只用于诊断/烟测，不是生产 S1 路径；不要把它的 parsed-1 正则视图当成 S1 输出。
 - 每个 view 按 `。；;\n` 和不在数字之间的逗号切小句；每句抽 `money` / `count` / `time`；小句含 target 时额外生成 `behavior` 节点。
 - 每个节点带：`id`、`kind`、`source_ref`（原文坐标+哈希+quote）、`clause_ref`、`sentence_ref`、`target`、`subject_refs`、`event_id`、`event_kind`、`value_role`、`binding`、`reason`、`normalized`、`semantic_approved=false`。
 - `value_role` 由金额前最近的角色关键词决定（本人/携带/持有/赌资、现场赌资合计、抽头/台费、违法所得等）；count/time 另有规则。`event_id` 优先用记录值，否则按小句 span+kind 生成；joint（分别/各自/与/和/伙同/、/等N人）会标 `joint_or_indirect_subject`。
@@ -322,6 +328,8 @@ parsed-1（原文态, 5,739件）
 - **置信度**：确定性校验本身可靠；但 S3 通过不等于要素标签准确，也不等于绑定正确。当前 r7 未放行。
 
 ## 6. S4 人工角色
+
+> S4 是人工层，不是自动校验层；它不消费 36 要素教师输出，也不把 S3 findings 当真值。输入/校验对象见 §6.1。
 
 1. **分段评测集**（100–200 件，分层：叙述式/字段式/表格/OCR 按实占比）：人工标五段起止；交付边界 F1 作模型 vs parse.py 的切换判据。**标注直接在原文正本上进行**——不再有"先脱敏、再冻结、再标注"的顺序约束，证据位置一步绑定，标注规范本线先出草案，标注平台走 Label Studio 族（或最小化：结构化表格 + mask_review 显示辅助）。
 2. **低置信队列**：mask_review 复用为可选显示辅助（原为脱敏取证基建，随取消降级为阅读遮蔽工具）；队列量预估 = 校验失败率 × 全量（pilot 先测）。
@@ -453,3 +461,4 @@ S3 是自动规则校验，S4 是人工复核/评测。S4 的“关键信息核�
 | v2.5 | 2026-10-18 | 按当前实现重写 S1/S2：S1 改为 seg-v2 句表分区（模型不写 quote，服务端生成；6 类 zones + 文书字段；7 值 outcome；zones_det 公式；final300/S3/边界 F1 实测）；S2 改为 `locate.py` + `evidence-graph-2`（三级定位、候选图、绑定约束、B-10）；更新 §9.1/§10.1/§12 与修订记录 | 协调层代笔（后处理线复核） |
 | v2.6 | 2026-10-18 | 补 §3A.1 教师输出完整 36 字段 JSON、binding 作用与 36 字段外信息清单；补 §3A.2 教师输入视图两条路径；补 §6.1 S4 输入/校验对象（原文 vs 记录，非 S3 系统信息自证） | 协调层代笔（后处理线复核） |
 | v2.7 | 2026-10-18 | §4.2/§4.3 明确 S2 四类节点（money/count/time/behavior）不是 36 要素字段；补 `value_role → element field` 映射表；强调 S2 只产候选/归属，36 字段值由 L5 教师产出 | 协调层代笔（后处理线复核） |
+| v2.8 | 2026-10-18 | 修正层间位置：L5 明确为独立标签支线（非 S0–S4 阶段）；S1/L5 分工移至 §3A.0；§3A 不重复 binding，binding 唯一说明处为 §4.3；开发切片标注为非生产链路；S4 明确为人工层 | 协调层代笔（后处理线复核） |
