@@ -101,7 +101,7 @@ parsed-1（原文态, 5,739件）
 - **字段**：7 组 36 字段 + 3 meta；唯一来源 `schema.py`/`element_labels.py`。一人一条记录；`input` 只放 facts/meta 视图与 target/aliases，不能放 decision/reasoning/review/outcome。
 - **标签形状**：每字段 `{status, value, evidence}`；`status`=明确/推断/未提及；金额 `{min,max}`；日期 ISO；证据 `{quote,start,end}` 必须逐字命中且只来自 facts/meta。
 - **教师**：`element-teacher-v1` 只回 `elements`，不输出 binding；A/B 双盲 + 非 DeepSeek C 仲裁，产物 `model-adjudicated`、`human_review=false`，不计人工真值。
-- **绑定**：每字段/证据标 `shared_fact`/`target_specific`/`needs_review`；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前 **v5 证据感知 3 步**：字段语义 → 证据主体（target/others/无）→ 段落类型；212 条计数仍是 61 shared/1120 target/528 review；**切片无多人案例，joint/other-subject 分支没有被实际触发**；528 review 全是 unclassified role（`fine`/`unclassified_count`），不是主体歧义；`resolve_binding` 代码接受 shared/target（1181/1709=69.1%），contract v4 `accept_in_resolve` 仍只写 lexical/target（1120/1709=65.5%）；无绑定准确率；BIND-03/CONTRACT-01 未关闭。
+- **绑定**：每字段/证据标 `shared_fact`/`target_specific`/`needs_review`；引擎 `binding_rules.py` 只定语义（8 shared/28 target），具体判定由后处理实现。当前 **v5 证据感知 3 步**：字段语义 → 证据主体（target/others/无）→ 段落类型。**212 开发切片是单人案卷**（61 shared/1120 target/528 review，joint 分支未触发）；**P1-r6 已有 178 条/186 个多人 behavior 节点**（111 shared/1570 target/908 review），多人分支已实际跑过。仍未做标注准确率；908 review 是 unclassified role（`fine`/`unclassified_count`）；`resolve_binding` 代码接受 shared/target（1181/1709=69.1%，212 口径），contract v4 `accept_in_resolve` 仍只写 lexical/target（1120/1709=65.5%）；BIND-03/CONTRACT-01 未关闭。
 - **验收**：schema/枚举/版本、证据逐字/坐标/来源、target 可定位、无 decision/reasoning/outcome 泄漏、金额/日期合法、`reference_elements` 非空、字段覆盖率、绑定小样本准确率、A/B 或人工复核。完整格式见 [data-spec §8](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) 与 [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)。
 - **当前状态**：`reference_elements=null`；L5 标签为 0；M1 字段准确率暂缺；M4 只能用历史处罚做基线；r7 未放行。
 
@@ -166,7 +166,7 @@ quote(清理后原文中的引文)
 | M1 诊断 | 64 条；丢弃 59/406=14.5% | 本地学生零样本；字段准确率暂缺 |
 | M2 默认档位内 | 166/176=94.3% | 10 条例外有解释；不修改历史处罚 |
 | M4 B4 | 35.94% vs 多数类 42.19% | 罚款 F1=0；负结果 |
-| binding v5 | 61 shared/1120 target/528 review | 证据感知 3 步；212 条无多人案例；528 review 为 unclassified role；代码可消费 1181/1709=69.1%，contract 65.5%；无准确率 |
+| binding v5 | 212：61 shared/1120 target/528 review；P1-r6：111/1570/908 | 212 单人；P1-r6 178 条/186 多人 behavior；908 review 为 unclassified role；无准确率；contract/code 不一致 |
 | L5 标签 | `reference_elements=null` | 未产标签；字段准确率/蒸馏被阻塞 |
 | r7 | 未放行 | S3>5%；正式门禁未过 |
 
@@ -186,7 +186,7 @@ quote(清理后原文中的引文)
 
 - r6 已交付（1,695/785）；r7 未放行；开发切片 212/121 已冻结。
 - S0–S3 已跑通；E-05/绑定已到 v4，但 L5 标签仍为 0（`reference_elements=null`）。
-- 绑定 v5：证据感知 3 步（字段语义→证据主体→段落类型）；212 条计数 61/1120/528；切片无多人案例，joint 分支未触发；528 review 为 unclassified role；`resolve_binding` 接受 shared，但 contract `accept_in_resolve` 仍 lexical/target；BIND-03/CONTRACT-01 未关；无绑定准确率。
+- 绑定 v5：212 单人（61/1120/528）；P1-r6 178 条/186 多人 behavior（111/1570/908）；证据感知 3 步已跑，但仍无标注准确率；908 review 为 unclassified role；`resolve_binding` 接受 shared，但 contract `accept_in_resolve` 仍 lexical/target；BIND-03/CONTRACT-01 未关。
 - M1 字段准确率、M4 要素特征、蒸馏都等 L5 标签；当前只能用历史处罚做 M4 文本基线。
 - 无新付费调用；付费烟测需 I-21 六道门。
 
@@ -205,6 +205,28 @@ quote(清理后原文中的引文)
 | sota-baselines-and-gates §8 R6 | "个人信息泄漏扫描命中=0"为任何阶段红线 | 改为对外发布/交付红线（数据集出项目时），项目内不阻断 |
 | data-collection 三原则与 §4 | "先合规再采集（脱敏 SOP 与协议先行）"；原料"须先脱敏（D1–D5 拍板后）" | 合规原则保留"协议先行+台账溯源"；脱敏 SOP 转为外发 SOP |
 
+## 12. 当前阻塞在设计中的位置（2026-10-18 13:20）
+
+> 结论：主要卡点不在解析/分区，也不在 M2；在 **L5 标签 + 绑定质量**。M1/M4 是 L5 的下游；r7 是独立的 S3 发布门。
+
+| 设计位置 | 卡点 | 证据 | 阻塞的下一环 | 解除条件 |
+|---|---|---|---|---|
+| L0–L3 原文/解析/交付 | 基本通 | r6 1,695/785；开发切片 212/121；P1-r6 178 | r7 仍需 S3 | S3 <5% + 正式门禁 |
+| S0 清理 | 无 | `cleanse.py`/replay edits | — | — |
+| S1 分区 | 无 | seg-v2 + `element-ref-v2` | — | — |
+| S2 定位/证据图 | **绑定质量** | v5 证据感知 3 步；212 单人 61/1120/528；P1-r6 178 条/186 多人 behavior 111/1570/908 | L5 标签 | unclassified role 处置；多人案例；100–200 准确率；BIND-03 |
+| S3 校验 | **r7 门** | 26/299=8.7% >5% | r7 | S3 错误分类 + <5% |
+| L5 标签 | **主阻塞** | `reference_elements=null`；无教师批次；字段准确率暂缺 | M1 字段准确率、M4 要素特征、蒸馏 | 标签契约 + 12/36/200–300 批 + 独立验收；I-20 |
+| M1 | 等 L5 | 64 诊断；59/406 丢弃；准确率暂缺 | — | L5 标签 |
+| M2 | 可用 | 166/176=94.3%；10 例外 | — | 法律组确认例外（不阻塞开发） |
+| M4 | 等 L5 | B4 未超多数类；罚款 F1=0 | — | L5 要素特征 |
+| M5/M6 | 未实现 | — | 后续 | 不在首跑前置 |
+| 契约层 | **artifact/code 不一致** | 代码接受 shared/target 1181/69.1%（212 口径）；contract v4 只写 lexical/target 1120/65.5%；`semantic_rules_approved=true` | L5 生产 | 统一 `accept_in_resolve` + 版本；CONTRACT-01 |
+| 付费/发布 | 门禁 | 无新付费批；r7 关门 | 全量/r7 | I-21 六道门 + S3 |
+| 协调/可见性 | 流程 | PUSH/DOC/SCOPE | — | 推送/归档/事件登记 |
+
+**关键区分**：212 开发切片是单人案卷；P1-r6 才是多人绑定样本（178 条/186 个多人 behavior）。两边都还没有标注准确率；908/528 review 是 unclassified role，不是“主体歧义已解决”。
+
 ## 修订记录
 
 | 版本 | 日期 | 变更 |
@@ -212,3 +234,4 @@ quote(清理后原文中的引文)
 | v2.0 | 2026-10-17 | 初版：六阶段 S0–S5（含 S1 预脱敏），隐私排序=模型只见预脱敏文本 |
 | v2.1 | 2026-10-17 | 脱敏限制取消（用户决策）：删 S1 预脱敏（六阶段→五阶段）；定位链去 deid 投影（③ 直达交付坐标）；标注直接绑定原文正本；deid.py/r6_scan.py/mask_review 降级为衍生/辅助工具；金标回退 A/F 类整类关闭；新增 §11 规范联动清单（规范修订由协调层承接）；新增 §9"原文人名形态"待测项 |
 | v2.2 | 2026-10-18 | 补当前实现映射：seg-v2 句表分区、`element-ref-v2`、E-05 要素/绑定 v4；新增 §1.1、§3A L5 标签层、§9.1 实测状态、§10.1 执行状态；旧 `seg-v1` JSON 仅作历史设计 |
+| v2.3 | 2026-10-18 | 补 v5 证据感知 3 步与 P1-r6 多人绑定（178 条/186 节点，111/1570/908）；新增 §12 当前阻塞在设计中的位置（L5/绑定为主阻塞，r7 独立门） |
