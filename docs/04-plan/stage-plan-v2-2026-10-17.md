@@ -85,7 +85,7 @@
 
 **2026-10-18 10:35 新增**：① **M2 合法空间核对**（E-01，未提交结果）：212 条中可核对 176 条，**166 条落在默认法定选项内（94.3%）**；flags：未引赌博罚则 36、法律版本未知 36、超出默认选项 10、行为日期只到月 36、拘留需合并审查 2、罚款需合并审查 1、非标准结果 1、决定早于行为 1。② **M4 负结果诊断**（E-03）：罚款类 F1=0（10 条真值只预测 1 条）、拘留 F1 0.375、拘留并罚 0.415；输入长度四分位准确率 0.25→0.50，已知 n-gram 非单调。③ **两个 Codex 会话额度耗尽**：后处理线 8 改＋17 新（含 normalization/evidence_graph/outcome_arbitration/contract_bundle）＋10:28 诊断，引擎线 1 改＋3 新＋M2/M4 结果；未提交内容已只读备份，续跑单见 [后处理](./codex-postprocessing-continuation-2026-10-18.md) / [引擎](./codex-engine-continuation-2026-10-18.md)。
 
-**2026-10-18 13:20 刷新**：两个 Codex 会话已恢复并交付——引擎 `f0dd746`（binding_rules 语义-only 8 shared/28 target，225 passed）；后处理 `3d05914`（v5 证据感知 3 步 + behavior/clause 多人检测；212 123/1567/655；P1-r6 178 条/186 多人 158/1570/861；`semantic_rules_approved=true`；`resolve_binding` 接受 shared；但 contract v4 `accept_in_resolve` 仍 lexical/target）；`reference_elements=null` 未变，M1 字段准确率仍暂缺；BIND-03/CONTRACT-01 仍未关闭；r7 未放行。当前状态以 [BOARD.md](./BOARD.md)/`CURRENT.md` 为准。
+**2026-10-18 13:40 刷新**：引擎 `f0dd746`（binding_rules 语义-only 8 shared/28 target，225 passed）+ `1152141`（L5 字段边界：36 要素 + CaseMeta 3 元数据 + binding 派生块）；后处理 `60ebb52`（scene-level money）。协调复跑当前代码：212 310/1517/518；P1-r6 178 条 557/1519/513；**scene-level money 回归**——P1 254/399、212 57/187 是“他人姓名+赌资+金额”的个人金额，与 `personal_stake=TARGET` 冲突；提交说明 130/130 无落盘 artifact；BIND-03/BIND-04/CONTRACT-01 未关闭；`reference_elements=null`、r7 未放行。当前状态以 [BOARD.md](./BOARD.md)/`CURRENT.md` 为准。
 
 ## 5. Stage 3 预告（方向，不展开）
 

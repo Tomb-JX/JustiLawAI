@@ -24,3 +24,4 @@
 | B-06 | 2026-10-18 | 旧状态文档只保留历史/归属价值：`workstreams` 不再记会话状态，`stage-plan` 不再当状态板，续跑单消费后归档 | 本次协调规范 | 现行 |
 | B-07 | 2026-10-18 | 各线自行向共享 `events.jsonl` append 提交/产物/交接/阻塞/指标；CLI 自动渲染 CURRENT；协调不再逐条手抄状态 | [event-registry.md](./event-registry.md) | 现行 |
 | B-08 | 2026-10-18 | 绑定职责分层：引擎定契约（字段语义、shared/target/review 类别、证据要求、验收指标）；数据/后处理实现具体判定（NLP/混合，规则仅高精度基线）；引擎不签自己的实现，独立小样本验收 | 本次职责澄清 | 现行 |
+| B-09 | 2026-10-18 | L5 字段边界：`reference_elements` 只含 7 组 36 要素字段；`CaseMeta` 的 `region`/`behavior_date`/`decision_date` 是引擎 3 个记录级元数据（登记/来源，教师不输出，不是第 37–39 个要素）；`binding` 是后处理派生标注，单列 `binding` 块，不是要素字段。数据线不得自行增删字段；字段变动须引擎 `SCHEMA_VERSION` 升版 | 本次字段边界澄清 | 现行 |
