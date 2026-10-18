@@ -23,6 +23,15 @@ class BindingType(str, Enum):
     REVIEW = "needs_review"
 
 
+class ReviewReason(str, Enum):
+    """needs_review 的子类，用于诊断分析。"""
+    NO_SUBJECT = "no_subject"      # 证据没提到任何人名 → 大概率 shared
+    AMBIGUOUS = "ambiguous"        # 证据提到多人但无法区分 → 真正模糊
+    IMPLICIT = "implicit"          # 证据用代词/隐含指代 → 需要共指消解
+    FIELD_DEFAULT = "field_default"  # 字段级默认命中 target 但证据提到其他人
+    UNKNOWN_FIELD = "unknown_field"  # 未知字段
+
+
 # --- 字段级默认绑定类型 ---
 # 有些字段天然属于场景级（shared），有些天然属于个人级（target），
 # 有些取决于证据内容（需按规则判定）。
@@ -80,6 +89,7 @@ class BindingResult:
     binding_type: BindingType
     reason: str
     confidence: float = 1.0  # 1.0=确定, 0.5=推测, 0.0=无法判定
+    review_reason: ReviewReason | None = None  # 仅 binding_type=REVIEW 时有值
 
 
 def classify_binding(field: str, evidence_text: str, *,
@@ -102,7 +112,8 @@ def classify_binding(field: str, evidence_text: str, *,
         # 即使有默认值，如果证据明确提到其他人而非目标，仍需审查
         if default == BindingType.TARGET and _mentions_others(evidence_text, target_mention, all_subjects):
             return BindingResult(field, BindingType.REVIEW,
-                                 "个人级字段的证据提到了其他人", 0.5)
+                                 "个人级字段的证据提到了其他人", 0.5,
+                                 ReviewReason.AMBIGUOUS)
         return BindingResult(field, default, f"字段默认绑定: {default.value}")
 
     # 2. 内容依赖字段
@@ -110,7 +121,8 @@ def classify_binding(field: str, evidence_text: str, *,
         return _classify_content_dependent(field, evidence_text, target_mention, all_subjects)
 
     # 3. 未知字段 → needs_review
-    return BindingResult(field, BindingType.REVIEW, "未知字段，需人工判定", 0.0)
+    return BindingResult(field, BindingType.REVIEW, "未知字段，需人工判定", 0.0,
+                         ReviewReason.UNKNOWN_FIELD)
 
 
 def _mentions_others(text: str, target: str, all_subjects: tuple[str, ...]) -> bool:
@@ -138,9 +150,10 @@ def _classify_content_dependent(field: str, text: str, target: str,
         if target in text:
             return BindingResult(field, BindingType.TARGET,
                                  f"证据只提到 {target}", 0.9)
-        # 没提到任何人 → 需审查
+        # 没提到任何人 → needs_review (no_subject: 大概率 shared)
         return BindingResult(field, BindingType.REVIEW,
-                             "行为描述未明确指向具体当事人", 0.3)
+                             "行为描述未明确指向具体当事人", 0.3,
+                             ReviewReason.NO_SUBJECT)
 
     # 次数/持续时间
     if field in ("conduct.times", "conduct.duration_days"):
@@ -151,9 +164,11 @@ def _classify_content_dependent(field: str, text: str, target: str,
             return BindingResult(field, BindingType.SHARED,
                                  "次数/时长描述涉及多人", 0.7)
         return BindingResult(field, BindingType.REVIEW,
-                             "次数/时长描述未明确指向", 0.3)
+                             "次数/时长描述未明确指向", 0.3,
+                             ReviewReason.NO_SUBJECT)
 
-    return BindingResult(field, BindingType.REVIEW, "内容依赖字段无法自动判定", 0.0)
+    return BindingResult(field, BindingType.REVIEW, "内容依赖字段无法自动判定", 0.0,
+                         ReviewReason.UNKNOWN_FIELD)
 
 
 def classify_record_bindings(record: dict, *,
@@ -191,19 +206,23 @@ def classify_record_bindings(record: dict, *,
 
 
 def binding_summary(bindings: list[BindingResult]) -> dict:
-    """汇总绑定判定结果。"""
+    """汇总绑定判定结果，含 needs_review 子类分解。"""
     from collections import Counter
     counts = Counter(b.binding_type.value for b in bindings)
+    review_reasons = Counter(b.review_reason.value for b in bindings
+                             if b.binding_type == BindingType.REVIEW and b.review_reason)
     by_field: dict[str, dict] = {}
     for b in bindings:
         entry = by_field.setdefault(b.field, {"shared": 0, "target": 0, "review": 0, "items": []})
         entry[b.binding_type.value] = entry.get(b.binding_type.value, 0) + 1
         entry["items"].append({"type": b.binding_type.value, "reason": b.reason,
-                                "confidence": b.confidence})
+                                "confidence": b.confidence,
+                                "review_reason": b.review_reason.value if b.review_reason else None})
     return {
         "total": len(bindings),
         "shared_fact": counts.get("shared_fact", 0),
         "target_specific": counts.get("target_specific", 0),
         "needs_review": counts.get("needs_review", 0),
+        "needs_review_by_reason": dict(review_reasons),
         "by_field": by_field,
     }

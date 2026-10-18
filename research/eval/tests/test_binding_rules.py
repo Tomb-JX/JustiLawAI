@@ -3,7 +3,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from binding_rules import (BindingType, BindingResult,  # noqa: E402
+from binding_rules import (BindingType, BindingResult, ReviewReason,  # noqa: E402
                             classify_binding, classify_record_bindings,
                             binding_summary, FIELD_DEFAULT_BINDING)
 
@@ -129,6 +129,47 @@ def test_binding_summary():
     assert s["shared_fact"] == 2
     assert s["target_specific"] == 1
     assert s["needs_review"] == 1
+
+
+# --- review_reason 子类 ---
+
+def test_review_reason_no_subject():
+    """Evidence with no subject mention → NO_SUBJECT."""
+    r = classify_binding("conduct.behavior_type", "以打麻将方式赌博",
+                         target_mention="甲", all_subjects=("甲", "乙"))
+    assert r.binding_type == BindingType.REVIEW
+    assert r.review_reason == ReviewReason.NO_SUBJECT
+
+
+def test_review_reason_ambiguous():
+    """Target field with others mentioned → AMBIGUOUS."""
+    r = classify_binding("amounts.personal_stake", "甲和乙各持有赌资 350 元",
+                         target_mention="甲", all_subjects=("甲", "乙"))
+    assert r.binding_type == BindingType.REVIEW
+    assert r.review_reason == ReviewReason.AMBIGUOUS
+
+
+def test_review_reason_unknown_field():
+    """Unknown field → UNKNOWN_FIELD."""
+    r = classify_binding("unknown.field", "some text",
+                         target_mention="甲")
+    assert r.binding_type == BindingType.REVIEW
+    assert r.review_reason == ReviewReason.UNKNOWN_FIELD
+
+
+def test_summary_breaks_down_review_reasons():
+    """Summary should include needs_review_by_reason."""
+    bindings = [
+        BindingResult("a", BindingType.SHARED, "ok"),
+        BindingResult("b", BindingType.TARGET, "ok"),
+        BindingResult("c", BindingType.REVIEW, "no subject", 0.3, ReviewReason.NO_SUBJECT),
+        BindingResult("d", BindingType.REVIEW, "ambiguous", 0.5, ReviewReason.AMBIGUOUS),
+        BindingResult("e", BindingType.REVIEW, "no subject", 0.3, ReviewReason.NO_SUBJECT),
+    ]
+    s = binding_summary(bindings)
+    assert s["needs_review"] == 3
+    assert s["needs_review_by_reason"]["no_subject"] == 2
+    assert s["needs_review_by_reason"]["ambiguous"] == 1
 
 
 # --- 覆盖所有默认绑定字段 ---
