@@ -49,6 +49,23 @@ def evidence_contract():
     return _load_e05_module("evidence_contract")
 
 
+def binding_rules():
+    """Return the E-05 binding_rules module (lazy-loaded)."""
+    return _load_e05_module("binding_rules")
+
+
+def classify_bindings(payload: dict, target: str, aliases=()) -> dict:
+    """Classify all evidence bindings using E-05 binding rules.
+
+    Returns binding_summary dict with shared_fact/target_specific/needs_review counts.
+    """
+    br = binding_rules()
+    record = {"elements": payload}
+    all_subjects = tuple(sorted(set((target, *aliases))))
+    bindings = br.classify_record_bindings(record, target_mention=target, all_subjects=all_subjects)
+    return br.binding_summary(bindings)
+
+
 def digest(value) -> str:
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                      separators=(",", ":")).encode("utf-8")).hexdigest()

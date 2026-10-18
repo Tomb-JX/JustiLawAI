@@ -9,7 +9,7 @@ from pathlib import Path
 
 from durable_calls import append, read_rows
 from element_contract import engine_contract, contract_snapshot, validate_located
-from evidence_graph import build_graph
+from evidence_graph import build_graph, classify_graph_bindings
 from field_rules import field_catalog
 from normalization import backend_fingerprint
 from observability import diagnose, summarize
@@ -42,6 +42,7 @@ def diagnose_batch(source: Path, out: Path):
             raise ValueError("missing_exact_allowed_view")
         target = inp.get("target") or record.get("subject_mention")
         graph = build_graph(original, views, target, record.get("subject_aliases") or (), event_id=record.get("event_id"))
+        classify_graph_bindings(graph, aliases=record.get("subject_aliases") or ())
         execution = "valid" if record.get("elements_status") == "candidate_validated" else "not_available"
         if execution == 'valid':
             try:
@@ -60,6 +61,8 @@ def diagnose_batch(source: Path, out: Path):
             totals["kind:" + node["kind"]] += 1
             totals["normalizer:" + node["normalized"]["resolution"]] += 1
             totals["binding:" + node["binding"]] += 1
+            if "e05_binding" in node:
+                totals["e05_binding:" + node["e05_binding"]] += 1
             if node["normalized"].get("reason"):
                 totals["reason:" + node["normalized"]["reason"]] += 1
     report = {"version": VERSION, "records": len(rows), "candidate_diagnostics": dict(totals),

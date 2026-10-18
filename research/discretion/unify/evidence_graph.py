@@ -119,6 +119,66 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
     return {"version": VERSION, "target": target, "nodes": nodes}
 
 
+def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
+    """Post-process graph nodes with E-05 binding rules (shared_fact/target_specific/needs_review).
+
+    Updates each node's 'binding' field and adds 'e05_binding' classification.
+    Returns the graph (mutated) with a 'binding_summary' entry.
+    """
+    from element_contract import binding_rules
+    br = binding_rules()
+    target = graph.get("target", "")
+    all_subjects = tuple(sorted(set((target, *aliases))))
+    for node in graph.get("nodes", []):
+        role = node.get("value_role")
+        if not role or role.startswith("unclassified"):
+            node["e05_binding"] = "needs_review"
+            continue
+        # Map value_role to field path
+        field = _role_to_field(role)
+        if field is None:
+            node["e05_binding"] = "needs_review"
+            continue
+        quote = node.get("source_ref", {}).get("quote") or ""
+        result = br.classify_binding(field, quote, target_mention=target, all_subjects=all_subjects)
+        node["e05_binding"] = result.binding_type.value
+        node["e05_binding_reason"] = result.reason
+        node["e05_binding_confidence"] = result.confidence
+    # Add summary
+    bindings = [n.get("e05_binding", "needs_review") for n in graph.get("nodes", [])]
+    from collections import Counter
+    counts = Counter(bindings)
+    graph["binding_summary"] = {
+        "total": len(bindings),
+        "shared_fact": counts.get("shared_fact", 0),
+        "target_specific": counts.get("target_specific", 0),
+        "needs_review": counts.get("needs_review", 0),
+    }
+    return graph
+
+
+def _role_to_field(role: str) -> str | None:
+    """Map value_role to field path for binding classification."""
+    mapping = {
+        "personal_stake": "amounts.personal_stake",
+        "per_bet": "amounts.per_bet",
+        "onsite_stake_total": "amounts.onsite_stake_total",
+        "cumulative_stake": "amounts.cumulative_stake",
+        "commission": "amounts.commission",
+        "illegal_gain": "amounts.illegal_gain",
+        "fine": "amounts.commission",  # fine is penalty, not a binding field
+        "participant_count": "persons.participant_count",
+        "cumulative_participants": "persons.cumulative_participants",
+        "times": "conduct.times",
+        "birth": "person.age",
+        "prior_penalty": "circumstances.last_prior_penalty_date",
+        "behavior": "conduct.behavior_type",
+        "penalty": None,  # penalty is not a binding field
+        "review": None,
+    }
+    return mapping.get(role)
+
+
 def resolve_binding(graph, candidate_id, *, target, event_id, value_role, evidence_spans):
     """Validate explicit edge selection, independently of numeric equality."""
     matches = [n for n in graph["nodes"] if n["id"] == candidate_id]
