@@ -53,7 +53,7 @@
 |---|---|---|
 | 1. 规则定义 | 引擎 `binding_rules.py`：字段默认 shared/target；内容依赖字段按证据文本分类；review_reason 细分原因 | **已完成**（`3a37c56`，235 passed） |
 | 2. 分类诊断 | 后处理 `classify_graph_bindings`：给每个候选加 `e05_binding` 标签并统计 | **已完成**（61 shared / 752 target / 896 review） |
-| 3. 主链路执行 | 更新主 `binding` 字段；`resolve_binding` 接受 shared/target/review，真正把值归到本人/事件 | **部分完成**：`90c46a6` 写主 `binding`；`resolve_binding` 接受 lexical/target；shared 61 + review 896 仍不可消费（814/1709 可消费） |
+| 3. 主链路执行 | 更新主 `binding` 字段；`resolve_binding` 接受 shared/target/review，真正把值归到本人/事件 | **部分完成**：`90c46a6` 写主 `binding`；`resolve_binding` 接受 lexical/target；shared 61 + review 896 不可消费（target 752/1709=44.0% 可消费；lexical 仅 legacy） |
 | 4. 契约采纳 | 引擎签发 `binding_policy`；`semantic_rules_approved=true`；版本号提升 | **未完成**：`binding_policy` / `normalization_policy` 仍 `proposed_pending_engine_adoption`；`semantic_rules_approved=false` |
 
 **质量保障现状**：暂无绑定标注准确率；字段默认表有疑误（如 `persons.civil_servant` 标成 shared，但它是“本人是否为国家工作人员”）；调用方把 target+aliases 当 `all_subjects`，别名可能被误判为“他人”；`conduct.times` 多人时标 shared，可能掩盖本人次数。以上都未验证。
@@ -85,7 +85,7 @@
 | S3 硬失败 | 26/299 = 8.7% | 11:16/11:36 S3 回放；r7 要求 <5% |
 | binding unresolved | 1,647 / 1,704 候选 | 旧 `binding` 字段；E-05 分类未改它 |
 | binding 分类 | 61 shared / 752 target / 896 review | `90c46a6` 已写主 `binding` |
-| binding 可消费 | 814 / 1,709 = 47.6% | target 752 + lexical 62；shared/review 不可经 `resolve_binding` |
+| binding 可消费 | 752 / 1,709 = 44.0% | 仅 target_specific；shared 61 + review 896 不可；lexical 仅 legacy |
 | binding needs_review | 896 / 1,709 = 52.4% | `e05_binding` 分类；需决策 |
 | A2 approx 失败 | 97 → 11 | E-05 主路径生效 |
 | A2 e05 parse failed | 5 | 需 Gate B 时复核 |

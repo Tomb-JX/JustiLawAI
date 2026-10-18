@@ -7,7 +7,7 @@
 
 | 编号 | 问题 | Owner | 下一步 | 验收 / 关闭条件 | 状态 |
 |---|---|---|---|---|---|
-| BIND-03 | 绑定质量未证：主 `binding` 已写，但 `resolve_binding` 只收 lexical/target；shared 61 + review 896 不可消费（814/1709 可消费）；字段默认表疑误（`civil_servant` 等）；target+aliases 被当 all_subjects；无标注准确率 | 引擎 + 后处理 | 字段表/别名接口审计；定义 shared/review 消费；做 100–200 候选准确率样本；再 Gate B | shared/review 有明确消费或显式未知；小样本准确率达标；字段表有测试 | **open** |
+| BIND-03 | 绑定质量未证：主 `binding` 已写，但 `resolve_binding` 只收 lexical/target；shared 61 + review 896 不可消费（target 752/1709=44.0% 可消费；lexical 仅 legacy）；字段默认表疑误（`civil_servant` 等）；target+aliases 被当 all_subjects；无标注准确率 | 引擎 + 后处理 | 字段表/别名接口审计；定义 shared/review 消费；做 100–200 候选准确率样本；再 Gate B | shared/review 有明确消费或显式未知；小样本准确率达标；字段表有测试 | **open** |
 | CONTRACT-01 | 契约未采纳：`binding_policy` 已写入但仍 `proposed_pending_engine_adoption`；`normalization_policy` pending；`semantic_rules_approved=false`；`release_approved=false` | 引擎 + 后处理 | 引擎签发 policy/批准；后处理提升版本并重导 contract | `semantic_rules_approved=true`；binding_policy 状态已采纳；单一 module+版本 | **open** |
 | PUSH-01 | 可见性：引擎/后处理已推送；协调事件登记工具/快照待提交 | 协调 | 提交并推送本批协调文档 | handoff 引用的 commit 在 origin 上；CURRENT 可读 | **open** |
 | I-20 | 36 要素参考标签未产出；`reference_elements=null`；字段准确率暂缺 | 引擎 + 后处理 | 契约定版后，按 ≤12 → 200–300 件跑教师参考；过 I-21 门 | 参考批次有版本/哈希；A/B 分歧报告；字段 P/R/F1 可算 | **执行中** |

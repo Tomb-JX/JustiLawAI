@@ -64,7 +64,7 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 |---|---|
 | 引擎 ack（时间/commit） | `971fdc3`（已推送）：binding_rules；shared/target/review；231 passed；另有 `affcea2` 绑定审计 |
 | 后处理 ack（时间/commit） | `4b7680d` A2；`f00b494` 分类；`90c46a6` 主 binding + binding_policy；均已推送；142 passed |
-| Gate B（绑定） | **主字段已写**：`binding` 61 shared / 752 target / 896 review；`resolve_binding` 接受 lexical/target；**shared/review 不可消费（814/1709）**；质量未验证 |
+| Gate B（绑定） | **主字段已写**：`binding` 61 shared / 752 target / 896 review；`resolve_binding` 接受 lexical/target；**shared/review 不可消费（target 752/1709=44.0%）**；质量未验证 |
 | 单测结果 | 90c46a6 声明 142 passed；绑定质量/字段表/别名接口无专用验证 |
 | 诊断结果（binding 变化、normalizer、证据问题数） | v2：binding 61/752/896；old unresolved 消除；`semantic_rules_approved=false`；`release_approved=false` |
 | 新 contract 路径/哈希 | `$DATA/s1_runs/contract-e05-binding-v2-bundle/contract.json`；内部 `1d0b0873…`；**待采纳**（binding_policy/normalization 仍 pending） |
