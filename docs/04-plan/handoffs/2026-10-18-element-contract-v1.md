@@ -63,9 +63,9 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 | 项 | 记录 |
 |---|---|
 | 引擎 ack（时间/commit） | `f0dd746`（已推送）：binding_rules 改为语义-only（8 shared / 28 target），删除具体分类；225 passed；前有 `971fdc3`/`3a37c56`/`54150db` |
-| 后处理 ack（时间/commit） | `d5330a3`（已推送）：适配语义表；v3 诊断 61/1120/528；contract v3 标 adopted；142 passed |
-| Gate B（绑定） | **字段默认基线**：v3 61 shared / 1120 target / 528 review；`resolve_binding` 仍只收 lexical/target；**target 1120/1709=65.5% 可消费；shared/review 不可**；无逐案证据判定 |
+| 后处理 ack（时间/commit） | `2be05bc`（已推送）：v4 诊断 61/1120/528；review 加 `binding_reason`；`resolve_binding` 接受 shared；`fine→None`；`semantic_rules_approved=true`；142 passed |
+| Gate B（绑定） | **字段默认基线**：v4 61 shared / 1120 target / 528 review；`resolve_binding` 代码接受 shared/target（1181/1709=69.1%），但 contract `accept_in_resolve` 仍 lexical/target（1120/1709=65.5%）；review 528 原因是未映射 role；无逐案证据判定 |
 | 单测结果 | v3 声明 142 passed；字段默认查表无专用准确率测试；528 review 无原因分解 |
 | 诊断结果（binding 变化、normalizer、证据问题数） | v3：binding 61/1120/528；`semantic_rules_approved=false`；`release_approved=false`；`fine→commission` 映射疑误 |
-| 新 contract 路径/哈希 | `$DATA/s1_runs/contract-e05-binding-v3-bundle/contract.json`；内部 `79727801…`；**状态不一致**（binding_policy=adopted，但 semantic_rules_approved=false；accept_in_resolve 仍 lexical/target） |
+| 新 contract 路径/哈希 | `$DATA/s1_runs/contract-e05-binding-v4-bundle/contract.json`；文件 SHA `a56cbdd8…`；内部 `37f4f351…`；**状态不一致**（binding_policy=adopted、semantic_rules_approved=true，但 accept_in_resolve 仍 lexical/target） |
 | 关闭时间 | 未关闭 |

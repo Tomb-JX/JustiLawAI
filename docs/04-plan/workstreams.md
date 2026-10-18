@@ -1,6 +1,7 @@
 # 数据与裁量引擎工作树分工
 
 > **2026-10-18 起：本文件只保留归属边界、交接协议与 Git 纪律；会话状态、未提交清单和“额度耗尽”叙述已过期。当前状态以 [BOARD.md](./BOARD.md) 为准，职责边界见 [OWNERSHIP.md](./OWNERSHIP.md)，产物见 [ARTIFACTS.md](./ARTIFACTS.md)。**
+> **12:46 现状**：引擎 `f0dd746`（语义表 8 shared/28 target）、后处理 `2be05bc`（v4 binding 61/1120/528，字段默认基线；contract accept_in_resolve 仍 lexical/target）；L5 标签仍 0；r7 未放行。§1 表仅作历史。
 
 > 版本 v2.5 · 2026-10-18 · 适用于本项目跨应用并行工作会话
 > **分工权威已移交 [阶段规划 v2](./stage-plan-v2-2026-10-17.md)（目标制会话分工）**；2026-10-18 评审驱动修订见 [review-driven-coordination-revision-2026-10-18.md](./review-driven-coordination-revision-2026-10-18.md)（依赖拆分、职责边界、指标层级、两类结果分离）。本文件保留目录归属（§2）、交接协议（§3）、Git 纪律（§4）；§1 旧线表仅作历史。
