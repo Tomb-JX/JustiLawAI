@@ -335,9 +335,18 @@ def main():
                     raise RuntimeError("existing_commit_mismatch:不覆盖既有记录")
                 append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs), "status": "valid",
                        "difference_kinds": dict(__import__("collections").Counter(d["kind"] for d in diffs))})
-            except Exception as exc:
+            except (ValueError, TypeError) as exc:
                 append(out / "diagnostics.jsonl", failure_record(rid, exc))
-                # A smoke is fail-fast; never continue through a contract/authority/budget failure.
+                # 模型质量失败（校验器拒收/坏 JSON）：隔离本条继续——批量标注不能因单条模型输出中断；
+                # 契约/授权/预算/传输类失败（RuntimeError、request_too_large、cap、核账）仍 fail-fast。
+                reason = str(exc)
+                if isinstance(exc, __import__("json").decoder.JSONDecodeError) or \
+                        reason.startswith(("wire_schema:", "engine_validation:", "e05_evidence_contract:",
+                                           "e05_amount_mismatch:", "numeric_evidence_unsupported:",
+                                           "invalid_candidate:", "evidence_outside_input",
+                                           "reference_not_allowed:", "reference_out_of_bounds",
+                                           "reference_source_mismatch", "facts_empty")):
+                    continue
                 raise
     finally:
         lock.unlink()
