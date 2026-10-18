@@ -42,7 +42,8 @@
 - **binding**：`e06a0af` 修复 scene 捷径后 212 123/611/1611、P1 158/723/1708；money shared=0，但 money/time 大量 review；规则版语义归属按 B-10 冻结，不再是 Gate。
 - **范围解锁（B-11）**：S1/S3 修复期，后处理可写 `harvest/{parse.py,parse_qc.py,to_parsed1.py}`（网页原文→parsed-1：表格行/字段/事件键/QC）；`discover/**`、`collect/**`、`delivery/**`、引擎代码、`harvest` 其余文件、既有正本仍不动。
 - **全量 unified 刷新（`d9999aa`）**：41 批/26,185 条 → `$DATA/unified_raw_refresh/20261018/`；format_ok 24,439；canonical 8,288；`released+content` 3,728。主批：web-r4、P1-r6、P1b-r2、P2-L4word、merged-full。P2-r1 有 761 条重复 `P-2963` 权限页，`format_ok=false`；web/P2-L4word `text_party=0`，meta 依赖字段受限。
-- **26,185 不是去重数**：唯一 id 7,333、唯一文本 7,468、唯一 text+subject 7,476；A 级 3,728（唯一 id 3,613、唯一事件键粗算 1,622）。`to_unified` 只做格式转换，**事件去重未做**；正确顺序是先按来源页/文档去重，再按 event_key 分事件，每人一条记录进 S1。
+- **26,185 不是去重数**：唯一 id 7,333、唯一文本 7,468、唯一 text+subject 7,476；A 级 3,728（唯一 id 3,613、唯一事件键粗算 1,622）。`to_unified` 只做格式转换。
+- **S1 输入已产出（`a787352`）**：`20261018-s1/` 3,196 条 / 1,790 事件；唯一 id 与 event+subject；split 2,202/495/499；A 2,883 + A-salvage 313；party 1,320；`no_subject` 558 单列；S1 离线 plan `ee9cb165…` 通过。**不是标签**，P2-r1 salvage/party 缺口仍要标。
 
 ## Gate A / A2：已完成
 
