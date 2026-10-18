@@ -174,6 +174,28 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
                 node["binding_reason"] = "behavior clause, no explicit subject"
             continue
 
+        # Money nodes: check scene-level first, then multi-person context
+        _SCENE_KEYWORDS = ("现场查获", "查获赌资", "赌资共计", "共查获", "现场共", "参赌人员", "现场扣押")
+        if kind == "money":
+            clause_ref = node.get("clause_ref") or {}
+            clause_text = graph.get("_original", "")[clause_ref.get("start", 0):clause_ref.get("end", 0)]
+            if not clause_text:
+                clause_text = node.get("source_ref", {}).get("quote") or ""
+            is_scene = any(kw in clause_text for kw in _SCENE_KEYWORDS)
+            if is_scene:
+                node["binding"] = "shared_fact"
+                node["binding_reason"] = "scene-level money"
+                continue
+            list_pattern = re.compile(
+                rf"(?:[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*)*{re.escape(target)}\s*[、和与，,]\s*[\u4e00-\u9fff*]{{1,4}}"
+                rf"|[\u4e00-\u9fff*]{{1,4}}\s*[、和与，,]\s*{re.escape(target)}"
+            )
+            has_multi = bool(list_pattern.search(clause_text))
+            if has_multi:
+                node["binding"] = "needs_review"
+                node["binding_reason"] = "multi-person evidence: target in list with others"
+                continue
+
         if not role:
             node["binding"] = "needs_review"
             node["binding_reason"] = f"unclassified role: {role}"
