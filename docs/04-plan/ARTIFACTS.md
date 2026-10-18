@@ -13,7 +13,9 @@
 | 引擎 schema / prompt | 引擎 `justilaw-api/app/discretion/schema.py`、`element_labels.py` | schema 1.1.0，文件 SHA `6546ad8e…`；prompt `element-v1`，文件 SHA `5b80d9c0…` | 引擎 | 全部 | **现行**（版本号未随描述变更提升，见 ISSUES） |
 | E-05 contract bundle | `$DATA/s1_runs/contract-e05-bundle/contract.json` | 文件 SHA `7a0e70bf…`；内部 digest `dbe8643e…` | 后处理 | 引擎、验收 | **待重导**（11:17 生成，早于 11:24 实现包；`normalization_policy` 仍为 `proposed_pending_engine_adoption`） |
 | post-E-05 离线回放 | `$DATA/parsed2/replay-e05-verify-20261018/summary.json` | 文件 SHA `eae5c95a…` | 后处理 | 协调、引擎 | **S3 基线**（26/299=8.7%；`element_states` 全 `not_available`，不测要素层） |
-| 工程诊断（pre-E-05） | `$DATA/parsed2/engineering-diagnostics-20261018-codex-v1/summary.json` | 文件 SHA `3c092cb5…` | 后处理 | 协调、引擎 | **基线**（binding unresolved 1,647 / 1,704；E-05 前） |
+| 工程诊断（pre-E-05） | `$DATA/parsed2/engineering-diagnostics-20261018-codex-v1/summary.json` | 文件 SHA `3c092cb5…` | 后处理 | 协调、引擎 | **基线（pre-E-05，已完成）**（binding unresolved 1,647 / 1,704） |
+| Gate A2 212 诊断（待跑） | 输出目录由后处理新建（建议 `$DATA/parsed2/diagnostics-e05-a2-20261018/`） | 未生成 | 后处理 | 协调 | **待跑**（主路径改用 E-05 后；对比 10:28） |
+| Gate B 212 诊断（待跑） | 输出目录由后处理新建（建议 `$DATA/parsed2/diagnostics-e05-b-20261018/`） | 未生成 | 后处理 | 协调 | **待跑**（接入绑定后；binding 应变化） |
 | 12 条 smoke 计划 | `$DATA/s1_runs/smoke12-elements-e05-plan/plan.json` | 文件 SHA `93a3a36d…`；`execute=false`、`release_approved=false` | 后处理 | 协调 | **计划未执行**（等免费诊断通过 + I-21 门） |
 | 法定 caps | `$DATA/config/legal_caps.json` | 文件 SHA `aedf5a23…` | 协调导出 | 引擎 | **现行**（E-01 核对使用；是否转正见 ISSUES） |
 | 后处理 E-05 接入（Gate A） | 后处理 `research/discretion/unify/element_contract.py`、`normalization.py` | commit `256d2ce`（11:36）；文件 SHA `5d36c89f…`、`2f28259b…` | 后处理 | 后处理、引擎 | **已提交（模块级；主路径未接）**（139 passed；7 笔未推 origin；无专用单测） |

@@ -26,7 +26,7 @@
 
 | 项 | 内容 |
 |---|---|
-| 目标 | element 契约 v1 定版（schema + 归一化 + 证据 + **主体绑定**），并在 212 条冻结切片上完成一次**免费离线诊断** |
+| 目标 | element 契约 v1 定版（schema + 归一化 + 证据 + **主体绑定**），并在 212 条冻结切片上**重跑**一次免费离线诊断（对比 10:28 基线） |
 | Loop owner | **后处理线**（激活交接、跑验收、回报结果） |
 | 贡献方 | 引擎线（绑定规则与版本化）；协调线（看板/路由/验收口径） |
 | 截止 | 2026-10-18 13:15（90 分钟时间盒） |
@@ -37,17 +37,29 @@
 - 后处理提交 `256d2ce`：新增 `element_contract.py` / `normalization.py` 的 E-05 包装。
 - 后处理单测：**139 passed**（新增接入代码没有单独测试，见 ISSUES CONTRACT-01）。
 - **主路径未接**：`evidence_graph.py` 仍调用旧 `normalize_time` / `normalize_quantity`，没有改用 E-05；集成回放 `replay-e05-integrated-20261018` 的 `element_states` 全 `not_available`，也没有测到新代码。
-- **Gate A2（owner 后处理线；现在可做，不等绑定表）**：把 `evidence_graph` 的金额/日期归一化改走 E-05，补 2–3 个测试，再跑免费工程诊断。
+- **Gate A2（owner 后处理线；现在可做，不等绑定表）**：把 `evidence_graph` 的金额/日期归一化改走 E-05，补 2–3 个测试，再在 212 条上重跑 `diagnose_pipeline`，输出与 10:28 的 binding 1,647 基线对比。
 
 ### Gate B：绑定（等引擎）
 
 - 引擎截至 11:47 尚未提交绑定表；最后一个引擎提交仍是 `45a7d1a`（11:24）。
 - 后处理不需要等整段：Gate A 的提交、测试、免费诊断基线现在就能做；只有**绑定验收**这一步等引擎。
 
+## 诊断/回放口径（避免重复劳动）
+
+| 名称 | 输入 | 内容 | 状态 |
+|---|---|---|---|
+| 工程诊断 10:28 | 212 条 | 图/归一化/证据/36 字段可观测性；binding 1,647 | **pre-E-05 基线，已完成** |
+| post-E-05 回放 11:16 | final300 的 S3 299 条 | S3/装配；`element_states` 全 `not_available` | 已完成；不测要素层 |
+| 集成回放 11:36 | final300 的 S3 299 条 | S3/装配；`element_states` 全 `not_available` | 已完成；不测要素层 |
+| **Gate A2 诊断（待跑）** | 212 条 | `evidence_graph` 主路径改用 E-05 后，重跑图/归一化/证据；binding 预期仍约 1,647 | **待跑；对比 10:28** |
+| **Gate B 诊断（待跑）** | 212 条 | 接入绑定后重跑同一诊断；binding 应变化 | 等引擎绑定 |
+
+**不要用 11:16/11:36 的 S3 回放替代 212 诊断**：它们只测 S3/装配，`element_states` 全是 `not_available`。
+
 ## 下一步（按顺序）
 
 1. **引擎**：补主体绑定规则（`shared_fact` / `target_specific` / `needs_review`），写进 `research/eval/` 契约模块并版本化；推送 7 笔本地提交。
-2. **后处理**：推送 `256d2ce`（当前 7 笔领先 origin）；把 `evidence_graph` 主路径改用 E-05 归一化；补 2–3 个单测；跑一次免费工程诊断，建立“pre-binding 基线”。
+2. **后处理**：推送 `256d2ce`（当前 7 笔领先 origin）；把 `evidence_graph` 主路径改用 E-05 归一化；补 2–3 个单测；重跑 212 条 `diagnose_pipeline`，输出与 10:28 基线对比（pre-binding）。
 3. **引擎绑定到位后**：后处理接 `shared_fact` / `target_specific`，重跑同一诊断，比较 binding 变化；再重导 contract。
 4. **协调**：核对结果并更新本看板；通过后才讨论 12 条 smoke。
 
