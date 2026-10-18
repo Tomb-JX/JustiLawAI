@@ -28,7 +28,7 @@
 | Loop owner | **后处理线** |
 | 贡献方 | 引擎线（绑定规则已交付）；协调线（事件登记/快照/验收口径） |
 | 截止 | 2026-10-18 13:15 |
-| 状态 | **Gate A/A2 完成；Gate B 分类完成，但契约未采纳、主 binding 未改；896 needs_review** |
+| 状态 | **Gate A/A2 完成；Gate B 主字段已写，但 shared/review 不可消费、契约未批准、无质量验证** |
 
 ## Gate A / A2：已完成
 
@@ -53,10 +53,12 @@
 |---|---|---|
 | 1. 规则定义 | 引擎 `binding_rules.py`：字段默认 shared/target；内容依赖字段按证据文本分类；review_reason 细分原因 | **已完成**（`3a37c56`，235 passed） |
 | 2. 分类诊断 | 后处理 `classify_graph_bindings`：给每个候选加 `e05_binding` 标签并统计 | **已完成**（61 shared / 752 target / 896 review） |
-| 3. 主链路执行 | 更新主 `binding` 字段；`resolve_binding` 接受 shared/target/review，真正把值归到本人/事件 | **未完成**（旧 `binding` 仍 1,647；`resolve_binding` 仍只收 `lexical_candidate`） |
-| 4. 契约采纳 | 引擎签发 `binding_policy`；`semantic_rules_approved=true`；版本号提升 | **未完成**（bundle 仍 `binding_policy=null`、pending） |
+| 3. 主链路执行 | 更新主 `binding` 字段；`resolve_binding` 接受 shared/target/review，真正把值归到本人/事件 | **部分完成**：`90c46a6` 写主 `binding`；`resolve_binding` 接受 lexical/target；shared 61 + review 896 仍不可消费（814/1709 可消费） |
+| 4. 契约采纳 | 引擎签发 `binding_policy`；`semantic_rules_approved=true`；版本号提升 | **未完成**：`binding_policy` / `normalization_policy` 仍 `proposed_pending_engine_adoption`；`semantic_rules_approved=false` |
 
-**一句话**：现在的“绑定”推进到第 1–2 层（规则 + 分类诊断），第 3 层（主链路执行）和第 4 层（契约采纳）还没做。不要再把“分类完成”说成“绑定完成”。
+**质量保障现状**：暂无绑定标注准确率；字段默认表有疑误（如 `persons.civil_servant` 标成 shared，但它是“本人是否为国家工作人员”）；调用方把 target+aliases 当 `all_subjects`，别名可能被误判为“他人”；`conduct.times` 多人时标 shared，可能掩盖本人次数。以上都未验证。
+
+**一句话**：现在的“绑定”推进到第 1–2 层（规则 + 分类诊断），第 3 层只做了主字段写入，第 4 层未采纳；**分类完成 ≠ 绑定质量已保证**。
 
 ## 诊断/回放口径（避免重复劳动）
 
@@ -71,10 +73,10 @@
 
 ## 下一步（按顺序）
 
-1. **引擎**：签发 `binding_policy` / 契约采纳，明确 `normalization_policy` 与 `semantic_rules_approved`；否则 `CONTRACT-01` 不能关闭。
-2. **后处理**：用引擎 `review_reason` 重跑 Gate B 诊断，得到 896 的原因分布；再决定 dev 切片是否接受显式 `needs_review`；把 `e05_binding` 接进主 `binding` 或明确“仅诊断”；最后重导 contract 一次。
+1. **引擎**：审计字段默认表与别名接口（`civil_servant`、`cumulative_stake`、`abroad_organized_count`；target/aliases 不得当他人）；签发 `binding_policy` / 契约采纳。
+2. **后处理**：定义 shared/review 的消费方式（shared 挂事件或每人共享；review 显式未知）；用 `review_reason` 重跑 Gate B；做 100–200 个候选的绑定准确率小样本；再决定是否接主链路。
 3. **协调**：核对 Gate B 新结果；从 `BOARD.generated.md` 提交快照；不手抄状态。
-4. **只有 Gate B 真正通过 + I-21 门**，才讨论 12 条 smoke；之前不调模型、不放行 r7。
+4. **只有绑定质量验证 + 契约批准 + I-21 门**，才讨论 12 条 smoke；之前不调模型、不放行 r7。
 
 ## 指标（当前）
 
@@ -82,6 +84,8 @@
 |---|---|---|
 | S3 硬失败 | 26/299 = 8.7% | 11:16/11:36 S3 回放；r7 要求 <5% |
 | binding unresolved | 1,647 / 1,704 候选 | 旧 `binding` 字段；E-05 分类未改它 |
+| binding 分类 | 61 shared / 752 target / 896 review | `90c46a6` 已写主 `binding` |
+| binding 可消费 | 814 / 1,709 = 47.6% | target 752 + lexical 62；shared/review 不可经 `resolve_binding` |
 | binding needs_review | 896 / 1,709 = 52.4% | `e05_binding` 分类；需决策 |
 | A2 approx 失败 | 97 → 11 | E-05 主路径生效 |
 | A2 e05 parse failed | 5 | 需 Gate B 时复核 |
@@ -94,8 +98,8 @@
 
 ## 阻塞
 
-- **BIND-02**：`e05_binding` 分类 896/1709 为 `needs_review`；`classify_graph_bindings` 只写并行字段，主 `binding` 未改；`resolve_binding` 仍拒绝（owner 后处理+引擎）。
-- **CONTRACT-01**：`binding_policy=null`、`semantic_rules_approved=false`、`normalization_policy=pending`；旧 `binding` 仍 1,647；契约未采纳（owner 引擎+后处理）。
+- **BIND-03**：绑定质量未证：shared 61 + review 896 不可消费；字段默认表疑误（`civil_servant` 等）；target+aliases 被当 all_subjects；无标注准确率（owner 引擎+后处理）。
+- **CONTRACT-01**：`binding_policy`/`normalization_policy` 仍 pending；`semantic_rules_approved=false`；`release_approved=false`（owner 引擎+后处理）。
 - **PUSH-01**：引擎/后处理已推送；协调事件登记快照待提交。
 
 ## 本看板不做什么

@@ -5,9 +5,9 @@
 - **Loop owner**：后处理线
 - **创建**：2026-10-18 11:45
 - **截止**：2026-10-18 13:15
-- **状态**：Gate A/A2 完成（`4b7680d`）；Gate B 分类完成（`f00b494`）但链路/契约未完成
+- **状态**：Gate A/A2 完成；Gate B 主字段已写（`90c46a6`），但 shared/review 不可消费、契约未批准、质量未验证
 
-> **依赖关系**：Gate A2 已完成；Gate B 引擎规则已由 `971fdc3` 交付，后处理已完成分类；但 `classify_graph_bindings` 只写 `e05_binding`，主 `binding` 未改，契约仍未采纳。
+> **依赖关系**：引擎规则已交付；后处理已写主 `binding`。剩余不是“等引擎”，而是绑定质量与契约采纳：shared/review 消费方式、字段表/别名审计、`semantic_rules_approved`。
 
 ## 1. 本轮要拿到什么
 
@@ -63,10 +63,9 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 | 项 | 记录 |
 |---|---|
 | 引擎 ack（时间/commit） | `971fdc3`（已推送）：binding_rules；shared/target/review；231 passed；另有 `affcea2` 绑定审计 |
-| 后处理 ack（时间/commit） | `4b7680d` A2；`f00b494` Gate B 分类（61 shared / 752 target / 896 review）；均已推送 |
-| Gate A2（主路径） | **已完成**：`evidence_graph.py` 改用 E-05；A2 诊断 `diagnostics-e05-e2e-20261018`（`372adbfa…`） |
-| Gate B（绑定） | **分类完成，链路未完成**：`classify_graph_bindings` 只写 `e05_binding`，主 `binding` 仍 1,647；`resolve_binding` 仍拒绝；896 needs_review |
-| 单测结果 | 256d2ce 后 139 passed；A2 带 43 行测试；Gate B 提交声明 142 passed；需补 binding 主链路测试 |
-| 诊断结果（binding 变化、normalizer、证据问题数） | A2：normalizer 1704；binding 1,647；approx 97→11；e05 parse failed 5。Gate B：`e05_binding` 61/752/896；旧 `binding` 仍 1,647 |
-| 新 contract 路径/哈希 | `$DATA/s1_runs/contract-e05-binding-bundle/contract.json`；内部 `1aa89cb8…`；**待采纳**（`binding_policy=null`、`semantic_rules_approved=false`） |
+| 后处理 ack（时间/commit） | `4b7680d` A2；`f00b494` 分类；`90c46a6` 主 binding + binding_policy；均已推送；142 passed |
+| Gate B（绑定） | **主字段已写**：`binding` 61 shared / 752 target / 896 review；`resolve_binding` 接受 lexical/target；**shared/review 不可消费（814/1709）**；质量未验证 |
+| 单测结果 | 90c46a6 声明 142 passed；绑定质量/字段表/别名接口无专用验证 |
+| 诊断结果（binding 变化、normalizer、证据问题数） | v2：binding 61/752/896；old unresolved 消除；`semantic_rules_approved=false`；`release_approved=false` |
+| 新 contract 路径/哈希 | `$DATA/s1_runs/contract-e05-binding-v2-bundle/contract.json`；内部 `1d0b0873…`；**待采纳**（binding_policy/normalization 仍 pending） |
 | 关闭时间 | 未关闭 |
