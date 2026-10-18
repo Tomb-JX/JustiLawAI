@@ -63,9 +63,9 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 | 项 | 记录 |
 |---|---|
 | 引擎 ack（时间/commit） | `f0dd746`（已推送）：binding_rules 改为语义-only（8 shared / 28 target），删除具体分类；225 passed；前有 `971fdc3`/`3a37c56`/`54150db` |
-| 后处理 ack（时间/commit） | `05485da`（已推送）：v5 诊断 61/1120/528；review 加 `binding_reason`；`resolve_binding` 接受 shared；`fine→None`；`semantic_rules_approved=true`；142 passed |
-| Gate B（绑定） | **证据感知 3 步**：v5 61 shared / 1120 target / 528 review；212 切片无多人案例；`resolve_binding` 代码接受 shared/target（1181/1709=69.1%），但 contract `accept_in_resolve` 仍 lexical/target（1120/1709=65.5%）；review 528 为 unclassified role |
-| 单测结果 | v5 声明 142 passed；无绑定准确率测试；528 review 为 unclassified role |
-| 诊断结果（binding 变化、normalizer、证据问题数） | v5：binding 61/1120/528；`semantic_rules_approved=true`；`release_approved=false`；528 review 为 unclassified role |
+| 后处理 ack（时间/commit） | `3d05914`（已推送）：v5 证据感知 3 步 + behavior/clause 多人检测；212 123/1567/655；P1-r6 178/186 多人 158/1570/861；`resolve_binding` 接受 shared；142 passed |
+| Gate B（绑定） | **证据感知 3 步**：212 单人 123/1567/655；P1-r6 178 条/186 多人 158/1570/861；212 code 1690/2345=72.1%、contract 1567/2345=66.8%；P1 code 66.7%、contract 60.6%；review 为 unclassified role；无准确率 |
+| 单测结果 | v5 声明 142 passed；无绑定准确率测试；655 review 为 unclassified role |
+| 诊断结果（binding 变化、normalizer、证据问题数） | v5：binding 123/1567/655；`semantic_rules_approved=true`；`release_approved=false`；655 review 为 unclassified role |
 | 新 contract 路径/哈希 | `$DATA/s1_runs/contract-e05-binding-v4-bundle/contract.json`；文件 SHA `a56cbdd8…`；内部 `37f4f351…`；**状态不一致**（binding_policy=adopted、semantic_rules_approved=true，但 accept_in_resolve 仍 lexical/target） |
 | 关闭时间 | 未关闭 |

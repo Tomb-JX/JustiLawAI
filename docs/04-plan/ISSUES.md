@@ -7,7 +7,7 @@
 
 | 编号 | 问题 | Owner | 下一步 | 验收 / 关闭条件 | 状态 |
 |---|---|---|---|---|---|
-| BIND-03 | v5 绑定质量未证：后处理已做证据感知 3 步，但 212 切片无多人案例，joint 分支未触发；528 review 为 unclassified role（fine/unclassified_count）；代码可消费 shared+target=1181/1709=69.1%，contract 仅 target=65.5%；`cumulative_stake` 仍 shared；无标注准确率 | 后处理 + 引擎 | unclassified role 处置；多人案例测试；字段审计；100–200 候选准确率；再 Gate B | shared/review 有明确消费或显式未知；小样本准确率达标；字段/映射有测试 | **open** |
+| BIND-03 | v5 绑定质量未证：212 单人（123/1567/655）；P1-r6 178 条/186 多人（158/1570/861）；code 212 1690/2345=72.1%、contract 66.8%；P1 code 66.7%、contract 60.6%；review 为 unclassified role；`cumulative_stake` 仍 shared；无标注准确率 | 后处理 + 引擎 | unclassified role 处置；小样本准确率；字段审计；再 Gate B | shared/review 有明确消费或显式未知；小样本准确率达标；字段/映射有测试 | **open** |
 | CONTRACT-01 | 契约状态不一致：`binding_policy=adopted`、`semantic_rules_approved=true`，但 `accept_in_resolve` 仍 lexical/target；代码接受 shared；artifact 与代码不一致 | 引擎 + 后处理 | 统一 `accept_in_resolve` 与 artifact；保留 shared；版本一致 | artifact 状态一致；shared 可消费；单一 module+版本 | **open** |
 | PUSH-01 | 可见性：引擎/后处理已推送；协调事件登记工具/快照待提交 | 协调 | 提交并推送本批协调文档 | handoff 引用的 commit 在 origin 上；CURRENT 可读 | **open** |
 | I-20 | 36 要素参考标签未产出；`reference_elements=null`；字段准确率暂缺 | 引擎 + 后处理 | 契约定版后，按 ≤12 → 200–300 件跑教师参考；过 I-21 门 | 参考批次有版本/哈希；A/B 分歧报告；字段 P/R/F1 可算 | **执行中** |

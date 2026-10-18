@@ -20,7 +20,7 @@
 | 数据 L0–L3 格式 | [data-spec](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md) §1/§6/§7/§8；`records.py` | parsed-1/交付 + **L5 标签契约（v0.6 §8）** |
 | parsed-2 / seg-v2 | [parse-format-chain-design](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md) v1.4；[parse-engineering-design-v2](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md) v2.2；[unify/README](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/research/discretion/unify/README.md) | 架构 v2.2 + 格式 v1.4；seg-v2/element-ref-v2；不是 L5 标签契约 |
 | 36 字段/教师/标签 | [annotation-guideline](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；[element-teacher-v1](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/element-teacher-v1.md)；`schema.py`/`element_labels.py` | 7 组 36 字段+3 meta；§3.11 是绑定语义；代码是字段唯一来源 |
-| 绑定/证据图 | [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；`research/eval/binding_rules.py`；`research/discretion/unify/evidence_graph.py`；[EP-06](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-engineering-solutions-2026-10-18.md) §6.2；[实施报告](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-pipeline-implementation-report-2026-10-18.md) §5.2 | v5：61/1120/528；证据感知 3 步；切片无多人案例；528 review 为 unclassified role；contract `accept_in_resolve` 与代码不一致；BIND-03/CONTRACT-01 |
+| 绑定/证据图 | [annotation-guideline §3.11](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)；`research/eval/binding_rules.py`；`research/discretion/unify/evidence_graph.py`；[EP-06](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-engineering-solutions-2026-10-18.md) §6.2；[实施报告](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-pipeline-implementation-report-2026-10-18.md) §5.2；[架构 §12](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md) | v5：212 123/1567/655；P1-r6 178/186 多人 158/1570/861；review 为 unclassified role；contract/code 不一致；BIND-03/CONTRACT-01 |
 | 交付/门禁/付费 | [data-spec §4](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md)；[sota-baselines-and-gates](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/sota-baselines-and-gates.md)；[I-21](./issues/I-21-p2-workorder-incident-2026-10-18.md)；[ARTIFACTS](./ARTIFACTS.md) | r6/r7、S3、六道付费门 |
 | 决策/分工 | [DECISIONS](./DECISIONS.md)；[OWNERSHIP](./OWNERSHIP.md) | B-08：引擎契约、数据实现、独立验收 |
 | 历史/不要当依据 | [collab-log](./collab-log.md)；[workstreams](./workstreams.md)；续跑单；[text-processing-spec](./text-processing-spec.md) | 历史/归属参考；脱敏已取消（D-003） |
@@ -45,7 +45,7 @@
 
 **解析与模型调用（Codex/网页分支）**
 - [解析层格式链路设计（v1.4）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md)
-- [解析层 v2 工程设计（v2.2）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md)
+- [解析层 v2 工程设计（v2.3）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md)
 - [全链路模型调用设计 full-record（v1.1）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/model-call-design-full-record-2026-10-18.md)
 - [模型调用全链路反思（D1–D6）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/model-call-design-reflection-2026-10-18.md)
 - [文本处理规范（2026-10-18）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/text-processing-spec.md)
@@ -67,7 +67,7 @@
 
 1. **先确认现状**：`$DATA/coordination/CURRENT.md` → [BOARD.md](./BOARD.md)（快照）→ [ARTIFACTS.md](./ARTIFACTS.md)。
 2. **要理解数据/标签**：`data-spec`（L0–L3 格式）→ `annotation-guideline`（36 字段/证据/§3.11）→ `element-teacher-v1`（教师契约）→ `schema.py`（字段唯一来源）。
-3. **要看解析/seg-v2**：`parse-format-chain-design`（v1.4 格式契约）→ `parse-engineering-design-v2`（v2.2 架构 + §1.1/§3A 当前映射）→ `unify/README`（模块地图）。
+3. **要看解析/seg-v2**：`parse-format-chain-design`（v1.4 格式契约）→ `parse-engineering-design-v2`（v2.3 架构 + §1.1/§3A/§12）→ `unify/README`（模块地图）。
 4. **要看绑定/证据**：`annotation-guideline §3.11`（引擎语义）→ `binding_rules.py`（8 shared/28 target）→ `evidence_graph.py`（后处理实现）→ BOARD/ISSUES 的 BIND-03/CONTRACT-01。
 5. **要看历史**：`collab-log` / `workstreams` / 续跑单；只作历史，不作当前状态。
 
@@ -83,8 +83,8 @@
 
 | 文档 | 权威位置 | 版本/日期 | 状态 | 一句话 |
 |---|---|---|---|---|
-| 解析层格式链路设计 | 网页/Codex 分支 `docs/04-plan/parse-format-chain-design-2026-10-17.md`（`d796a3e`） | **v1.4**（2026-10-18；标题已改 v1.3，v1.4 加现状注记） | **现行格式契约** | 逐字段契约：L0→S0→模型→S2→S3→parsed-2→交付；当前实现映射看 architecture v2.2 §1.1 |
-| 解析层 v2 工程设计（详细版） | 同上 `parse-engineering-design-v2-2026-10-17.md`（`d796a3e`） | **v2.2**（2026-10-18） | **现行架构 + 实现映射** | 五阶段管线；新增 §1.1 实现映射、§3A L5 标签层、§9.1 实测、§10.1 执行状态；旧 seg-v1 JSON 作历史 |
+| 解析层格式链路设计 | 网页/Codex 分支 `docs/04-plan/parse-format-chain-design-2026-10-17.md`（`371ee1e`） | **v1.4**（2026-10-18；标题已改 v1.3，v1.4 加现状注记） | **现行格式契约** | 逐字段契约：L0→S0→模型→S2→S3→parsed-2→交付；当前实现映射看 architecture v2.3 §1.1/§12 |
+| 解析层 v2 工程设计（详细版） | 同上 `parse-engineering-design-v2-2026-10-17.md`（`371ee1e`） | **v2.3**（2026-10-18） | **现行架构 + 实现映射 + 阻塞映射** | 五阶段管线；§1.1 实现映射、§3A L5 标签层、§9.1 实测、§10.1 执行、**§12 卡点→设计位置**；旧 seg-v1 JSON 作历史 |
 | parse-v2 模型接口重设计（句表分区） | 同上（`c89ea69`） | 2026-10-17 | **seg-v2 设计依据（草案）** | 把“引文摘录”改为“句表 run-length 分区”；后续评审有修订建议 |
 | 解析架构 v2 | 同上（`19e76c6`） | 2026-10-17 | 背景/方向 | 正则退位、模型承接、规则转校验的量化论证；接口细节以 parse-interface 为准 |
 | 模型调用全链路反思 | 同上（`4b9d0cd`） | 2026-10-18 | **现行问题清单** | D1–D6 六个结构性设计错误、五条调用准入、分歧榜实测 |
@@ -159,7 +159,7 @@
 
 ## 7. 合并状态提醒
 
-- 引擎代码最新 `f0dd746`（语义-only 8 shared/28 target），文档同步 `cc35cd2`；后处理代码最新 `05485da`（v5 证据感知 3 步基线/`semantic_rules_approved=true`），文档同步 `d796a3e`；协调最新见 `git log`。
+- 引擎代码最新 `f0dd746`（语义-only 8 shared/28 target），文档同步 `cc35cd2`；后处理代码最新 `3d05914`（v5 证据感知 3 步 + behavior/多人检测；212 123/1567/655；P1 158/1570/861），文档同步 `371ee1e`；协调最新见 `git log`。
 - 三条线的最新提交**均未合并 main**；main 不能作为当前设计依据。
 - 合并前，跨分支阅读按本索引“权威位置”走；合并后再统一路径。
 - 当前状态始终以 `$DATA/coordination/CURRENT.md` 为准，BOARD 是提交快照。
