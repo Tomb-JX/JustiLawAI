@@ -301,7 +301,9 @@ def check_dates(ctx):
     if isinstance(b, str) and isinstance(dd, str) and len(b) >= 7 and len(dd) >= 7 and b[:7] > dd[:7]:
         findings.append(_mk("dates_order", "error", f"模型行为月 {b[:7]} 晚于决定月 {dd[:7]}"))
     if eb and ed2 and len(eb) >= 7 and len(ed2) >= 7 and eb[:7] > ed2[:7]:
-        findings.append(_mk("dates_order", "error", f"信封行为月 {eb[:7]} 晚于决定月 {ed2[:7]}"))
+        # parsed-1 的决定日期可能取到事实日期或下载日期；信封自相矛盾需核源，
+        # 不能在模型未输出矛盾日期时阻断一份正确的 S1 分段。
+        findings.append(_mk("dates_order", "warn", f"信封行为月 {eb[:7]} 晚于决定月 {ed2[:7]}（核来源日期）"))
     # 模型值 vs 信封粗值交叉（仅在有值且前缀可比时）
     if isinstance(b, str) and eb and len(b) >= 7 and len(eb) >= 7 and b[:7] != eb[:7]:
         findings.append(_mk("dates_order", "warn", f"模型行为月 {b[:7]} ≠ 信封 {eb[:7]}"))
@@ -461,6 +463,14 @@ def check_value_grounded(ctx):
                 variants.add(no[1:])
             found = any(re.search(rf"(?<![一二三四五六七八九十百零\d第]){re.escape(v)}", zone)
                         for v in variants for zone in (art_zone_c, cleaned_c))
+            # 条文常把同一条的后续款缩写为“第十一条第一款、第二款”。
+            # 模型展开为“第十一条第二款”时，仍有同条、同款的原文依据。
+            if not found:
+                clause = re.fullmatch(r"(第[一二三四五六七八九十百零\d]+条)(第[一二三四五六七八九十\d]+款)", no)
+                if clause:
+                    base, para = map(re.escape, clause.groups())
+                    shorthand = rf"(?<![一二三四五六七八九十百零\d第]){base}第[一二三四五六七八九十\d]+款[、，,及和与]{para}"
+                    found = any(re.search(shorthand, zone) for zone in (art_zone_c, cleaned_c))
             if len(no) >= 3 and not found:
                 findings.append(_mk("value_grounded", "error", f"法条条号未命中：{no}（edition={a.get('edition')}）"))
                 break

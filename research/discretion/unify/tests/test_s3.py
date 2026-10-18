@@ -113,6 +113,11 @@ def test_dates_order():
                          rec={"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
                               "behavior_date": "2023-08", "decision_date": "2023-06"}))
     assert ("dates_order", "error") in _sev(f)
+    f = check_dates(_ctx(dates={"behavior": "2023-08-01", "decision": None},
+                         rec={"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
+                              "behavior_date": "2023-08", "decision_date": "2023-06"}))
+    assert ("dates_order", "warn") in _sev(f)
+    assert ("dates_order", "error") not in _sev(f)
 
 
 def test_dates_model_vs_envelope_cross():
@@ -244,6 +249,17 @@ def test_value_grounded_article_optional_di_prefix():
                         "articles": [{"text": "第七十条", "edition": "2012修正"}]}, rec=rec)
     assert not [x for x in check_value_grounded(ctx) if x.severity == "error"]
     rec["cleaned_text"] = "依据《中华人民共和国治安管理处罚法》十条处罚。"
+    assert any(x.severity == "error" for x in check_value_grounded(ctx))
+
+
+def test_value_grounded_article_shorthand_same_article():
+    from s3 import check_value_grounded
+    rec = {"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
+           "form": "叙述式-独立成篇", "cleaned_text": "依照第十一条第一款、第二款、第七十条处罚。"}
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 0,
+                        "articles": [{"text": "第十一条第二款", "edition": "2012修正"}]}, rec=rec)
+    assert not [x for x in check_value_grounded(ctx) if x.severity == "error"]
+    rec["cleaned_text"] = "依照第十条第一款、第二款、第七十条处罚。"
     assert any(x.severity == "error" for x in check_value_grounded(ctx))
 
 
