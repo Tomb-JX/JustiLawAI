@@ -155,6 +155,8 @@ def main() -> None:
         out["grade"] = "A-salvage" if c["salvage"] else "A"
         out["salvage"] = c["salvage"]
         out["party_available"] = bool((src.get("text_party") or "").strip())
+        out["text_party"] = src.get("text_party") or ""
+        out["party_span"] = (src.get("segments") or {}).get("text_party")
         out["dedup_key"] = list(event_person_key)
         kept.append(out)
 

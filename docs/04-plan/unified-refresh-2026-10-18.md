@@ -93,6 +93,40 @@ S1 离线 plan 已跑通：`$DATA/s1_runs/s1-20261018-dedup-plan/`，plan hash `
 
 **这仍是 S1 输入，不是标签**：`reference_elements` 仍为 null；A-salvage 来自 P2-r1 清理后的 313 条，不是金标；web/P2-L4word 的 party 缺口仍在。
 
+## party 段批量回收（2026-10-18）
+
+用 `recover_party_segments.py` 对 canonical 6 批做保守回收：
+
+- 只取 `text_full` 的连续子串；
+- 优先“违法行为人/被处罚人/当事人/行政相对人”开头的当事人句；
+- 其次取 `行政相对人：`、`相对人名称`、`行政相对人名称` 等表格行（含下一行取值）；
+- 拒绝决定/罚款/拘留/依据等处罚句；
+- 写入 `$DATA/parsed_refresh/20261018/`，不改源批。
+
+结果：
+
+| 批次 | 记录 | 原有 party | 回收句 | 回收表格行 | 未回收 |
+|---|---:|---:|---:|---:|---:|
+| web-r4 | 5,037 | 0 | 2,039 | 261 | 2,737 |
+| P2-L4word | 317 | 0 | 0 | 317 | 0 |
+| merged-full | 890 | 817 | 1 | 72 | 0 |
+| P2-r1 | 1,746 | 982 | 1 | 0 | 763 |
+| P1-r6 | 183 | 183 | 0 | 0 | 0 |
+| P1b-r2 | 115 | 114 | 0 | 0 | 1 |
+
+合计回收 **2,691** 条（句 2,041 + 表 650），原有 2,096 条，未回收 3,501 条。web 未回收主要是执法公示/复议/处罚摘要；P2-r1 未回收主要是权限页/字段表。
+
+用回收后的 parsed 重新生成：
+
+- `$DATA/unified_raw_refresh/20261018-party/`
+- `$DATA/unified_raw_refresh/20261018-s1-party/`：**3,196 条 / 1,790 事件**，与去重版同构；
+- `party_available`：**2,460**（原 1,320）；web 772、pkulaw 1,688；
+- 仍无 party：736（web 735、pkulaw 1）；
+- `no_subject` 558 不变，仍单列，回收 party 不能补 target；
+- S1 离线 plan：`$DATA/s1_runs/s1-20261018-dedup-party-plan/`，plan hash `17da2993…`，`executed=false`。
+
+**口径**：回收是 source-grounded 的规则结果，不是人工审核；未回收的记录不能假装有 party。优先用 `20261018-s1-party`，旧 `20261018-s1` 留作对照。
+
 ## 推荐进入 S1 的主批次
 
 | channel | batch | records | released | released+content | released+facts | party_segment |
