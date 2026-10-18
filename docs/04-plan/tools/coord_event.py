@@ -166,7 +166,7 @@ def render() -> Path:
     for e in events:
         line = e.get("line")
         latest[line] = e
-        if e.get("type") not in ("metric", "artifact"):
+        if e.get("type") not in ("metric", "artifact", "loop"):
             latest_meaningful[line] = e
 
     handoffs: dict[str, dict] = {}

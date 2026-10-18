@@ -7,9 +7,9 @@
 
 | 编号 | 问题 | Owner | 下一步 | 验收 / 关闭条件 | 状态 |
 |---|---|---|---|---|---|
-| BIND-01 | 主体/事件绑定规则：引擎 `971fdc3` 已交付 `binding_rules`（shared_fact/target_specific/needs_review，231 passed，已推送）；后处理适配未提交；1,647 个候选仍 unresolved | 后处理 | 接入 `evidence_graph`；跑 Gate B 诊断；登记 binding 变化 | 212 条 Gate B 诊断：binding 下降或全部有明确分类；有正反例；版本化 | **open（引擎已交付）** |
-| CONTRACT-01 | element 契约未定版：A2 主路径已由 `4b7680d` 完成；绑定适配 WIP；11:17 bundle 过期；schema/prompt 版本号未随语义变更提升 | **B 后处理（引擎支持）** | 绑定适配并提交；提升版本号；绑定后重导 contract；补 2–3 个接入单测 | 单一 module + 版本 + tests；consumer 能只引一个版本；旧 bundle 标 superseded | **open（A2 完成）** |
-| PUSH-01 | 可见性：引擎已推送；后处理 `element_contract.py` 绑定适配未提交；协调事件登记/BOARD 快照待提交 | 各线 owner | 交接前 push / commit；协调提交事件登记工具与快照 | handoff 引用的 commit 在 origin 上；CURRENT 可读 | **open** |
+| BIND-02 | Gate B 分类完成但链路未接：`classify_graph_bindings` 只写 `e05_binding`，主 `binding` 仍 1,647；`resolve_binding` 仍只接受 `lexical_candidate`；896/1709 为 `needs_review` | 后处理 + 引擎 | 决定 dev 切片是否接受显式 `needs_review`；或改主 `binding`/规则；再跑 Gate B | 分类进入主链路或有明确“仅诊断”声明；needs_review 有处置口径 | **open** |
+| CONTRACT-01 | 契约未采纳：`binding_policy=null`、`semantic_rules_approved=false`、`normalization_policy=pending`；旧 bundle 已过期；版本号未随语义变更提升 | 引擎 + 后处理 | 引擎签发 policy/批准；后处理提升版本并重导 contract | `semantic_rules_approved=true`；binding_policy 非空；单一 module+版本 | **open** |
+| PUSH-01 | 可见性：引擎/后处理已推送；协调事件登记工具/快照待提交 | 协调 | 提交并推送本批协调文档 | handoff 引用的 commit 在 origin 上；CURRENT 可读 | **open** |
 | I-20 | 36 要素参考标签未产出；`reference_elements=null`；字段准确率暂缺 | 引擎 + 后处理 | 契约定版后，按 ≤12 → 200–300 件跑教师参考；过 I-21 门 | 参考批次有版本/哈希；A/B 分歧报告；字段 P/R/F1 可算 | **执行中** |
 | I-21 | 付费批六道门：试点、赌博锚、会签、分批、按 L1 转化率验收、留评审记录 | 协调 | 任何新付费批先登记；未过门不得调用 | 六项记录齐全；L1 转化率达到约定 | **现行（无新付费批）** |
 | R7-01 | r7 未放行：S3 硬失败 26/299=8.7%，门禁 <5% | 后处理 + 协调 | 先做 S3 错误分类；不把 E-05 规则与 S3 混为一谈 | S3 <5%；正式门禁全过 | **blocked** |
