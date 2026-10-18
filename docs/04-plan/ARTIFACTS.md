@@ -3,7 +3,7 @@
 > `$DATA` = `D:/02_Dev/Data/justilaw-research`。下表是各线消费时应引用的**唯一当前版本**；状态为“过期/基线/WIP”的产物不得当作现行契约。
 > 文件哈希为 SHA-256；部分 JSON 内部还有自己的 `hash` 字段，二者不同，引用时写明是“文件 SHA”还是“内部 digest”。
 
-**最后更新：2026-10-18 11:45**
+**最后更新：2026-10-18 11:50**
 
 | 产物 | 路径 | 版本 / 哈希 | Owner | 消费方 | 状态 |
 |---|---|---|---|---|---|
@@ -16,7 +16,9 @@
 | 工程诊断（pre-E-05） | `$DATA/parsed2/engineering-diagnostics-20261018-codex-v1/summary.json` | 文件 SHA `3c092cb5…` | 后处理 | 协调、引擎 | **基线**（binding unresolved 1,647 / 1,704；E-05 前） |
 | 12 条 smoke 计划 | `$DATA/s1_runs/smoke12-elements-e05-plan/plan.json` | 文件 SHA `93a3a36d…`；`execute=false`、`release_approved=false` | 后处理 | 协调 | **计划未执行**（等免费诊断通过 + I-21 门） |
 | 法定 caps | `$DATA/config/legal_caps.json` | 文件 SHA `aedf5a23…` | 协调导出 | 引擎 | **现行**（E-01 核对使用；是否转正见 ISSUES） |
-| 后处理接入 WIP | 后处理 `research/discretion/unify/element_contract.py`、`normalization.py` | 11:36 快照 SHA `5d36c89f…`、`2f28259b…` | 后处理 | — | **WIP 未提交**（只接入了归一化 + 证据） |
+| 后处理 E-05 接入（Gate A） | 后处理 `research/discretion/unify/element_contract.py`、`normalization.py` | commit `256d2ce`（11:36）；文件 SHA `5d36c89f…`、`2f28259b…` | 后处理 | 后处理、引擎 | **已提交**（139 passed；7 笔未推 origin；无专用单测） |
+| 集成回放（Gate A） | `$DATA/parsed2/replay-e05-integrated-20261018/summary.json` | 文件 SHA `133f1b85…` | 后处理 | 协调 | **基线**（S3 26/299；`element_states` 全 `not_available`；不测绑定） |
+| 主体绑定（Gate B） | 引擎待补 `research/eval/` 契约模块 | 未提交（截至 11:47，last commit `45a7d1a`） | 引擎 | 后处理 | **未交付**（`shared_fact` / `target_specific` / `needs_review`） |
 | 当前交付 | L3 指针 **r6**；r7 未放行 | 见 [stage-plan-v2](./stage-plan-v2-2026-10-17.md) | 网页/法宝 | 全部 | **r7 关闭**（S3 <5% 未达） |
 | 协调规范 | `BOARD.md` / `DECISIONS.md` / `ARTIFACTS.md` / `ISSUES.md` / `OWNERSHIP.md` / `handoffs/` | commit 见本批 | 协调 | 全部 | **现行** |
 

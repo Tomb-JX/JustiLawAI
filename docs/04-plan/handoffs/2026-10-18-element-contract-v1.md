@@ -5,7 +5,7 @@
 - **Loop owner**：后处理线
 - **创建**：2026-10-18 11:45
 - **截止**：2026-10-18 13:15
-- **状态**：open
+- **状态**：Gate A 已完成（11:36）；Gate B（绑定）open
 
 ## 1. 本轮要拿到什么
 
@@ -60,9 +60,9 @@ python -B research/discretion/unify/diagnose_pipeline.py \
 
 | 项 | 记录 |
 |---|---|
-| 引擎 ack（时间/commit） | |
-| 后处理 ack（时间/负责人） | |
-| 单测结果 | |
-| 诊断结果（binding 变化、normalizer、证据问题数） | |
-| 新 contract 路径/哈希 | |
-| 关闭时间 | |
+| 引擎 ack（时间/commit） | 未 ack（截至 11:47；last commit `45a7d1a`，无绑定表） |
+| 后处理 ack（时间/负责人） | 11:36，commit `256d2ce`；工作区干净 |
+| 单测结果 | 139 passed；新增接入代码无专用单测 |
+| 诊断结果（binding 变化、normalizer、证据问题数） | Gate A 集成回放 `replay-e05-integrated-20261018`：S3 26/299；`element_states` 全 `not_available`；binding 未测 |
+| 新 contract 路径/哈希 | 未重导（等 Gate B 绑定，避免导出两次） |
+| 关闭时间 | 未关闭 |
