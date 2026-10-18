@@ -123,26 +123,32 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
     """Classify graph nodes using engine FIELD_BINDING semantic definition table.
 
     Engine defines semantics (shared vs target); postprocessing implements classification.
-    Updates each node's 'binding' field. Returns the graph (mutated) with 'binding_summary'.
+    Updates each node's 'binding' and 'binding_reason' fields.
+    Returns the graph (mutated) with 'binding_summary'.
     """
     from element_contract import binding_rules
     br = binding_rules()
     field_binding = br.FIELD_BINDING
+    target = graph.get("target", "")
     for node in graph.get("nodes", []):
         role = node.get("value_role")
         if not role or role.startswith("unclassified"):
             node["binding"] = "needs_review"
+            node["binding_reason"] = f"unclassified role: {role}"
             continue
         field = _role_to_field(role)
         if field is None:
             node["binding"] = "needs_review"
+            node["binding_reason"] = f"no field mapping for role: {role}"
             continue
         # Look up field in semantic definition table
         binding_type = field_binding.get(field)
         if binding_type is None:
             node["binding"] = "needs_review"
+            node["binding_reason"] = f"field not in FIELD_BINDING: {field}"
         else:
             node["binding"] = binding_type.value
+            node["binding_reason"] = f"field default: {field} → {binding_type.value}"
     # Add summary
     from collections import Counter
     bindings = [n.get("binding", "needs_review") for n in graph.get("nodes", [])]
@@ -165,7 +171,7 @@ def _role_to_field(role: str) -> str | None:
         "cumulative_stake": "amounts.cumulative_stake",
         "commission": "amounts.commission",
         "illegal_gain": "amounts.illegal_gain",
-        "fine": "amounts.commission",  # fine is penalty, not a binding field
+        "fine": None,  # fine is penalty outcome, not a binding field
         "participant_count": "persons.participant_count",
         "cumulative_participants": "persons.cumulative_participants",
         "times": "conduct.times",
@@ -184,9 +190,9 @@ def resolve_binding(graph, candidate_id, *, target, event_id, value_role, eviden
     if len(matches) != 1:
         raise ValueError("unknown_or_duplicate_candidate")
     node = matches[0]
-    # Accept lexical_candidate (legacy) and target_specific (E-05 binding)
+    # Accept lexical_candidate (legacy), target_specific, and shared_fact (E-05 binding)
     if (node["target"] != target or node["event_id"] != event_id or node["value_role"] != value_role
-            or node["binding"] not in ("lexical_candidate", "target_specific")):
+            or node["binding"] not in ("lexical_candidate", "target_specific", "shared_fact")):
         raise ValueError("subject_event_role_mismatch")
     ref = node["source_ref"]
     if not any(a <= ref["start"] < ref["end"] <= b for a, b in evidence_spans):

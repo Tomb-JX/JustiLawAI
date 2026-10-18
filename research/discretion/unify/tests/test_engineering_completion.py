@@ -355,7 +355,7 @@ def test_exported_intermediate_schemas_validate_real_adapter_outputs():
         Draft202012Validator(bundle['intermediate_schemas']['TemporalValue']).validate(normalize_time(raw,ref(raw)))
     for raw in ['贰佰肆拾元','3到5万元','超过1000元','约5万元']:
         Draft202012Validator(bundle['intermediate_schemas']['QuantityValue']).validate(normalize_quantity(raw,ref(raw)))
-    assert bundle['normalization_policy']['status']=='proposed_pending_engine_adoption'
+    assert bundle['normalization_policy']['status']=='adopted'
 
 
 def test_new_outcome_commit_revalidated_and_context_mismatch_quarantined(tmp_path):
