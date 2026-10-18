@@ -7,6 +7,8 @@
 - **截止**：2026-10-18 13:15
 - **状态**：Gate A 模块已提交（11:36）；Gate A2 主路径 + Gate B 绑定 open
 
+> **依赖关系**：Gate A2（后处理把 `evidence_graph` 主路径改用 E-05）**不依赖绑定表，可立即执行**；只有 Gate B 的主体绑定等引擎。
+
 ## 1. 本轮要拿到什么
 
 1. 引擎补齐**主体/事件绑定**规则：`shared_fact` / `target_specific` / `needs_review`，写进 `research/eval/` 的同一契约模块并版本化。

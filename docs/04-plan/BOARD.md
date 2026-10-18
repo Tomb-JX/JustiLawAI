@@ -20,7 +20,7 @@
 - 后处理提交 `256d2ce`：新增 `element_contract.py` / `normalization.py` 的 E-05 包装。
 - 后处理单测：**139 passed**（新增接入代码没有单独测试，见 ISSUES CONTRACT-01）。
 - **主路径未接**：`evidence_graph.py` 仍调用旧 `normalize_time` / `normalize_quantity`，没有改用 E-05；集成回放 `replay-e05-integrated-20261018` 的 `element_states` 全 `not_available`，也没有测到新代码。
-- **Gate A2（现在可做，不等引擎）**：把 `evidence_graph` 的金额/日期归一化改走 E-05，补 2–3 个测试，再跑免费工程诊断。
+- **Gate A2（owner 后处理线；现在可做，不等绑定表）**：把 `evidence_graph` 的金额/日期归一化改走 E-05，补 2–3 个测试，再跑免费工程诊断。
 
 ### Gate B：绑定（等引擎）
 
