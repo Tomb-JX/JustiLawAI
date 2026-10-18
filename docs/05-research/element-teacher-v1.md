@@ -2,7 +2,7 @@
 
 ## 边界与输入
 
-字段唯一来源是 `app.discretion.schema.iter_fields()`（schema 1.1.0）和标注指南 v0.2.1。现行枚举为 **7 组、36 字段**；协调单 I-20 所写的 37 与代码不符，需协调线核账，接入时不可凭空补一个字段。
+字段唯一来源是 `app.discretion.schema.iter_fields()`（schema 1.1.0）和标注指南 v0.4。现行枚举为 **7 组、36 字段**；协调单 I-20 所写的 37 与代码不符，需协调线核账，接入时不可凭空补一个字段。
 
 网页线以 `unified_raw` 的一人一条记录为单位，`subject_mention` 是目标本人；`subject.aliases` 只表示同一人的其他写法。教师输入用 seg-v2 句表中的 facts 句和 facts 前的 meta/当事人句，不能喂说理、决定、复议结论或所引法条。元数据句可能存在而 facts 句缺失；若二者都为空，记录送人工分流，不调用教师。
 

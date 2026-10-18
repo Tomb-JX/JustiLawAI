@@ -130,7 +130,7 @@
  "behavior_date": "2025-11-03", "decision_date": "2025-11-04", "authority": "××县公安局",
  "region": "130626", "law_version": "旧法",
  "subject_mention": "张某", "doc_no": "某公〔2025〕1号", "event_id": "E-…", "linked_ids": [],
- "schema_version": "1.0.0", "pipeline_version": "harvest-0.x",
+ "schema_version": "1.1.0", "pipeline_version": "harvest-0.x",
  "text_full": "…", "text_sha256": "…", "segmented": true,
  "segments": {"text_facts": [120, 188], "text_decision": [230, 301]},
  "outcome": {"type": "拘留并处罚款", "detention_days": 5, "fine": 500, "…": "…"},
