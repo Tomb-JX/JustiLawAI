@@ -33,7 +33,7 @@
 | E-05 主路径接入（Gate A2） | 后处理 `research/discretion/unify/evidence_graph.py` | commit `4b7680d`；文件 SHA `00063ffc…` | 后处理 | 后处理 | **已完成并推送**（A2 诊断 11:58） |
 | 集成回放（Gate A） | `$DATA/parsed2/replay-e05-integrated-20261018/summary.json` | 文件 SHA `133f1b85…` | 后处理 | 协调 | **基线**（S3 26/299；`element_states` 全 `not_available`；不测绑定） |
 | 主体绑定（Gate B） | 引擎 `binding_rules.py` + 后处理 `classify_graph_bindings` | `f0dd746` + `e06a0af`；212 123/611/1611；P1 158/723/1708 | 引擎 + 后处理 | 引擎、验收 | **未通过/降为 guard**（money shared=0，但 money/time 大量 review；`field_accuracy=null`；规则版按 B-10 冻结；未接主链路；BIND-03/BIND-05/CONTRACT-01 open） |
-| unified_raw 全量刷新（2026-10-18） | `$DATA/unified_raw_refresh/20261018/` | `CATALOG.json`/`REPORT.md`/`QUALIFIED.md`；41 批/26,185 条 | 后处理 | 全部 | **现行**（format_ok 24,439；canonical 8,288；released+content 3,728；P2-r1 重复权限页不合格；web party=0） |
+| unified_raw 全量刷新（2026-10-18） | `$DATA/unified_raw_refresh/20261018/` | `CATALOG.json`/`REPORT.md`/`QUALIFIED.md`；41 批/26,185 条 | 后处理 | 全部 | **现行**（format_ok 24,439；canonical 8,288；released+content 3,728；**非去重**：唯一 id 7,333/文本 7,468；**事件去重未做**；P2-r1 重复权限页不合格；web party=0） |
 | 当前交付 | L3 指针 **r6**；r7 未放行 | 见 [stage-plan-v2](./stage-plan-v2-2026-10-17.md) | 网页/法宝 | 全部 | **r7 关闭**（S3 <5% 未达） |
 | 协调规范 | `BOARD.md` / `DECISIONS.md` / `ARTIFACTS.md` / `ISSUES.md` / `OWNERSHIP.md` / `handoffs/` | commit 见本批 | 协调 | 全部 | **现行** |
 
