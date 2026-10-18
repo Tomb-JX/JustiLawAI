@@ -39,10 +39,18 @@ def engine_contract():
 def contract_snapshot(engine) -> dict:
     paths = [Path(engine.__file__), Path(engine.__file__).with_name("schema.py"),
              Path(engine.__file__).with_name("extract.py")]
+    here = Path(__file__).resolve().parent
+    dependencies = [here.parent / "harvest/parse.py", here.parent / "harvest/parse_qc.py",
+                    Path(engine.__file__).resolve().parents[3] / "research/eval/key_field_presence.py"]
+    from s1 import data_root
+    caps = data_root() / "config/legal_caps.json"
+    dependencies.append(caps)
     return {"wire_version": WIRE_VERSION, "engine_prompt_version": engine.PROMPT_VERSION,
             "engine_schema_version": engine.SCHEMA_VERSION,
             "files": {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in paths},
-            "implementation": implementation_snapshot()}
+            "implementation": implementation_snapshot(),
+            "dependencies": {str(p.resolve()): hashlib.sha256(p.read_bytes()).hexdigest()
+                             for p in dependencies if p.is_file()}}
 
 
 def implementation_snapshot() -> dict:
@@ -73,13 +81,15 @@ def reference_schema(engine) -> dict:
 
 def messages(engine, inp: dict, *, decisions: list | None = None) -> list[dict]:
     # Always transmit the complete engine value schema, including enums.
-    schema = reference_schema(engine)
-    system = engine.teacher_system_prompt() + (
+    from contract_bundle import make_bundle
+    bundle = make_bundle(engine)
+    schema = bundle['output_schema']
+    system = bundle['prompt'] + (
         "\n【传输契约覆盖】证据不抄引文、不算坐标，只选本次允许句的 sentence_ids。"
         "不得引用其他记录或范围外句。未提及须由已读输入支持，缺字段不等于未提及。"
         "按下面完整 JSON Schema 输出七组对象，禁止平铺、包裹或额外键。\n"
         + json.dumps(schema, ensure_ascii=False))
-    user = {"target": inp["target"], "aliases": inp["aliases"],
+    user = {"target": inp["target"], "aliases": inp["aliases"], "contract_bundle_hash": bundle['hash'],
             "allowed_sentences": inp["sentence_view"]}
     if decisions is not None:
         # C emits complete fields under the same schema, with exactly the same view.
@@ -178,7 +188,9 @@ def merge_valid(a: dict, b: dict, engine, text_full: str, regions=(), c=None):
         if key(va) == key(vb):
             chosen = va
         else:
-            d = {"path": path, "a": va, "b": vb}
+            kind = ("status_difference" if va["status"] != vb["status"] else
+                    "value_difference" if digest(va["value"]) != digest(vb["value"]) else "evidence_only")
+            d = {"path": path, "kind": kind, "a": va, "b": vb}
             differences.append(d)
             if c is None:
                 unresolved.append(d)
