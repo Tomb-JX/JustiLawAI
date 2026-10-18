@@ -9,6 +9,10 @@ from cleanse import sentence_table  # noqa: E402
 from fact_spans import effective_fact_spans  # noqa: E402
 from run_seg import request_for, validated_output  # noqa: E402
 from s3 import check_facts_quality, run_checks  # noqa: E402
+from fact_spans import fact_view, candidate_fact_clauses  # noqa: E402
+from run_elements import build_inputs  # noqa: E402
+from locate import OffsetIndex  # noqa: E402
+import hashlib
 
 
 def _case():
@@ -57,3 +61,24 @@ def test_s3_reports_invalid_clause_refs_without_crashing():
     findings = run_checks(ctx)
     assert any(f.check == "schema" and f.severity == "error" and "fact_clause_ids" in f.detail
                for f in findings)
+
+
+def test_refined_fact_view_is_shared_by_s3_and_element_input():
+    text = "现查明：2025年1月1日，张某参与赌博，其行为已构成赌博。"
+    rec = {"cleaned_text": text, "sentences": sentence_table(text), "form": "叙述式-独立成篇",
+           "source_type": "处罚决定书", "subject_mention": "张某", "_text_full": text,
+           "text_orig_sha256": hashlib.sha256(text.encode()).hexdigest(),
+           "prefilter": {"gambling": "是"}}
+    clauses = candidate_fact_clauses(text, rec["sentences"])
+    behavior = next(c["id"] for c in clauses if "张某参与赌博" in c["text"])
+    out = {"zones": [{"type": "facts", "from": 1, "to": 1}], "fact_clause_ids": [behavior]}
+    view = fact_view(rec, out)
+    projected = "".join(v["text"] for v in view)
+    assert "2025年1月1日" in projected and "张某参与赌博" in projected
+    assert "现查明" not in projected and "构成赌博" not in projected
+    assert [v["role"] for v in view] == ["context_time", "behavior_core"]
+    inp = build_inputs(rec, out, OffsetIndex({"orig_len": len(text), "deletes": []}))
+    assert "2025年1月1日" in inp["facts_text"]
+    assert "现查明" not in inp["facts_text"] and "构成赌博" not in inp["facts_text"]
+    findings = check_facts_quality({"record": rec, "output": out, "spans": {"facts": [(0, len(text), 0, len(text))]}})
+    assert not [f for f in findings if f.severity == "error" or "定性" in f.detail]

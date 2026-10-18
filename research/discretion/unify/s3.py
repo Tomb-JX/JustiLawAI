@@ -31,7 +31,7 @@ from parse import CONCLUSION_MARK  # noqa: E402
 from parse_qc import CONCL_ANY, EVID_PAT, GENJV  # noqa: E402  与交付 QC 同源（指令 §3 迁移，单一注册表）
 from zoning import is_public_form  # noqa: E402
 from parse import cn2int  # noqa: E402  中文数字互转（值-文对账用）
-from fact_spans import effective_fact_spans  # noqa: E402
+from fact_spans import effective_fact_spans, ambiguous_fact_context, fact_zone_conflicts  # noqa: E402
 
 # 法定幅度：读引擎/协调层导出的常量表（协同指令 §4：$DATA/config/legal_caps.json，caps-v1 档次区间制），
 # 展平为 {版本: {detention上限, fine上限, 条号}}；缺省内置 2012修正第七十条 口径。
@@ -137,6 +137,12 @@ def check_schema(ctx):
     findings = [_mk("schema", "error", e) for e in errs if "zone" not in e]
     try:
         effective_fact_spans(ctx["record"], ctx["output"])
+        ambiguous = ambiguous_fact_context(ctx["record"], ctx["output"])
+        if ambiguous:
+            findings.append(_mk("schema", "warn", f"事实邻接日期与其他字符粘连，需核来源边界：子句 {ambiguous}"))
+        conflicts = fact_zone_conflicts(ctx["record"], ctx["output"])
+        if conflicts:
+            findings.append(_mk("schema", "warn", f"已选事实子句与句级分区冲突：子句 {conflicts}"))
     except (ValueError, IndexError, KeyError, TypeError) as exc:
         findings.append(_mk("schema", "error", f"fact_clause_ids 非法：{exc}"))
     return findings

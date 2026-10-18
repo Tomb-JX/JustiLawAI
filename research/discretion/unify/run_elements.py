@@ -25,6 +25,7 @@ from evidence_types import CleanSpan
 from provider_contract import freeze_execution
 from budget_scope import from_order
 from task_result import failure_record
+from fact_spans import fact_view
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
@@ -52,18 +53,29 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
         previous = b
     if previous != len(sentences):
         raise ValueError("incomplete_zones")
-    first_f = next((sid for sid, typ in types.items() if typ == "facts"), len(sentences) + 1)
+    refined = fact_view(rec, seg_out or {})
+    refined_by_sentence = {}
+    if refined is not None:
+        for item in refined:
+            refined_by_sentence.setdefault(item["sentence"], []).append(item)
+    first_f = (min(refined_by_sentence) if refined_by_sentence else len(sentences) + 1) if refined is not None else next(
+        (sid for sid, typ in types.items() if typ == "facts"), len(sentences) + 1)
     view = []
     for sid, typ in types.items():
-        if typ != "facts" and not (typ == "meta" and sid < first_f):
+        has_refined_facts = refined is not None and sid in refined_by_sentence
+        if not has_refined_facts and typ != "facts" and not (typ == "meta" and sid < first_f):
             continue
-        cs, ce = sentences[sid - 1]
-        for part, span in enumerate(index.project_span(CleanSpan(cs, ce), original), 1):
-            a, b = span.start, span.end
-            text = original[a:b]
-            if text.strip():
-                view.append({"id": f"S{sid}.{part}", "sentence_id": sid, "type": typ,
-                             "start": a, "end": b, "text": text})
+        segments = (refined_by_sentence.get(sid, []) if refined is not None and (has_refined_facts or typ == "facts")
+                    else [{"start": sentences[sid - 1][0], "end": sentences[sid - 1][1], "role": "zone"}])
+        segment_type = "facts" if has_refined_facts else typ
+        for segment_number, segment in enumerate(segments, 1):
+            for part, span in enumerate(index.project_span(CleanSpan(segment["start"], segment["end"]), original), 1):
+                a, b = span.start, span.end
+                text = original[a:b]
+                if text.strip():
+                    view.append({"id": f"S{sid}.{segment_number}.{part}" if refined is not None else f"S{sid}.{part}",
+                                 "sentence_id": sid, "type": segment_type, "start": a, "end": b,
+                                 "text": text, **({"fact_role": segment["role"]} if refined is not None and segment_type == "facts" else {})})
     if not view:
         return None
     if target not in '\n'.join(s['text'] for s in view):

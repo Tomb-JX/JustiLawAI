@@ -22,9 +22,9 @@ from progress import load_prices
 from provider_contract import freeze_execution
 from budget_scope import from_order
 from task_result import failure_record
-from fact_spans import candidate_fact_clauses, resolve_fact_clause_ids
+from fact_spans import candidate_fact_clauses, fact_view
 
-VERSION = "seg-v2-durable-3"
+VERSION = "seg-v2-durable-4"
 
 
 def request_for(rec, *, clause_refine=False):
@@ -43,7 +43,10 @@ def request_for(rec, *, clause_refine=False):
     if clause_refine:
         candidates = candidate_fact_clauses(rec["cleaned_text"], sentences)
         system += ("\n【句内事实片段】对下列候选子句，只在事实行为被原文陈述时选择其 ID，"
-                   "纯法律定性、处罚结论、证据、元数据一律不选。关键词只是候选来源，不代表事实。"
+                   "纯法律定性、处罚结论、证据、元数据和‘现查明’等栏目标题一律不选。"
+                   "独立的日期子句不要单独选择；紧邻已选行为的纯日期由系统保留为上下文。"
+                   "账号尾号与日期粘连的子句不要为了保留日期而整段选择。"
+                   "关键词只是候选来源，不代表事实。"
                    "输出额外字段 fact_clause_ids（升序不重复整数数组；无事实选 []）。"
                    "主 zones 仍必须完整铺满句表。")
         user += "\n候选子句（只选 ID，不计算字符偏移）：\n" + "\n".join(
@@ -71,9 +74,7 @@ def validated_output(payload, rec, *, clause_refine=False):
     if clause_refine:
         if "fact_clause_ids" not in output:
             raise ValueError("S1_missing_fact_clause_ids")
-        resolve_fact_clause_ids(rec["cleaned_text"], rec["sentences"],
-                                candidate_fact_clauses(rec["cleaned_text"], rec["sentences"]),
-                                output["fact_clause_ids"])
+        fact_view(rec, output)
     return output
 
 

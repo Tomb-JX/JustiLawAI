@@ -12,6 +12,10 @@ from collections import Counter
 
 _CLAUSE = re.compile(r"[^，,：:；;。！？\n]*(?:[，,：:；;。！？\n]|$)")
 _MIXED_CUE = re.compile(r"(?:行为.{0,6}(?:构成|违反|属于|属)|情节(?:严重|较重|较轻)|现决定|决定给予)")
+_DATE_ONLY = re.compile(r"^\s*(?:\d{4}年\d{1,2}月\d{1,2}日|\d{4}[-.]\d{1,2}[-.]\d{1,2})(?:\d{1,2}时(?:\d{1,2}分)?(?:许|左右)?)?[，,；;]?\s*$")
+_HEADING = re.compile(r"^(?:现查明|经查明|主要违法事实|违法事实)[:：]$")
+_GLUED_HEADING_DATE = re.compile(r"^(?:现查明|经查明)(?=\d{4}年)")
+FACT_ROLES = {"behavior_core", "other_case_fact", "context_time"}
 
 
 def clause_table(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
@@ -89,6 +93,16 @@ def effective_fact_spans(record: dict, output: dict) -> list[tuple[int, int, int
     Returns None for historical outputs without the new key. The primary zones stay
     intact; this is a separate facts reference layer for S3 and later consumers.
     """
+    view = fact_view(record, output)
+    return None if view is None else [(v["start"], v["end"], v["start"], v["end"]) for v in view]
+
+
+def fact_view(record: dict, output: dict) -> list[dict] | None:
+    """Source-anchored facts projection shared by S3 and downstream consumers.
+
+    A date-only clause immediately before a selected behavior clause is context,
+    not an independent assertion. Mixed masked account/date clauses stay excluded.
+    """
     selected = output.get("fact_clause_ids")
     if selected is None:
         return None
@@ -96,14 +110,73 @@ def effective_fact_spans(record: dict, output: dict) -> list[tuple[int, int, int
     sentences = record.get("sentences") or []
     candidates = candidate_fact_clauses(cleaned, sentences)
     candidate_sentences = {c["sentence"] for c in candidates}
-    picked = resolve_fact_clause_ids(cleaned, sentences, candidates, selected)
-    spans = []
+    resolve_fact_clause_ids(cleaned, sentences, candidates, selected)
+    declared_roles = output.get("fact_clause_roles")
+    if declared_roles is not None:
+        if (not isinstance(declared_roles, dict) or set(declared_roles) != {str(cid) for cid in selected}
+                or any(value not in FACT_ROLES for value in declared_roles.values())):
+            raise ValueError("invalid_fact_clause_roles")
+    by_id = {c["id"]: c for c in candidates}
+    chosen = set(selected)
+    context = set()
+    for cid in selected:
+        previous = by_id.get(cid - 1)
+        current = by_id[cid]
+        if (previous and previous["sentence"] == current["sentence"]
+                and _DATE_ONLY.fullmatch(previous["text"]) and cid - 1 not in chosen):
+            context.add(cid - 1)
+    view = []
     for zone in output.get("zones") or []:
         if zone.get("type") != "facts":
             continue
         for sentence_id in range(zone["from"], zone["to"] + 1):
             if sentence_id not in candidate_sentences:
                 start, end = sentences[sentence_id - 1]
-                spans.append((start, end, start, end))
-    spans.extend((item["start"], item["end"], item["start"], item["end"]) for item in picked)
-    return sorted(spans)
+                view.append({"sentence": sentence_id, "start": start, "end": end,
+                             "text": cleaned[start:end], "role": "legacy_sentence", "source": "zone"})
+    for clause in candidates:
+        cid = clause["id"]
+        if cid not in chosen and cid not in context:
+            continue
+        if _HEADING.fullmatch(clause["text"].strip()):
+            continue  # Structural heading is never projected as factual evidence.
+        prefix = _GLUED_HEADING_DATE.match(clause["text"])
+        start = clause["start"] + (prefix.end() if prefix else 0)
+        value = cleaned[start:clause["end"]]
+        if cid in context or _DATE_ONLY.fullmatch(value):
+            role = "context_time"
+        else:
+            role = declared_roles[str(cid)] if declared_roles is not None else "behavior_core"
+        view.append({"sentence": clause["sentence"], "start": start,
+                     "end": clause["end"], "text": value,
+                     "role": role, "source": "linked_date" if cid in context else "model", "clause_id": cid})
+    return sorted(view, key=lambda item: (item["start"], item["end"]))
+
+
+def ambiguous_fact_context(record: dict, output: dict) -> list[int]:
+    """Flag date/identifier mixtures next to selected facts for source review."""
+    selected = output.get("fact_clause_ids")
+    if selected is None:
+        return []
+    clauses = candidate_fact_clauses(record.get("cleaned_text") or "", record.get("sentences") or [])
+    by_id = {c["id"]: c for c in clauses}
+    result = []
+    for cid in selected:
+        previous, current = by_id.get(cid - 1), by_id.get(cid)
+        if (previous and current and previous["sentence"] == current["sentence"]
+                and re.search(r"\d{4}年\d{1,2}月\d{1,2}日", previous["text"])
+                and not _DATE_ONLY.fullmatch(previous["text"]) and cid - 1 not in selected):
+            result.append(cid - 1)
+    return sorted(set(result))
+
+
+def fact_zone_conflicts(record: dict, output: dict) -> list[int]:
+    """Selected fact clauses located in a non-facts primary sentence zone."""
+    selected = output.get("fact_clause_ids")
+    if selected is None:
+        return []
+    clauses = {c["id"]: c for c in candidate_fact_clauses(record.get("cleaned_text") or "",
+                                                          record.get("sentences") or [])}
+    fact_sentences = {sid for zone in output.get("zones") or [] if zone.get("type") == "facts"
+                      for sid in range(zone["from"], zone["to"] + 1)}
+    return [cid for cid in selected if cid in clauses and clauses[cid]["sentence"] not in fact_sentences]
