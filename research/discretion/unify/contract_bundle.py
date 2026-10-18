@@ -42,6 +42,10 @@ def make_bundle(engine):
               'normalization_policy':{'status':'proposed_pending_engine_adoption','default':'lossless-only',
                     'explicit_compatibility_policies':['schema-1.1.0-month-first','schema-1.1.0-close-endpoints','schema-1.1.0-30day-month'],
                     'approximation_default':'no_numeric_projection','aliases_default':'engine-exact-values-only'},
+              'binding_policy':{'status':'proposed_pending_engine_adoption',
+                    'types':['shared_fact','target_specific','needs_review'],
+                    'source':'binding_rules.py','version':'binding-rules-v1',
+                    'accept_in_resolve':['lexical_candidate','target_specific']},
               'proof_boundary':'schema/span/candidate validation does not establish semantic accuracy',
               'release_approved':False}
     return {**result,'hash':digest(result)}

@@ -133,17 +133,21 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
         role = node.get("value_role")
         if not role or role.startswith("unclassified"):
             node["e05_binding"] = "needs_review"
+            node["binding"] = "needs_review"
             continue
         # Map value_role to field path
         field = _role_to_field(role)
         if field is None:
             node["e05_binding"] = "needs_review"
+            node["binding"] = "needs_review"
             continue
         quote = node.get("source_ref", {}).get("quote") or ""
         result = br.classify_binding(field, quote, target_mention=target, all_subjects=all_subjects)
         node["e05_binding"] = result.binding_type.value
         node["e05_binding_reason"] = result.reason
         node["e05_binding_confidence"] = result.confidence
+        # Update main binding field with E-05 classification
+        node["binding"] = result.binding_type.value
     # Add summary
     bindings = [n.get("e05_binding", "needs_review") for n in graph.get("nodes", [])]
     from collections import Counter
@@ -185,8 +189,9 @@ def resolve_binding(graph, candidate_id, *, target, event_id, value_role, eviden
     if len(matches) != 1:
         raise ValueError("unknown_or_duplicate_candidate")
     node = matches[0]
+    # Accept lexical_candidate (legacy) and target_specific (E-05 binding)
     if (node["target"] != target or node["event_id"] != event_id or node["value_role"] != value_role
-            or node["binding"] != "lexical_candidate"):
+            or node["binding"] not in ("lexical_candidate", "target_specific")):
         raise ValueError("subject_event_role_mismatch")
     ref = node["source_ref"]
     if not any(a <= ref["start"] < ref["end"] <= b for a, b in evidence_spans):
