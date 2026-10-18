@@ -2,7 +2,7 @@
 
 依据协调分支 `codex-pipeline-implementation-order-2026-10-18.md` 接管 B 职能，已先合并网页提交 `d254487`（合并提交 `21bd54f`）。本批完成基础错误修复、可恢复调用入口、免费重放与 G2.2a 开发切片冻结；提交在 `codex/seg-v2-design-review` 待审。**没有实际模型调用，没有放行 r7，也没有把旧模型标签认定为参考真值。**
 >
-> **2026-10-18 13:17 更新注记（协调层）**：Gate A2/B 已推进到 v5：`05485da` 实现证据感知 3 步；`8c182ed` 增加 behavior 节点 + clause 级多人检测；`resolve_binding` 接受 shared_fact。**212 开发切片是单人案卷**（61/1120/528）；**P1-r6 178 条/186 个多人 behavior 节点**（111/1570/908），joint 分支已实际跑过。908 review 是 unclassified role（`fine`/`unclassified_count`），不是主体歧义；contract v4 的 `binding_policy.accept_in_resolve` 仍只写 lexical/target，与代码接受 shared 不一致；无绑定准确率。本文 §5.2“主体—事件—金额角色绑定未交付”对完整 EP-06 仍成立；BIND-03/CONTRACT-01 未关闭。
+> **2026-10-18 13:17 更新注记（协调层）**：Gate A2/B 已推进到 v5：`05485da` 实现证据感知 3 步；`8c182ed` 增加 behavior 节点 + clause 级多人检测；`resolve_binding` 接受 shared_fact。**212 开发切片是单人案卷**（123/1567/655）；**P1-r6 178 条/186 个多人 behavior 节点**（158/1570/861），joint 分支已实际跑过。861 review 是 unclassified role（`fine`/`unclassified_count`），不是主体歧义；contract v4 的 `binding_policy.accept_in_resolve` 仍只写 lexical/target，与代码接受 shared 不一致；无绑定准确率。本文 §5.2“主体—事件—金额角色绑定未交付”对完整 EP-06 仍成立；BIND-03/CONTRACT-01 未关闭。
 
 ## 1. 已落地的最小链路
 
