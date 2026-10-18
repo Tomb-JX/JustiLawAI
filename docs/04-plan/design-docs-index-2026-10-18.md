@@ -3,6 +3,39 @@
 > 用途：告诉各线“该读哪份、哪份已过时”。判定依据：各文档在所属分支的最后提交（哈希/日期）+ 文档内版本号 + 是否被后续评审/决策取代。
 > **重要：没有单一分支包含全部最新文档。** 每份文档以其归属分支的最新提交为准；合并 main 之前，不要用 main 或协调分支里的镜像副本。
 
+## 快速打开（绝对路径）
+
+**全局**
+- [框架全景笔记（引擎分支，现行）](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/02-design/framework-panorama.md)
+- [阶段规划 v2（协调分支，现行目标树）](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/stage-plan-v2-2026-10-17.md)
+- [评审驱动协调修订 A-01–A-06](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/review-driven-coordination-revision-2026-10-18.md)
+
+**评审与实施（Codex 分支）**
+- [seg-v2 项目层设计评审](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-project-level-design-review-2026-10-18.md)
+- [seg-v2 设计独立评审](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-design-review-2026-10-18.md)
+- [问题到工程方案映射 EP-01–12](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-engineering-solutions-2026-10-18.md)
+- [后处理链路第一批实施与切片交接（最新）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/seg-v2-pipeline-implementation-report-2026-10-18.md)
+
+**解析与模型调用（Codex/网页分支）**
+- [解析层格式链路设计（变更日志 v1.3）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-format-chain-design-2026-10-17.md)
+- [解析层 v2 工程设计（v2.1）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/parse-engineering-design-v2-2026-10-17.md)
+- [全链路模型调用设计 full-record（v1.1）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/model-call-design-full-record-2026-10-18.md)
+- [模型调用全链路反思（D1–D6）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/model-call-design-reflection-2026-10-18.md)
+- [文本处理规范（2026-10-18）](D:/02_Dev/Projects/大创/.claude/worktrees/seg-v2-design-review/docs/04-plan/text-processing-spec.md)
+
+**契约、标注与门禁（引擎分支）**
+- [数据交付规格 v0.5.1](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/data-spec.md)
+- [要素标注指南 v0.3](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/annotation-guideline.md)
+- [固定对照与阶段门禁 v0.6](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/sota-baselines-and-gates.md)
+- [I-20 要素教师 v1 接口（36 字段）](D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/docs/05-research/element-teacher-v1.md)
+- [数据湖设计 v0.2（main）](D:/02_Dev/Projects/大创/docs/02-design/data-lake-design-2026-10-17.md)
+
+**现状与问题**
+- [协调审计看板（活看板）](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/coordination-audit-2026-10-16.md)
+- [数据分布与增量方向](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/data-distribution-2026-10-18.md)
+- [I-20 要素字段标注缺口](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/issues/I-20-element-label-gap-2026-10-18.md)
+- [I-21 P2 工单事故](D:/02_Dev/Projects/大创/.claude/worktrees/data-coordination/docs/04-plan/issues/I-21-p2-workorder-incident-2026-10-18.md)
+
 ## 0. 推荐阅读顺序
 
 1. **先看全局**：`framework-panorama.md`（引擎分支）→ `stage-plan-v2`（协调）→ `seg-v2-project-level-design-review`（Codex）。
