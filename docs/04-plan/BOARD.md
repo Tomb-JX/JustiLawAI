@@ -2,8 +2,25 @@
 
 > 只放当前循环；历史见 [collab-log.md](./collab-log.md)，决策见 [DECISIONS.md](./DECISIONS.md)，产物见 [ARTIFACTS.md](./ARTIFACTS.md)，阻塞见 [ISSUES.md](./ISSUES.md)。
 > 更新时机：循环开始/结束、阻塞变化、核心指标变化。**不再在其它文档维护“当前状态”。**
+> **各工作树快速读取（引擎/后处理没有本页）**：`D:/02_Dev/Data/justilaw-research/handoff/2026-10-18/CURRENT.md`（本页镜像）。
 
-**最后更新：2026-10-18 11:50**
+**最后更新：2026-10-18 11:54**
+
+## 五分钟阅读路径
+
+1. 本页（当前循环、下一步、指标、阻塞）。
+2. [handoffs/2026-10-18-element-contract-v1.md](./handoffs/2026-10-18-element-contract-v1.md)（本轮交接与验收命令）。
+3. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行；过期/基线行不要当契约）。
+4. 需要细节再读 [ISSUES.md](./ISSUES.md)、[DECISIONS.md](./DECISIONS.md)。
+5. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考，会把当前状态淹没。
+
+## 各线当前状态（11:54）
+
+| 线 | 最后动作 | 下一步 | 注意 |
+|---|---|---|---|
+| 引擎 | `45a7d1a`（11:24）：E-05 实现包；**无绑定表提交** | 补 `shared_fact` / `target_specific` / `needs_review` 绑定表；推送 7 笔 | 只读 BOARD + handoff + `research/eval/normalization_spec.py` / `evidence_contract.py`；不要读 collab-log |
+| 后处理 | `256d2ce`（11:36）：模块接入；139 passed | 推 7 笔；Gate A2 改 `evidence_graph` 主路径；免费诊断 | A2 不等绑定；不要跑 smoke/模型 |
+| 协调 | `28707b2`：BOARD/规范落地 | 维护 BOARD；不新增状态文档 | 当前状态只在本页 |
 
 ## 当前循环
 
