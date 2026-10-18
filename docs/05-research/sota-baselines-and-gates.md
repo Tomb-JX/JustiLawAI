@@ -4,6 +4,8 @@
 > 配套：[引擎方案](../02-design/gambling-discretion-engine.md) · [文献与资料库](./reference-library.md) · [偏离日志](./deviation-log.md)
 >
 > 本文件规定：**每个算法组件对照哪个业界方法、在哪个公开基准上用什么数字作锚点、每个阶段必须达到哪些硬性指标才算完成**。目的是防止实现过程中逐步降低标准、悄悄换成更简单的方法、或对测试集过拟合。
+>
+> **2026-10-18 补记（协调层）**：本门禁尚未预注册“绑定质量”指标。当前 binding v4 为 61 shared/1120 target/528 review，仍只是字段默认基线；`semantic_rules_approved=true` 不等于准确率。正式产标签/训练前，需补字段/证据绑定小样本准确率、shared/target 处理、review 处置；BIND-03/CONTRACT-01 未关闭。
 
 ## 0. 效力与修改规则
 

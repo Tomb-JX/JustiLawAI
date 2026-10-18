@@ -8,6 +8,8 @@
 
 调用 `app.discretion.element_labels.teacher_messages(target=..., facts_text=..., meta_text=..., aliases=...)` 构造消息。系统提示从本体说明动态生成，每次 schema 版本变化须重新冻结提示版本。教师只回七组 `elements`，各字段 `{status,value,evidence}`，`status` 为 `明确`、`推断`、`未提及`。未提及必须 `value=null,evidence=[]`；有值必须附 facts/meta 的连续逐字 `quote`。字段取值、枚举、金额下界和开口上界由 `teacher_output_schema()` 与 `validate_teacher_output()` 校验。只收台费可记 `amounts.commission`，不得据此标营利目的。
 
+**绑定不在教师输出中**：教师只回七组 `elements`，不输出 `binding`；绑定由后处理按引擎语义表 + 证据判定。当前 v4 诊断 61 shared / 1120 target / 528 review，仍是字段默认映射；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target；BIND-03/CONTRACT-01 未关闭。教师契约通过不等于绑定质量验收。
+
 ## S2 定位与 parsed-2 结构（答 I-20 §6.3）
 
 教师输出的引文先无坐标。S2 把每条引文定位到 **原文正本** `text_full`，在 `elements.<group>.<field>.evidence[]` 回填 `start,end`，采用 Python/JSON 字符串从 0 起、左闭右开的字符位移。入库每个证据为 `{quote,start,end}`，必须满足 `text_full[start:end] == quote`；不存在或有歧义的定位进入复核，不能在规范化文本里凑坐标。`text_orig_sha256` 是 `text_full` UTF-8 的 SHA-256。parsed-2 顶层建议放 `elements`（七组），并显式存 `element_schema_version=1.1.0`、`element_prompt_version=element-v1`、`label_provenance=model-adjudicated`、`human_review=false`。现有 zones/subject/outcome/dates 等结构继续由 seg-v2 负责。`teacher_output_schema(located=True)` 和 `validate_teacher_output(..., located=True)` 是定位后契约。

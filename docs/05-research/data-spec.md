@@ -1,6 +1,6 @@
 # 行政案例数据交付规格（数据链路 → 引擎）
 
-> 版本 v0.5.1 · 2026-10-17 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"
+> 版本 v0.6 · 2026-10-18 · 细化[分工文档](../04-plan/workstreams.md) §5"案例数据交付"；新增 §8 要素标签契约（L5）
 > 配套：[项目现状总览](../04-plan/project-status.md)（数据分层 §4）· [数据收集计划](../04-plan/data-collection.md) · [文本处理规范](../04-plan/text-processing-spec.md)（数据链路的实现规则）· [标注指南](./annotation-guideline.md) · [固定对照与阶段门禁](./sota-baselines-and-gates.md)
 > v0.5 按用户批准的[规范修订案](../04-plan/normative-revision-deid-cancel-2026-10-17.md)改为原文正本；解析层统一中间格式（§6）与自动验收（§4）保留，字段总表（§7）由 `justilaw-api/app/discretion/records.py` 生成，**以代码为准**。
 
@@ -297,9 +297,41 @@
 | `quality.age_uncertain` | bool | 可选 | 可选 | 可 |  |  |
 <!-- records:end -->
 
+## 8. 要素标签契约（L5，2026-10-18 补）
+
+> 本节补 §1.5 的落地格式；字段唯一来源仍是 `schema.py` / `element_labels.py`，标注规则见 [annotation-guideline](./annotation-guideline.md)。本节不是新本体，是“数据线交什么给引擎”的契约。
+
+### 8.1 记录单位
+
+- **一人一条记录**；同一事件多人 → 多条记录，共用 `event_id`；不得把多人事实合进一人记录。
+- `input` 只放事实/元数据视图：`target`、`subject_aliases`、`views[meta/facts]`、`facts_text`、`meta_text`。
+- 不得把 decision/reasoning/review/outcome 放进 `input`；`observed_outcome` 单独存，作为历史处罚目标。
+
+### 8.2 reference_elements
+
+- 7 组 36 字段；每字段 `{status, value, evidence}`。
+- `status` = 明确 / 推断 / 未提及；未提及必须 `value=null, evidence=[]`。
+- 金额 `{min,max}`，`max=null` 表示开口；日期 ISO `YYYY-MM-DD`。
+- `evidence` = `{quote,start,end}`，必须满足 `text_full[start:end] == quote`，只来自 facts/meta。
+- `label_provenance` = teacher / model-adjudicated / human；`human_review` boolean；`release_approved` boolean。
+
+### 8.3 binding
+
+- 每个字段/证据标 `shared_fact` / `target_specific` / `needs_review`。
+- 共同事实（现场赌资总额、参赌人数等）在每个相关人记录中重复并标 `shared_fact`；个人事实只归本人；无法判定标 `needs_review`。
+- 引擎语义表 `research/eval/binding_rules.py`（8 shared / 28 target）是权威定义；**具体判定由数据/后处理实现**。`needs_review` 是显式未知，不静默当正确。
+- 当前实现（2026-10-18 12:46，v4）：61 shared / 1120 target / 528 review；仍是字段默认映射，不是逐案证据判定；shared 已在 `resolve_binding` 代码接受，但 contract v4 的 `accept_in_resolve` 仍只写 lexical/target，artifact 与代码待统一；BIND-03/CONTRACT-01 未关闭。
+
+### 8.4 验收
+
+- schema/枚举/版本合法；证据逐字、坐标正确、来源仅 facts/meta；target 能在原文定位；input 无 decision/reasoning/outcome 泄漏。
+- 金额/日期合法；`reference_elements` 非空；字段覆盖率；绑定小样本 precision/coverage；A/B 或人工复核记录。
+- 首批 200–300 件；>20% 分歧回修提示；验收通过只代表“产标管线可继续扩量”，不等于人工字段准确率。
+
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-18 | v0.6 | 新增 §8 要素标签契约（L5）：一人一条、reference_elements、evidence、binding、验收；与 annotation-guideline/element-teacher-v1 对齐 | 协调层代笔（引擎线复核） |
 | 2026-10-17 | v0.5.1 | 更正 r6 用途：格式关口和原文冻结参考，不可用于标注；标注可用性由 parsed-2 G2.2 质量证据包决定 | 模型组（引擎） |
 | 2026-10-17 | v0.5 | 按 D-003 改原文正本；删除主管线脱敏与 R6 字段及验收项，`subject_mention` 定位本人，原文文号可保留；新增外发条款；字段总表同步 `records.py` | 模型组（引擎） |
 | 2026-10-15 | v0.1 | 初版：基于 CAIL 探针教训，规定来源、时间地点、原文分段、处罚结果标签、事实要素、整体构成与交付格式 | 模型组 |
