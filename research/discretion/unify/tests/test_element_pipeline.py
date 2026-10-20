@@ -2,6 +2,7 @@
 import copy
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -298,3 +299,192 @@ def test_offline_assembly_attaches_only_valid_same_context_candidate(tmp_path):
     rejected = assemble(unified / "records.jsonl", source, run, tmp_path / "rejected", elements=elements)
     assert rejected["parsed2_candidate_records"] == 0
     assert read_rows(tmp_path / "rejected/excluded.jsonl")[0]["reason"] == "element_commit_input_mismatch"
+
+
+# ---------- 2026-10-20 CLI 审计修复的守卫 ----------
+
+from element_contract import (MODEL_QUALITY_PREFIXES, is_model_quality_failure,
+                              prompt_fingerprint, system_prompt)
+from run_elements import manifest_matches, preflight_request_sizes, acquire_run_lock
+from process_guard import process_alive
+from durable_calls import is_not_sent
+from budget_scope import BudgetScope
+
+
+@pytest.mark.parametrize("prefix", MODEL_QUALITY_PREFIXES)
+def test_model_quality_prefixes_are_isolated(prefix):
+    assert is_model_quality_failure(ValueError(prefix + "amounts.fine"))
+
+
+@pytest.mark.parametrize("msg", ["budget_stop: 预留超限", "unknown_remote_outcome: 先核账",
+                                 "request_too_large: 超限", "provider_disabled",
+                                 "concurrent_task_exists", "shared_budget_stop",
+                                 "reservation_exceeded", "unsafe_record_id"])
+def test_pipeline_level_failures_never_isolated(msg):
+    assert not is_model_quality_failure(RuntimeError(msg))
+    assert not is_model_quality_failure(ValueError(msg))
+
+
+def test_jsondecode_counts_as_model_quality():
+    assert is_model_quality_failure(json.JSONDecodeError("x", "x", 0))
+
+
+def test_wire_envelope_transmits_stable_fingerprint_not_bundle_hash():
+    _, inp = view()
+    msgs = messages(ENGINE, inp)
+    assert msgs[0]["content"] == system_prompt(ENGINE)
+    user = json.loads(msgs[1]["content"])
+    assert user["prompt_fingerprint"] == digest(prompt_fingerprint(ENGINE))
+    assert "contract_bundle_hash" not in user
+
+
+def test_prompt_fingerprint_isolates_validators_from_cache_identity():
+    fp = prompt_fingerprint(ENGINE)
+    snapshot = contract_snapshot(ENGINE)
+    assert "implementation" not in fp
+    assert digest(fp) != digest(snapshot)
+
+
+def test_e05_authority_files_are_in_contract_snapshot():
+    deps = " ".join(contract_snapshot(ENGINE)["dependencies"])
+    for name in ("normalization_spec.py", "evidence_contract.py", "binding_rules.py"):
+        assert name in deps, name
+
+
+def test_manifest_resume_identity_ignores_implementation_drift():
+    frozen = {"version": "v", "prompt_fingerprint": "fp", "ids": ["A"], "views": {"A": "h"},
+              "source_hashes": {"s": "x"}, "contract": {"implementation": {"run_elements.py": "1"}},
+              "input_mode": "m"}
+    drifted = {**frozen, "contract": {"implementation": {"run_elements.py": "2"}}}
+    assert manifest_matches(drifted, frozen)
+    assert not manifest_matches({**frozen, "ids": ["B"]}, frozen)
+    assert not manifest_matches({**frozen, "prompt_fingerprint": "other"}, frozen)
+    assert not manifest_matches({k: v for k, v in frozen.items() if k != "prompt_fingerprint"}, frozen)
+
+
+def test_preflight_names_oversized_records_before_any_spend():
+    _, inp = view()
+    sizes = preflight_request_sizes([("T1", {}, inp)])
+    assert sizes["T1"] >= len(system_prompt(ENGINE).encode("utf-8"))
+    # 口径一致：闸判定与 DurableCalls 内的 request_too_large 完全同源（+1024 framing）
+    assert sum(len(m["content"].encode("utf-8")) for m in messages(ENGINE, inp)) + 1024 == sizes["T1"]
+    assert [rid for rid, s in sizes.items() if s > 1000] == ["T1"]
+    assert [rid for rid, s in sizes.items() if s > 10 ** 9] == []
+
+
+@pytest.mark.parametrize("err,expected", [
+    ("URLError: <urlopen error [Errno 11004] getaddrinfo failed>", True),
+    ("URLError: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>", True),
+    ("ConnectionRefusedError: refused", True),
+    ("TimeoutError: timed out", False),
+    ("HTTP 402: Insufficient Balance", False),
+    ("RemoteDisconnected: Connection reset", False)])
+def test_not_sent_classification_is_conservative(err, expected):
+    assert is_not_sent(err) is expected
+
+
+def test_not_sent_failure_releases_reservation_without_manual_reconcile(tmp_path):
+    provider = FakeProvider(error="[Errno 11004] getaddrinfo failed")
+    scope = BudgetScope(tmp_path / "b", cap=10, max_calls=5)
+    run = DurableCalls(tmp_path, {"A": provider}, prices={"fake": {"input": 1, "output": 1}},
+                       cap=1, max_calls=3, max_input_bytes=10000, execute=True, budget_scope=scope)
+    with pytest.raises(RuntimeError):
+        run.call("A", MSG, context={"id": "1"}, validator=lambda p: None)
+    assert run.unknown == set() and run.reserved == 0 and run.used_calls == 0
+    assert scope.snapshot()["used_or_reserved"] == 0 and scope.snapshot()["unknown_keys"] == []
+    provider.error = None
+    assert run.call("A", MSG, context={"id": "1"}, validator=lambda p: None)["ok"]
+    assert provider.calls == 2
+    resumed = call_runner(tmp_path, provider)
+    assert resumed.unknown == set() and resumed.used_calls == 1
+
+
+def test_timeout_failure_still_holds_unknown_and_reserve(tmp_path):
+    provider = FakeProvider(error="TimeoutError: timed out")
+    run = call_runner(tmp_path, provider)
+    with pytest.raises(RuntimeError):
+        run.call("A", MSG, context={"id": "t"}, validator=lambda p: None)
+    assert run.unknown and run.reserved > 0
+
+
+def test_finished_recovered_from_raw_without_new_call(tmp_path):
+    append(tmp_path / "attempts.jsonl", {"event": "submitted", "key": "k1", "attempt_id": "k1:1",
+                                         "reservation": 0.5, "provider": "test", "model": "fake",
+                                         "context": {"id": "r"}, "request_hash": "h",
+                                         "price": {"input": 1, "output": 1}})
+    append(tmp_path / "raws.jsonl", {"key": "k1", "attempt_id": "k1:1", "content": "{\"ok\": true}",
+                                     "meta": {"usage": {"prompt_tokens": 10, "completion_tokens": 20}},
+                                     "context": {"id": "r"}, "provider": "test", "model": "fake"})
+    seen = []
+    provider = FakeProvider(error="must-not-be-called")
+    run = DurableCalls(tmp_path, {"A": provider}, prices={"fake": {"input": 1, "output": 1}},
+                       cap=1, max_calls=3, max_input_bytes=10000, execute=True,
+                       on_finish=lambda m, u: seen.append((m, u)))
+    assert run.unknown == set() and provider.calls == 0 and seen == [("fake", {"prompt_tokens": 10, "completion_tokens": 20})]
+    assert abs(run.reserved - (30 / 1e6)) < 1e-9
+    finished = [e for e in read_rows(tmp_path / "attempts.jsonl") if e["event"] == "finished"]
+    assert finished[0]["recovered_from_raw"] is True
+
+
+def test_acquire_run_lock_distinguishes_live_and_dead_holder(tmp_path):
+    lock = tmp_path / "RUNNING.lock"
+    lock.write_text("999999999")
+    with pytest.raises(RuntimeError, match="stale_running_lock"):
+        acquire_run_lock(tmp_path)
+    acquired = acquire_run_lock(tmp_path, take_over=True)
+    assert int(acquired.read_text()) == os.getpid() and process_alive(os.getpid())
+    acquired.unlink()
+    acquired.write_text(str(os.getpid()))
+    with pytest.raises(RuntimeError, match="running_elsewhere"):
+        acquire_run_lock(tmp_path, take_over=True)
+    acquired.unlink()
+
+
+def test_writer_lock_takeover_when_holder_dead(tmp_path):
+    scope = BudgetScope(tmp_path / "b", cap=10, max_calls=5)
+    (tmp_path / "b" / "WRITER.lock").write_text("999999999")
+    scope.reserve("k1", 1.0, owner="x")            # 死亡持有者：自动清锁重入，不再 5 秒超时
+    assert scope.snapshot()["calls"] == 1
+
+
+def test_status_element_summary_synthesizes_ledger_state(tmp_path):
+    from status import element_summary
+    (tmp_path / "manifest.json").write_text('{"contract": {}}', encoding="utf-8")
+    (tmp_path / "plan.json").write_text('{"eligible": 2}', encoding="utf-8")
+    for row in [{"event": "submitted", "key": "k1", "attempt_id": "a1", "reservation": .1},
+                {"event": "submitted", "key": "k2", "attempt_id": "a2", "reservation": .2},
+                {"event": "finished", "key": "k1", "attempt_id": "a1", "charged": .05},
+                {"event": "submitted", "key": "k3", "attempt_id": "a3", "reservation": .3},
+                {"event": "released", "key": "k3", "attempt_id": "a3"}]:
+        append(tmp_path / "attempts.jsonl", row)
+    for row in [{"id": "r1", "status": "valid"}, {"id": "r2", "status": "invalid"}]:
+        append(tmp_path / "diagnostics.jsonl", row)
+    (tmp_path / "record-r1.json").write_text("{}", encoding="utf-8")
+    el = element_summary(tmp_path)
+    assert el["done"] == 1 and el["valid"] == 1 and el["invalid"] == 1
+    assert el["calls"] == 2 and el["unknown"] == 1 and el["charged"] == 0.05
+    assert el["reserved"] == 0.2 and el["phase"] == "idle"
+
+
+def test_manual_settle_closes_unknown_only_with_evidence(tmp_path):
+    from audit_run import settle
+    scope_root = tmp_path / "b"
+    scope = BudgetScope(scope_root, cap=10, max_calls=5)
+    append(tmp_path / "attempts.jsonl", {"event": "submitted", "key": "k1", "attempt_id": "a1",
+                                         "reservation": 0.3, "provider": "test", "model": "fake",
+                                         "context": {}, "request_hash": "h",
+                                         "price": {"input": 1, "output": 1}})
+    scope.reserve("k1", 0.3, owner=str(tmp_path))
+    with pytest.raises(ValueError, match="settlement_requires_evidence"):
+        settle(tmp_path, "a1", 0.0, evidence="", scope_dir=scope_root)
+    with pytest.raises(ValueError, match="implausible_charged"):
+        settle(tmp_path, "a1", 5.0, evidence="console", scope_dir=scope_root)
+    with pytest.raises(ValueError, match="unknown_attempt_id"):
+        settle(tmp_path, "nope", 0.0, evidence="console", scope_dir=scope_root)
+    row = settle(tmp_path, "a1", 0.12, evidence="provider-console-2026-10-20", scope_dir=scope_root)
+    assert row["manual_reconcile"] is True
+    resumed = call_runner(tmp_path, FakeProvider(error="must-not-be-called"))
+    assert resumed.unknown == set() and abs(resumed.reserved - 0.12) < 1e-9
+    with pytest.raises(ValueError, match="already_finished"):
+        settle(tmp_path, "a1", 0.0, evidence="again", scope_dir=scope_root)
+    assert scope.snapshot()["used_or_reserved"] == 0.12

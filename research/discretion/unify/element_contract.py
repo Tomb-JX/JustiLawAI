@@ -16,6 +16,23 @@ from pathlib import Path
 
 WIRE_VERSION = "element-ref-v3"  # v3：白名单字段推断态放行 value=null（对齐指南 v0.2）
 
+# 模型质量类失败的稳定前缀表：runner 据此隔离单条、其余 ValueError 一律整批 fail-fast。
+# 任何改文案都必须同步这张表，且有 test_model_quality_isolation_taxonomy 守卫。
+MODEL_QUALITY_PREFIXES = (
+    "wire_schema:", "engine_validation:", "e05_evidence_contract:", "e05_amount_mismatch:",
+    "numeric_evidence_unsupported:", "invalid_candidate:", "invalid_legacy:",
+    "legacy_evidence_not_allowed_or_ambiguous", "evidence_outside_input",
+    "reference_not_allowed:", "reference_out_of_bounds", "reference_source_mismatch", "facts_empty",
+)
+
+
+def is_model_quality_failure(exc):
+    """单条模型输出不合格（可隔离续跑）还是管线级故障（必须停批）？"""
+    import json as _json
+    if isinstance(exc, _json.decoder.JSONDecodeError):
+        return True
+    return str(exc).startswith(MODEL_QUALITY_PREFIXES)
+
 
 def _engine_eval_dir() -> Path:
     """Resolve research/eval/ from the engine worktree (E-05 approval package location)."""
@@ -110,6 +127,11 @@ def contract_snapshot(engine) -> dict:
     here = Path(__file__).resolve().parent
     dependencies = [here.parent / "harvest/parse.py", here.parent / "harvest/parse_qc.py",
                     Path(engine.__file__).resolve().parents[3] / "research/eval/key_field_presence.py"]
+    # E-05 批准包是运行时 lazy-load 的校验权威：金额/证据/绑定语义的任何修改都必须
+    # 在契约冻结里可见，否则"改了机器对账却没人察觉"（审计 P1-10）。
+    eval_dir = _engine_eval_dir()
+    dependencies += [eval_dir / name for name in
+                     ("normalization_spec.py", "evidence_contract.py", "binding_rules.py")]
     from s1 import data_root
     caps = data_root() / "config/legal_caps.json"
     dependencies.append(caps)
@@ -158,17 +180,34 @@ def reference_schema(engine) -> dict:
     return schema
 
 
-def messages(engine, inp: dict, *, decisions: list | None = None) -> list[dict]:
-    # Always transmit the complete engine value schema, including enums.
+def system_prompt(engine) -> str:
+    """传输用 system 全文；它是 prompt 指纹的唯一权威（改这里=改缓存身份）。"""
     from contract_bundle import make_bundle
     bundle = make_bundle(engine)
-    schema = bundle['output_schema']
-    system = bundle['prompt'] + (
+    return bundle['prompt'] + (
         "\n【传输契约覆盖】证据不抄引文、不算坐标，只选本次允许句的 sentence_ids。"
         "不得引用其他记录或范围外句。未提及须由已读输入支持，缺字段不等于未提及。"
         "按下面完整 JSON Schema 输出七组对象，禁止平铺、包裹或额外键。\n"
-        + json.dumps(schema, ensure_ascii=False))
-    user = {"target": inp["target"], "aliases": inp["aliases"], "contract_bundle_hash": bundle['hash'],
+        + json.dumps(bundle['output_schema'], ensure_ascii=False))
+
+
+def prompt_fingerprint(engine) -> dict:
+    """只覆盖"真正进请求的内容"：system 全文、user 信封、wire 与引擎版本。
+    校验器/计费/runner 等不影响提示词的代码编辑不改变本指纹——审计 P0-1：
+    实现哈希曾把付费缓存全灭；工单与 manifest 仍记录全量快照（审计纪律不放宽），
+    但缓存 key、续跑识别、工单准入改认此稳定指纹。"""
+    return {"wire_version": WIRE_VERSION,
+            "engine_prompt_version": engine.PROMPT_VERSION,
+            "engine_schema_version": engine.SCHEMA_VERSION,
+            "system_sha256": hashlib.sha256(system_prompt(engine).encode("utf-8")).hexdigest(),
+            "user_envelope": ["target", "aliases", "prompt_fingerprint", "allowed_sentences"]}
+
+
+def messages(engine, inp: dict, *, decisions: list | None = None) -> list[dict]:
+    # Always transmit the complete engine value schema, including enums.
+    system = system_prompt(engine)
+    user = {"target": inp["target"], "aliases": inp["aliases"],
+            "prompt_fingerprint": digest(prompt_fingerprint(engine)),
             "allowed_sentences": inp["sentence_view"]}
     if decisions is not None:
         # C emits complete fields under the same schema, with exactly the same view.

@@ -9,27 +9,67 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from element_contract import (engine_contract, contract_snapshot, digest, messages,
-                              compile_references, merge_valid, validate_located, WIRE_VERSION)
+from element_contract import (engine_contract, contract_snapshot, prompt_fingerprint, digest,
+                              messages, compile_references, merge_valid, validate_located,
+                              is_model_quality_failure, WIRE_VERSION)
 from locate import OffsetIndex
 from durable_calls import DurableCalls, append, read_rows, check_models
 from s1 import data_root, load_config
-from progress import load_prices
+from progress import load_prices, ProgressTracker
 from cleanse import replay_edits, sentence_table
 from evidence_types import CleanSpan, SourceSpan
 from provider_contract import freeze_execution
 from budget_scope import from_order
+from process_guard import lock_holder, process_alive
 from task_result import failure_record
 from fact_spans import fact_view, FACT_VIEW_VERSION
 from normalization import normalize_time
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
+
+
+MANIFEST_IDENTITY_KEYS = ("version", "prompt_fingerprint", "ids", "views", "source_hashes")
+
+
+def manifest_matches(existing, frozen):
+    """续跑身份只看稳定指纹（ID/视图/来源/提示词指纹）；校验器/计费等不影响提示词的
+    实现漂移不再封死批次（审计 P0-1）。全量实现快照仍记录在 manifest['contract'] 供审计。"""
+    return all(existing.get(k) == frozen.get(k) for k in MANIFEST_IDENTITY_KEYS)
+
+
+def preflight_request_sizes(work):
+    """发射前按真实 messages 量字节——request_too_large 绝不该在中途才炸（审计 P0-4）。"""
+    sizes = {}
+    for rid, _, inp in work:
+        msgs = messages(ENGINE, inp)
+        sizes[rid] = sum(len(m["content"].encode("utf-8")) for m in msgs) + 1024
+    return sizes
+
+
+def acquire_run_lock(out, take_over=False):
+    """残留锁：持有者活着 ⇒ 拒绝双跑；已死 ⇒ 明示后用 --take-over 接管（审计 P0-3）。"""
+    lock = out / "RUNNING.lock"
+    try:
+        f = lock.open("x", encoding="ascii")
+    except FileExistsError:
+        holder = lock_holder(lock)
+        if process_alive(holder):
+            raise RuntimeError(f"running_elsewhere: 本批正在被进程 {holder} 执行，禁止双跑")
+        if not take_over:
+            raise RuntimeError(f"stale_running_lock: 原执行进程 (PID {holder}) 已退出；"
+                               "确认无活动写入后用 --take-over 重跑接管")
+        lock.unlink()
+        f = lock.open("x", encoding="ascii")
+    with f:
+        f.write(str(os.getpid()))
+    return lock
 
 
 def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
@@ -216,6 +256,8 @@ def main():
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--ids", type=Path, help="预冻结的分层 ID JSON 数组；不按完成顺序取烟测样本")
     p.add_argument("--execute", action="store_true", help="requires registered smoke order and finite cap")
+    p.add_argument("--take-over", action="store_true",
+                   help="确认原进程已死后接管残留 RUNNING.lock；活锁永远拒绝")
     p.add_argument("--order", type=Path, help="frozen reviewed order JSON; never inferred from defaults")
     args = p.parse_args()
     out = args.out.resolve()
@@ -240,18 +282,20 @@ def main():
     if args.limit:
         work = work[:args.limit]
     snapshot = contract_snapshot(ENGINE)
-    frozen = {"version": WIRE_VERSION, "contract": snapshot,
+    fp_digest = digest(prompt_fingerprint(ENGINE))
+    frozen = {"version": WIRE_VERSION, "prompt_fingerprint": fp_digest, "contract": snapshot,
               'input_mode': 'development_slice_no_s3_certificate' if args.slice else 's1_s3_qualified',
               "ids": [w[0] for w in work], "views": {rid: inp["view_hash"] for rid, _, inp in work},
               "source_hashes": {str(f.resolve()): hashlib.sha256(f.read_bytes()).hexdigest()
                                 for f in sources}}
     out.mkdir(parents=True, exist_ok=True)
     manifest = out / "manifest.json"
-    if manifest.exists() and json.loads(manifest.read_text("utf-8")) != frozen:
-        p.error("run manifest 不匹配，换新批次目录")
+    if manifest.exists() and not manifest_matches(json.loads(manifest.read_text("utf-8")), frozen):
+        p.error("run manifest 身份不匹配（ID/视图/来源/提示词指纹），换新批次目录")
     if not manifest.exists():
         manifest.write_text(json.dumps(frozen, ensure_ascii=False, indent=2) + "\n", "utf-8")
-    plan = {"eligible": len(work), "rejected": rejected, "contract_hash": digest(snapshot),
+    plan = {"eligible": len(work), "rejected": rejected, "contract_hash": fp_digest,
+            "full_contract_hash": digest(snapshot),
             "execute": args.execute, "release_approved": False}
     (out / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", "utf-8")
     if not args.execute:
@@ -260,7 +304,8 @@ def main():
     if not args.order:
         p.error("付费须提供预登记 --order；默认只离线规划")
     order = json.loads(args.order.read_text("utf-8"))
-    if (order.get("contract_hash") != digest(snapshot) or order.get("ids") != frozen["ids"]
+    if (order.get("contract_hash") not in (fp_digest, digest(snapshot))
+            or order.get("ids") != frozen["ids"]
             or not order.get("review_record") or not order.get("executor_review")
             or not order.get("engine_ack") or order.get("free_replay_pass") is not True):
         p.error("工单未固定本批 ID/契约，或缺复核/知会/免费重放回执")
@@ -272,31 +317,48 @@ def main():
         if not prior or not Path(prior).is_file():
             p.error("第二段须有首段验收回执")
         receipt = json.loads(Path(prior).read_text("utf-8"))
-        if receipt.get("pass") is not True or receipt.get("contract_hash") != digest(snapshot):
+        if receipt.get("pass") is not True or receipt.get("contract_hash") not in (fp_digest, digest(snapshot)):
             p.error("首段回执未通过或契约不一致")
     else:
         p.error("工单须明确 smoke12/spec36 分段")
     cap, maximum = order.get("cap", 0), order.get("max_calls", 0)
     if not 0 < cap <= 12 or not 0 < maximum <= 252 or len(work) > 36:
         p.error("本 runner 仅支持已评审的小批上界；全量须另审工单")
+    oversized = [(rid, size) for rid, size in preflight_request_sizes(work).items()
+                 if size > order["max_input_bytes"]]
+    if oversized:
+        p.error(f"字节闸预检失败 {len(oversized)} 条（示例 {oversized[:3]}）；"
+                "须换更大 max_input_bytes 的工单，禁止中途炸批")
     providers, _, _ = load_config()
     names = order["providers"]
     check_models(*(providers[names[k]] for k in ("A", "B", "C")))
     prices = load_prices(data_root() / "config/s1_prices.json")
     freeze_execution(out, order, providers, prices)
+    try:
+        lock = acquire_run_lock(out, args.take_over)
+    except RuntimeError as exc:
+        p.error(str(exc))
+    tracker = ProgressTracker(out, total=len(work), prices=prices,
+                              meta={"run_id": out.name, "kind": "l5-elements",
+                                    "stage": order.get("stage"),
+                                    "provider_primary": names.get("A"), "providers": names})
     calls = DurableCalls(out, providers, prices=prices, budget_scope=from_order(order, data_root()),
-                         cap=cap, max_calls=maximum, max_input_bytes=order["max_input_bytes"], execute=True)
-    lock = out / "RUNNING.lock"
-    with lock.open("x", encoding="ascii") as f:
-        f.write(str(__import__("os").getpid()))
+                         cap=cap, max_calls=maximum, max_input_bytes=order["max_input_bytes"],
+                         execute=True, on_finish=lambda model, usage: tracker.cost.add(model, usage))
+    import time
     try:
         for rid, rec, inp in work:
+            started = time.monotonic()
+            calls_before = calls.used_calls
+            tracker.begin_record()
+            ok = False
+            reason = ""
             try:
                 if contract_snapshot(ENGINE) != snapshot:
                     raise RuntimeError("engine_contract_changed:中途不换契约")
                 if not __import__("re").fullmatch(r"[A-Za-z0-9_-]+", rid):
                     raise ValueError("unsafe_record_id")
-                context = {"id": rid, "view": inp["view_hash"], "contract": digest(snapshot),
+                context = {"id": rid, "view": inp["view_hash"], "contract": fp_digest,
                            "source": rec["text_orig_sha256"]}
                 def valid(payload):
                     compile_references(payload, inp, rec["_text_full"], ENGINE)
@@ -320,6 +382,7 @@ def main():
                           "element_schema_version": ENGINE.SCHEMA_VERSION,
                           "element_prompt_version": ENGINE.PROMPT_VERSION,
                           "wire_version": WIRE_VERSION, "contract_hash": digest(snapshot),
+                          "prompt_fingerprint": fp_digest,
                           "view_hash": inp["view_hash"], "label_provenance": "model-adjudicated",
                           "human_review": False, "release_approved": False}
                 # Per-record immutable commit; resume does not duplicate candidate rows.
@@ -329,26 +392,28 @@ def main():
                     with temp.open("w", encoding="utf-8") as f:
                         json.dump(result, f, ensure_ascii=False)
                         f.flush()
-                        __import__("os").fsync(f.fileno())
+                        os.fsync(f.fileno())
                     temp.replace(dest)
                 elif digest(json.loads(dest.read_text("utf-8"))) != digest(result):
                     raise RuntimeError("existing_commit_mismatch:不覆盖既有记录")
                 append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs), "status": "valid",
                        "difference_kinds": dict(__import__("collections").Counter(d["kind"] for d in diffs))})
+                ok = True
             except (ValueError, TypeError) as exc:
-                append(out / "diagnostics.jsonl", failure_record(rid, exc))
+                record = failure_record(rid, exc)
+                reason = record["reason"]
+                append(out / "diagnostics.jsonl", record)
                 # 模型质量失败（校验器拒收/坏 JSON）：隔离本条继续——批量标注不能因单条模型输出中断；
                 # 契约/授权/预算/传输类失败（RuntimeError、request_too_large、cap、核账）仍 fail-fast。
-                reason = str(exc)
-                if isinstance(exc, __import__("json").decoder.JSONDecodeError) or \
-                        reason.startswith(("wire_schema:", "engine_validation:", "e05_evidence_contract:",
-                                           "e05_amount_mismatch:", "numeric_evidence_unsupported:",
-                                           "invalid_candidate:", "evidence_outside_input",
-                                           "reference_not_allowed:", "reference_out_of_bounds",
-                                           "reference_source_mismatch", "facts_empty")):
-                    continue
-                raise
+                # 前缀表是单一事实源：element_contract.MODEL_QUALITY_PREFIXES + 测试守卫。
+                if not is_model_quality_failure(exc):
+                    raise
+            finally:
+                tracker.finish_record(ok, calls.used_calls - calls_before, names.get("A", ""),
+                                      error="" if ok else reason,
+                                      latency_ms=int((time.monotonic() - started) * 1000))
     finally:
+        tracker.set_phase("done")
         lock.unlink()
 
 

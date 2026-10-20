@@ -22,13 +22,15 @@ def main() -> None:
     p.add_argument("--reuse-run", type=Path, required=True)
     p.add_argument("--reuse-unified", type=Path, required=True)
     p.add_argument("--out", type=Path, required=True)
+    p.add_argument("--expect-reuse", type=int, default=57,
+                   help="复用队列完整人数断言（审计 P1：码内魔数改参数，队列换代不改码）")
     a = p.parse_args()
     if a.out.exists():
         p.error("output already exists")
     reuse = {x["id"]: x for x in read_rows(a.reuse_run / "outputs.jsonl")}
     old = {x["id"]: x for x in read_rows(a.reuse_unified) if x["id"] in reuse}
-    if len(reuse) != 57 or len(old) != 57:
-        raise ValueError("reuse cohort incomplete")
+    if len(reuse) != a.expect_reuse or len(old) != a.expect_reuse:
+        raise ValueError(f"reuse cohort incomplete: expect {a.expect_reuse}, got {len(reuse)}/{len(old)}")
     old_by_source = {(rid, old[rid]["text_orig_sha256"]): rid for rid in reuse}
     parsed_cache = {}
     counts = Counter()
