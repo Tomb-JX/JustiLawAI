@@ -21,12 +21,12 @@ L5 CLI 的职责边界：只做"传输与验收"，字段语义本体**引擎侧
 `app/discretion/element_labels.py`；web 侧不得重定义字段。
 
 两条链路共用引擎校验器，但强度不同：
-| | 链路一 run_elements | 链路二 run_batch（本地原型，未被 ALL-203 采用） |
+| | 链路一 run_elements | 链路二 run_batch（单次直出） |
 |---|---|---|
-| 模型 | 云 A/B/C 仲裁 | 本地 Ollama `qwen3.5:9b`，temp 0、think off |
-| 证据 | 逐字、原文坐标、句 ID 传输 | 允许规范化+模糊定位（ratio≥0.9），坐标在 facts+"\n"+meta 拼接视图 |
-| 失败 | 质量类隔离/管线类 fail-fast | 一律 catch-all 记 failures.jsonl 继续 |
-| 治理 | 工单+预算账本+心跳 | 无 |
+| 模型 | 云 A/B/C 仲裁 | 云 mimo-v2.6-pro（配置键 xiaomi-pro；**2026-10-20 裁决：弃用本地 Ollama qwen3.5:9b**） |
+| 证据 | 逐字、原文坐标、句 ID 传输 | 允许规范化+模糊定位（ratio≥0.9），坐标在 facts+"\n"+meta 拼接视图；记录内带 `evidence_strength:"canonical-or-fuzzy"` 分级标记 |
+| 失败 | 质量类隔离 / 管线类 fail-fast | 质量类记 failures.jsonl 继续；**balance/auth（402/401）立即停批 exit 3，不重试轰炸**；可续跑同命令 |
+| 治理 | 工单+预算账本+心跳 | 轻量：逐条 cost_estimate+累计 spent_estimate 打印落记录；无共享 ledger |
 
 ---
 
@@ -58,6 +58,10 @@ python research/discretion/unify/run_elements.py \
 | `freeze_l5_quality_pool.py` | 冻结候选池；`--expect-reuse N`（默认57） |
 | `aggregate_l5_quality_s1.py` | 多批聚合；`--pool/--pool-scoped` 池内过滤 |
 | `contract_bundle.py` | 导出完整执行契约包（提示词+schema+中间态schema） |
+| 链路二 run_batch.py（数据目录） | `python run_batch.py [--inputs 教师输入] [--out 目录] [--provider xiaomi-pro] [--shard i --shards n] [--limit N]`；云单次直出，续跑=重跑同命令 |
+
+**2026-10-20 裁决已同步**：C=qwen3.8-flash 登记、链路二转云 mimo-v2.6-pro、max_tokens 提高——
+均为配置/数据目录脚本层变更，unify 代码保持 6a0c596（203 测试仍全绿）。
 
 ---
 
@@ -84,16 +88,22 @@ spec36 额外：`prior_stage_receipt` 指向上游回执文件且其 `pass=true`
 
 ## 4. 模型提供商（配置文件，非硬编码；值以现状实录）
 
+**2026-10-20 裁决记录**：① 仲裁 C 改 **qwen3.8-flash**（配置键 bailian），已登记进
+`$DATA/config/arbiter_models.json`（文件白名单上线，码内常量退居兜底）；
+② 单次直出链路弃用本地 Ollama，改云 **mimo-v2.6-pro**（run_batch.py --provider 默认 xiaomi-pro）；
+③ 适当提高 token 截断阈值（下表已生效；预留=字节×入价+max_tokens×出价，随上限同步放大，
+smoke 预算 ¥4 内 A 单条预留约 0.13→0.17 量级，仍充足）。
+
 `$DATA/config/s1_models.json`（全局 params 可被逐 provider params 覆盖）：
 
-| 配置键 | 模型 | 端点(host) | max_tokens | timeout_s | 定价 元/M（入/出） |
+| 配置键 | 模型 | 端点(host) | max_tokens（裁决后） | timeout_s | 定价 元/M（入/出） |
 |---|---|---|---|---|---|
-| deepseek | deepseek-flash | api.deepseek.com | 12000 | 240 | 2.0 / 8.0 |
-| xiaomi | mimo-v2.6-flash | token-plan-cn.xiaomimimo.com | 8000 | 180 | 1.0 / 4.0 |
-| xiaomi-pro | mimo-v2.6-pro | 同上 | 8000 | 180 | 4.0 / 16.0 |
+| deepseek | deepseek-flash | api.deepseek.com | **16000**（原 12000） | 240 | 2.0 / 8.0 |
+| xiaomi | mimo-v2.6-flash | token-plan-cn.xiaomimimo.com | **12000**（原 8000） | 180 | 1.0 / 4.0 |
+| xiaomi-pro | mimo-v2.6-pro | 同上 | **12000**（原 8000） | 180 | 4.0 / 16.0 |
 | xiaomi-pro-long | mimo-v2.6-pro | 同上 | 20000 | 300 | 4.0 / 16.0 |
-| bailian | qwen3.8-flash | dashscope.aliyuncs.com | 6000 | 120 | 1.0 / 4.0 |
-| bailian-max | qwen3.8-max | 同上 | 8000 | 180 | 8.0 / 24.0 |
+| bailian | qwen3.8-flash | dashscope.aliyuncs.com | **12000**（原 6000） | 120 | 1.0 / 4.0 |
+| bailian-max | qwen3.8-max | 同上 | **12000**（原 8000） | 180 | 8.0 / 24.0 |
 
 全局默认 params：`temperature 0`、max_tokens 12000、timeout 240（逐 provider params 覆盖之）。
 定价表 `$DATA/config/s1_prices.json`，**缺价格=拒绝执行**（无法预留不放行）。
@@ -103,10 +113,11 @@ Authorization Bearer。temperature/max_tokens/timeout **每次发射时冻结进
 
 **A/B/C 身份约束（durable_calls.check_models）**：A 与 B 必须不同供应商域
 （防"配置键伪装隔离"）；C 不得为 deepseek 且模型须在册裁判白名单。
-白名单现值：`{qwen3.8-max, kimi-k3, mimo-v2.6-pro, mimo-v2.6-flash}`——
-**推荐放 `$DATA/config/arbiter_models.json`**（字符串数组，文件优先，码内兜底）。
-历史上 smoke/spec36 工单均为 A=deepseek、B=C=xiaomi-pro（C 与 B 同模型=退化二向票；
-新工单建议 C=bailian-max 做真三向）。
+白名单权威 = `$DATA/config/arbiter_models.json`（2026-10-20 已上线），现值
+`{qwen3.8-max, kimi-k3, mimo-v2.6-pro, mimo-v2.6-flash, qwen3.8-flash}`；码内常量仅兜底。
+**现行编制（裁决后）**：A=deepseek、B=xiaomi-pro（mimo-v2.6-pro）、C=bailian（qwen3.8-flash）——
+三供应商真三向。历史 smoke/spec36 工单 B=C=xiaomi-pro 的退化二向票不再用于新批；
+约束层仍允许 B=C 同域（如 mimo 双型号），如需强制 C≠B 域属进一步治理决策。
 
 ---
 
@@ -194,12 +205,13 @@ finished（charged/usage，可带 recovered_from_raw/manual_reconcile）/ failed
 | framing +1024 字节 | durable_calls / preflight 同口径 | 改码 |
 | not-sent 保守匹配词表 | durable_calls.is_not_sent | 改码（测试守卫） |
 | A/B/C 供应商域识别 | provider_identity(deepseek.com/xiaomimimo.com) | 改码 |
-| 裁判白名单 | arbitrate.py 兜底 + **config/arbiter_models.json 优先** | 配置文件 |
+| 裁判白名单 | **config/arbiter_models.json（现权威，2026-10-20 裁决后上线）** + arbitrate.py 兜底 | 配置文件 |
 | 定价 | config/s1_prices.json（缺价=拒跑） | 配置文件 |
 | legal caps | config/legal_caps.json（入契约哈希） | 配置文件 |
 | 数据根 | s1._DEFAULT_DATA=D:\02_Dev\Data\justilaw-research | `JUSTILAW_DATA_DIR` |
 | 引擎路径 | element_contract 兄弟目录推断 | `JUSTILAW_ENGINE_API` |
-| 链路二模型 | extract.DEFAULT_MODEL=qwen3.5:9b、Ollama 127.0.0.1:11434、num_ctx 8192/num_predict 3000/timeout 300/keep_alive 30m/repeat 重试一次 temp0.3+penalty1.15 | extract 函数参数 |
+| 链路二模型 | **裁决后默认云 xiaomi-pro（run_batch.py --provider，走 s1.load_config）**；本地 Ollama 常量（qwen3.5:9b、127.0.0.1:11434、num_ctx 8192/num_predict 3000 等）仅残留在引擎 extract()，链路已不再使用 | --provider 参数 |
+| 链路二停批词表 | run_batch.FATAL_MARKS=("402","Insufficient Balance","401") | 改数据目录脚本 |
 | WIRE_VERSION=element-ref-v3 | element_contract | 改码=改指纹（本就该改工单） |
 
 ## 10. 环境与方法
