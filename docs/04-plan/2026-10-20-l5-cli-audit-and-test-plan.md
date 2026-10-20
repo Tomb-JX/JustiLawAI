@@ -141,3 +141,17 @@ manifest 无 prompt_fingerprint 字段 ⇒ 不再可 resume（治理上正确：
 **遗留待办**：spec36 补齐 191 条需按新契约重生成工单（max_input_bytes≥60000 覆盖 57KB 记录；
 建议 C 换非 xiaomi-pro 做真三向）；6 条历史在飞 unknown 用 `audit_run --settle` 对账（3 条 402 实证、3 条 TaskStop 中断）。
 回归：201/201 离线全绿（1.45s，零网络零付费）。
+
+### 5b. 监控诚实化补丁（commit 6a0c596，同日第二轮）
+
+复盘四问（效率覆盖？阻塞可发现？答案不丢？）时自查出第一轮修复的两处失真并修正：
+- `finally` 无条件报 done → 中止批假报完成。改为：全批走完 done；任何异常 aborted，且 abort 前把
+  "谁/在哪条/为何"写入 diagnostics + progress.errors_recent；锁仍清理，状态可区分。
+- finish_reason 不入 meta → 输出截断（顶满 max_tokens 付费）不可见。Provider.chat 成功路径补记；
+  status 元素批显示"截断(length) N"。
+- 新增 runner 端到端离线演练两枚（fake 调用层零网络）：happy=落盘+done+无锁残留；
+  fatal=诊断行+aborted+errors_recent 可见+状态板同步。203/203 全绿。
+
+覆盖声明（诚实版）：监控为**拉取式**（status.py / --watch / audit_run），无推送告警；
+链路二（本地 Ollama）无统一效率视图（per-record seconds 已存记录内）；
+延迟 p50/p90 为记录级（raw 级数据齐备但未聚合展示）。
