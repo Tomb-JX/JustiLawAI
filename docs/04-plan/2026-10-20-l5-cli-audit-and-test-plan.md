@@ -120,3 +120,24 @@ app/discretion/element_labels.py），但输入构造、证据强度、落盘形
   双进程并发 reserve WRITER 竞争压测；reservation_exceeded 熔断后人工恢复剧本。
 
 优先级：spec36 补齐 191 条重启前必须过 T0 全绿 + T3；203 条采纳前必须 T1 转换器落地。
+
+## 5. 修复记录（2026-10-20，commit 18cf39e @ codex/l5-quality-s1-run-aggregate）
+
+| 审计项 | 修复 | 新测试守卫 |
+|---|---|---|
+| P0-1 实现哈希灭缓存 | 双阶哈希：`prompt_fingerprint`（system 全文+信封+版本）成为缓存 key/工单准入/续跑身份；全量实现快照仍记录于 manifest/记录内供审计 | fingerprint 无 implementation 键、manifest_matches 容忍漂移、信封断言 |
+| P0-2 前缀字符串耦合 | `MODEL_QUALITY_PREFIXES` 单一事实源 + `is_model_quality_failure` | 逐前缀参数化正例/反例（含 JSONDecodeError） |
+| P0-3 残留锁裸 traceback | process_guard（Windows OpenProcess，宁误判存活）；RUNNING.lock 死亡→`--take-over` 明示接管、活锁拒双跑；WRITER.lock 死亡自动清 | 活/死持有者两路、writer 接管 |
+| P0-4 字节闸漂移 | 发射前 `preflight_request_sizes` 全批点名（与 DurableCalls 同口径） | 口径一致性断言 |
+| P0-5 瞬断占账 | not-sent（DNS/拒连，保守白名单）写 released 回滚预留+预算 release（可再购同 key）；有 raw 无 finished 重启自动补账；真未知保留人工出口 `audit_run --settle`（evidence 必填、超预留 4 倍拒绝、幂等防二次结算） | 分类保守性、released 免核账续跑、raw 补账零重发、settle 三拒一放 |
+| P1-10 E-05 不入契约 | normalization_spec/evidence_contract/binding_rules 入 dependencies | 三文件名断言 |
+| P1-11 L5 无心跳 | runner 接 ProgressTracker（进度/延迟/成本/错误分类）；status.py 认识元素批（账本合成 + 审计提示） | element_summary 合成断言 |
+| P1-13 白名单码内 | `$DATA/config/arbiter_models.json` 优先，常量兜底 | — |
+| P1-15 魔数 57 | freeze pool `--expect-reuse` 参数 | — |
+
+连带修正：attempt 编号改用历史提交总数（released 重试不复用 attempt_id）；`--take-over` 新开关。
+**一次性代价**：信封改动使 v5 时代 raws 的 key 不再命中（本就终局完结、不受影响）；旧 spec36/smoke 目录
+manifest 无 prompt_fingerprint 字段 ⇒ 不再可 resume（治理上正确：它们已终局）。
+**遗留待办**：spec36 补齐 191 条需按新契约重生成工单（max_input_bytes≥60000 覆盖 57KB 记录；
+建议 C 换非 xiaomi-pro 做真三向）；6 条历史在飞 unknown 用 `audit_run --settle` 对账（3 条 402 实证、3 条 TaskStop 中断）。
+回归：201/201 离线全绿（1.45s，零网络零付费）。
