@@ -309,6 +309,15 @@ def test_offline_assembly_attaches_only_valid_same_context_candidate(tmp_path):
     row = read_rows(out / "records.jsonl")[0]
     assert row["elements_status"] == "candidate_validated" and not row["release_approved"]
     assert row["source_observed_outcome"] == src["outcome"]
+    label["status"] = "needs_binding_review"
+    label["binding_audit"] = {"counts": {"unverified": 1}}
+    label_path.write_text(json.dumps(label, ensure_ascii=False), "utf-8")
+    review = assemble(unified / "records.jsonl", source, run, tmp_path / "review", elements=elements)
+    assert review["parsed2_candidate_records"] == 1
+    review_row = read_rows(tmp_path / "review/records.jsonl")[0]
+    assert review_row["elements_status"] == "candidate_needs_binding_review"
+    assert "elements" not in review_row
+    label["status"] = "valid"
     label["input"]["target"] = "乙"
     label_path.write_text(json.dumps(label, ensure_ascii=False), "utf-8")
     rejected = assemble(unified / "records.jsonl", source, run, tmp_path / "rejected", elements=elements)

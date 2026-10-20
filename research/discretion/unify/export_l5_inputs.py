@@ -9,6 +9,7 @@ from pathlib import Path
 
 from freeze_slice import leak_reasons
 from run_elements import load_work
+from supply_packet import VERSION as SUPPLY_VERSION
 
 
 def sha(path: Path) -> str:
@@ -38,13 +39,16 @@ def main() -> None:
                          "meta_text": inp["meta_text"], "view_hash": inp["view_hash"],
                          "fact_view_version": inp["fact_view_version"],
                          "source_sha256": inp["source_sha256"],
-                         "label_provenance": "unlabeled-S1-teacher-input"})
+                         "supply_packet": inp["supply_packet"],
+                         "label_provenance": "unlabeled-S1-teacher-input",
+                         "release_approved": False})
     if len({r["id"] for r in accepted}) != len(accepted):
         raise ValueError("duplicate teacher input ID")
     a.out.mkdir(parents=True)
     write_rows(a.out / "teacher-inputs.jsonl", accepted)
     write_rows(a.out / "quarantine.jsonl", rejected)
-    manifest = {"version": "l5-teacher-input-1", "source_run": str(a.run.resolve()),
+    manifest = {"version": "l5-teacher-input-2", "binding_contract_version": SUPPLY_VERSION,
+                "source_run": str(a.run.resolve()),
                 "source_outputs_sha256": sha(a.run / "outputs.jsonl"),
                 "unified_sha256": sha(a.unified), "parsed_sha256": sha(a.parsed),
                 "teacher_inputs": len(accepted), "quarantine": len(rejected),
@@ -52,7 +56,7 @@ def main() -> None:
                 "teacher_inputs_sha256": sha(a.out / "teacher-inputs.jsonl"),
                 "quarantine_sha256": sha(a.out / "quarantine.jsonl"),
                 "teacher_visibility": "target, aliases, facts/meta spans only; no decision/reasoning/review/outcome",
-                "labels_generated": False}
+                "labels_generated": False, "release_approved": False}
     (a.out / "MANIFEST.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", "utf-8")
     print(json.dumps({k: manifest[k] for k in ("teacher_inputs", "quarantine", "quarantine_reasons")}, ensure_ascii=False))
 

@@ -27,6 +27,7 @@ from budget_scope import from_order
 from task_result import failure_record
 from fact_spans import fact_view, FACT_VIEW_VERSION
 from normalization import normalize_time
+from supply_packet import VERSION as SUPPLY_VERSION, audit_elements, build_packet
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
@@ -81,7 +82,9 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
                             continue
                     item = {"id": f"S{sid}.{segment_number}.{part}" if refined is not None else f"S{sid}.{part}",
                             "sentence_id": sid, "type": segment_type, "start": a, "end": b,
-                            "text": text, **({"fact_role": segment["role"]} if refined is not None and segment_type == "facts" else {})}
+                            "text": text, "source_zone": typ,
+                            "projection_source": segment.get("source", "zone"),
+                            **({"fact_role": segment["role"]} if refined is not None and segment_type == "facts" else {})}
                     if item.get("fact_role") == "context_time" and len(projected) == 1:
                         stripped = text.rstrip("，,；;。 \n")
                         if stripped:
@@ -99,7 +102,9 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
             "facts_text": "\n".join(s["text"] for s in view if s["type"] == "facts"),
             "meta_text": "\n".join(s["text"] for s in view if s["type"] == "meta"),
             "regions": [(s["start"], s["end"]) for s in view],
-            "view_hash": digest(view), "fact_view_version": FACT_VIEW_VERSION if refined is not None else None,
+            "view_hash": digest(view),
+            "fact_view_version": ("fact-view-v2" if (seg_out or {}).get("fact_candidate_version") == "v2"
+                                  else FACT_VIEW_VERSION) if refined is not None else None,
             "source_sha256": rec["text_orig_sha256"]}
 
 
@@ -162,6 +167,14 @@ def load_work(run: Path, unified: Path, parsed: Path):
             inp = build_inputs(rec, out["output"], index)
             if inp is None:
                 raise ValueError("missing_target_or_input")
+            from freeze_slice import leak_reasons
+            leaks = sorted({reason for view in inp["sentence_view"]
+                            for reason in leak_reasons(view["text"])})
+            if leaks:
+                raise ValueError("answer_leakage:" + ",".join(leaks))
+            inp["supply_packet"] = build_packet(rec["_text_full"], inp, record_id=rid,
+                                                 case_event_id=rec.get("event_id"),
+                                                 schema_version=ENGINE.SCHEMA_VERSION)
             work.append((rid, rec, inp))
         except (ValueError, IndexError, KeyError) as exc:
             rejected.append({"id": rid, "reason": str(exc)[:200]})
@@ -202,7 +215,10 @@ def load_slice_work(source: Path):
                 raise ValueError('development_slice_view_text_mismatch')
             compiled = {'target':target,'aliases':[],'facts_text':facts,'meta_text':meta,
                         'sentence_view':allowed,'regions':[(v['start'],v['end']) for v in allowed],
-                        'view_hash':digest(allowed)}
+                        'view_hash':digest(allowed), 'source_sha256':row['text_orig_sha256']}
+            compiled['supply_packet'] = build_packet(original, compiled, record_id=rid,
+                                                     case_event_id=row.get('event_id'),
+                                                     schema_version=ENGINE.SCHEMA_VERSION)
             work.append((rid, {**row, '_text_full':original}, compiled))
         except (ValueError, TypeError, KeyError) as exc:
             rejected.append({'id':rid,'reason':str(exc)})
@@ -245,6 +261,7 @@ def main():
         work = work[:args.limit]
     snapshot = contract_snapshot(ENGINE)
     frozen = {"version": WIRE_VERSION, "contract": snapshot,
+              "binding_contract_version": SUPPLY_VERSION,
               'input_mode': 'development_slice_no_s3_certificate' if args.slice else 's1_s3_qualified',
               "ids": [w[0] for w in work], "views": {rid: inp["view_hash"] for rid, _, inp in work},
               "source_hashes": {str(f.resolve()): hashlib.sha256(f.read_bytes()).hexdigest()
@@ -317,7 +334,12 @@ def main():
                     merged, unresolved, diffs = merge_valid(*candidates, ENGINE, rec["_text_full"], inp["regions"], c)
                 if contract_snapshot(ENGINE) != snapshot:
                     raise RuntimeError('contract_changed_during_call:保留 raw，不提交混合契约标签')
-                result = {"id": rid, "status": "valid", "elements": merged,
+                binding_audit = audit_elements(merged, inp["supply_packet"])
+                needs_binding_review = (binding_audit["counts"]["quarantined"] +
+                                        binding_audit["counts"]["unverified"] > 0)
+                result = {"id": rid, "status": "needs_binding_review" if needs_binding_review else "valid",
+                          "elements": merged, "binding_audit": binding_audit,
+                          "binding_contract_version": SUPPLY_VERSION,
                           "input": {"target": inp["target"], "facts_text": inp["facts_text"],
                                     "meta_text": inp["meta_text"], "text_full": rec["_text_full"],
                                     "text_orig_sha256": rec["text_orig_sha256"]},
@@ -337,7 +359,8 @@ def main():
                     temp.replace(dest)
                 elif digest(json.loads(dest.read_text("utf-8"))) != digest(result):
                     raise RuntimeError("existing_commit_mismatch:不覆盖既有记录")
-                append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs), "status": "valid",
+                append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs),
+                       "status": result["status"], "binding_counts": binding_audit["counts"],
                        "difference_kinds": dict(__import__("collections").Counter(d["kind"] for d in diffs))})
             except Exception as exc:
                 append(out / "diagnostics.jsonl", failure_record(rid, exc))

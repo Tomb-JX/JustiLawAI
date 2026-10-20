@@ -8,6 +8,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import importlib
+import importlib.util
 import json
 import os
 import re
@@ -159,6 +160,13 @@ def messages(engine, inp: dict, *, decisions: list | None = None) -> list[dict]:
         + json.dumps(schema, ensure_ascii=False))
     user = {"target": inp["target"], "aliases": inp["aliases"], "contract_bundle_hash": bundle['hash'],
             "allowed_sentences": inp["sentence_view"]}
+    if inp.get("supply_packet"):
+        from supply_packet import prompt_catalog
+        user["quantity_candidates"] = prompt_catalog(inp["supply_packet"])
+        user["candidate_instruction"] = (
+            "候选仅是来源定位与数值归一化提示，可能遗漏或误判。逐字段核对主体、行为场景、"
+            "金额角色、时间与数量单位；他人的个人金额不得绑定给目标，设备台数不得作人数。"
+            "共享场景需要独立确认目标参与；不确定时按引擎状态契约处理，不能凭候选自动确证。")
     if decisions is not None:
         # C emits complete fields under the same schema, with exactly the same view.
         user["disagreements"] = decisions

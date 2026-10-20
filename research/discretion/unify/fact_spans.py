@@ -12,12 +12,14 @@ from collections import Counter
 
 _CLAUSE = re.compile(r"[^，,：:；;。！？\n]*(?:[，,：:；;。！？\n]|$)")
 _MIXED_CUE = re.compile(r"(?:行为.{0,6}(?:构成|违反|属于|属)|情节(?:严重|较重|较轻)|现决定|决定给予)")
+_FACT_CUE = re.compile(r"赌博|参赌|赌资|赌具|抽头|渔利|头钱|水钱|台费|赌场|赌机|棋牌|投案|自首|如实陈述|前科|曾受.{0,8}处罚|怀孕|孕妇|哺乳|未成年|查获|扣押|提供.{0,8}(?:场地|条件)")
 _DATE_ONLY = re.compile(r"^\s*(?:\d{4}年\d{1,2}月\d{1,2}日|\d{4}[-.]\d{1,2}[-.]\d{1,2})(?:\d{1,2}时(?:\d{1,2}分)?(?:许|左右)?)?[，,；;]?\s*$")
 _HEADING = re.compile(r"^(?:现查明|经查明|主要违法事实|违法事实)[:：]$")
 _GLUED_HEADING_DATE = re.compile(r"^(?:现查明|经查明)(?=\d{4}年)")
 _TIME_CONTEXT_CUE = re.compile(r"(?:\d{4}|[〇零一二三四五六七八九十]{4})年|\d{1,2}月|\d{1,2}日|\d{1,2}时|当晚|当日|当天|次日|翌日|昨日|同年|当时")
 FACT_ROLES = {"behavior_core", "other_case_fact", "context_time"}
 FACT_VIEW_VERSION = "fact-view-v1"
+FACT_CANDIDATE_VERSION = "fact-candidates-v2"
 
 
 def clause_table(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
@@ -33,12 +35,19 @@ def clause_table(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
     return clauses
 
 
-def candidate_fact_clauses(cleaned_text: str, sentences: list[list[int]]) -> list[dict]:
+def candidate_fact_clauses(cleaned_text: str, sentences: list[list[int]], *, version: str = "v1") -> list[dict]:
     """High-recall prompt candidates; a cue alone never assigns a facts label."""
+    if version not in {"v1", "v2"}:
+        raise ValueError("unsupported_fact_candidate_version")
     clauses = clause_table(cleaned_text, sentences)
     counts = Counter(c["sentence"] for c in clauses)
     candidates = {i for i, (a, b) in enumerate(sentences, 1)
                   if _MIXED_CUE.search(cleaned_text[a:b]) and counts[i] >= 2}
+    if version == "v2":
+        # Include intact fact sentences misplaced in reasoning/evidence by S1.
+        # These are only review candidates; selection still belongs to the model.
+        candidates.update(i for i, (a, b) in enumerate(sentences, 1)
+                          if _FACT_CUE.search(cleaned_text[a:b]))
     return [c for c in clauses if c["sentence"] in candidates]
 
 
@@ -110,7 +119,8 @@ def fact_view(record: dict, output: dict) -> list[dict] | None:
         return None
     cleaned = record.get("cleaned_text") or ""
     sentences = record.get("sentences") or []
-    candidates = candidate_fact_clauses(cleaned, sentences)
+    version = output.get("fact_candidate_version", "v1")
+    candidates = candidate_fact_clauses(cleaned, sentences, version=version)
     candidate_sentences = {c["sentence"] for c in candidates}
     resolve_fact_clause_ids(cleaned, sentences, candidates, selected)
     declared_roles = output.get("fact_clause_roles")
@@ -168,7 +178,8 @@ def ambiguous_fact_context(record: dict, output: dict) -> list[int]:
     selected = output.get("fact_clause_ids")
     if selected is None:
         return []
-    clauses = candidate_fact_clauses(record.get("cleaned_text") or "", record.get("sentences") or [])
+    clauses = candidate_fact_clauses(record.get("cleaned_text") or "", record.get("sentences") or [],
+                                     version=output.get("fact_candidate_version", "v1"))
     by_id = {c["id"]: c for c in clauses}
     result = []
     for cid in selected:
@@ -186,7 +197,8 @@ def fact_zone_conflicts(record: dict, output: dict) -> list[int]:
     if selected is None:
         return []
     clauses = {c["id"]: c for c in candidate_fact_clauses(record.get("cleaned_text") or "",
-                                                          record.get("sentences") or [])}
+                                                          record.get("sentences") or [],
+                                                          version=output.get("fact_candidate_version", "v1"))}
     fact_sentences = {sid for zone in output.get("zones") or [] if zone.get("type") == "facts"
                       for sid in range(zone["from"], zone["to"] + 1)}
     return [cid for cid in selected if cid in clauses and clauses[cid]["sentence"] not in fact_sentences]

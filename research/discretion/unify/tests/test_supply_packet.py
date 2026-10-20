@@ -1,0 +1,146 @@
+from __future__ import annotations
+
+import hashlib
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from cleanse import sentence_table  # noqa: E402
+from fact_spans import candidate_fact_clauses, fact_view  # noqa: E402
+from supply_packet import audit_elements, build_packet  # noqa: E402
+from evidence_graph import build_graph, classify_graph_bindings, _e05_time  # noqa: E402
+from evidence_types import SourceSpan  # noqa: E402
+
+
+def packet_for(text: str, target: str = "乙") -> dict:
+    view = {"id": "S1", "sentence_id": 1, "type": "facts", "start": 0,
+            "end": len(text), "text": text}
+    return build_packet(text, {"target": target, "aliases": [], "sentence_view": [view],
+                               "source_sha256": hashlib.sha256(text.encode()).hexdigest()},
+                        record_id="R1", case_event_id="E1")
+
+
+def amount_field(value: int, text: str) -> dict:
+    return {"amounts": {"personal_stake": {
+        "status": "明确", "value": {"min": value, "max": value},
+        "evidence": [{"start": 0, "end": len(text), "quote": text}]}}}
+
+
+def test_personal_amounts_do_not_cross_subjects():
+    text = "甲持有赌资300元，乙持有赌资500元。"
+    packet = packet_for(text)
+    amounts = [q for q in packet["quantities"] if q["type"] == "amount"]
+    assert [(q["raw"], q["actor_status"], q["role_hint"]) for q in amounts] == [
+        ("300元", "other", "personal_stake"),
+        ("500元", "target", "personal_stake")]
+    assert audit_elements(amount_field(300, text), packet)["field_disposition"]["amounts.personal_stake"] == {
+        "status": "quarantined", "reason": "explicit_other_subject",
+        "candidate_ids": [amounts[0]["candidate_id"]]}
+    assert audit_elements(amount_field(500, text), packet)["field_disposition"]["amounts.personal_stake"]["status"] == "candidate_supported"
+
+
+def test_equipment_count_cannot_be_participant_count():
+    text = "甲使用3台赌博机。"
+    packet = packet_for(text, "甲")
+    count = next(q for q in packet["quantities"] if q["type"] == "count")
+    assert count["unit"] == "台" and count["role_hint"] == "equipment_count"
+    claim = {"persons": {"participant_count": {"status": "明确", "value": 3,
+             "evidence": [{"start": 0, "end": len(text), "quote": text}]}}}
+    disposition = audit_elements(claim, packet)["field_disposition"]["persons.participant_count"]
+    assert disposition["status"] == "quarantined" and disposition["reason"] == "unit_conflict"
+
+
+def test_time_range_and_duration_keep_distinct_semantics():
+    text = "甲于2025年1月至3月参与赌博，持续三个月。"
+    packet = packet_for(text, "甲")
+    date = next(q for q in packet["quantities"] if q["type"] == "date")
+    duration = next(q for q in packet["quantities"] if q["type"] == "duration")
+    assert date["start_date"] == "2025-01-01" and date["end_date"] == "2025-03-31"
+    assert duration["days"] == 90
+    assert text[date["start"]:date["end"]] == date["raw"]
+    assert text[duration["start"]:duration["end"]] == duration["raw"]
+
+
+def test_joint_and_total_not_silently_attached_to_target():
+    text = "甲、乙各出300元，共600元。"
+    packet = packet_for(text)
+    amounts = [q for q in packet["quantities"] if q["type"] == "amount"]
+    assert len(amounts) == 2
+    assert amounts[0]["actor_status"] == "joint"
+    assert amounts[0]["distribution"] == "each"
+    assert amounts[1]["distribution"] == "collective"
+    assert audit_elements(amount_field(300, text), packet)["field_disposition"]["amounts.personal_stake"]["status"] == "unverified"
+    assert audit_elements(amount_field(600, text), packet)["field_disposition"]["amounts.personal_stake"]["status"] != "candidate_supported"
+
+
+def test_ordinary_word_does_not_create_other_person_conflict():
+    text = "刘**通过自己的微信向覃**转账280元购买号码赌博。"
+    packet = packet_for(text, "刘**")
+    amount = next(q for q in packet["quantities"] if q["type"] == "amount")
+    assert amount["actor_status"] != "other"
+    assert audit_elements(amount_field(280, text), packet)["field_disposition"]["amounts.personal_stake"]["status"] != "quarantined"
+
+
+def test_explicit_negative_quantity_cannot_support_positive_field():
+    text = "乙未持有赌资300元。"
+    packet = packet_for(text)
+    disposition = audit_elements(amount_field(300, text), packet)["field_disposition"]["amounts.personal_stake"]
+    assert disposition["status"] == "quarantined" and disposition["reason"] == "explicit_negative_claim"
+
+
+def test_surface_operator_preserved_alongside_e05_projection():
+    text = "乙携带20余元，甲携带超过300元。"
+    packet = packet_for(text)
+    amounts = [q for q in packet["quantities"] if q["type"] == "amount"]
+    assert [(q["operator"], q["lower_inclusive"], q["upper"]) for q in amounts] == [
+        (">", False, "29.0"), (">", False, None)]
+
+
+def test_explicit_age_is_separate_from_birth_date_derivation():
+    text = "乙，30岁，出生于1995年11月28日。"
+    packet = packet_for(text)
+    age = next(q for q in packet["quantities"] if q["type"] == "age")
+    assert age["role_hint"] == "age" and age["engine_projection"]["min"] == 30
+    assert any(q["type"] == "date" and q["role_hint"] == "birth"
+               for q in packet["quantities"])
+
+
+def test_legacy_graph_does_not_promote_equipment_or_shared_scene():
+    text = "甲在场。现场查获3台赌博机和赌资500元。"
+    view = {"id": "S1", "type": "facts", "start": 0, "end": len(text), "text": text}
+    graph = build_graph(text, [view], "甲")
+    classify_graph_bindings(graph)
+    counts = [n for n in graph["nodes"] if n["kind"] == "count"]
+    assert counts and all(n["binding"] == "needs_review" for n in counts)
+    assert all(n["binding"] != "shared_fact" for n in graph["nodes"])
+
+
+def test_legacy_graph_preserves_calendar_range_end():
+    text = "2025年1月至3月"
+    ref = SourceSpan.from_text(text, 0, len(text))
+    date = _e05_time(text, ref)
+    assert date["start_date"] == "2025-01-01" and date["end_date"] == "2025-03-31"
+
+
+def test_rejects_view_outside_source_or_modified_quote():
+    text = "乙持有赌资500元。"
+    inp = {"target": "乙", "sentence_view": [{"id": "S1", "type": "facts", "start": 0,
+                                                "end": len(text), "text": "甲持有赌资500元。"}]}
+    with pytest.raises(ValueError, match="supply_view_not_source_grounded"):
+        build_packet(text, inp, record_id="R1")
+
+
+def test_v2_recovers_intact_miszoned_fact_but_v1_does_not():
+    text = "甲主动投案自首。其行为构成赌博。"
+    sentences = sentence_table(text)
+    v1 = candidate_fact_clauses(text, sentences)
+    v2 = candidate_fact_clauses(text, sentences, version="v2")
+    assert not v1 and len(v2) >= 1
+    record = {"cleaned_text": text, "sentences": sentences}
+    out = {"zones": [{"type": "reasoning", "from": 1, "to": 2}],
+           "fact_candidate_version": "v2", "fact_clause_ids": [v2[0]["id"]]}
+    result = fact_view(record, out)
+    assert [x["text"] for x in result] == ["甲主动投案自首。"]

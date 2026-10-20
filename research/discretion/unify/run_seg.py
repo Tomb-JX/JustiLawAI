@@ -22,9 +22,9 @@ from progress import load_prices
 from provider_contract import freeze_execution
 from budget_scope import from_order
 from task_result import failure_record
-from fact_spans import candidate_fact_clauses, fact_view
+from fact_spans import candidate_fact_clauses, fact_view, FACT_CANDIDATE_VERSION
 
-VERSION = "seg-v2-durable-4"
+VERSION = "seg-v2-durable-5"
 
 
 def request_for(rec, *, clause_refine=False):
@@ -41,12 +41,14 @@ def request_for(rec, *, clause_refine=False):
     user = build_user_prompt(rec["form"], rec["source_type"],
                              [rec["cleaned_text"][a:b] for a, b in sentences], rec.get("subject_mention", ""))
     if clause_refine:
-        candidates = candidate_fact_clauses(rec["cleaned_text"], sentences)
+        candidates = candidate_fact_clauses(rec["cleaned_text"], sentences, version="v2")
         system += ("\n【句内事实片段】对下列候选子句，只在事实行为被原文陈述时选择其 ID，"
                    "纯法律定性、处罚结论、证据、元数据和‘现查明’等栏目标题一律不选。"
                    "独立的日期子句不要单独选择；紧邻已选行为的纯日期由系统保留为上下文。"
                    "账号尾号与日期粘连的子句不要为了保留日期而整段选择。"
                    "关键词只是候选来源，不代表事实。"
+                   "即使主 zone 标为 reasoning/evidence，事实子句仍可选；"
+                   "整句事实不要因相邻法律结论而丢弃，整句结论也不得因出现赌博词而选入。"
                    "输出额外字段 fact_clause_ids（升序不重复整数数组；无事实选 []）。"
                    "同时输出 fact_clause_roles 对象，键为每个已选 ID 的字符串，值只能是"
                    "behavior_core（本人行为）、other_case_fact（自首等其他情节）或"
@@ -79,6 +81,8 @@ def validated_output(payload, rec, *, clause_refine=False):
             raise ValueError("S1_missing_fact_clause_ids")
         if "fact_clause_roles" not in output:
             raise ValueError("S1_missing_fact_clause_roles")
+        # Candidate policy is frozen by this runner, never accepted from the model.
+        output["fact_candidate_version"] = "v2"
         fact_view(rec, output)
     return output
 
@@ -105,6 +109,7 @@ def main():
     requests = {r["id"]: request_for(r, clause_refine=a.clause_refine) for r in rows}
     frozen = {"version": VERSION, "semantic_prompt_base": PROMPT_VERSION,
               "clause_refine": a.clause_refine,
+              "fact_candidate_version": FACT_CANDIDATE_VERSION if a.clause_refine else None,
               "implementation": implementation_snapshot(),
               "source_sha256": hashlib.sha256(a.batch.read_bytes()).hexdigest(),
               "ids": [r["id"] for r in rows], "request_hashes": {rid: digest(msg) for rid, msg in requests.items()}}

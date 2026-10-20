@@ -68,17 +68,22 @@ def assemble_slice(source: Path, out: Path, *, elements: Path | None = None):
                     fingerprints[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
                     label = json.loads(path.read_text("utf-8"))
                     stored = label.get("input") or {}
-                    if (label.get("id") != rid or label.get("status") != "valid"
+                    if (label.get("id") != rid or label.get("status") not in {"valid", "needs_binding_review"}
                             or label.get("view_hash") != inp["view_hash"]
                             or label.get("contract_hash") != contract_hash
                             or any(stored.get(k) != inp[k] for k in ("target", "facts_text", "meta_text"))
                             or stored.get("text_orig_sha256") != rec["text_orig_sha256"]):
                         raise ValueError("element_commit_context_mismatch")
                     validate_located(label["elements"], original, ENGINE, inp["regions"])
-                    result.update(elements=label["elements"], elements_status="candidate_validated",
+                    element_state = ("candidate_needs_binding_review" if label["status"] == "needs_binding_review"
+                                     else "candidate_validated")
+                    result.update(elements_status=element_state,
                                   element_schema_version=label["element_schema_version"],
                                   element_prompt_version=label["element_prompt_version"],
-                                  label_provenance="model-adjudicated")
+                                  label_provenance="model-adjudicated",
+                                  binding_audit=label.get("binding_audit"))
+                    if element_state == "candidate_validated":
+                        result["elements"] = label["elements"]
             states[result["elements_status"]] += 1
             records.append(result)
         except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
@@ -184,7 +189,8 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
                 if path.exists():
                     fingerprints[str(path.resolve())] = hashlib.sha256(path.read_bytes()).hexdigest()
                     label = json.loads(path.read_text("utf-8"))
-                    if (label.get("status") != "valid" or label.get("view_hash") != inp["view_hash"]
+                    if (label.get("status") not in {"valid", "needs_binding_review"}
+                            or label.get("view_hash") != inp["view_hash"]
                             or label.get("contract_hash") != digest(contract_snapshot(ENGINE))
                             or (label.get("input") or {}).get("text_orig_sha256") != rec["text_orig_sha256"]):
                         raise ValueError("element_commit_context_mismatch")
@@ -192,10 +198,15 @@ def assemble(unified: Path, parsed: Path, run: Path, out: Path, *, elements: Pat
                            for k in ("target", "facts_text", "meta_text")):
                         raise ValueError("element_commit_input_mismatch")
                     validate_located(label["elements"], original, ENGINE, inp["regions"])
-                    result.update({"elements": label["elements"], "elements_status": "candidate_validated",
+                    element_state = ("candidate_needs_binding_review" if label["status"] == "needs_binding_review"
+                                     else "candidate_validated")
+                    result.update({"elements_status": element_state,
+                                   "binding_audit": label.get("binding_audit"),
                                    "element_schema_version": label["element_schema_version"],
                                    "element_prompt_version": label["element_prompt_version"],
                                    "label_provenance": "model-adjudicated", "human_review": False})
+                    if element_state == "candidate_validated":
+                        result["elements"] = label["elements"]
             if outcomes:
                 from outcome_arbitration import attach_commit
                 for path in (outcomes / f'record-{rid}.json', outcomes / 'manifest.json'):

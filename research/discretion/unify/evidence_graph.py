@@ -7,16 +7,17 @@ from __future__ import annotations
 
 import re
 
-from element_contract import digest, normalize_amount_e05, normalize_date_e05, normalize_duration_e05
+from element_contract import digest, normalize_amount_e05, normalize_date_e05, normalize_duration_e05, normalization_spec
 from evidence_types import SourceSpan
 from normalization import NUM, normalize_quantity, normalize_time
+from supply_packet import _surface_operator
 
 VERSION = "evidence-graph-2"
 MONEY = re.compile(fr"(?:不超过|不低于|至少|不足|超过|约|近|逾)?{NUM}(?:(?:到|至|[-~～]){NUM})?[余多]?(?:元|块)(?:以上|以下|左右)?")
 COUNT = re.compile(fr"(?:至少|超过|不足|至多)?{NUM}(?:(?:至|到){NUM})?[余多]?(?:名|个)?(?:人|次|场|台)")
 TIME = re.compile(r"(?:\d{4}|[〇零一二三四五六七八九]{4})年(?:[\d一二三四五六七八九十]+月(?:[\d一二三四五六七八九十]+[日号])?)?(?:(?:至|到)[\d一二三四五六七八九十]+月)?|同年[\d一二三四五六七八九十]+月|去年[\d一二三四五六七八九十]+月|次日|翌日")
 ROLE_PATTERNS = {
-    "personal_stake": r"(?:本人|个人|携带|持有|投入|赌资|赌注|筹码)",
+    "personal_stake": r"(?:本人|个人|携带|持有|投入|出资|筹码)",
     "per_bet": r"每局|每注|单注|每把",
     "onsite_stake_total": r"现场.*(?:赌资|赌款)|赌资.*合计|查获.*赌资",
     "cumulative_stake": r"累计.*(?:赌资|赌款)|赌资.*累计",
@@ -32,17 +33,25 @@ def _e05_money(quote: str, ref) -> dict:
     if result is None:
         return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
                 "kind": "unknown", "resolution": "unresolved", "reason": "e05_parse_failed"}
+    exact = result.get("max") is not None and result["min"] == result["max"]
+    operator, lower_inclusive, upper_inclusive, kind = _surface_operator(quote, exact=exact)
     return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
             "unit": "CNY",
-            "kind": "exact" if result["min"] == result.get("max") else "lower_bound" if result.get("max") is None else "interval",
-            "operator": "=" if result["min"] == result.get("max") else ">=" if result.get("max") is None else "~",
+            "kind": kind,
+            "operator": operator,
             "lower": str(result["min"]), "upper": str(result["max"]) if result.get("max") is not None else None,
-            "lower_inclusive": True, "upper_inclusive": result.get("max") is not None,
+            "lower_inclusive": lower_inclusive, "upper_inclusive": upper_inclusive,
             "resolution": "resolved", "e05": True}
 
 
 def _e05_time(quote: str, ref) -> dict:
     """E-05 authoritative date normalization, output compatible with graph node format."""
+    interval = normalization_spec().normalize_date_range(quote)
+    if interval is not None:
+        return {"raw": quote, "source_ref": ref.to_dict(), "normalizer": "e05-normalization-spec",
+                "kind": "calendar_range", "resolution": "resolved", "precision": "range",
+                "start_date": interval["start"].isoformat(),
+                "end_date": interval["end"].isoformat(), "e05": True}
     result = normalize_date_e05(quote)
     if result is None:
         # Try duration
@@ -100,9 +109,9 @@ def build_graph(original: str, views: list[dict], target: str, aliases=(), *, ev
                                  for m in re.finditer(pat, before)] if kind == "money" else []
                     roles = sorted({role for pos, role in role_hits if pos == max((x[0] for x in role_hits), default=-1)})
                     role = roles[0] if len(roles) == 1 else None
-                    if role is None and kind == "money" and "personal_stake" in roles:
-                        if re.search(r"(?:本人|个人|携带|持有|投入)[^，,。；;]{0,16}赌资?$", before):
-                            role = "personal_stake"
+                    if kind == "money" and re.search(
+                            r"(?:持有|携带|出资|投入)[^，,。；;]{0,16}(?:赌资|赌款|赌注|筹码)?$", before):
+                        role = "personal_stake"
                     if kind == "count":
                         role = ('cumulative_participants' if '累计' in quote else 'participant_count') if ref.quote.endswith('人') and re.search(r'参赌|赌博', quote) else 'times' if ref.quote.endswith(('次','场')) and re.search(r'赌博|参赌|提供条件', quote) else 'unclassified_count'
                     if kind == "time":
@@ -212,9 +221,9 @@ def classify_graph_bindings(graph: dict, *, aliases=()) -> dict:
             continue
 
         if binding_type.value == "shared_fact":
-            # SHARED fields: always shared, regardless of evidence
-            node["binding"] = "shared_fact"
-            node["binding_reason"] = f"scene-level field: {field}"
+            # Field semantics alone cannot prove target membership in this scene.
+            node["binding"] = "needs_review"
+            node["binding_reason"] = f"scene membership unproven: {field}"
             continue
 
         # Step 2: Evidence subject detection
@@ -293,7 +302,7 @@ def _role_to_field(role: str) -> str | None:
         "behavior": "conduct.behavior_type",
         "penalty": None,  # penalty is not a binding field
         "review": None,
-        "unclassified_count": "persons.participant_count",  # conservative default
+        "unclassified_count": None,
     }
     return mapping.get(role)
 
