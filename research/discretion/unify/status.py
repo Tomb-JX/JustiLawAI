@@ -32,26 +32,32 @@ def _load(path: Path) -> dict | None:
 
 
 def element_summary(d: Path) -> dict | None:
-    """L5 元素批没有 progress.json：直接从 append-only 账本合成现场状态。"""
-    if not (d / "attempts.jsonl").exists() or not (d / "manifest.json").exists():
+    """L5 元素批状态：账本合成现场；有 progress.json 时以心跳的 phase/延迟为准（能区分 done/aborted）。"""
+    if not (d / "manifest.json").exists() or not ((d / "attempts.jsonl").exists() or (d / "progress.json").exists()):
         return None
     from durable_calls import read_rows
     events = read_rows(d / "attempts.jsonl")
     plan = _load(d / "plan.json") or {}
+    prog = _load(d / "progress.json") or {}
     released = {e["attempt_id"] for e in events if e["event"] == "released"}
     sub = [e for e in events if e["event"] == "submitted" and e["attempt_id"] not in released]
     fin = [e for e in events if e["event"] == "finished"]
     diag = [x for x in read_rows(d / "diagnostics.jsonl")] if (d / "diagnostics.jsonl").exists() else []
-    running = (d / "RUNNING.lock").exists()
-    return {"kind": "l5-elements", "phase": "running" if running else "idle",
-            "done": len(list(d.glob("record-*.json"))), "total": plan.get("eligible", 0),
-            "valid": sum(x.get("status") == "valid" for x in diag),
-            "invalid": sum(x.get("status") == "invalid" for x in diag),
+    raws = read_rows(d / "raws.jsonl") if (d / "raws.jsonl").exists() else []
+    capped = sum(1 for r in raws if (r.get("meta") or {}).get("finish_reason") == "length")
+    phase = prog.get("phase") or ("running" if (d / "RUNNING.lock").exists() else "idle")
+    return {"kind": "l5-elements", "phase": phase,
+            "done": prog.get("done", len(list(d.glob("record-*.json")))),
+            "total": prog.get("total", plan.get("eligible", 0)),
+            "valid": prog.get("ok", sum(x.get("status") == "valid" for x in diag)),
+            "invalid": prog.get("fail", sum(x.get("status") != "valid" for x in diag if "status" in x)),
             "calls": len(sub), "finished": len(fin),
             "charged": round(sum(e.get("charged", 0) for e in fin), 4),
             "reserved": round(sum(e.get("reservation", 0) for e in sub
                                   if e["attempt_id"] not in {f["attempt_id"] for f in fin}), 4),
             "unknown": len({e["key"] for e in sub}) - len({e["key"] for e in fin}),
+            "capped": capped,
+            "eta_min": prog.get("eta_min"), "latency_p90": prog.get("latency_ms_p90"),
             "cap": plan.get("cap")}
 
 
@@ -102,10 +108,14 @@ def show_run(run: str) -> None:
         return
     el = element_summary(d)
     if el:
-        print(f"元素批 {run}  [{el['phase']}]  {el['done']}/{el['total']} 已提交落盘 "
-              f"（valid {el['valid']} / invalid {el['invalid']}）")
+        print(f"元素批 {run}  [{el['phase']}]  {el['done']}/{el['total']} 进度 "
+              f"（valid {el['valid']} / invalid {el['invalid']}）  "
+              f"ETA {el['eta_min']}min 延迟p90 {el['latency_p90']}ms")
         print(f"调用 {el['calls']}（finished {el['finished']}）  已计 ¥{el['charged']} + 在飞预留 ¥{el['reserved']}  "
-              f"未核账 unknown {el['unknown']}  预算上限 ¥{el['cap']}")
+              f"未核账 unknown {el['unknown']}  截断(length) {el['capped']}  预算上限 ¥{el['cap']}")
+        prog = _load(d / "progress.json") or {}
+        for e in (prog.get("errors_recent") or [])[-3:]:
+            print(f"  [{e['ts']}] {e['provider']}/{e['cat']}: {e['error'][:90]}")
         from audit_run import audit
         a = audit(d)
         if a["issues"]:
@@ -113,6 +123,8 @@ def show_run(run: str) -> None:
         if a["raw_recoverable_without_new_call"]:
             print("提示：以下 key 有 raw 无 finished，续跑将自动补账（不重付费）："
                   + ",".join(x[:12] for x in a["raw_recoverable_without_new_call"]))
+        if a["unknown_attempts"] and not a["raw_recoverable_without_new_call"]:
+            print(f"人工核账：audit_run.py {run} --settle <attempt_id> --charged X --evidence 账单依据")
         return
     summ = _load(d / "summary.json")
     if summ:

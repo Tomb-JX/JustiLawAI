@@ -149,14 +149,17 @@ class Provider:
         except Exception as e:
             raise RuntimeError(f"{type(e).__name__}: {e}") from None
         latency = round((time.monotonic() - t0) * 1000)
-        msg = (data.get("choices") or [{}])[0].get("message") or {}
+        choice = (data.get("choices") or [{}])[0]
+        msg = choice.get("message") or {}
         content = msg.get("content") or ""
         usage = data.get("usage") or {}
         if not content:
             raise ProviderResponseError(
-                f"空返回（finish={ (data.get('choices') or [{}])[0].get('finish_reason') }）",
-                content, {"latency_ms": latency, "usage": usage})
+                f"空返回（finish={ choice.get('finish_reason') }）",
+                content, {"latency_ms": latency, "usage": usage,
+                          "finish_reason": choice.get("finish_reason")})
         return content, {"latency_ms": latency, "usage": usage,
+                         "finish_reason": choice.get("finish_reason"),
                          "response_model": data.get("model"), "response_id": data.get("id")}
 
 

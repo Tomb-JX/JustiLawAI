@@ -400,20 +400,29 @@ def main():
                        "difference_kinds": dict(__import__("collections").Counter(d["kind"] for d in diffs))})
                 ok = True
             except (ValueError, TypeError) as exc:
-                record = failure_record(rid, exc)
-                reason = record["reason"]
-                append(out / "diagnostics.jsonl", record)
+                fail = failure_record(rid, exc)
+                reason = fail["reason"]
+                append(out / "diagnostics.jsonl", fail)
                 # 模型质量失败（校验器拒收/坏 JSON）：隔离本条继续——批量标注不能因单条模型输出中断；
                 # 契约/授权/预算/传输类失败（RuntimeError、request_too_large、cap、核账）仍 fail-fast。
                 # 前缀表是单一事实源：element_contract.MODEL_QUALITY_PREFIXES + 测试守卫。
                 if not is_model_quality_failure(exc):
                     raise
+            except BaseException as exc:
+                # 管线级阻塞（预算/授权/传输/RuntimeError）：停批前先把"谁、在哪条、为何挡住"落盘，
+                # 监控侧必须看得见阻塞原因，而不是只看到一个不再更新的进度板。
+                reason = f"{type(exc).__name__}: {exc}"
+                append(out / "diagnostics.jsonl", failure_record(rid, exc))
+                raise
             finally:
                 tracker.finish_record(ok, calls.used_calls - calls_before, names.get("A", ""),
                                       error="" if ok else reason,
                                       latency_ms=int((time.monotonic() - started) * 1000))
-    finally:
         tracker.set_phase("done")
+    except BaseException:
+        tracker.set_phase("aborted")   # done 只代表全批走完；中止原因见 diagnostics 与 errors_recent
+        raise
+    finally:
         lock.unlink()
 
 

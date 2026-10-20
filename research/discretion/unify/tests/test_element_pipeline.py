@@ -488,3 +488,81 @@ def test_manual_settle_closes_unknown_only_with_evidence(tmp_path):
     with pytest.raises(ValueError, match="already_finished"):
         settle(tmp_path, "a1", 0.0, evidence="again", scope_dir=scope_root)
     assert scope.snapshot()["used_or_reserved"] == 0.12
+
+
+# ---------- runner 端到端离线演练（fake 调用层，零网络） ----------
+
+class FakeCalls:
+    def __init__(self, fail=None):
+        self.used_calls, self.fail = 0, fail
+    def call(self, name, msgs, *, context, validator, repairs=1):
+        self.used_calls += 1
+        if self.fail:
+            raise self.fail
+        return copy.deepcopy(absent())
+
+
+def runner_env(tmp_path, monkeypatch, fail=None):
+    import run_elements as RE
+    data = tmp_path / "data"
+    (data / "s1_runs").mkdir(parents=True)
+    monkeypatch.setattr(RE, "data_root", lambda: data)
+    monkeypatch.setattr(RE, "from_order", lambda order, root: None)
+    monkeypatch.setattr(RE, "freeze_execution", lambda *a, **k: {})
+    monkeypatch.setattr(RE, "check_models", lambda *a: None)
+    monkeypatch.setattr(RE, "load_config", lambda: ({"p": SimpleNamespace(
+        base_url="https://api.example.test/v1", model="fake", max_tokens=1000, temperature=0)}, {}, "cfg"))
+    monkeypatch.setattr(RE, "load_prices", lambda path: {"fake": {"input": 1, "output": 1}})
+    text, inp = view()
+    full = {**inp, "facts_text": text[:9], "meta_text": "", "regions": [(0, 9)],
+            "view_hash": digest(inp["sentence_view"])}
+    rec = {"text_orig_sha256": hashlib.sha256(text.encode()).hexdigest(), "_text_full": text}
+    monkeypatch.setattr(RE, "load_work", lambda run, unified, parsed: ([("T1", rec, full)], []))
+    run_dir = data / "s1_runs" / "src"
+    run_dir.mkdir()
+    (run_dir / "outputs.jsonl").write_text("{}\n", encoding="utf-8")
+    unified = data / "s1_runs" / "u.jsonl"
+    unified.write_text("{}\n", encoding="utf-8")
+    (data / "s1_runs" / "edits.rle.jsonl").write_text("{}\n", encoding="utf-8")
+    parsed = data / "s1_runs" / "p.jsonl"
+    parsed.write_text("{}\n", encoding="utf-8")
+    out = data / "s1_runs" / "e2e"
+    order = {"stage": "smoke12", "cap": 1.0, "max_calls": 96, "max_input_bytes": 400000,
+             "providers": {"A": "p", "B": "p", "C": "p"}, "ids": ["T1"],
+             "contract_hash": digest(RE.prompt_fingerprint(RE.ENGINE)),
+             "review_record": "r", "executor_review": "e", "engine_ack": "a",
+             "free_replay_pass": True,
+             "budget_scope": {"path": str(data / "s1_runs" / "scope"), "cap": 10, "max_calls": 50}}
+    order_file = tmp_path / "order.json"
+    order_file.write_text(json.dumps(order, ensure_ascii=False), encoding="utf-8")
+    fake = FakeCalls(fail=fail)
+    monkeypatch.setattr(RE, "DurableCalls", lambda *a, **k: fake)
+    monkeypatch.setattr(sys, "argv", ["run_elements.py", "--run", str(run_dir), "--unified", str(unified),
+                                      "--parsed", str(parsed), "--out", str(out), "--execute",
+                                      "--order", str(order_file)])
+    return RE, out, fake
+
+
+def test_e2e_runner_happy_path_writes_commit_and_done_heartbeat(tmp_path, monkeypatch):
+    RE, out, fake = runner_env(tmp_path, monkeypatch)
+    RE.main()
+    assert (out / "record-T1.json").exists()
+    prog = json.loads((out / "progress.json").read_text("utf-8"))
+    assert prog["phase"] == "done" and prog["ok"] == 1 and prog["kind"] == "l5-elements"
+    assert not (out / "RUNNING.lock").exists()
+    assert fake.used_calls == 2                      # A+B，absent==absent 无分歧不请 C
+
+
+def test_e2e_runner_fatal_abort_is_diagnosed_not_masked(tmp_path, monkeypatch):
+    RE, out, fake = runner_env(tmp_path, monkeypatch, fail=RuntimeError("budget_stop: 模拟预算拦截"))
+    with pytest.raises(RuntimeError, match="budget_stop"):
+        RE.main()
+    diag = read_rows(out / "diagnostics.jsonl")
+    assert diag[-1]["id"] == "T1" and "budget_stop" in diag[-1]["reason"]
+    assert diag[-1]["status"] == "unresolved"
+    prog = json.loads((out / "progress.json").read_text("utf-8"))
+    assert prog["phase"] == "aborted" and not prog.get("done_masked_as_finished", False)
+    assert prog["errors_recent"] and "budget_stop" in prog["errors_recent"][-1]["error"]
+    assert not (out / "RUNNING.lock").exists()
+    from status import element_summary
+    assert element_summary(out)["phase"] == "aborted"
