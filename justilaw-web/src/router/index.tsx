@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router-dom'
 import { AppLayout } from '@/components/layout/app-layout'
 import { PageLoading } from '@/components/common/misc'
-import { RequireAuth, RequireAdmin } from '@/features/auth/require-auth'
+import { RequireAdmin } from '@/features/auth/require-auth'
 import { CALLBACK_PATH } from '@/features/auth/logto-config'
 
 const ChatPage = lazy(() => import('@/features/chat/chat-page'))
@@ -28,11 +28,9 @@ export const router = createBrowserRouter([
   { path: CALLBACK_PATH, element: page(<CallbackPage />) },
   {
     path: '/',
-    element: (
-      <RequireAuth>
-        <AppLayout />
-      </RequireAuth>
-    ),
+    // 鉴权门控在 AppLayout 的内容区内（RequireAuth 包住 Outlet）：
+    // 刷新时外壳即时渲染，加载/跳转只发生在局部，不再整页卸载重挂
+    element: <AppLayout />,
     children: [
       { index: true, element: <Navigate to="/chat" replace /> },
       { path: 'chat/:conversationId?', element: page(<ChatPage />) },

@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { PageLoading } from '@/components/common/misc'
+import { RequireAuth } from '@/features/auth/require-auth'
 import { UserMenu } from '@/features/auth/user-menu'
 import { useCurrentUser } from '@/features/auth/use-auth'
 import { useTheme } from '@/hooks/useTheme'
@@ -148,8 +148,14 @@ export function AppLayout() {
           </div>
         </div>
 
+        {/* 鉴权门控只在内容区生效：刷新时外壳（导航/顶栏）先稳定渲染，
+            加载态局部出现在内容区，不再整页卸载重挂（View Transition 也只作用于此） */}
         <main className="min-w-0 flex-1 overflow-hidden">
-          <Outlet />
+          <div data-vt-content className="h-full">
+            <RequireAuth>
+              <Outlet />
+            </RequireAuth>
+          </div>
         </main>
       </div>
 

@@ -309,11 +309,20 @@
   }
 }
 
-/* ---------- 路由切换 View Transitions（React Router viewTransition 触发，渐进增强） ---------- */
-::view-transition-old(root) {
+/* ---------- 路由切换 View Transitions（React Router viewTransition 触发，渐进增强）
+   只过渡主内容区：root 动画关闭（旧快照在下、新快照在上，都不动 = 侧栏原地保持），
+   淡出/淡入挂在 [data-vt-content] 命名的局部元素上，避免整页跳动 ---------- */
+[data-vt-content] {
+  view-transition-name: app-content;
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(app-content) {
   animation: vt-fade-out 0.12s ease-out both;
 }
-::view-transition-new(root) {
+::view-transition-new(app-content) {
   animation: vt-fade-in 0.18s ease-out both;
 }
 @keyframes vt-fade-out {
@@ -338,8 +347,8 @@
   .flow-border::before,
   .stagger-item,
   .stream-caret::after,
-  ::view-transition-old(root),
-  ::view-transition-new(root) {
+  ::view-transition-old(app-content),
+  ::view-transition-new(app-content) {
     animation: none !important;
   }
   .shimmer-text {

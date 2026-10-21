@@ -44,12 +44,13 @@ export function RequireAuth({ children }: { children: ReactNode }) {
     }
   }, [isAuthenticated, getAccessToken, getIdToken, signIn])
 
-  if (authMode === 'loading') return <div className="h-screen"><PageLoading /></div>
+  // 门控渲染在 AppLayout 内容区内：占位与跳转只影响局部，外壳保持不动
+  if (authMode === 'loading') return <PageLoading />
   if (authMode === 'local') return children
 
-  // Logto 在取 token 等异步操作期间也会置 isLoading，已登录时不能因此卸载整个应用
+  // Logto 在取 token 等异步操作期间也会置 isLoading，已登录时不能因此卸载内容区以外的任何东西
   if (!isAuthenticated) {
-    if (isLoading) return <div className="h-screen"><PageLoading /></div>
+    if (isLoading) return <PageLoading />
     return <Navigate to="/login" state={{ returnTo }} replace />
   }
 
@@ -62,7 +63,7 @@ export function RequireAdmin({ children }: { children: ReactNode }) {
   const { data: user, isLoading } = useCurrentUser()
 
   if (authMode === 'loading' || (authMode !== 'local' && isLoading)) {
-    return <div className="h-screen"><PageLoading /></div>
+    return <PageLoading />
   }
   if (!user?.isAdmin) return <Navigate to="/chat" replace />
   return children
