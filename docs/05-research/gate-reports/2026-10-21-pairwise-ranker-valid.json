@@ -108,6 +108,368 @@
       "candidate_count": 3
     }
   ],
+  "valid_predictions": [
+    {
+      "id": "S1-279ea2462be88f3f2639",
+      "event_sha256": "74b98a233b5edb85f08e436e50b508327fecb3e803283c93192c55c077eeecfe",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-d39e1d949656a390",
+      "selected_start": 210,
+      "selected_end": 215,
+      "selected_projection": {
+        "min": 2420.0,
+        "max": 2420.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-279ea2462be88f3f2639",
+      "event_sha256": "74b98a233b5edb85f08e436e50b508327fecb3e803283c93192c55c077eeecfe",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-d39e1d949656a390",
+      "selected_start": 210,
+      "selected_end": 215,
+      "selected_projection": {
+        "min": 2420.0,
+        "max": 2420.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-57bdcfacf73116c02030",
+      "event_sha256": "60eaaacbf90da4e51cc42cadfe22c8fb10076f1536674dd3c02d6e05998d4f88",
+      "method": "pairwise_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-e5e99196d4cd9f43",
+      "selected_start": 307,
+      "selected_end": 311,
+      "selected_projection": {
+        "min": 500.0,
+        "max": 500.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-57bdcfacf73116c02030",
+      "event_sha256": "60eaaacbf90da4e51cc42cadfe22c8fb10076f1536674dd3c02d6e05998d4f88",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-41f9e62d0b61020f",
+      "selected_start": 251,
+      "selected_end": 255,
+      "selected_projection": {
+        "min": 500.0,
+        "max": 500.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": false
+    },
+    {
+      "id": "S1-582686ced1f819c3d6ae",
+      "event_sha256": "60eaaacbf90da4e51cc42cadfe22c8fb10076f1536674dd3c02d6e05998d4f88",
+      "method": "pairwise_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-06719b9efffa5c8e",
+      "selected_start": 283,
+      "selected_end": 287,
+      "selected_projection": {
+        "min": 300.0,
+        "max": 300.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-582686ced1f819c3d6ae",
+      "event_sha256": "60eaaacbf90da4e51cc42cadfe22c8fb10076f1536674dd3c02d6e05998d4f88",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-c35d08a84c68dd17",
+      "selected_start": 269,
+      "selected_end": 273,
+      "selected_projection": {
+        "min": 250.0,
+        "max": 250.0
+      },
+      "silver_value_match": false,
+      "exact_weak_edge_match": false
+    },
+    {
+      "id": "S1-7cfbd0e8e2478be67565",
+      "event_sha256": "6bf7f600d713a79466fbb1ecbb2479c3d60012a2bac5f65d2dea77c71a57d551",
+      "method": "pairwise_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-f3b3b353603ea639",
+      "selected_start": 211,
+      "selected_end": 216,
+      "selected_projection": {
+        "min": 2700.0,
+        "max": 2700.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-7cfbd0e8e2478be67565",
+      "event_sha256": "6bf7f600d713a79466fbb1ecbb2479c3d60012a2bac5f65d2dea77c71a57d551",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-f3b3b353603ea639",
+      "selected_start": 211,
+      "selected_end": 216,
+      "selected_projection": {
+        "min": 2700.0,
+        "max": 2700.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-807ef8097b47279da882",
+      "event_sha256": "dfad9db790830b0913e4f1a5e6b4c2ce55184c4064d21a86d594d8b6444cca7e",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-0729d7dcf49a5b78",
+      "selected_start": 170,
+      "selected_end": 174,
+      "selected_projection": {
+        "min": 814.0,
+        "max": 814.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-807ef8097b47279da882",
+      "event_sha256": "dfad9db790830b0913e4f1a5e6b4c2ce55184c4064d21a86d594d8b6444cca7e",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-0729d7dcf49a5b78",
+      "selected_start": 170,
+      "selected_end": 174,
+      "selected_projection": {
+        "min": 814.0,
+        "max": 814.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-92bb7a6f15b780095551",
+      "event_sha256": "74b98a233b5edb85f08e436e50b508327fecb3e803283c93192c55c077eeecfe",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-07e845659927e463",
+      "selected_start": 210,
+      "selected_end": 215,
+      "selected_projection": {
+        "min": 2420.0,
+        "max": 2420.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-92bb7a6f15b780095551",
+      "event_sha256": "74b98a233b5edb85f08e436e50b508327fecb3e803283c93192c55c077eeecfe",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-07e845659927e463",
+      "selected_start": 210,
+      "selected_end": 215,
+      "selected_projection": {
+        "min": 2420.0,
+        "max": 2420.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-b5a0e2fb1cb2d5fee02d",
+      "event_sha256": "e1047fe141c64af26cacde0564cab570bf5df6ad917a66732a2f6737f62767b1",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-4037b3e8a0128376",
+      "selected_start": 270,
+      "selected_end": 274,
+      "selected_projection": {
+        "min": 165.0,
+        "max": 165.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-b5a0e2fb1cb2d5fee02d",
+      "event_sha256": "e1047fe141c64af26cacde0564cab570bf5df6ad917a66732a2f6737f62767b1",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-4037b3e8a0128376",
+      "selected_start": 270,
+      "selected_end": 274,
+      "selected_projection": {
+        "min": 165.0,
+        "max": 165.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-b8e7bf93286d2549eef4",
+      "event_sha256": "dfad9db790830b0913e4f1a5e6b4c2ce55184c4064d21a86d594d8b6444cca7e",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-d2ea955c2c4759c8",
+      "selected_start": 203,
+      "selected_end": 207,
+      "selected_projection": {
+        "min": 814.0,
+        "max": 814.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-b8e7bf93286d2549eef4",
+      "event_sha256": "dfad9db790830b0913e4f1a5e6b4c2ce55184c4064d21a86d594d8b6444cca7e",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-d2ea955c2c4759c8",
+      "selected_start": 203,
+      "selected_end": 207,
+      "selected_projection": {
+        "min": 814.0,
+        "max": 814.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-d4774ee9e446bb13d8fb",
+      "event_sha256": "0f291a013c93537c7702e2f388d8f85c999e24413ae2f038d89e5e34860514da",
+      "method": "pairwise_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-33ca6dbf9a641efb",
+      "selected_start": 184,
+      "selected_end": 188,
+      "selected_projection": {
+        "min": 220.0,
+        "max": 220.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-d4774ee9e446bb13d8fb",
+      "event_sha256": "0f291a013c93537c7702e2f388d8f85c999e24413ae2f038d89e5e34860514da",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-33ca6dbf9a641efb",
+      "selected_start": 184,
+      "selected_end": 188,
+      "selected_projection": {
+        "min": 220.0,
+        "max": 220.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-dace783c1836b5a7ecf9",
+      "event_sha256": "5be9d69adb663bc5d233dd2f19507d05560c43113f7bbb55ddbdb3e6c3bccc50",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-63dbd5c3c0da86e8",
+      "selected_start": 235,
+      "selected_end": 240,
+      "selected_projection": {
+        "min": 7370.0,
+        "max": 7370.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-dace783c1836b5a7ecf9",
+      "event_sha256": "5be9d69adb663bc5d233dd2f19507d05560c43113f7bbb55ddbdb3e6c3bccc50",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-63dbd5c3c0da86e8",
+      "selected_start": 235,
+      "selected_end": 240,
+      "selected_projection": {
+        "min": 7370.0,
+        "max": 7370.0
+      },
+      "silver_value_match": true,
+      "exact_weak_edge_match": true
+    },
+    {
+      "id": "S1-dd5abc3f75cbc3f99af4",
+      "event_sha256": "cd1a9576313392881e8530657a05c43d52dfd5f49ceced723704a02372a011db",
+      "method": "pairwise_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-80b2c28cb61ffb8f",
+      "selected_start": 271,
+      "selected_end": 274,
+      "selected_projection": {
+        "min": 50.0,
+        "max": 50.0
+      },
+      "silver_value_match": false,
+      "exact_weak_edge_match": false
+    },
+    {
+      "id": "S1-dd5abc3f75cbc3f99af4",
+      "event_sha256": "cd1a9576313392881e8530657a05c43d52dfd5f49ceced723704a02372a011db",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.personal_stake",
+      "selected_candidate_id": "Q-fe02ebcfba9445b7",
+      "selected_start": 313,
+      "selected_end": 320,
+      "selected_projection": {
+        "min": 900,
+        "max": 1100
+      },
+      "silver_value_match": false,
+      "exact_weak_edge_match": false
+    },
+    {
+      "id": "S1-f58f7ac8aa3926fa613f",
+      "event_sha256": "30a8d71add697ca5071d0aad66f48119e437f47a13b89d3c7fa4451d49bc4fe5",
+      "method": "pairwise_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-44d237a168b13f97",
+      "selected_start": 201,
+      "selected_end": 204,
+      "selected_projection": {
+        "min": 10.0,
+        "max": 10.0
+      },
+      "silver_value_match": false,
+      "exact_weak_edge_match": false
+    },
+    {
+      "id": "S1-f58f7ac8aa3926fa613f",
+      "event_sha256": "30a8d71add697ca5071d0aad66f48119e437f47a13b89d3c7fa4451d49bc4fe5",
+      "method": "naive_bayes_ranker",
+      "field": "amounts.onsite_stake_total",
+      "selected_candidate_id": "Q-44d237a168b13f97",
+      "selected_start": 201,
+      "selected_end": 204,
+      "selected_projection": {
+        "min": 10.0,
+        "max": 10.0
+      },
+      "silver_value_match": false,
+      "exact_weak_edge_match": false
+    }
+  ],
   "input_sha256": {
     "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
     "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",

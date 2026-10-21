@@ -107,6 +107,7 @@ def run(teacher_path: Path, originals_path: Path, silver_path: Path) -> dict:
         weights[field], training_stats[field] = train_ranker(training[field])
     totals = defaultdict(lambda: defaultdict(Counter))
     examples = []
+    predictions = []
     for rid, ref in refs.items():
         if ref["metadata"]["split"] != "valid":
             continue
@@ -147,6 +148,14 @@ def run(teacher_path: Path, originals_path: Path, silver_path: Path) -> dict:
                       else "exact_weak_edge_disagree"] += 1
                 elif len(evidence_matches) > 1 and value_match:
                     c["collision_value_match_edge_unresolved"] += 1
+                predictions.append({"id": rid, "event_sha256": hashlib.sha256(
+                    (ref["metadata"].get("event_id") or rid).encode("utf-8")).hexdigest(),
+                    "method": method, "field": field, "selected_candidate_id": selected["candidate_id"],
+                    "selected_start": selected["start"], "selected_end": selected["end"],
+                    "selected_projection": selected["engine_projection"],
+                    "silver_value_match": value_match,
+                    "exact_weak_edge_match": len(evidence_matches) == 1 and
+                    selected["candidate_id"] == evidence_matches[0]["candidate_id"]})
                 if not value_match and len(examples) < 15:
                     examples.append({"id": rid, "method": method, "field": field,
                                      "selected_candidate_id": selected["candidate_id"],
@@ -157,6 +166,7 @@ def run(teacher_path: Path, originals_path: Path, silver_path: Path) -> dict:
             "train_pairwise": dict(train_counts), "training_stats": training_stats,
             "valid_results": {m: {f: dict(c) for f, c in by_field.items()} for m, by_field in totals.items()},
             "valid_disagreement_examples": examples,
+            "valid_predictions": predictions,
             "input_sha256": {"teacher": hashlib.sha256(teacher_path.read_bytes()).hexdigest(),
                              "originals": hashlib.sha256(originals_path.read_bytes()).hexdigest(),
                              "silver": hashlib.sha256(silver_path.read_bytes()).hexdigest()},
