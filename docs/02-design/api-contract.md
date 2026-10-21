@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.4（已按 justilaw-api 实现对齐） · 2026-10-15
+> 版本 v0.6（已按 justilaw-api 实现对齐） · 2026-10-22
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -307,16 +307,19 @@ POST   /providers 🔒           { name, type: 'ollama' | 'openai_compat', base_
 PATCH  /providers/{id} 🔒      （部分更新；api_key 传回打码值表示不修改；Ollama 类改 base_url 后立即按新地址重新发现）
 DELETE /providers/{id} 🔒      （内置供应商不可删，返回 40000）
 POST   /providers/{id}/ping    → data: { latency_ms }
-POST   /providers/{id}/remote-models 🔒  → data: { models: string[] }
-                                 （拉取远端模型名列表，只列不存；ollama 读 /api/tags，openai_compat 读 /models）
+POST   /providers/{id}/remote-models 🔒  → data: { models: { id, capabilities: string[] }[] }
+                                 （拉取远端模型列表，只列不存；能力标签直接读上游字段识别：
+                                   openai_compat 读 /models 条目的 capabilities/features、supported_parameters、architecture.input_modalities，
+                                   无字段时按族名兜底（embed/bge/m3e/gte → embedding，其余 completion）；ollama 读 /api/tags 的 capabilities）
 POST   /providers/{id}/refresh 🔒        （仅 ollama：重新发现模型，新 pull 的模型立即可见）
 POST   /providers/ollama/detect 🔒       { base_url? } → data: { base_url, reachable, version, models: string[], error }
                                  （只测不存；不传 base_url 时依次尝试当前地址、127.0.0.1:11434、host.docker.internal:11434，返回第一个可达的）
 POST   /providers/{id}/pull 🔒           { model } → SSE：progress {status, completed?, total?} → done {model} | error
                                  （仅 ollama：让 Ollama 下载模型；完成后刷新清单，平台此前没有同类模型时自动设为默认对话 / 嵌入模型；
                                    客户端断开不会中止 Ollama 端的下载，再次拉取会断点续传）
-POST   /providers/{id}/models 🔒         { id 或 name, capabilities?: string[], default_params? }
-                                 （手动注册模型，capabilities 默认 ["completion"]；注册嵌入模型时传 ["embedding"]）
+POST   /providers/{id}/models 🔒         { id 或 name, capabilities?: string[] | null, default_params? }
+                                 （注册模型。**capabilities 缺省/null/空数组时服务端自动识别**：按 remote-models 同源规则读上游字段，
+                                   列表查不到该模型时按族名兜底；仅显式传入数组才视为人工指定（覆盖识别结果））
 PATCH  /providers/{id}/models/{model} 🔒
 DELETE /providers/{id}/models/{model} 🔒
 
@@ -372,3 +375,4 @@ GET /health  → data: {
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-22 | v0.6 | 模型能力自动识别（免手动填写）：`/providers/{id}/remote-models` 返回 `{ id, capabilities }[]`（读上游 capabilities/supported_parameters/architecture.input_modalities，族名兜底）；`POST /providers/{id}/models` 的 `capabilities` 可缺省，缺省时服务端自动识别，显式数组仅表人工覆盖 | 前端平台 |

@@ -17,6 +17,7 @@ import type {
   ChatCompletionRequest,
   Message,
   Prompt,
+  RemoteModel,
   UsagePoint,
   Workflow,
 } from '@/types/api'
@@ -268,16 +269,17 @@ export async function pingProvider(id: string): Promise<{ latency_ms: number }> 
   return (await http.post(`/providers/${id}/ping`)) as { latency_ms: number }
 }
 
-/** 拉取远端供应商的模型名列表（只列不存，供「添加模型」点选） */
-export async function fetchProviderRemoteModels(providerId: string): Promise<string[]> {
+/** 拉取远端供应商的模型列表（只列不存，供「添加模型」点选并自动填充能力）；
+ *  capabilities 缺省时服务端自动读模型服务返回的字段识别 */
+export async function fetchProviderRemoteModels(providerId: string): Promise<RemoteModel[]> {
   if (USE_MOCK) return mockApi.fetchRemoteModels(providerId)
-  const r = (await http.post(`/providers/${providerId}/remote-models`)) as { models: string[] }
+  const r = (await http.post(`/providers/${providerId}/remote-models`)) as { models: RemoteModel[] }
   return r.models
 }
 
 export async function addProviderModel(
   providerId: string,
-  model: { id?: string; name: string; capabilities?: string[] },
+  model: { id?: string; name: string; capabilities?: string[] | null },
 ): Promise<ModelInfo> {
   if (USE_MOCK) return mockApi.addProviderModel(providerId, model)
   return (await http.post(`/providers/${providerId}/models`, model)) as ModelInfo
@@ -319,8 +321,9 @@ export async function syncProfile(profile: {
   email?: string
   avatar?: string
 }): Promise<{ role: 'user' | 'admin' } | null> {
-  if (USE_MOCK) return null
-  return (await http.put('/users/me', profile)) as { role: 'user' | 'admin' }
+  // Mock 为演示环境单用户：视为管理员，否则管理入口（用户/模型服务编辑）在 mock 下不可达
+  if (USE_MOCK) return { role: 'admin' }
+  return (await http.put('/users/me', profile)) as { role: 'user' | 'admin' } | null
 }
 
 /* ============ 服务状态与模型连接向导 ============ */

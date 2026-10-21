@@ -32,6 +32,7 @@ import type {
   ModelSettings,
   Message,
   Prompt,
+  RemoteModel,
   UsagePoint,
   Workflow,
 } from '@/types/api'
@@ -95,7 +96,8 @@ export const mockApi = {
     await delay(50)
     return {
       status: 'up' as const,
-      auth_enabled: true,
+      // Mock 演示即单机场景：auth_enabled=false → 前端按本地管理员处理，管理功能全部可达
+      auth_enabled: false,
       setup_required: false,
       ollama: { enabled: true, reachable: true, version: 'mock', base_url: null },
       default_chat_model: mockModelSettings.default_chat_model,
@@ -450,25 +452,40 @@ export const mockApi = {
     return p
   },
 
-  async fetchRemoteModels(id: string): Promise<string[]> {
+  /** 模拟远端 /models：带能力字段，添加模型时由服务端（此处为 mock）直接读取识别 */
+  async fetchRemoteModels(id: string): Promise<RemoteModel[]> {
     await delay(300)
     const p = mockProviders.find((x) => x.id === id)
     if (!p) throw new Error('供应商不存在')
-    return ['glm-4-plus', 'glm-4-air', 'glm-4-flash', 'embedding-3']
+    if (p.type === 'ollama') return p.models.map((m) => ({ id: m.name, capabilities: m.capabilities }))
+    return [
+      { id: 'glm-4-plus', capabilities: ['completion', 'tools'] },
+      { id: 'glm-4v-flash', capabilities: ['completion', 'vision', 'tools'] },
+      { id: 'glm-4-air', capabilities: ['completion'] },
+      { id: 'embedding-3', capabilities: ['embedding'] },
+    ]
   },
 
   async addProviderModel(
     providerId: string,
-    model: { id?: string; name: string; capabilities?: string[] },
+    model: { id?: string; name: string; capabilities?: string[] | null },
   ): Promise<ModelInfo> {
     await delay(80)
     const p = mockProviders.find((x) => x.id === providerId)
     if (!p) throw new Error('供应商不存在')
+    // 未手动指定能力：从远端列表读识别结果，查不到按模型族名兜底（与后端 detect_model_caps 一致）
+    const caps = model.capabilities?.length
+      ? model.capabilities
+      : (await mockApi.fetchRemoteModels(providerId)).find((e) => e.id === (model.id ?? model.name))?.capabilities ??
+        (/embed|bge|m3e|gte/.test(model.name.toLowerCase()) ? ['embedding'] : ['completion'])
     const entry = {
       id: `${providerId}/${model.id ?? model.name}`,
       name: model.name,
-      capabilities: model.capabilities ?? ['completion'],
-      default_params: { temperature: 0.7, top_p: 0.9, max_tokens: 2048 },
+      capabilities: caps,
+      default_params:
+        caps.length === 1 && caps[0] === 'embedding'
+          ? { temperature: 0, top_p: 1, max_tokens: 0 }
+          : { temperature: 0.7, top_p: 0.9, max_tokens: 2048 },
     }
     p.models = [...p.models.filter((m) => m.id !== entry.id), entry]
     return { ...entry, provider: p.id, provider_name: p.name }

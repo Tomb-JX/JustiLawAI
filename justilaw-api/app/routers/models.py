@@ -9,7 +9,8 @@ from fastapi.responses import StreamingResponse
 
 from ..auth import current_user, require_admin
 from ..model_gateway.gateway import (
-    detect_ollama, fetch_remote_models, ping_model, ping_provider, provider_store, pull_model,
+    CAP_SET, detect_ollama, detect_model_caps, fetch_remote_models,
+    ping_model, ping_provider, provider_store, pull_model,
 )
 from ..resp import err, ok
 
@@ -198,14 +199,17 @@ async def add_provider_model(pid: str, body: dict):
     mid = (body.get("id") or body.get("name") or "").strip()
     if not mid:
         raise HTTPException(422, detail=err(42200, "模型名必填"))
-    caps = body.get("capabilities") or ["completion"]
-    unknown = set(caps) - {"completion", "embedding", "vision", "tools", "thinking"}
+    p = provider_store.get(pid)
+    if not p:
+        raise HTTPException(404, detail=err(40400, "供应商不存在"))
+    caps = body.get("capabilities")
+    if not caps:  # 未指定：直接读取模型服务返回的能力字段，用户无需手动填写
+        caps = await detect_model_caps(p, mid)
+    unknown = set(caps) - CAP_SET
     if unknown:
         raise HTTPException(422, detail=err(42200, f"未知能力标签：{', '.join(sorted(unknown))}"))
     m = provider_store.add_model(pid, {**body, "id": mid, "name": (body.get("name") or mid).strip(),
                                        "capabilities": caps})
-    if not m:
-        raise HTTPException(404, detail=err(40400, "供应商不存在"))
     return ok(m)
 
 

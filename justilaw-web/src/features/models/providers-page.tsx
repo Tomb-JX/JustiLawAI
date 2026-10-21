@@ -47,7 +47,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { useAuthMode } from '@/features/auth/auth-mode'
 import { useCurrentUser } from '@/features/auth/use-auth'
-import type { ModelInfo, ModelProvider } from '@/types/api'
+import type { ModelInfo, ModelProvider, RemoteModel } from '@/types/api'
 import { DEFAULT_LOCAL_URL, useLocalOllamaStore } from './local-ollama'
 import { OllamaSetupDialog, type SetupTarget } from './ollama-setup'
 import { useLocalModels } from './use-chat-models'
@@ -105,15 +105,16 @@ function ProviderCard({
   })
   const [addOpen, setAddOpen] = useState(false)
   const [modelName, setModelName] = useState('')
-  const [caps, setCaps] = useState<string[]>(['completion'])
-  const [remoteModels, setRemoteModels] = useState<string[] | null>(null)
+  const [caps, setCaps] = useState<string[]>([])
+  const [capsTouched, setCapsTouched] = useState(false)
+  const [remoteModels, setRemoteModels] = useState<RemoteModel[] | null>(null)
 
-  // 从远端 API 拉取模型名列表（只列不存），点选填入输入框，仍可手动输入
+  // 从远端 API 拉取模型列表（含自动识别的能力标签），点选填入输入框，仍可手动输入
   const fetchMut = useMutation({
     mutationFn: () => fetchProviderRemoteModels(provider.id),
     onSuccess: (models) => {
       setRemoteModels(models)
-      if (models.length > 0) toast.success(`拉取到 ${models.length} 个模型，点击选择即可`)
+      if (models.length > 0) toast.success(`拉取到 ${models.length} 个模型，点选自动识别能力`)
     },
     onError: (e) => toast.error(`拉取失败：${(e as Error).message}，可手动输入模型名`),
   })
@@ -138,12 +139,19 @@ function ProviderCard({
   })
 
   const addModelMut = useMutation({
-    mutationFn: () => addProviderModel(provider.id, { name: modelName.trim(), capabilities: caps }),
+    mutationFn: () =>
+      addProviderModel(provider.id, {
+        name: modelName.trim(),
+        // 能力未手动修改时传 null：服务端直接读模型服务返回的字段自动识别
+        capabilities: capsTouched && caps.length ? caps : null,
+      }),
     onSuccess: () => {
       invalidate()
       toast.success('模型已添加')
       setAddOpen(false)
       setModelName('')
+      setCaps([])
+      setCapsTouched(false)
     },
   })
 
@@ -309,7 +317,7 @@ function ProviderCard({
       )}
 
       {/* 添加模型对话框 */}
-      <Dialog open={addOpen} onOpenChange={(v) => { setAddOpen(v); if (!v) { setRemoteModels(null); setModelName('') } }}>
+      <Dialog open={addOpen} onOpenChange={(v) => { setAddOpen(v); if (!v) { setRemoteModels(null); setModelName(''); setCaps([]); setCapsTouched(false) } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>向「{provider.name}」添加模型</DialogTitle>
@@ -338,28 +346,47 @@ function ProviderCard({
                 ) : (
                   remoteModels.map((m) => (
                     <button
-                      key={m}
-                      onClick={() => setModelName(m)}
-                      className={`flex w-full items-center justify-between px-3 py-2 text-left font-mono text-xs transition-colors hover:bg-accent ${
-                        modelName === m ? 'bg-accent text-primary' : ''
+                      key={m.id}
+                      onClick={() => {
+                        setModelName(m.id)
+                        setCaps(m.capabilities)
+                        setCapsTouched(false)
+                      }}
+                      className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left font-mono text-xs transition-colors hover:bg-accent ${
+                        modelName === m.id ? 'bg-accent text-primary' : ''
                       }`}
                     >
-                      <span className="truncate">{m}</span>
-                      {provider.models.some((x) => x.name === m) && (
-                        <span className="ml-2 shrink-0 text-[11px] text-muted-foreground">已添加</span>
-                      )}
+                      <span className="min-w-0 flex-1 truncate">{m.id}</span>
+                      <span className="flex shrink-0 items-center gap-1">
+                        {m.capabilities.slice(0, 4).map((c) => (
+                          <Badge key={c} variant="outline" className="px-1.5 py-0 font-sans text-[10px]">
+                            {CAP_LABELS[c] ?? c}
+                          </Badge>
+                        ))}
+                        {provider.models.some((x) => x.name === m.id) && (
+                          <span className="text-[11px] text-muted-foreground">已添加</span>
+                        )}
+                      </span>
                     </button>
                   ))
                 )}
               </div>
             )}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">能力标签</label>
+              <label className="text-sm font-medium">
+                能力标签
+                <span className="ml-2 text-xs font-normal text-muted-foreground">
+                  {capsTouched ? '已手动指定' : caps.length ? '已从模型服务返回字段识别' : '自动识别（无需填写）'}
+                </span>
+              </label>
               <div className="flex flex-wrap gap-1.5">
                 {Object.entries(CAP_LABELS).map(([k, label]) => (
                   <button
                     key={k}
-                    onClick={() => setCaps((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))}
+                    onClick={() => {
+                      setCapsTouched(true)
+                      setCaps((prev) => (prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]))
+                    }}
                     className={`rounded-full border px-3 py-1 text-xs transition-colors ${
                       caps.includes(k)
                         ? 'border-primary bg-primary text-primary-foreground'
@@ -370,6 +397,10 @@ function ProviderCard({
                   </button>
                 ))}
               </div>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                默认由服务端直接读取模型服务返回的能力字段自动识别：点「拉取列表」选中模型即自动填充；
+                手动输入的模型名也会识别（查不到返回字段时按模型族名推断，如 embed 系归为嵌入）。仅识别不准确时才需在此调整。
+              </p>
             </div>
           </div>
           <DialogFooter>

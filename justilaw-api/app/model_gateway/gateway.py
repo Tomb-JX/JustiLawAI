@@ -350,6 +350,52 @@ def _guess_caps(tag: dict) -> list[str]:
     return ["completion"]
 
 
+CAP_SET = {"completion", "embedding", "vision", "tools", "thinking"}
+
+
+def _guess_caps_from_name(name: str) -> list[str]:
+    """OpenAI 兼容端点的上游条目没有任何能力字段时的兜底：按模型族名判断。"""
+    n = (name or "").lower()
+    if any(k in n for k in ("embed", "bge", "m3e", "gte")):
+        return ["embedding"]
+    return ["completion"]
+
+
+def _caps_from_remote_entry(entry: dict) -> list[str] | None:
+    """从 OpenAI 兼容 GET /models 条目的字段读取能力标签（各家字段名不一，依次尝试）。
+
+    返回 None 表示该条目没有任何能力信息（调用方决定兜底方式）：
+    - capabilities / features：部分网关直接返回标签数组或 {标签: 布尔} 字典
+    - supported_parameters：OpenRouter 系网关，tools → tools，reasoning/thinking → thinking
+    - architecture.input_modalities：含 image/audio/video/file 视为 vision
+    嵌入与非嵌入互斥：命中 embedding 就只返回 embedding（嵌入端点不做对话）。
+    """
+    found: set[str] = set()
+    for key in ("capabilities", "features"):
+        v = entry.get(key)
+        if isinstance(v, list):
+            found |= {str(c).lower() for c in v if isinstance(c, str)}
+        elif isinstance(v, dict):
+            found |= {str(k).lower() for k, on in v.items() if on}
+    sp = entry.get("supported_parameters")
+    if isinstance(sp, list):
+        low = {str(x).lower() for x in sp if isinstance(x, str)}
+        if "tools" in low or "tool_choice" in low:
+            found.add("tools")
+        if "reasoning" in low or "thinking" in low:
+            found.add("thinking")
+    arch = entry.get("architecture")
+    mods = arch.get("input_modalities") if isinstance(arch, dict) else None
+    if isinstance(mods, list) and any(str(x).lower() in ("image", "audio", "video", "file") for x in mods):
+        found.add("vision")
+    found &= CAP_SET
+    if not found:
+        return None
+    if "embedding" in found:
+        return ["embedding"]
+    return ["completion", *sorted(found - {"completion", "embedding"})]
+
+
 provider_store = ProviderStore()
 
 
@@ -517,21 +563,39 @@ async def ping_provider(provider: Provider) -> int:
     return int((time.time() - t0) * 1000)
 
 
-async def fetch_remote_models(provider: Provider) -> list[str]:
-    """拉取远端供应商的模型名列表（只列不存，供前端「添加模型」时点选）。
+async def fetch_remote_models(provider: Provider) -> list[dict]:
+    """拉取远端供应商的模型列表（只列不存），供「添加模型」点选。
 
-    - openai_compat：GET /models 解析 OpenAI 格式 data[*].id
-    - ollama：GET /api/tags 取 name（与自动发现同源）
+    返回 [{id, capabilities}]：能力标签直接读上游返回的字段，不再要求用户手动填写。
+    - openai_compat：GET /models → data[*].id + 能力字段（_caps_from_remote_entry），无信息时按族名兜底
+    - ollama：GET /api/tags 的 name + capabilities（与自动发现同源）
     """
     async with provider.client(15) as client:
         if provider.type == "ollama":
             r = await client.get(f"{provider.base_url}/api/tags")
             r.raise_for_status()
-            return [m["name"] for m in r.json().get("models", []) if m.get("name")]
+            return [
+                {"id": t["name"], "capabilities": t.get("capabilities") or _guess_caps(t)}
+                for t in r.json().get("models", []) if t.get("name")
+            ]
         r = await client.get(provider.base_url.rstrip("/") + "/models", headers=provider.headers())
         r.raise_for_status()
         data = r.json().get("data", [])
-        return [m["id"] for m in data if isinstance(m, dict) and m.get("id")]
+        return [
+            {"id": m["id"], "capabilities": _caps_from_remote_entry(m) or _guess_caps_from_name(m["id"])}
+            for m in data if isinstance(m, dict) and m.get("id")
+        ]
+
+
+async def detect_model_caps(provider: Provider, real_name: str) -> list[str]:
+    """添加模型未指定 capabilities 时：拉远端列表读该模型的能力字段，失败/查不到按族名兜底。"""
+    try:
+        entry = next((e for e in await fetch_remote_models(provider) if e["id"] == real_name), None)
+        if entry:
+            return entry["capabilities"]
+    except Exception:
+        pass
+    return _guess_caps_from_name(real_name)
 
 
 async def ping_model(model_id: str) -> int:

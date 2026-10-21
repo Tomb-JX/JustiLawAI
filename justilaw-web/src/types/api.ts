@@ -184,6 +184,12 @@ export interface ModelInfo {
   default_params: { temperature: number; top_p: number; max_tokens: number }
 }
 
+/** GET /providers/{pid}/remote-models 条目：能力标签由服务端读模型服务返回字段自动识别 */
+export interface RemoteModel {
+  id: string
+  capabilities: string[]
+}
+
 /** 模型供应商（自定义 API 配置，对齐主流智能体平台） */
 export interface ModelProvider {
   id: string
