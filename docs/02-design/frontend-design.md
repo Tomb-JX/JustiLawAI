@@ -1,6 +1,6 @@
 # JustiLawAI 前端设计方案
 
-> 版本 v1.4 · 2026-10-16 · 配套文档：[API 契约](./api-contract.md) · [产品需求](../01-product/requirements.md) · [里程碑计划](../04-plan/milestones.md)
+> 版本 v1.5 · 2026-10-22 · 配套文档：[API 契约](./api-contract.md) · [产品需求](../01-product/requirements.md) · [里程碑计划](../04-plan/milestones.md)
 
 ## 1. 项目定位
 
@@ -324,7 +324,7 @@ justilaw-web/
 | 列表入场 stagger | `.stagger-item` + 内联 `--stagger-delay` | 欢迎页推荐问题/快捷入口、智能体广场、Admin 统计卡 |
 | 数字滚动 | `CountUp` 组件（rAF easeOutCubic，IntersectionObserver 触发） | Admin 统计页 Bento 卡 |
 | Bento Grid | 纯 CSS grid 跨行跨列 | 聊天欢迎页快捷入口（首卡 2 列跨行）、Admin 统计页 |
-| 路由转场 | React Router `viewTransition` + `::view-transition-*` 淡入淡出 | 侧边导航、会话切换、卡片跳转（渐进增强，不支持的浏览器自动忽略） |
+| 路由转场 | React Router `viewTransition` + `::view-transition-*` **仅作用于内容区**（`app-content` 命名组；root 动画关闭，侧栏原地不动） | 侧边导航、会话切换、卡片跳转（渐进增强，不支持的浏览器自动忽略） |
 | 连线流动 | React Flow `animated` 边 | 工作流试运行时（"数据在流"的可视暗示） |
 | 打字光标 | `.stream-caret`（已有，保留） | 流式消息输出 |
 
@@ -336,7 +336,8 @@ justilaw-web/
 2. **毛玻璃限量**：`backdrop-filter` 元素全站不超过 2 个固定层（当前：登录卡、欢迎页向导卡，均叠在 aurora 彩色底层上）；禁止列表卡片逐个 blur；
 3. **依赖预算**：效果类不新增 npm 依赖；首屏 JS 增量 > 50KB gz 的方案必须评审；
 4. **降级**：全局响应 `prefers-reduced-motion`——所有动画关闭、shimmer 退化为纯色文字（见 globals.css 末尾媒体查询）；
-5. **浏览器兼容**：`@property`（flow-border）与 View Transitions 均为渐进增强，不支持的浏览器得到静态边框/瞬时切换，无功能损失。
+5. **浏览器兼容**：`@property`（flow-border）与 View Transitions 均为渐进增强，不支持的浏览器得到静态边框/瞬时切换，无功能损失；
+6. **布局稳定性（防整页跳动）**：AppLayout 外壳（侧栏/顶栏）永远先渲染，`RequireAuth` 只门控内容区（包住 `<Outlet/>` 的 `[data-vt-content]`）——刷新或恢复登录态时，加载态/跳转只出现在内容区局部，外壳不卸载；View Transition 同理只命名内容区（`view-transition-name: app-content`），root 不挂动画。
 
 ### 12.3 服务器体量评估结论（选型依据）
 
@@ -359,3 +360,4 @@ Motion（Framer Motion）微交互、canvas-confetti 文书导出庆祝、Lottie
 | 2026-10-14 | v1.2 | M1-M6 前端全量交付：新增编辑重发/附件/思维链、知识库 CRUD 与分段管理、智能体创建向导与发布流、React Flow 工作流画布（模拟试运行）、管理后台、Ctrl+K 命令面板 | 前端组 |
 | 2026-10-14 | v1.3 | 多用户登录接入 Logto（OIDC），替代自建账号密码 + JWT 方案；新增 /callback 路由 | 前端组 |
 | 2026-10-16 | v1.4 | 新增 §12 视觉语言与动效规范并全量落地：Shimmer 思考态/骨架扫光、登录页与欢迎页 Aurora + 毛玻璃、聚光灯卡片、流光边框（生成中输入框/解析中文档）、Bento 快捷入口与 Admin 统计卡、CountUp 数字滚动、View Transitions 路由转场、工作流运行时连线流动；配套 ops nginx 开启 gzip；全部零动画依赖、prefers-reduced-motion 全局降级 | 前端组 |
+| 2026-10-22 | v1.5 | 修复整页跳动：AppLayout 外壳即时渲染，RequireAuth 鉴权门控从整树下移到内容区（刷新时侧栏/顶栏不再卸载重挂）；View Transition 作用域从 root 收窄为 `app-content` 命名组（路由切换仅内容区过渡）；§12 效果表与性能护栏第 6 条同步更新 | 前端组 |
