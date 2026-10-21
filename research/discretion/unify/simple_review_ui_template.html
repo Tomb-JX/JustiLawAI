@@ -11,7 +11,8 @@ mark{background:#fff0ae;border-bottom:2px solid #e7ad28;padding:1px 2px}.choice{
 <script>
 const CASES=__CASES_JSON__;
 const FIELDS=[['personal_stake','个人赌资：目标人个人持有、携带或投入的赌资是哪笔？','actor_relation'],['onsite_stake_total','现场总额：本次现场查获的赌资总额是哪笔？','event_relation']];
-const KEY='simple-amount-review-v1-'+CASES.map(c=>c.source_sha256).join('').slice(0,80);
+const BOUNDARIES={personal_stake:'只选目标人用于下注、换筹码或赢取的款物；台费、场地费属于其他字段。仅有“持有”二字不足以判成个人赌资。',onsite_stake_total:'只选明确作为全体现场赌资合计的金额；个人金额、网络充值/输款、单独的公共赌资不自动等于合计。'};
+const KEY='simple-amount-review-v2-'+CASES.map(c=>c.source_sha256).join('').slice(0,80);
 const blank=()=>CASES.map(c=>({id:c.id,source_sha256:c.source_sha256,review_status:'pending',answers:Object.fromEntries(FIELDS.map(([f])=>[f,{decision:null,candidate_id:null,relation:null,missed_quote:'',note:''}]))}));
 let forms;try{forms=JSON.parse(localStorage.getItem(KEY))||blank()}catch{forms=blank()}
 if(!Array.isArray(forms)||forms.length!==CASES.length||forms.some((f,i)=>f.id!==CASES[i].id||f.source_sha256!==CASES[i].source_sha256))forms=blank();
@@ -26,8 +27,8 @@ for(const [value,text] of values)box.append(radio(field+'-relation',value,answer
 function renderViews(c,box){c.allowed_views.forEach(v=>{const d=el('div',undefined,'view');d.append(el('div',v.type+' · 原文位置 '+v.start+'–'+v.end,'label'));
 const line=el('div',undefined,'views'),matches=c.amounts.filter(q=>v.start<=q.start&&q.end<=v.end).sort((a,b)=>a.start-b.start);let pos=v.start;
 for(const q of matches){if(q.start<pos)continue;line.append(document.createTextNode(v.text.slice(pos-v.start,q.start-v.start)));const mark=el('mark',q.raw);mark.title=q.candidate_id+' · 原文位置 '+q.start+'–'+q.end;line.append(mark);pos=q.end}line.append(document.createTextNode(v.text.slice(pos-v.start)));d.append(line);box.append(d)})}
-function renderField(c,f,field,title){const a=f.answers[field],box=el('section',undefined,'card');box.append(el('h2',title),el('p','按原文判断。黄色标记是程序发现的金额位置，可能漏掉或提错；同值重复时请看上下文。','hint'));
-const options=[['absent','原文未提及这个字段'],['unclear','原文有线索，但我无法确定'],['missed','正确金额未列在候选中']];
+function renderField(c,f,field,title){const a=f.answers[field],box=el('section',undefined,'card');box.append(el('h2',title),el('p',BOUNDARIES[field],'hint'),el('p','按原文判断。黄色标记是程序发现的金额位置，可能漏掉或提错；同值重复时请看上下文。','hint'));
+const options=[['absent','原文没有这个字段（即使出现其他金额）'],['unclear','原文有线索，但我无法确定'],['missed','正确金额未列在候选中']];
 for(const [value,text] of options)box.append(radio(field+'-decision',value,a.decision===value,()=>{a.decision=value;a.candidate_id=null;a.relation=null;save();render()},text));
 if(a.decision==='missed'){const sub=el('div',undefined,'sub');sub.append(el('label','复制原文中的那段金额文字（用于定位漏提候选）'));const input=el('textarea');input.value=a.missed_quote||'';input.onchange=()=>{a.missed_quote=input.value.trim();save()};sub.append(input);box.append(sub)}
 for(const [i,q] of c.amounts.entries()){const chosen=a.decision==='candidate'&&a.candidate_id===q.candidate_id;const label=radio(field+'-decision',q.candidate_id,chosen,()=>{a.decision='candidate';a.candidate_id=q.candidate_id;a.relation=null;save();render()},'候选 '+(i+1)+'：'+q.raw+'  · 原文位置 '+q.start+'–'+q.end);box.append(label);if(chosen)box.append(relationControl(a,field))}

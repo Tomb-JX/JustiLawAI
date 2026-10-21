@@ -1,0 +1,254 @@
+{
+  "scope": "single_reviewer_six_case_disagreement_inventory",
+  "human_gold": false,
+  "population_accuracy_allowed": false,
+  "test_split_used": false,
+  "reviewer_id_provided": false,
+  "cases": 6,
+  "decisions": 12,
+  "counts": {
+    "personal_stake:human_matches_unique_silver_evidence": 3,
+    "onsite_stake_total:human_absent_silver_missing": 2,
+    "personal_stake:human_within_ambiguous_silver_evidence": 1,
+    "onsite_stake_total:human_candidate_silver_missing": 2,
+    "personal_stake:human_candidate_silver_missing": 2,
+    "onsite_stake_total:human_matches_unique_silver_evidence": 2
+  },
+  "details": [
+    {
+      "id": "S1-11b12d1888326c732d8a",
+      "split": "train",
+      "field": "amounts.personal_stake",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-a34020d41efd89b5",
+      "human_raw": "200元",
+      "human_start": 211,
+      "human_relation": "target",
+      "silver_positive": true,
+      "silver_value": {
+        "min": 200,
+        "max": 200
+      },
+      "silver_evidence_candidate_ids": [
+        "Q-a34020d41efd89b5"
+      ],
+      "comparison": "human_matches_unique_silver_evidence",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-11b12d1888326c732d8a",
+      "split": "train",
+      "field": "amounts.onsite_stake_total",
+      "human_decision": "absent",
+      "human_candidate_id": null,
+      "human_raw": null,
+      "human_start": null,
+      "human_relation": null,
+      "silver_positive": false,
+      "silver_value": null,
+      "silver_evidence_candidate_ids": [],
+      "comparison": "human_absent_silver_missing",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-7cfbd0e8e2478be67565",
+      "split": "valid",
+      "field": "amounts.personal_stake",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-f3b3b353603ea639",
+      "human_raw": "2700元",
+      "human_start": 211,
+      "human_relation": "target",
+      "silver_positive": true,
+      "silver_value": {
+        "min": 2700,
+        "max": 2700
+      },
+      "silver_evidence_candidate_ids": [
+        "Q-f3b3b353603ea639"
+      ],
+      "comparison": "human_matches_unique_silver_evidence",
+      "valid_ranker_candidate_id": "Q-f3b3b353603ea639",
+      "human_matches_valid_ranker": true
+    },
+    {
+      "id": "S1-7cfbd0e8e2478be67565",
+      "split": "valid",
+      "field": "amounts.onsite_stake_total",
+      "human_decision": "absent",
+      "human_candidate_id": null,
+      "human_raw": null,
+      "human_start": null,
+      "human_relation": null,
+      "silver_positive": false,
+      "silver_value": null,
+      "silver_evidence_candidate_ids": [],
+      "comparison": "human_absent_silver_missing",
+      "valid_ranker_candidate_id": "Q-f3b3b353603ea639",
+      "human_matches_valid_ranker": false
+    },
+    {
+      "id": "S1-f9f067debee7744d2346",
+      "split": "train",
+      "field": "amounts.personal_stake",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-f72b20de3a65eac0",
+      "human_raw": "2200元",
+      "human_start": 202,
+      "human_relation": "target",
+      "silver_positive": true,
+      "silver_value": {
+        "min": 2200,
+        "max": 2200
+      },
+      "silver_evidence_candidate_ids": [
+        "Q-f72b20de3a65eac0",
+        "Q-688ca7c748676e01"
+      ],
+      "comparison": "human_within_ambiguous_silver_evidence",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-f9f067debee7744d2346",
+      "split": "train",
+      "field": "amounts.onsite_stake_total",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-f72b20de3a65eac0",
+      "human_raw": "2200元",
+      "human_start": 202,
+      "human_relation": "target_event",
+      "silver_positive": false,
+      "silver_value": null,
+      "silver_evidence_candidate_ids": [],
+      "comparison": "human_candidate_silver_missing",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-dfd6231d472211c3381c",
+      "split": "train",
+      "field": "amounts.personal_stake",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-1228777a29b82d7e",
+      "human_raw": "40元",
+      "human_start": 164,
+      "human_relation": "target",
+      "silver_positive": false,
+      "silver_value": null,
+      "silver_evidence_candidate_ids": [],
+      "comparison": "human_candidate_silver_missing",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-dfd6231d472211c3381c",
+      "split": "train",
+      "field": "amounts.onsite_stake_total",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-21c60839a5495491",
+      "human_raw": "960元",
+      "human_start": 124,
+      "human_relation": "target_event",
+      "silver_positive": true,
+      "silver_value": {
+        "min": 960,
+        "max": 960
+      },
+      "silver_evidence_candidate_ids": [
+        "Q-21c60839a5495491"
+      ],
+      "comparison": "human_matches_unique_silver_evidence",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-72c37d6c48b386a983cc",
+      "split": "train",
+      "field": "amounts.personal_stake",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-feb69681e59782d7",
+      "human_raw": "40元",
+      "human_start": 167,
+      "human_relation": "target",
+      "silver_positive": false,
+      "silver_value": null,
+      "silver_evidence_candidate_ids": [],
+      "comparison": "human_candidate_silver_missing",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-72c37d6c48b386a983cc",
+      "split": "train",
+      "field": "amounts.onsite_stake_total",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-8900400f4735ac1b",
+      "human_raw": "1160元",
+      "human_start": 140,
+      "human_relation": "target_event",
+      "silver_positive": true,
+      "silver_value": {
+        "min": 1160,
+        "max": 1160
+      },
+      "silver_evidence_candidate_ids": [
+        "Q-8900400f4735ac1b"
+      ],
+      "comparison": "human_matches_unique_silver_evidence",
+      "valid_ranker_candidate_id": null,
+      "human_matches_valid_ranker": null
+    },
+    {
+      "id": "S1-582686ced1f819c3d6ae",
+      "split": "valid",
+      "field": "amounts.personal_stake",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-06719b9efffa5c8e",
+      "human_raw": "300元",
+      "human_start": 283,
+      "human_relation": "target",
+      "silver_positive": true,
+      "silver_value": {
+        "min": 300,
+        "max": 300
+      },
+      "silver_evidence_candidate_ids": [
+        "Q-06719b9efffa5c8e"
+      ],
+      "comparison": "human_matches_unique_silver_evidence",
+      "valid_ranker_candidate_id": "Q-06719b9efffa5c8e",
+      "human_matches_valid_ranker": true
+    },
+    {
+      "id": "S1-582686ced1f819c3d6ae",
+      "split": "valid",
+      "field": "amounts.onsite_stake_total",
+      "human_decision": "candidate",
+      "human_candidate_id": "Q-22e182fdb276bb3b",
+      "human_raw": "1850元",
+      "human_start": 451,
+      "human_relation": "target_event",
+      "silver_positive": false,
+      "silver_value": null,
+      "silver_evidence_candidate_ids": [],
+      "comparison": "human_candidate_silver_missing",
+      "valid_ranker_candidate_id": "Q-391e9b37c9bc1f7f",
+      "human_matches_valid_ranker": false
+    }
+  ],
+  "input_sha256": {
+    "cases": "0c49ed0590b767938c6120060f036fc0b5c4088eb3eb75ad89cada1cd93f9689",
+    "review": "43c104603172d04d6db0bd90f0ec0c0b9eb31098f57627a86d1d8a232fae95e4",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d",
+    "selective": "1e0aa4aa816b25f4dbbdde5e5c1b5ee4ef5e575827f208906b5c022bd45b725b"
+  },
+  "limitations": [
+    "Single reviewer, no adjudication",
+    "Disagreement-enriched pilot is not a random sample",
+    "Silver missing is not proven field absence",
+    "Train cases have no frozen OOF ranker output in this report"
+  ]
+}
