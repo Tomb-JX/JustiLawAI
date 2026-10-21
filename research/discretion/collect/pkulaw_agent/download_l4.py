@@ -22,10 +22,12 @@ def main():
     ap = argparse.ArgumentParser(description="L4 Word 补救下载（CDP）")
     ap.add_argument("--cap", type=int, default=400, help="最大下载数")
     ap.add_argument("--interval", type=float, default=2.5, help="最小请求间隔秒")
+    ap.add_argument("--run-dir", default="", help="含 results.jsonl 的目录")
+    ap.add_argument("--out-dir", default="", help="Word 文件保存目录")
     args = ap.parse_args()
 
-    run_dir = data_dir() / "inbox" / "pkulaw" / "20261018-P2" / "runs" / "l4-word-download"
-    out_dir = data_dir() / "inbox" / "pkulaw" / "20261018-P2" / "word"
+    run_dir = Path(args.run_dir) if args.run_dir else data_dir() / "inbox" / "pkulaw" / "20261018-P2" / "runs" / "l4-word-download"
+    out_dir = Path(args.out_dir) if args.out_dir else data_dir() / "inbox" / "pkulaw" / "20261018-P2" / "word"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     # 加载 worklist
