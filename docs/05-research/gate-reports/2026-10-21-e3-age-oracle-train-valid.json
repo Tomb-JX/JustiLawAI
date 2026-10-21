@@ -1,0 +1,24 @@
+{
+  "scope": "train_valid_only",
+  "silver_is_not_gold": true,
+  "oracle_evidence_and_metadata_date": true,
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d"
+  },
+  "stats": {
+    "records": 163,
+    "silver_age_positive": 59,
+    "birth_operand_in_evidence": 53,
+    "metadata_behavior_date_parseable": 47,
+    "unique_exact_age": 46,
+    "exact_matches_silver": 46,
+    "age_interval_or_ambiguous_operands": 1,
+    "interval_contains_silver": 1,
+    "no_parseable_metadata_behavior_date": 6,
+    "no_birth_operand_in_evidence": 6
+  },
+  "disagreements": [],
+  "note": "Only arithmetic and operand availability are measured; person/event binding remains unsolved."
+}

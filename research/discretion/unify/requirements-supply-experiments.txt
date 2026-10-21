@@ -1,0 +1,4 @@
+# E1 external recognizer, installed into an isolated target directory.
+recognizers-text-suite==1.0.2a2
+# recognizers-text-suite currently breaks with emoji 2.x on this runtime.
+emoji==1.7.0

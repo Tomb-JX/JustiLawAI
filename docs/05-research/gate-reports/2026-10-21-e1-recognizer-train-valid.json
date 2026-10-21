@@ -1,0 +1,206 @@
+{
+  "scope": "train_valid_only",
+  "silver_is_not_gold": true,
+  "metric": "evidence_local_candidate_and_e05_value_coverage",
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d"
+  },
+  "recognizer_dependencies": {
+    "emoji": "1.7.0",
+    "recognizers-text-suite": "1.0.2a2"
+  },
+  "stats": {
+    "records": 163,
+    "regex_candidates": 679,
+    "recognizer_candidates": 453,
+    "recognizer_parse_unresolved": 53,
+    "regex_date": 268,
+    "regex_amount": 328,
+    "recognizer_amount": 356,
+    "unresolved_amount": 42,
+    "regex_count": 75,
+    "recognizer_count": 78,
+    "regex_age": 8,
+    "recognizer_age": 19,
+    "unresolved_age": 11
+  },
+  "coverage": {
+    "regex": {
+      "amounts.commission": {
+        "present": 14,
+        "candidate_found": 14,
+        "value_found": 14
+      },
+      "amounts.cumulative_stake": {
+        "present": 2,
+        "candidate_found": 2,
+        "value_found": 2
+      },
+      "amounts.illegal_gain": {
+        "present": 8,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "amounts.onsite_stake_total": {
+        "present": 62,
+        "candidate_found": 62,
+        "value_found": 62
+      },
+      "amounts.per_bet": {
+        "present": 8,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "amounts.personal_stake": {
+        "present": 53,
+        "candidate_found": 53,
+        "value_found": 53
+      },
+      "conduct.times": {
+        "present": 1,
+        "candidate_found": 1,
+        "value_found": 1
+      },
+      "person.age": {
+        "present": 59,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "persons.participant_count": {
+        "present": 61,
+        "candidate_found": 37,
+        "value_found": 37
+      }
+    },
+    "recognizers": {
+      "amounts.commission": {
+        "present": 14,
+        "candidate_found": 14,
+        "value_found": 13
+      },
+      "amounts.cumulative_stake": {
+        "present": 2,
+        "candidate_found": 2,
+        "value_found": 2
+      },
+      "amounts.illegal_gain": {
+        "present": 8,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "amounts.onsite_stake_total": {
+        "present": 62,
+        "candidate_found": 62,
+        "value_found": 62
+      },
+      "amounts.per_bet": {
+        "present": 8,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "amounts.personal_stake": {
+        "present": 53,
+        "candidate_found": 53,
+        "value_found": 53
+      },
+      "conduct.times": {
+        "present": 1,
+        "candidate_found": 1,
+        "value_found": 1
+      },
+      "person.age": {
+        "present": 59,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "persons.participant_count": {
+        "present": 61,
+        "candidate_found": 38,
+        "value_found": 38
+      }
+    },
+    "union": {
+      "amounts.commission": {
+        "present": 14,
+        "candidate_found": 14,
+        "value_found": 14
+      },
+      "amounts.cumulative_stake": {
+        "present": 2,
+        "candidate_found": 2,
+        "value_found": 2
+      },
+      "amounts.illegal_gain": {
+        "present": 8,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "amounts.onsite_stake_total": {
+        "present": 62,
+        "candidate_found": 62,
+        "value_found": 62
+      },
+      "amounts.per_bet": {
+        "present": 8,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "amounts.personal_stake": {
+        "present": 53,
+        "candidate_found": 53,
+        "value_found": 53
+      },
+      "conduct.times": {
+        "present": 1,
+        "candidate_found": 1,
+        "value_found": 1
+      },
+      "person.age": {
+        "present": 59,
+        "candidate_found": 8,
+        "value_found": 8
+      },
+      "persons.participant_count": {
+        "present": 61,
+        "candidate_found": 38,
+        "value_found": 38
+      }
+    }
+  },
+  "differences": [
+    {
+      "id": "S1-161eb8279c41d22f6c1e",
+      "field": "persons.participant_count",
+      "regex_value_found": false,
+      "recognizer_value_found": true,
+      "recognizer_raw": [
+        "6"
+      ],
+      "recognizer_projection": [
+        {
+          "min": 6,
+          "max": 6,
+          "exact": true
+        }
+      ]
+    },
+    {
+      "id": "S1-e032b69eeb0b1ace1db6",
+      "field": "amounts.commission",
+      "regex_value_found": true,
+      "recognizer_value_found": false,
+      "recognizer_raw": [
+        "20000元"
+      ],
+      "recognizer_projection": [
+        {
+          "min": 20000.0,
+          "max": 20000.0
+        }
+      ]
+    }
+  ],
+  "note": "Recognizer count candidates require an immediately following generic count unit; date-to-age and list-to-count derivations are outside direct candidate coverage. Evidence-local value coincidence does not establish semantic binding."
+}
