@@ -1,0 +1,214 @@
+{
+  "scope": "train_fit_valid_evaluate_only",
+  "silver_is_not_gold": true,
+  "test_split_used": false,
+  "train_records": 140,
+  "valid_records": 23,
+  "train_events": 91,
+  "valid_events": 19,
+  "train_weak_examples": {
+    "personal": 44,
+    "onsite": 55
+  },
+  "valid_weak_examples": {
+    "onsite": 7,
+    "personal": 5
+  },
+  "train_event_oof_calibration": {
+    "fold_sizes": {
+      "0": 6,
+      "1": 21,
+      "2": 21,
+      "3": 24,
+      "4": 27
+    },
+    "temperature_nll": {
+      "1.0": 1.8735893436960807,
+      "2.0": 0.9538887034964959,
+      "4.0": 0.5235164537701943,
+      "8.0": 0.34858918708031633,
+      "16.0": 0.3089392275198264,
+      "32.0": 0.35585259552114135
+    },
+    "selected_temperature": 16.0
+  },
+  "valid_weak_role_classification": {
+    "examples": 12,
+    "correct": 10
+  },
+  "methods": {
+    "independent@0.5": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 13,
+        "selected": 10,
+        "silver_missing_selected": 5,
+        "silver_positive": 5,
+        "silver_disagree": 3,
+        "silver_match": 2
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "selected": 12,
+        "silver_missing_selected": 7,
+        "abstain": 11,
+        "silver_positive": 7,
+        "silver_match": 5
+      }
+    },
+    "joint@0.5": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 13,
+        "selected": 10,
+        "silver_missing_selected": 5,
+        "silver_positive": 5,
+        "silver_disagree": 3,
+        "silver_match": 2
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "selected": 12,
+        "silver_missing_selected": 7,
+        "abstain": 11,
+        "silver_positive": 7,
+        "silver_match": 5
+      }
+    },
+    "independent@0.8": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 17,
+        "silver_positive": 5,
+        "selected": 6,
+        "silver_disagree": 3,
+        "silver_match": 2,
+        "silver_missing_selected": 1
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "selected": 9,
+        "silver_missing_selected": 5,
+        "abstain": 14,
+        "silver_positive": 7,
+        "silver_match": 4
+      }
+    },
+    "joint@0.8": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 17,
+        "silver_positive": 5,
+        "selected": 6,
+        "silver_disagree": 3,
+        "silver_match": 2,
+        "silver_missing_selected": 1
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "selected": 9,
+        "silver_missing_selected": 5,
+        "abstain": 14,
+        "silver_positive": 7,
+        "silver_match": 4
+      }
+    },
+    "independent@0.95": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 19,
+        "silver_positive": 5,
+        "selected": 4,
+        "silver_disagree": 2,
+        "silver_match": 2
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "abstain": 21,
+        "selected": 2,
+        "silver_missing_selected": 2,
+        "silver_positive": 7
+      }
+    },
+    "joint@0.95": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 19,
+        "silver_positive": 5,
+        "selected": 4,
+        "silver_disagree": 2,
+        "silver_match": 2
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "abstain": 21,
+        "selected": 2,
+        "silver_missing_selected": 2,
+        "silver_positive": 7
+      }
+    },
+    "role_rule": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 22,
+        "silver_positive": 5,
+        "selected": 1,
+        "silver_match": 1
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "abstain": 17,
+        "selected": 6,
+        "silver_missing_selected": 1,
+        "silver_positive": 7,
+        "silver_match": 5
+      }
+    },
+    "original_s2": {
+      "amounts.personal_stake": {
+        "records": 23,
+        "silver_missing": 18,
+        "abstain": 21,
+        "silver_positive": 5,
+        "selected": 2,
+        "silver_disagree": 2
+      },
+      "amounts.onsite_stake_total": {
+        "records": 23,
+        "silver_missing": 16,
+        "abstain": 17,
+        "silver_positive": 7,
+        "selected": 6,
+        "silver_match": 6
+      }
+    }
+  },
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d",
+    "original_s2_binding_py": "ec7c555b385f41961c3bb61021eeed95cdcb900909cba7ff29445d647b12a942"
+  },
+  "limitations": [
+    "Training labels are inferred from silver evidence and value, not human edges",
+    "No negative edges are mined from silver-missing fields",
+    "The model learns amount roles only, not actor or event identity",
+    "Threshold sweep is descriptive; valid must not be used to choose a final threshold",
+    "Binary class probabilities are complementary, so candidate exclusivity is usually vacuous at thresholds >= 0.5",
+    "No true event/person constraints are tested"
+  ]
+}

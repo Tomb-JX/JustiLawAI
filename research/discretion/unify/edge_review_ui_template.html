@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8"><title>关系边单人盲标</title>
+<style>
+body{margin:0;font:15px/1.55 system-ui,"Microsoft YaHei",sans-serif;color:#172433;background:#f4f6f8}
+header{position:sticky;top:0;z-index:2;background:#fff;border-bottom:1px solid #ccd5dc;padding:10px 18px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+header strong{font-size:18px}button,input,select,textarea{font:inherit}button{cursor:pointer;border:1px solid #8ca0b2;background:#fff;border-radius:6px;padding:5px 10px}button:hover{background:#e9f2fa}
+input,select,textarea{border:1px solid #b5c2cd;border-radius:4px;padding:4px;background:#fff}input[type=text]{min-width:70px}
+.layout{display:grid;grid-template-columns:230px minmax(0,1fr);min-height:calc(100vh - 62px)}nav{background:#fff;border-right:1px solid #ccd5dc;padding:10px;max-height:calc(100vh - 62px);overflow:auto;position:sticky;top:62px}nav button{display:block;width:100%;text-align:left;margin:3px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}nav button.active{background:#d7ecfc;border-color:#4b87b2}nav button.done{border-left:5px solid #2e9465}
+main{padding:20px;max-width:1400px}.card{background:#fff;border:1px solid #d7dfe5;border-radius:9px;padding:16px;margin-bottom:18px}h1,h2,h3{margin:0 0 10px}h1{font-size:22px}h2{font-size:18px}h3{font-size:15px;margin-top:16px}
+.view{white-space:pre-wrap;word-break:break-word;border-left:3px solid #b8cee0;padding:7px 10px;margin:8px 0;background:#f7fafc}.meta{color:#4c6476;font-size:13px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{border-bottom:1px solid #dae2e8;padding:6px;vertical-align:top;text-align:left}td input{max-width:125px}td .note{max-width:190px}code{font-size:12px;word-break:break-all}.wide{overflow-x:auto}
+.minor{color:#536979;font-size:13px}.warn{background:#fff4da;padding:10px;border-left:3px solid #d48a00}.field{margin:8px 0}.field label{display:block;font-weight:600;margin-bottom:4px}.field textarea{width:100%;box-sizing:border-box;min-height:70px;font-family:Consolas,monospace;font-size:12px}
+#message{color:#9a3100;font-weight:600}.pill{background:#e6eef4;border-radius:20px;padding:3px 9px}.small{font-size:12px}
+</style></head><body>
+<header><strong>关系边单人盲标</strong><span class="pill" id="progress"></span>
+<label>标注人代号 <input id="reviewer" type="text" placeholder="如 reviewer-01"></label>
+<button id="export">导出 JSONL</button><label class="small">导入进度 <input id="import" type="file" accept=".jsonl,.txt"></label>
+<span id="message"></span></header>
+<div class="layout"><nav id="navigation"></nav><main id="main"></main></div>
+<script>
+const CASES=__CASES_JSON__;
+const INITIAL=__FORMS_JSON__;
+const KEY='edge-review-v1-'+CASES.map(x=>x.source_sha256).join(':').slice(0,180);
+let forms;try{forms=JSON.parse(localStorage.getItem(KEY))||INITIAL}catch{forms=INITIAL}
+if(!Array.isArray(forms)||forms.length!==CASES.length)forms=INITIAL;
+let current=0;
+const $=id=>document.getElementById(id);
+const roles=['','amounts.personal_stake','amounts.onsite_stake_total','persons.participant_count','person.age','birth_date','behavior_date','other_numeric'];
+const decisions=['','asserted','negated','not_relevant','uncertain'];
+const polarities=['','positive','negative','uncertain'];
+function el(tag,text,cls){const e=document.createElement(tag);if(text!==undefined)e.textContent=text;if(cls)e.className=cls;return e}
+function opt(sel,values,value){for(const v of values){const o=el('option',v||'请选择');o.value=v;sel.append(o)}sel.value=value||'';return sel}
+function save(){localStorage.setItem(KEY,JSON.stringify(forms));$('progress').textContent=forms.filter(f=>f.review_status==='complete').length+'/'+forms.length+' 已标完成';renderNav()}
+function renderNav(){const nav=$('navigation');nav.replaceChildren();CASES.forEach((c,i)=>{const b=el('button',(i+1)+'. '+c.id+(forms[i].review_status==='complete'?' ✓':''));b.className=(i===current?'active ':'')+(forms[i].review_status==='complete'?'done':'');b.onclick=()=>{current=i;render()};nav.append(b)})}
+function textInput(value,change,cls){const x=el('input');x.type='text';x.value=value||'';if(cls)x.className=cls;x.onchange=()=>{change(x.value);save()};return x}
+function selectInput(values,value,change){const x=opt(el('select'),values,value);x.onchange=()=>{change(x.value||null);save()};return x}
+function spanText(spans){return (spans||[]).map(s=>s.start+':'+s.end).join(',')}
+function parseSpans(s){if(!s.trim())return [];return s.split(',').map(v=>{const m=/^\s*(\d+)\s*:\s*(\d+)\s*$/.exec(v);if(!m)throw Error('坐标格式应为 start:end, ...');return{start:Number(m[1]),end:Number(m[2])}})}
+function rowFor(edge,form,q){const tr=el('tr');const info=el('td');info.append(el('code',q.candidate_id),el('div',q.type+' · '+q.raw,'minor'),el('div','['+q.start+','+q.end+')','minor'));tr.append(info);
+let td=el('td');td.append(selectInput(decisions,edge.decision,v=>edge.decision=v));tr.append(td);
+td=el('td');td.append(selectInput(roles,edge.field_role,v=>edge.field_role=v));tr.append(td);
+td=el('td');td.append(textInput((edge.actor_ids||[]).join(','),v=>edge.actor_ids=v.split(',').map(s=>s.trim()).filter(Boolean)));tr.append(td);
+td=el('td');td.append(textInput(edge.event_id,v=>edge.event_id=v||null));tr.append(td);
+td=el('td');td.append(selectInput(polarities,edge.polarity,v=>edge.polarity=v));tr.append(td);
+td=el('td');const support=textInput(spanText(edge.support_spans),v=>{try{edge.support_spans=parseSpans(v);$('message').textContent=''}catch(e){$('message').textContent=e.message}},'note');support.placeholder='start:end,...';td.append(support);tr.append(td);
+td=el('td');td.append(textInput(edge.note,v=>edge.note=v||null,'note'));tr.append(td);
+td=el('td');const add=el('button','+边');add.title='同一候选需要第二个角色时增加边';add.onclick=()=>{form.quantity_edges.push({candidate_id:q.candidate_id,decision:null,field_role:null,actor_ids:[],event_id:null,polarity:null,support_spans:[],note:null});save();render()};td.append(add);if(form.quantity_edges.filter(x=>x.candidate_id===q.candidate_id).length>1){const rm=el('button','删');rm.onclick=()=>{form.quantity_edges.splice(form.quantity_edges.indexOf(edge),1);save();render()};td.append(rm)}tr.append(td);return tr}
+function jsonArea(parent,label,form,key,example){const box=el('div',undefined,'field');box.append(el('label',label+'（JSON；例：'+example+'）'));const area=el('textarea');area.value=JSON.stringify(form[key]||[],null,2);area.onchange=()=>{try{const v=JSON.parse(area.value);if(!Array.isArray(v))throw Error('必须是 JSON 数组');form[key]=v;$('message').textContent='';save()}catch(e){$('message').textContent=label+'：'+e.message}};box.append(area);parent.append(box)}
+function render(){renderNav();const c=CASES[current],f=forms[current],main=$('main');main.replaceChildren();
+const title=el('div',undefined,'card');title.append(el('h1',(current+1)+'. '+c.id),el('p','目标人：'+c.target+'；别名：'+(c.aliases.join('、')||'无')));const status=selectInput(['pending','complete'],f.review_status,v=>f.review_status=v);title.append(el('span','本案状态：'),status);main.append(title);
+const guide=el('div',undefined,'card warn');guide.textContent='先给同一行为事件编号 E1/E2，再决定数字属于谁、哪次事件和哪个字段。不得从处罚结果或银标反推。拿不准选 uncertain；漏候选填在下方。候选本身的坐标不等于人物/事件关系证据。';main.append(guide);
+const views=el('section',undefined,'card');views.append(el('h2','允许的原文视图'));c.allowed_views.forEach(v=>{const d=el('div',undefined,'view');d.append(el('div',v.id+' · '+v.type+' · ['+v.start+','+v.end+')','meta'),el('div',v.text));views.append(d)});main.append(views);
+const block=el('section',undefined,'card wide');block.append(el('h2','逐候选边'));const table=el('table');const head=el('tr');['候选','断言','字段角色','人物 ID','事件 ID','极性','支持坐标','说明','操作'].forEach(x=>head.append(el('th',x)));table.append(head);c.candidates.forEach(q=>f.quantity_edges.filter(e=>e.candidate_id===q.candidate_id).forEach(e=>table.append(rowFor(e,f,q))));block.append(table);main.append(block);
+const rel=el('section',undefined,'card');rel.append(el('h2','人物、事件与推导'));rel.append(el('p','目标人固定用 T；其他人物用 P1、P2…；事件用 E1、E2…。支持坐标格式是 {"start":起点,"end":终点}。','minor'));
+jsonArea(rel,'人物实体',f,'entities','[{"entity_id":"P1","mentions":[{"start":10,"end":13}]}]');
+jsonArea(rel,'行为事件',f,'events','[{"event_id":"E1","support_spans":[{"start":20,"end":40}]}]');
+jsonArea(rel,'目标人与事件的参与边',f,'event_membership_edges','[{"actor_id":"T","event_id":"E1","decision":"asserted","support_spans":[]}]');
+jsonArea(rel,'推导字段',f,'derived_fields','[{"field":"person.age","operator":"age_at_event","operand_candidate_ids":["Q-..."],"event_id":"E1","decision":"asserted"}]');
+jsonArea(rel,'漏提数值或限定词',f,'missed_candidate_spans','[{"start":1,"end":5,"type":"amount","note":"约...元"}]');
+const note=el('div',undefined,'field');note.append(el('label','本案说明'));const area=el('textarea');area.value=f.case_note||'';area.onchange=()=>{f.case_note=area.value;save()};note.append(area);rel.append(note);main.append(rel)
+}
+$('reviewer').value=forms[0].reviewer_id||'';$('reviewer').onchange=()=>{forms.forEach(f=>f.reviewer_id=$('reviewer').value||null);save()};
+$('export').onclick=()=>{forms.forEach(f=>f.reviewer_id=$('reviewer').value||null);save();const blob=new Blob([forms.map(f=>JSON.stringify(f)).join('\n')+'\n'],{type:'application/jsonl;charset=utf-8'});const a=el('a');a.href=URL.createObjectURL(blob);a.download='single-human-review.jsonl';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),2000)};
+$('import').onchange=async e=>{const file=e.target.files[0];if(!file)return;try{const data=(await file.text()).trim().split(/\r?\n/).map(JSON.parse);if(data.length!==CASES.length||data.some((f,i)=>f.id!==CASES[i].id||f.source_sha256!==CASES[i].source_sha256))throw Error('记录或原文哈希与盲标包不一致');forms=data;save();render();$('message').textContent='已导入'}catch(err){$('message').textContent='导入失败：'+err.message}};
+save();render();
+</script></body></html>
