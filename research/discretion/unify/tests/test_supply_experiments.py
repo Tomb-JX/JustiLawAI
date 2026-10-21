@@ -14,6 +14,7 @@ from validate_edge_review import validate
 from evaluate_edge_review import target_relation, score
 from experiment_weak_role_model import CharNB, independent, joint
 from experiment_pairwise_binding_ranker import train_ranker, dot
+from validate_simple_review import validate as validate_simple
 from collections import Counter
 
 
@@ -92,3 +93,20 @@ def test_pairwise_ranker_learns_candidate_preference_from_positive_pair():
     weights, stats = train_ranker([(positive, [negative])], epochs=3)
     assert stats["pairs_seen"] == 3
     assert dot(weights, positive) > dot(weights, negative)
+
+
+def test_simple_review_validator_checks_candidate_and_relation(tmp_path):
+    case = {"id": "R", "source_sha256": "hash", "allowed_views": [
+        {"start": 0, "end": 5, "text": "100元a"}],
+        "amounts": [{"candidate_id": "Q1", "raw": "100元", "start": 0, "end": 4}]}
+    answer = {"decision": "candidate", "candidate_id": "Q1", "relation": "target", "missed_quote": ""}
+    form = {"id": "R", "source_sha256": "hash", "review_status": "complete",
+            "answers": {"personal_stake": answer,
+                        "onsite_stake_total": {**answer, "relation": "target_event"}}}
+    cases, review = tmp_path / "cases.json", tmp_path / "review.json"
+    cases.write_text(json.dumps([case]), encoding="utf-8")
+    review.write_text(json.dumps({"schema": "simple-amount-edge-review-v1", "cases": [form]}), encoding="utf-8")
+    assert validate_simple(cases, review)["valid"]
+    form["answers"]["personal_stake"] = {**answer, "candidate_id": "Q-other"}
+    review.write_text(json.dumps({"schema": "simple-amount-edge-review-v1", "cases": [form]}), encoding="utf-8")
+    assert "R:personal_stake:candidate_not_in_case" in validate_simple(cases, review)["issues"]
