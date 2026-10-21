@@ -1,0 +1,887 @@
+{
+  "scope": "train_valid_presence_signal_audit",
+  "silver_is_not_gold": true,
+  "test_split_used": false,
+  "records": 163,
+  "counts": {
+    "valid": {
+      "amounts.personal_stake": {
+        "silver_missing_unlabeled:records": 18,
+        "silver_missing_unlabeled:with_candidate": 14,
+        "silver_missing_unlabeled:one_candidate": 12,
+        "silver_missing_unlabeled:any_different_role": 8,
+        "silver_positive:records": 5,
+        "silver_positive:with_candidate": 5,
+        "silver_positive:multiple_candidates": 3,
+        "silver_positive:any_untyped_actor_unresolved": 4,
+        "silver_positive:unique_evidence_candidate": 5,
+        "silver_positive:evidence_tier_untyped_actor_unresolved": 2,
+        "silver_missing_unlabeled:multiple_candidates": 2,
+        "silver_missing_unlabeled:any_untyped_target": 3,
+        "silver_missing_unlabeled:any_untyped_actor_unresolved": 6,
+        "silver_positive:one_candidate": 2,
+        "silver_missing_unlabeled:no_candidate": 4,
+        "silver_positive:any_field_role_target": 3,
+        "silver_positive:evidence_tier_field_role_target": 3,
+        "silver_positive:any_field_role_actor_unresolved": 2
+      },
+      "amounts.onsite_stake_total": {
+        "silver_positive:records": 7,
+        "silver_positive:with_candidate": 7,
+        "silver_positive:one_candidate": 6,
+        "silver_positive:any_field_role_actor_unresolved": 5,
+        "silver_positive:unique_evidence_candidate": 7,
+        "silver_positive:evidence_tier_field_role_actor_unresolved": 5,
+        "silver_missing_unlabeled:records": 16,
+        "silver_missing_unlabeled:with_candidate": 12,
+        "silver_missing_unlabeled:multiple_candidates": 4,
+        "silver_missing_unlabeled:any_untyped_actor_unresolved": 8,
+        "silver_positive:multiple_candidates": 1,
+        "silver_positive:any_untyped_target": 1,
+        "silver_positive:any_untyped_actor_unresolved": 2,
+        "silver_positive:evidence_tier_untyped_actor_unresolved": 2,
+        "silver_missing_unlabeled:one_candidate": 8,
+        "silver_missing_unlabeled:no_candidate": 4,
+        "silver_missing_unlabeled:any_different_role": 6,
+        "silver_missing_unlabeled:any_untyped_target": 2,
+        "silver_missing_unlabeled:any_field_role_actor_unresolved": 1
+      }
+    },
+    "train": {
+      "amounts.personal_stake": {
+        "silver_missing_unlabeled:records": 92,
+        "silver_missing_unlabeled:with_candidate": 71,
+        "silver_missing_unlabeled:one_candidate": 48,
+        "silver_missing_unlabeled:any_untyped_actor_unresolved": 36,
+        "silver_missing_unlabeled:any_different_role": 39,
+        "silver_missing_unlabeled:multiple_candidates": 23,
+        "silver_missing_unlabeled:no_candidate": 21,
+        "silver_positive:records": 48,
+        "silver_positive:with_candidate": 48,
+        "silver_positive:one_candidate": 27,
+        "silver_positive:any_untyped_actor_unresolved": 24,
+        "silver_positive:unique_evidence_candidate": 44,
+        "silver_positive:evidence_tier_untyped_actor_unresolved": 8,
+        "silver_positive:any_untyped_target": 18,
+        "silver_positive:evidence_tier_untyped_target": 17,
+        "silver_positive:multiple_candidates": 21,
+        "silver_positive:multiple_evidence_candidates": 4,
+        "silver_positive:any_different_role": 10,
+        "silver_positive:evidence_tier_different_role": 3,
+        "silver_missing_unlabeled:any_field_role_actor_unresolved": 4,
+        "silver_missing_unlabeled:any_field_role_target": 4,
+        "silver_positive:any_field_role_target": 16,
+        "silver_positive:any_field_role_actor_unresolved": 5,
+        "silver_positive:evidence_tier_field_role_target": 16,
+        "silver_missing_unlabeled:any_untyped_target": 8
+      },
+      "amounts.onsite_stake_total": {
+        "silver_missing_unlabeled:records": 85,
+        "silver_missing_unlabeled:with_candidate": 64,
+        "silver_missing_unlabeled:one_candidate": 44,
+        "silver_missing_unlabeled:any_untyped_actor_unresolved": 30,
+        "silver_positive:records": 55,
+        "silver_positive:with_candidate": 55,
+        "silver_positive:one_candidate": 31,
+        "silver_positive:any_field_role_actor_unresolved": 36,
+        "silver_positive:unique_evidence_candidate": 55,
+        "silver_positive:evidence_tier_field_role_actor_unresolved": 36,
+        "silver_missing_unlabeled:multiple_candidates": 20,
+        "silver_missing_unlabeled:no_candidate": 21,
+        "silver_positive:any_untyped_actor_unresolved": 30,
+        "silver_positive:evidence_tier_untyped_actor_unresolved": 19,
+        "silver_missing_unlabeled:any_untyped_target": 18,
+        "silver_missing_unlabeled:any_field_role_target": 3,
+        "silver_positive:multiple_candidates": 24,
+        "silver_positive:any_different_role": 13,
+        "silver_missing_unlabeled:any_different_role": 21,
+        "silver_positive:any_untyped_target": 8,
+        "silver_missing_unlabeled:any_field_role_actor_unresolved": 1
+      }
+    }
+  },
+  "silver_missing_samples": {
+    "amounts.personal_stake": {
+      "different_role": [
+        {
+          "id": "S1-807ef8097b47279da882",
+          "split": "valid",
+          "candidate_id": "Q-0729d7dcf49a5b78",
+          "start": 170,
+          "end": 174,
+          "projection": {
+            "min": 814.0,
+            "max": 814.0
+          }
+        },
+        {
+          "id": "S1-7b51073b96990ea0a43b",
+          "split": "train",
+          "candidate_id": "Q-bcc7054c42309ebf",
+          "start": 215,
+          "end": 220,
+          "projection": {
+            "min": 1763.0,
+            "max": 1763.0
+          }
+        },
+        {
+          "id": "S1-4f5483728cc1008ffa15",
+          "split": "train",
+          "candidate_id": "Q-15a58e49f7f77e18",
+          "start": 215,
+          "end": 220,
+          "projection": {
+            "min": 1763.0,
+            "max": 1763.0
+          }
+        },
+        {
+          "id": "S1-c20ab2e35d68926c9c5d",
+          "split": "train",
+          "candidate_id": "Q-f72669733051f8a1",
+          "start": 206,
+          "end": 211,
+          "projection": {
+            "min": 1226.0,
+            "max": 1226.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-2965116f293e9947",
+          "start": 285,
+          "end": 295,
+          "projection": {
+            "min": 26575.0,
+            "max": 26575.0
+          }
+        },
+        {
+          "id": "S1-44199d69a65533353823",
+          "split": "train",
+          "candidate_id": "Q-390d12d84de91723",
+          "start": 286,
+          "end": 296,
+          "projection": {
+            "min": 26575.0,
+            "max": 26575.0
+          }
+        },
+        {
+          "id": "S1-f63545e029af5aab53c6",
+          "split": "train",
+          "candidate_id": "Q-57ea4e4b8ebdfd8e",
+          "start": 284,
+          "end": 294,
+          "projection": {
+            "min": 26575.0,
+            "max": 26575.0
+          }
+        },
+        {
+          "id": "S1-73c8f9c327e69e904853",
+          "split": "train",
+          "candidate_id": "Q-96c496d6728d957f",
+          "start": 285,
+          "end": 295,
+          "projection": {
+            "min": 26575.0,
+            "max": 26575.0
+          }
+        }
+      ],
+      "untyped_actor_unresolved": [
+        {
+          "id": "S1-8656a91aff70eda7c4eb",
+          "split": "train",
+          "candidate_id": "Q-fe47977460320972",
+          "start": 260,
+          "end": 266,
+          "projection": {
+            "min": 3000.0,
+            "max": 3999.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-995c5a0d62572300",
+          "start": 106,
+          "end": 110,
+          "projection": {
+            "min": 400.0,
+            "max": 400.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-776fe3e268a00a5f",
+          "start": 125,
+          "end": 129,
+          "projection": {
+            "min": 100.0,
+            "max": 100.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-aeaf282bb3efac75",
+          "start": 138,
+          "end": 140,
+          "projection": {
+            "min": 5.0,
+            "max": 5.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-07952aa9f9cfd371",
+          "start": 141,
+          "end": 144,
+          "projection": {
+            "min": 50.0,
+            "max": 50.0
+          }
+        },
+        {
+          "id": "S1-f58f7ac8aa3926fa613f",
+          "split": "valid",
+          "candidate_id": "Q-5a7aa51fb3504d92",
+          "start": 207,
+          "end": 211,
+          "projection": {
+            "min": 100.0,
+            "max": 100.0
+          }
+        },
+        {
+          "id": "S1-f58f7ac8aa3926fa613f",
+          "split": "valid",
+          "candidate_id": "Q-3314aaff3d6f113e",
+          "start": 224,
+          "end": 229,
+          "projection": {
+            "min": 4400.0,
+            "max": 4400.0
+          }
+        },
+        {
+          "id": "S1-520fea99c41b8d19e8a5",
+          "split": "train",
+          "candidate_id": "Q-7de9ab017a663663",
+          "start": 221,
+          "end": 226,
+          "projection": {
+            "min": 1000.0,
+            "max": 1000.0
+          }
+        }
+      ],
+      "untyped_target": [
+        {
+          "id": "S1-f58f7ac8aa3926fa613f",
+          "split": "valid",
+          "candidate_id": "Q-44d237a168b13f97",
+          "start": 201,
+          "end": 204,
+          "projection": {
+            "min": 10.0,
+            "max": 10.0
+          }
+        },
+        {
+          "id": "S1-4847ff6a3b7985d0c74e",
+          "split": "train",
+          "candidate_id": "Q-b777c264a978e636",
+          "start": 164,
+          "end": 166,
+          "projection": {
+            "min": 10000.0,
+            "max": 10000.0
+          }
+        },
+        {
+          "id": "S1-bfe23fdddb64e4343e83",
+          "split": "train",
+          "candidate_id": "Q-6d8a99d46033205b",
+          "start": 246,
+          "end": 250,
+          "projection": {
+            "min": 870.0,
+            "max": 870.0
+          }
+        },
+        {
+          "id": "S1-f137070d0ecf54ccaeb8",
+          "split": "train",
+          "candidate_id": "Q-65d2aa1ab9bd45af",
+          "start": 186,
+          "end": 191,
+          "projection": {
+            "min": 1500.0,
+            "max": 1500.0
+          }
+        },
+        {
+          "id": "S1-f5a8173fae9cf2b8e660",
+          "split": "train",
+          "candidate_id": "Q-58d1ce837809a678",
+          "start": 255,
+          "end": 259,
+          "projection": {
+            "min": 300.0,
+            "max": 300.0
+          }
+        },
+        {
+          "id": "S1-3ca448f65b0929ccc05f",
+          "split": "valid",
+          "candidate_id": "Q-3ae42f17c8560bec",
+          "start": 253,
+          "end": 257,
+          "projection": {
+            "min": 350.0,
+            "max": 350.0
+          }
+        },
+        {
+          "id": "S1-679dc13d6357fe22bfdf",
+          "split": "train",
+          "candidate_id": "Q-1e4a51e8fb2be154",
+          "start": 211,
+          "end": 215,
+          "projection": {
+            "min": 300.0,
+            "max": 300.0
+          }
+        },
+        {
+          "id": "S1-1ac1166a142e1113de8b",
+          "split": "train",
+          "candidate_id": "Q-336848aea6577748",
+          "start": 207,
+          "end": 211,
+          "projection": {
+            "min": 600.0,
+            "max": 600.0
+          }
+        }
+      ],
+      "field_role_actor_unresolved": [
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-2c2352eea76bd98f",
+          "start": 306,
+          "end": 313,
+          "projection": {
+            "min": 1250.0,
+            "max": 1250.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-07a25264062561fb",
+          "start": 334,
+          "end": 341,
+          "projection": {
+            "min": 1605.0,
+            "max": 1605.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-2aa640ca122d1ced",
+          "start": 362,
+          "end": 365,
+          "projection": {
+            "min": 500.0,
+            "max": 500.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-8d1d9e0e4d2e2510",
+          "start": 373,
+          "end": 380,
+          "projection": {
+            "min": 1620.0,
+            "max": 1620.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-a4055077d48a9453",
+          "start": 388,
+          "end": 395,
+          "projection": {
+            "min": 4950.0,
+            "max": 4950.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-88454feb3ffadcd1",
+          "start": 403,
+          "end": 409,
+          "projection": {
+            "min": 10900.0,
+            "max": 10900.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-f7ff8733555c1737",
+          "start": 417,
+          "end": 422,
+          "projection": {
+            "min": 1600.0,
+            "max": 1600.0
+          }
+        },
+        {
+          "id": "S1-44199d69a65533353823",
+          "split": "train",
+          "candidate_id": "Q-50a5d6b11a07f3cd",
+          "start": 307,
+          "end": 314,
+          "projection": {
+            "min": 1250.0,
+            "max": 1250.0
+          }
+        }
+      ],
+      "field_role_target": [
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-de213b133f8b3c1a",
+          "start": 321,
+          "end": 326,
+          "projection": {
+            "min": 1500.0,
+            "max": 1500.0
+          }
+        },
+        {
+          "id": "S1-733598a8bb9e58c190ed",
+          "split": "train",
+          "candidate_id": "Q-e004d1dec02850a2",
+          "start": 349,
+          "end": 354,
+          "projection": {
+            "min": 150.0,
+            "max": 150.0
+          }
+        },
+        {
+          "id": "S1-f63545e029af5aab53c6",
+          "split": "train",
+          "candidate_id": "Q-6d53ce28d478477a",
+          "start": 333,
+          "end": 340,
+          "projection": {
+            "min": 1605.0,
+            "max": 1605.0
+          }
+        },
+        {
+          "id": "S1-f63545e029af5aab53c6",
+          "split": "train",
+          "candidate_id": "Q-0fc2cd64b0b636b6",
+          "start": 361,
+          "end": 364,
+          "projection": {
+            "min": 500.0,
+            "max": 500.0
+          }
+        },
+        {
+          "id": "S1-f63545e029af5aab53c6",
+          "split": "train",
+          "candidate_id": "Q-b0edf055e4476a7e",
+          "start": 387,
+          "end": 394,
+          "projection": {
+            "min": 4950.0,
+            "max": 4950.0
+          }
+        },
+        {
+          "id": "S1-dfd6231d472211c3381c",
+          "split": "train",
+          "candidate_id": "Q-1228777a29b82d7e",
+          "start": 164,
+          "end": 167,
+          "projection": {
+            "min": 40.0,
+            "max": 40.0
+          }
+        },
+        {
+          "id": "S1-72c37d6c48b386a983cc",
+          "split": "train",
+          "candidate_id": "Q-feb69681e59782d7",
+          "start": 167,
+          "end": 170,
+          "projection": {
+            "min": 40.0,
+            "max": 40.0
+          }
+        }
+      ]
+    },
+    "amounts.onsite_stake_total": {
+      "untyped_actor_unresolved": [
+        {
+          "id": "S1-dd5abc3f75cbc3f99af4",
+          "split": "valid",
+          "candidate_id": "Q-80b2c28cb61ffb8f",
+          "start": 271,
+          "end": 274,
+          "projection": {
+            "min": 50.0,
+            "max": 50.0
+          }
+        },
+        {
+          "id": "S1-dd5abc3f75cbc3f99af4",
+          "split": "valid",
+          "candidate_id": "Q-995667b91b9da507",
+          "start": 302,
+          "end": 307,
+          "projection": {
+            "min": 3000.0,
+            "max": 3000.0
+          }
+        },
+        {
+          "id": "S1-dd5abc3f75cbc3f99af4",
+          "split": "valid",
+          "candidate_id": "Q-fe02ebcfba9445b7",
+          "start": 313,
+          "end": 320,
+          "projection": {
+            "min": 900,
+            "max": 1100
+          }
+        },
+        {
+          "id": "S1-8656a91aff70eda7c4eb",
+          "split": "train",
+          "candidate_id": "Q-fe47977460320972",
+          "start": 260,
+          "end": 266,
+          "projection": {
+            "min": 3000.0,
+            "max": 3999.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-995c5a0d62572300",
+          "start": 106,
+          "end": 110,
+          "projection": {
+            "min": 400.0,
+            "max": 400.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-776fe3e268a00a5f",
+          "start": 125,
+          "end": 129,
+          "projection": {
+            "min": 100.0,
+            "max": 100.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-aeaf282bb3efac75",
+          "start": 138,
+          "end": 140,
+          "projection": {
+            "min": 5.0,
+            "max": 5.0
+          }
+        },
+        {
+          "id": "S1-ce52b0d04270774551de",
+          "split": "train",
+          "candidate_id": "Q-07952aa9f9cfd371",
+          "start": 141,
+          "end": 144,
+          "projection": {
+            "min": 50.0,
+            "max": 50.0
+          }
+        }
+      ],
+      "untyped_target": [
+        {
+          "id": "S1-e13b18430684f143130f",
+          "split": "train",
+          "candidate_id": "Q-decb6990b751c923",
+          "start": 209,
+          "end": 213,
+          "projection": {
+            "min": 730.0,
+            "max": 730.0
+          }
+        },
+        {
+          "id": "S1-94806984cb9a006f871a",
+          "split": "train",
+          "candidate_id": "Q-7fccb79ca0f9730c",
+          "start": 209,
+          "end": 213,
+          "projection": {
+            "min": 690.0,
+            "max": 690.0
+          }
+        },
+        {
+          "id": "S1-4847ff6a3b7985d0c74e",
+          "split": "train",
+          "candidate_id": "Q-b777c264a978e636",
+          "start": 164,
+          "end": 166,
+          "projection": {
+            "min": 10000.0,
+            "max": 10000.0
+          }
+        },
+        {
+          "id": "S1-bfe23fdddb64e4343e83",
+          "split": "train",
+          "candidate_id": "Q-6d8a99d46033205b",
+          "start": 246,
+          "end": 250,
+          "projection": {
+            "min": 870.0,
+            "max": 870.0
+          }
+        },
+        {
+          "id": "S1-4b45c44299fe4d4026a7",
+          "split": "train",
+          "candidate_id": "Q-3734eac714f2d2c7",
+          "start": 209,
+          "end": 213,
+          "projection": {
+            "min": 980.0,
+            "max": 980.0
+          }
+        },
+        {
+          "id": "S1-5c8f3e9c9ec3bc2c203a",
+          "split": "train",
+          "candidate_id": "Q-086f5723e294365a",
+          "start": 209,
+          "end": 213,
+          "projection": {
+            "min": 740.0,
+            "max": 740.0
+          }
+        },
+        {
+          "id": "S1-f137070d0ecf54ccaeb8",
+          "split": "train",
+          "candidate_id": "Q-65d2aa1ab9bd45af",
+          "start": 186,
+          "end": 191,
+          "projection": {
+            "min": 1500.0,
+            "max": 1500.0
+          }
+        },
+        {
+          "id": "S1-14f3bb5ee5beb7516727",
+          "split": "train",
+          "candidate_id": "Q-0ed5f5934bbcafb9",
+          "start": 192,
+          "end": 198,
+          "projection": {
+            "min": 26000.0,
+            "max": 26000.0
+          }
+        }
+      ],
+      "field_role_target": [
+        {
+          "id": "S1-713a033e46a0d94e2622",
+          "split": "train",
+          "candidate_id": "Q-2972babae950a2d6",
+          "start": 218,
+          "end": 222,
+          "projection": {
+            "min": 130.0,
+            "max": 130.0
+          }
+        },
+        {
+          "id": "S1-5df6783c702290c38420",
+          "split": "train",
+          "candidate_id": "Q-15e513e8efe8da91",
+          "start": 220,
+          "end": 223,
+          "projection": {
+            "min": 50.0,
+            "max": 50.0
+          }
+        },
+        {
+          "id": "S1-cd7b0d49d32109950a8c",
+          "split": "train",
+          "candidate_id": "Q-683321f5ebb84ea9",
+          "start": 332,
+          "end": 337,
+          "projection": {
+            "min": 1565.0,
+            "max": 1565.0
+          }
+        }
+      ],
+      "different_role": [
+        {
+          "id": "S1-764e45d9dadf64a6607d",
+          "split": "train",
+          "candidate_id": "Q-69cb288262f15832",
+          "start": 163,
+          "end": 167,
+          "projection": {
+            "min": 100.0,
+            "max": 100.0
+          }
+        },
+        {
+          "id": "S1-f137070d0ecf54ccaeb8",
+          "split": "train",
+          "candidate_id": "Q-df5524370197ae8c",
+          "start": 200,
+          "end": 204,
+          "projection": {
+            "min": 500.0,
+            "max": 500.0
+          }
+        },
+        {
+          "id": "S1-982674442eb41b24695c",
+          "split": "valid",
+          "candidate_id": "Q-d708927f08e80c66",
+          "start": 253,
+          "end": 257,
+          "projection": {
+            "min": 400.0,
+            "max": 400.0
+          }
+        },
+        {
+          "id": "S1-7d4495af85da5db9d5fc",
+          "split": "train",
+          "candidate_id": "Q-b93f1aab5968a427",
+          "start": 190,
+          "end": 194,
+          "projection": {
+            "min": 150.0,
+            "max": 150.0
+          }
+        },
+        {
+          "id": "S1-7d1697e293efef7bff58",
+          "split": "train",
+          "candidate_id": "Q-8150e8874b26b394",
+          "start": 190,
+          "end": 194,
+          "projection": {
+            "min": 170.0,
+            "max": 170.0
+          }
+        },
+        {
+          "id": "S1-11b12d1888326c732d8a",
+          "split": "train",
+          "candidate_id": "Q-a34020d41efd89b5",
+          "start": 211,
+          "end": 215,
+          "projection": {
+            "min": 200.0,
+            "max": 200.0
+          }
+        },
+        {
+          "id": "S1-df354b853440a10cae25",
+          "split": "train",
+          "candidate_id": "Q-8c25188a3501133f",
+          "start": 210,
+          "end": 214,
+          "projection": {
+            "min": 200.0,
+            "max": 200.0
+          }
+        },
+        {
+          "id": "S1-7cfbd0e8e2478be67565",
+          "split": "valid",
+          "candidate_id": "Q-f3b3b353603ea639",
+          "start": 211,
+          "end": 216,
+          "projection": {
+            "min": 2700.0,
+            "max": 2700.0
+          }
+        }
+      ],
+      "field_role_actor_unresolved": [
+        {
+          "id": "S1-0cc485f0f177e9086cb6",
+          "split": "valid",
+          "candidate_id": "Q-7b0bf2de43239ec6",
+          "start": 576,
+          "end": 582,
+          "projection": {
+            "min": 40150.0,
+            "max": 40150.0
+          }
+        },
+        {
+          "id": "S1-13aeeb590046c7c57459",
+          "split": "train",
+          "candidate_id": "Q-3db7f2f0362268a5",
+          "start": 231,
+          "end": 236,
+          "projection": {
+            "min": 600.0,
+            "max": 699.0
+          }
+        }
+      ]
+    }
+  },
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d"
+  },
+  "limitations": [
+    "Role and actor hints are regex-derived diagnostic features",
+    "Silver-missing records are unlabeled, not confirmed field absences",
+    "No presence model is trained or validated by this audit"
+  ]
+}
