@@ -13,6 +13,7 @@ from fact_spans import candidate_fact_clauses, fact_view  # noqa: E402
 from supply_packet import audit_elements, build_packet  # noqa: E402
 from evidence_graph import build_graph, classify_graph_bindings, _e05_time  # noqa: E402
 from evidence_types import SourceSpan  # noqa: E402
+from audit_supply_replay import currency_surface_coverage, numeric_coverage  # noqa: E402
 
 
 def packet_for(text: str, target: str = "乙") -> dict:
@@ -97,6 +98,8 @@ def test_surface_operator_preserved_alongside_e05_projection():
     amounts = [q for q in packet["quantities"] if q["type"] == "amount"]
     assert [(q["operator"], q["lower_inclusive"], q["upper"]) for q in amounts] == [
         (">", False, "29.0"), (">", False, None)]
+    ranged = next(q for q in packet_for("乙携带300至500元。")["quantities"] if q["type"] == "amount")
+    assert ranged["operator"] == "range" and ranged["lower"] == "300.0" and ranged["upper"] == "500.0"
 
 
 def test_explicit_age_is_separate_from_birth_date_derivation():
@@ -123,6 +126,25 @@ def test_legacy_graph_preserves_calendar_range_end():
     ref = SourceSpan.from_text(text, 0, len(text))
     date = _e05_time(text, ref)
     assert date["start_date"] == "2025-01-01" and date["end_date"] == "2025-03-31"
+
+
+def test_replay_counts_masked_currency_as_uncovered_instead_of_parse_success():
+    text = "乙持有赌资300元，另有2***元。"
+    counts, misses = currency_surface_coverage(packet_for(text))
+    assert counts["yuan_markers"] == 2
+    assert counts["covered_by_candidate"] == 1
+    assert counts["uncovered_with_mask"] == 1
+    assert len(misses) == 1
+
+
+def test_replay_separates_direct_age_from_birth_date_derivation():
+    text = "乙于1995年11月28日出生。"
+    packet = packet_for(text)
+    age = {"person": {"age": {"status": "推断", "value": 30,
+                              "evidence": [{"quote": text, "start": 0, "end": len(text)}]}}}
+    found = numeric_coverage(age, packet)
+    assert len(found) == 1 and not found[0]["candidate_found"]
+    assert any(q["type"] == "date" for q in packet["quantities"])
 
 
 def test_rejects_view_outside_source_or_modified_quote():

@@ -1,0 +1,230 @@
+{
+  "version": "supply-binding-0.3",
+  "scope": "train_valid_only",
+  "silver_is_not_gold": true,
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d"
+  },
+  "counts": {
+    "development_records": 163,
+    "packets_built": 163,
+    "quantity_candidates": 679,
+    "unresolved_candidates": 0,
+    "subject_ambiguous": 580,
+    "train_valid_expected": 163
+  },
+  "field_dispositions": {
+    "candidate_supported:lexical_proposal_only": 58,
+    "unchecked:absence_not_proven": 4899,
+    "unchecked:non_numeric_semantics_not_audited": 701,
+    "unverified:candidate_missing_or_derived": 24,
+    "unverified:relation_ambiguous": 131,
+    "unverified:role_binding_ambiguous": 54,
+    "unverified:value_requires_derivation_or_review": 1
+  },
+  "numeric_evidence_coverage": {
+    "present": 268,
+    "candidate_found": 193,
+    "value_found": 193
+  },
+  "numeric_evidence_coverage_by_field": {
+    "amounts.commission": {
+      "present": 14,
+      "candidate_found": 14,
+      "value_found": 14
+    },
+    "amounts.cumulative_stake": {
+      "present": 2,
+      "candidate_found": 2,
+      "value_found": 2
+    },
+    "amounts.illegal_gain": {
+      "present": 8,
+      "candidate_found": 8,
+      "value_found": 8
+    },
+    "amounts.onsite_stake_total": {
+      "present": 62,
+      "candidate_found": 62,
+      "value_found": 62
+    },
+    "amounts.per_bet": {
+      "present": 8,
+      "candidate_found": 8,
+      "value_found": 8
+    },
+    "amounts.personal_stake": {
+      "present": 53,
+      "candidate_found": 53,
+      "value_found": 53
+    },
+    "conduct.times": {
+      "present": 1,
+      "candidate_found": 1,
+      "value_found": 1
+    },
+    "person.age": {
+      "present": 59,
+      "candidate_found": 8,
+      "value_found": 8
+    },
+    "persons.participant_count": {
+      "present": 61,
+      "candidate_found": 37,
+      "value_found": 37
+    }
+  },
+  "currency_surface_coverage": {
+    "yuan_markers": 338,
+    "covered_by_candidate": 328,
+    "uncovered": 10,
+    "uncovered_with_mask": 10
+  },
+  "graph_item_counts": {
+    "scenes": 2591,
+    "claims": 679,
+    "relations": 0,
+    "derivations": 0,
+    "bindings": 0
+  },
+  "field_dispositions_by_field": {
+    "amounts.commission": {
+      "unchecked:absence_not_proven": 149,
+      "unverified:relation_ambiguous": 9,
+      "candidate_supported:lexical_proposal_only": 4,
+      "unverified:role_binding_ambiguous": 1
+    },
+    "amounts.cumulative_stake": {
+      "unchecked:absence_not_proven": 161,
+      "unverified:relation_ambiguous": 2
+    },
+    "amounts.illegal_gain": {
+      "unchecked:absence_not_proven": 155,
+      "unverified:relation_ambiguous": 4,
+      "candidate_supported:lexical_proposal_only": 4
+    },
+    "amounts.onsite_stake_total": {
+      "unverified:relation_ambiguous": 62,
+      "unchecked:absence_not_proven": 101
+    },
+    "amounts.per_bet": {
+      "unchecked:absence_not_proven": 155,
+      "unverified:relation_ambiguous": 8
+    },
+    "amounts.personal_stake": {
+      "unchecked:absence_not_proven": 110,
+      "unverified:relation_ambiguous": 14,
+      "candidate_supported:lexical_proposal_only": 36,
+      "unverified:role_binding_ambiguous": 3
+    },
+    "circumstances.admits_and_accepts": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.coerced_or_lured": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.first_offense": {
+      "unchecked:absence_not_proven": 134,
+      "unchecked:non_numeric_semantics_not_audited": 29
+    },
+    "circumstances.instigated_others": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.last_prior_penalty_date": {
+      "unchecked:absence_not_proven": 159,
+      "unchecked:non_numeric_semantics_not_audited": 4
+    },
+    "circumstances.meritorious": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.minor_circumstance": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.obstructed_police": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.remedied_consequence": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.retaliation": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.surrendered": {
+      "unchecked:absence_not_proven": 160,
+      "unchecked:non_numeric_semantics_not_audited": 3
+    },
+    "circumstances.truthful_statement": {
+      "unchecked:absence_not_proven": 156,
+      "unchecked:non_numeric_semantics_not_audited": 7
+    },
+    "circumstances.victim_forgiveness": {
+      "unchecked:absence_not_proven": 163
+    },
+    "circumstances.violations_last_year": {
+      "unchecked:absence_not_proven": 150,
+      "unchecked:non_numeric_semantics_not_audited": 13
+    },
+    "conduct.behavior_type": {
+      "unchecked:non_numeric_semantics_not_audited": 163
+    },
+    "conduct.cheating": {
+      "unchecked:absence_not_proven": 163
+    },
+    "conduct.duration_days": {
+      "unchecked:absence_not_proven": 163
+    },
+    "conduct.method": {
+      "unchecked:non_numeric_semantics_not_audited": 138,
+      "unchecked:absence_not_proven": 25
+    },
+    "conduct.role": {
+      "unchecked:non_numeric_semantics_not_audited": 163
+    },
+    "conduct.times": {
+      "unchecked:absence_not_proven": 162,
+      "unverified:relation_ambiguous": 1
+    },
+    "intent.profit_purpose": {
+      "unchecked:absence_not_proven": 143,
+      "unchecked:non_numeric_semantics_not_audited": 20
+    },
+    "person.age": {
+      "unchecked:absence_not_proven": 104,
+      "unverified:role_binding_ambiguous": 50,
+      "unverified:relation_ambiguous": 8,
+      "unverified:value_requires_derivation_or_review": 1
+    },
+    "person.pregnant_or_nursing": {
+      "unchecked:absence_not_proven": 163
+    },
+    "persons.abroad_organized_count": {
+      "unchecked:absence_not_proven": 163
+    },
+    "persons.civil_servant": {
+      "unchecked:absence_not_proven": 163
+    },
+    "persons.cumulative_participants": {
+      "unchecked:absence_not_proven": 163
+    },
+    "persons.minors_involved": {
+      "unchecked:absence_not_proven": 155,
+      "unchecked:non_numeric_semantics_not_audited": 8
+    },
+    "persons.participant_count": {
+      "unchecked:absence_not_proven": 102,
+      "unverified:candidate_missing_or_derived": 24,
+      "unverified:relation_ambiguous": 23,
+      "candidate_supported:lexical_proposal_only": 14
+    },
+    "persons.relatives_only": {
+      "unchecked:absence_not_proven": 163
+    },
+    "venue.venue_type": {
+      "unchecked:non_numeric_semantics_not_audited": 153,
+      "unchecked:absence_not_proven": 10
+    }
+  },
+  "failures": {}
+}

@@ -12,7 +12,7 @@ from decimal import Decimal, InvalidOperation
 
 from element_contract import normalization_spec
 
-VERSION = "supply-binding-0.2"
+VERSION = "supply-binding-0.3"
 _NUM = r"[0-9０-９〇零一二两三四五六七八九十百千万亿壹贰叁肆伍陆柒捌玖拾佰仟点.,，]+"
 MONEY = re.compile(fr"(?:不超过|不低于|至少|不足|不到|超过|逾|约|近)?{_NUM}(?:(?:至|到|[-~～]){_NUM})?[余多]?(?:元|块)(?:以上|以下|左右)?")
 COUNT = re.compile(fr"(?:共计|合计|至少|不超过|超过|不足|约)?{_NUM}[余多]?(?:名|位|个)?(?:人|次|场|台|张)")
@@ -109,7 +109,7 @@ def _surface_operator(raw: str, *, exact: bool) -> tuple[str, bool, bool, str]:
         return ">", False, True, "bounded_vague"
     if re.search(r"约|近|左右", raw):
         return "~", True, True, "approximate"
-    return "=", True, True, "exact" if exact else "interval"
+    return ("=", True, True, "exact") if exact else ("range", True, True, "interval")
 
 
 def _normalized(raw: str, typ: str) -> dict:
