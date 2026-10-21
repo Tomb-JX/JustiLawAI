@@ -15,6 +15,7 @@ from evaluate_edge_review import target_relation, score
 from experiment_weak_role_model import CharNB, independent, joint
 from experiment_pairwise_binding_ranker import train_ranker, dot
 from validate_simple_review import validate as validate_simple
+from experiment_silver_supervised_pipeline import SparseLogistic, measure
 from collections import Counter
 
 
@@ -110,3 +111,18 @@ def test_simple_review_validator_checks_candidate_and_relation(tmp_path):
     form["answers"]["personal_stake"] = {**answer, "candidate_id": "Q-other"}
     review.write_text(json.dumps({"schema": "simple-amount-edge-review-v1", "cases": [form]}), encoding="utf-8")
     assert "R:personal_stake:candidate_not_in_case" in validate_simple(cases, review)["issues"]
+
+
+def test_silver_presence_model_and_field_metric_keep_wrong_value_distinct():
+    model = SparseLogistic()
+    model.fit([({"personal": 1.0}, True), ({"personal": 1.0}, True),
+               ({"onsite": 1.0}, False), ({"onsite": 1.0}, False)])
+    assert model.predict({"personal": 1.0}) > model.predict({"onsite": 1.0})
+    scored = [{"id": "R1", "score": 0.9, "candidate_id": "Q1",
+               "silver_positive": True, "silver_match_if_selected": False},
+              {"id": "R2", "score": 0.9, "candidate_id": "Q2",
+               "silver_positive": False, "silver_match_if_selected": False}]
+    counts = measure(scored, 0.5)
+    assert (counts["tp"], counts["fp"], counts["fn"]) == (0, 2, 1)
+    assert counts["wrong_value_on_positive"] == 1
+    assert counts["output_on_silver_missing"] == 1
