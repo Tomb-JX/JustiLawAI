@@ -1,0 +1,27 @@
+{
+  "scope": "unlabeled_equal_length_target_rename",
+  "silver_labels_read": false,
+  "stability_not_accuracy": true,
+  "counts": {
+    "records": 203,
+    "evaluated": 195,
+    "amounts.personal_stake:evaluated": 195,
+    "amounts.personal_stake:changed": 0,
+    "amounts.onsite_stake_total:evaluated": 195,
+    "amounts.onsite_stake_total:changed": 0,
+    "persons.participant_count:evaluated": 195,
+    "persons.participant_count:changed": 0,
+    "person.age:evaluated": 195,
+    "person.age:changed": 0,
+    "list_proposal:evaluated": 195,
+    "list_proposal:changed": 0,
+    "excluded_non_preserving_or_alias": 8
+  },
+  "changes": [],
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "amount_artifact": "e2a475198f4f25aa877324fca787df5b4dbad29176d402e44485001e8bcdc5e6",
+    "age_count_artifact": "05bbe0c74edb568e38fb79df1e64644c71d1b5c7fa779d007535b8ae6d3ab765"
+  }
+}

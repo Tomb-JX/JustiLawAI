@@ -1,0 +1,430 @@
+{
+  "scope": "latent_paths_train_event_oof_valid_diagnostic",
+  "test_labels_read": false,
+  "edge_gold_used": false,
+  "train_records": 140,
+  "valid_records": 23,
+  "train_events": 91,
+  "valid_events": 19,
+  "fields": {
+    "amounts.personal_stake": {
+      "1.0": {
+        "training": {
+          "records": 140,
+          "silver_missing": 92,
+          "silver_positive": 48,
+          "positive_with_local_path": 48,
+          "multiple_compatible_paths": 4
+        },
+        "missing_weight": 1.0,
+        "threshold": 0.5,
+        "train_oof": {
+          "records": 140,
+          "silver_missing": 92,
+          "tn": 91,
+          "silver_positive": 48,
+          "selected": 37,
+          "exact_field_match": 36,
+          "tp": 36,
+          "fn": 12,
+          "abstain_on_positive": 12,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "f1": 0.8470588235294118,
+          "presence_recall": 0.75
+        },
+        "valid": {
+          "records": 23,
+          "silver_missing": 18,
+          "tn": 17,
+          "silver_positive": 5,
+          "fn": 2,
+          "abstain_on_positive": 2,
+          "selected": 4,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "exact_field_match": 3,
+          "tp": 3,
+          "f1": 0.6666666666666666,
+          "presence_recall": 0.6,
+          "selected_evidence_local_match": 3
+        },
+        "valid_risk_coverage": {
+          "0.15": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 11,
+            "silver_positive": 5,
+            "selected": 12,
+            "exact_field_match": 5,
+            "tp": 5,
+            "fp": 7,
+            "output_on_silver_missing": 7,
+            "fn": 0,
+            "f1": 0.5882352941176471,
+            "presence_recall": 1.0
+          },
+          "0.3": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 16,
+            "silver_positive": 5,
+            "fn": 1,
+            "abstain_on_positive": 1,
+            "selected": 6,
+            "fp": 2,
+            "output_on_silver_missing": 2,
+            "exact_field_match": 4,
+            "tp": 4,
+            "f1": 0.7272727272727273,
+            "presence_recall": 0.8
+          },
+          "0.5": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 17,
+            "silver_positive": 5,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "selected": 4,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "exact_field_match": 3,
+            "tp": 3,
+            "f1": 0.6666666666666666,
+            "presence_recall": 0.6
+          },
+          "0.7": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 17,
+            "silver_positive": 5,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "selected": 4,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "exact_field_match": 3,
+            "tp": 3,
+            "f1": 0.6666666666666666,
+            "presence_recall": 0.6
+          }
+        }
+      }
+    },
+    "amounts.onsite_stake_total": {
+      "1.0": {
+        "training": {
+          "records": 140,
+          "silver_missing": 85,
+          "silver_positive": 55,
+          "positive_with_local_path": 55,
+          "multiple_compatible_paths": 0
+        },
+        "missing_weight": 1.0,
+        "threshold": 0.15,
+        "train_oof": {
+          "records": 140,
+          "silver_missing": 85,
+          "selected": 75,
+          "fp": 23,
+          "output_on_silver_missing": 23,
+          "tn": 62,
+          "silver_positive": 55,
+          "exact_field_match": 52,
+          "tp": 52,
+          "fn": 3,
+          "abstain_on_positive": 3,
+          "f1": 0.8,
+          "presence_recall": 0.9454545454545454
+        },
+        "valid": {
+          "records": 23,
+          "silver_positive": 7,
+          "selected": 13,
+          "exact_field_match": 7,
+          "tp": 7,
+          "silver_missing": 16,
+          "fp": 6,
+          "output_on_silver_missing": 6,
+          "tn": 10,
+          "fn": 0,
+          "f1": 0.7,
+          "presence_recall": 1.0,
+          "selected_evidence_local_match": 7
+        },
+        "valid_risk_coverage": {
+          "0.15": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 13,
+            "exact_field_match": 7,
+            "tp": 7,
+            "silver_missing": 16,
+            "fp": 6,
+            "output_on_silver_missing": 6,
+            "tn": 10,
+            "fn": 0,
+            "f1": 0.7,
+            "presence_recall": 1.0
+          },
+          "0.3": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 9,
+            "exact_field_match": 6,
+            "tp": 6,
+            "silver_missing": 16,
+            "tn": 13,
+            "fn": 1,
+            "abstain_on_positive": 1,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "f1": 0.75,
+            "presence_recall": 0.8571428571428571
+          },
+          "0.5": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 6,
+            "exact_field_match": 5,
+            "tp": 5,
+            "silver_missing": 16,
+            "tn": 15,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "f1": 0.7692307692307693,
+            "presence_recall": 0.7142857142857143
+          },
+          "0.7": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 6,
+            "exact_field_match": 5,
+            "tp": 5,
+            "silver_missing": 16,
+            "tn": 15,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "f1": 0.7692307692307693,
+            "presence_recall": 0.7142857142857143
+          }
+        }
+      }
+    },
+    "persons.participant_count": {
+      "0.25": {
+        "training": {
+          "records": 140,
+          "silver_missing": 86,
+          "silver_positive": 54,
+          "positive_with_local_path": 48,
+          "multiple_compatible_paths": 6,
+          "positive_without_local_path": 6
+        },
+        "missing_weight": 0.25,
+        "threshold": 0.45,
+        "train_oof": {
+          "records": 140,
+          "silver_missing": 86,
+          "tn": 78,
+          "silver_positive": 54,
+          "fn": 3,
+          "abstain_on_positive": 3,
+          "selected": 59,
+          "exact_field_match": 51,
+          "tp": 51,
+          "fp": 8,
+          "output_on_silver_missing": 8,
+          "f1": 0.9026548672566371,
+          "presence_recall": 0.9444444444444444
+        },
+        "valid": {
+          "records": 23,
+          "silver_missing": 16,
+          "tn": 13,
+          "silver_positive": 7,
+          "selected": 10,
+          "exact_field_match": 7,
+          "tp": 7,
+          "fp": 3,
+          "output_on_silver_missing": 3,
+          "fn": 0,
+          "f1": 0.8235294117647058,
+          "presence_recall": 1.0,
+          "selected_evidence_local_match": 7
+        },
+        "valid_risk_coverage": {
+          "0.15": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 13,
+            "silver_positive": 7,
+            "selected": 10,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "fn": 0,
+            "f1": 0.8235294117647058,
+            "presence_recall": 1.0
+          },
+          "0.3": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 13,
+            "silver_positive": 7,
+            "selected": 10,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "fn": 0,
+            "f1": 0.8235294117647058,
+            "presence_recall": 1.0
+          },
+          "0.5": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 14,
+            "silver_positive": 7,
+            "selected": 9,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 2,
+            "output_on_silver_missing": 2,
+            "fn": 0,
+            "f1": 0.875,
+            "presence_recall": 1.0
+          },
+          "0.7": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 14,
+            "silver_positive": 7,
+            "selected": 9,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 2,
+            "output_on_silver_missing": 2,
+            "fn": 0,
+            "f1": 0.875,
+            "presence_recall": 1.0
+          }
+        }
+      },
+      "1.0": {
+        "training": {
+          "records": 140,
+          "silver_missing": 86,
+          "silver_positive": 54,
+          "positive_with_local_path": 48,
+          "multiple_compatible_paths": 6,
+          "positive_without_local_path": 6
+        },
+        "missing_weight": 1.0,
+        "threshold": 0.25,
+        "train_oof": {
+          "records": 140,
+          "silver_missing": 86,
+          "tn": 78,
+          "silver_positive": 54,
+          "fn": 7,
+          "abstain_on_positive": 3,
+          "selected": 59,
+          "exact_field_match": 47,
+          "tp": 47,
+          "fp": 12,
+          "wrong_value_on_positive": 4,
+          "output_on_silver_missing": 8,
+          "f1": 0.831858407079646,
+          "presence_recall": 0.9444444444444444
+        },
+        "valid": {
+          "records": 23,
+          "silver_missing": 16,
+          "tn": 13,
+          "silver_positive": 7,
+          "selected": 10,
+          "exact_field_match": 7,
+          "tp": 7,
+          "fp": 3,
+          "output_on_silver_missing": 3,
+          "fn": 0,
+          "f1": 0.8235294117647058,
+          "presence_recall": 1.0,
+          "selected_evidence_local_match": 7
+        },
+        "valid_risk_coverage": {
+          "0.15": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 13,
+            "silver_positive": 7,
+            "selected": 10,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "fn": 0,
+            "f1": 0.8235294117647058,
+            "presence_recall": 1.0
+          },
+          "0.3": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 13,
+            "silver_positive": 7,
+            "selected": 10,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "fn": 0,
+            "f1": 0.8235294117647058,
+            "presence_recall": 1.0
+          },
+          "0.5": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 14,
+            "silver_positive": 7,
+            "selected": 9,
+            "exact_field_match": 7,
+            "tp": 7,
+            "fp": 2,
+            "output_on_silver_missing": 2,
+            "fn": 0,
+            "f1": 0.875,
+            "presence_recall": 1.0
+          },
+          "0.7": {
+            "records": 23,
+            "silver_missing": 16,
+            "tn": 14,
+            "silver_positive": 7,
+            "selected": 7,
+            "exact_field_match": 5,
+            "tp": 5,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "fp": 2,
+            "output_on_silver_missing": 2,
+            "f1": 0.7142857142857143,
+            "presence_recall": 0.7142857142857143
+          }
+        }
+      }
+    }
+  },
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d"
+  },
+  "runtime_seconds": 12.311
+}

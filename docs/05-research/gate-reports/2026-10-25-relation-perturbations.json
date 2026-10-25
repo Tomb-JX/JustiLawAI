@@ -1,0 +1,272 @@
+{
+  "scope": "constructed_semantic_perturbations",
+  "not_population_accuracy": true,
+  "amount_artifact_sha256": "e2a475198f4f25aa877324fca787df5b4dbad29176d402e44485001e8bcdc5e6",
+  "cases": 14,
+  "stats": {
+    "frozen_amount:checks": 12,
+    "frozen_amount:passed": 9,
+    "provisional_list:checks": 4,
+    "provisional_list:passed": 4,
+    "age_derivation:checks": 4,
+    "age_derivation:passed": 4
+  },
+  "details": [
+    {
+      "id": "amount-single",
+      "route": "frozen_amount",
+      "target": "甲",
+      "text": "甲持有赌资500元，现场查获赌资1500元。",
+      "source_sha256": "d5787690d4ec83daf4754931183c3f052ca6c4dccefc05d41354dcbf08006fe6",
+      "expected": {
+        "personal": 500,
+        "onsite": 1500
+      },
+      "actual": {
+        "personal": 500,
+        "onsite": 1500
+      },
+      "checks": {
+        "personal": true,
+        "onsite": true
+      },
+      "pass": true
+    },
+    {
+      "id": "amount-two-actors-target-a",
+      "route": "frozen_amount",
+      "target": "甲",
+      "text": "甲持有赌资500元，乙持有赌资1000元，现场查获赌资1500元。",
+      "source_sha256": "1791b62eca9ac24f3042a61207a3f45b6ed8afbfabac814c4be37f4f5682d5cd",
+      "expected": {
+        "personal": 500,
+        "onsite": 1500
+      },
+      "actual": {
+        "personal": 500,
+        "onsite": 1500
+      },
+      "checks": {
+        "personal": true,
+        "onsite": true
+      },
+      "pass": true
+    },
+    {
+      "id": "amount-two-actors-target-b",
+      "route": "frozen_amount",
+      "target": "乙",
+      "text": "甲持有赌资500元，乙持有赌资1000元，现场查获赌资1500元。",
+      "source_sha256": "1791b62eca9ac24f3042a61207a3f45b6ed8afbfabac814c4be37f4f5682d5cd",
+      "expected": {
+        "personal": 1000,
+        "onsite": 1500
+      },
+      "actual": {
+        "personal": 1000,
+        "onsite": 1500
+      },
+      "checks": {
+        "personal": true,
+        "onsite": true
+      },
+      "pass": true
+    },
+    {
+      "id": "amount-joint-undistributed",
+      "route": "frozen_amount",
+      "target": "甲",
+      "text": "甲与乙共同持有赌资500元。",
+      "source_sha256": "58a8841bdbd4cc97d37d52cf8334d04f9dcc23aaec91b299875eaa1e8cdd226a",
+      "expected": {
+        "personal": null,
+        "onsite": null
+      },
+      "actual": {
+        "personal": 500,
+        "onsite": null
+      },
+      "checks": {
+        "personal": false,
+        "onsite": true
+      },
+      "pass": false
+    },
+    {
+      "id": "amount-respectively-target-b",
+      "route": "frozen_amount",
+      "target": "乙",
+      "text": "甲、乙分别持有赌资500元、1000元，现场查获赌资1500元。",
+      "source_sha256": "360f7d54e2b4e897bef4e8aeda94bacb4c2cb730dcedd0f3de75a6b6f45823cf",
+      "expected": {
+        "personal": 1000,
+        "onsite": 1500
+      },
+      "actual": {
+        "personal": null,
+        "onsite": 1500
+      },
+      "checks": {
+        "personal": false,
+        "onsite": true
+      },
+      "pass": false
+    },
+    {
+      "id": "amount-prior-penalty",
+      "route": "frozen_amount",
+      "target": "甲",
+      "text": "甲曾因赌博被罚款500元，本次赌博现场查获赌资1500元。",
+      "source_sha256": "7b6ccba5f8c8ae0578d3d4da17d52cdcbd80fb594d54f1867f735c86793295f4",
+      "expected": {
+        "personal": null,
+        "onsite": 1500
+      },
+      "actual": {
+        "personal": 500,
+        "onsite": 1500
+      },
+      "checks": {
+        "personal": false,
+        "onsite": true
+      },
+      "pass": false
+    },
+    {
+      "id": "list-redacted-collision",
+      "route": "provisional_list",
+      "target": "杨**",
+      "text": "杨**、陈**、杨**、杨**在院内赌博。",
+      "source_sha256": "df320313c512c2fd662057f8ce1db436e37301d841611b076f7efa95a298f4ac",
+      "expected": {
+        "count": 4
+      },
+      "actual": {
+        "count": 4
+      },
+      "checks": {
+        "count": true
+      },
+      "pass": true
+    },
+    {
+      "id": "list-open-ended",
+      "route": "provisional_list",
+      "target": "杨**",
+      "text": "杨**、陈**、杨**、杨**等人在院内赌博。",
+      "source_sha256": "ced4cc111dbcae9967d57c5b56108092dbd0b840edab5c1afd4d3531b54e4a28",
+      "expected": {
+        "count": null
+      },
+      "actual": {
+        "count": null
+      },
+      "checks": {
+        "count": true
+      },
+      "pass": true
+    },
+    {
+      "id": "list-nonparticipant-provider",
+      "route": "provisional_list",
+      "target": "丁xx",
+      "text": "张x、王x、李x在屋内赌博，丁xx提供场地。",
+      "source_sha256": "a981589cca09bce7c42069d1336563f34cd37610b9d7cccf3b15abccea9a0ee5",
+      "expected": {
+        "count": null
+      },
+      "actual": {
+        "count": null
+      },
+      "checks": {
+        "count": true
+      },
+      "pass": true
+    },
+    {
+      "id": "list-two-scenes",
+      "route": "provisional_list",
+      "target": "张x",
+      "text": "张x、王x、李x在屋内赌博。张x、赵x在另一日赌博。",
+      "source_sha256": "cf3a72d87359fec532aac38ed7c89b7cd2aadd1c14b5767a171a0fa5e007d7a4",
+      "expected": {
+        "count": null
+      },
+      "actual": {
+        "count": null
+      },
+      "checks": {
+        "count": true
+      },
+      "pass": true
+    },
+    {
+      "id": "age-exact",
+      "route": "age_derivation",
+      "target": "甲",
+      "text": "甲于1990年1月18日出生。2023年1月18日甲在屋内赌博。",
+      "source_sha256": "634d254a7a017546601382aaad23d4c95ad1bd680b53963e86db4c4aa550b799",
+      "expected": {
+        "age": 33
+      },
+      "actual": {
+        "age": 33
+      },
+      "checks": {
+        "age": true
+      },
+      "pass": true
+    },
+    {
+      "id": "age-prior-date",
+      "route": "age_derivation",
+      "target": "甲",
+      "text": "甲于1990年1月18日出生。甲曾于2020年1月18日因赌博被处罚。2023年1月18日甲在屋内赌博。",
+      "source_sha256": "8d7cf8d72a1125753244a3cf0bb467f9f6d6285810a70190645309f022f5176f",
+      "expected": {
+        "age": 33
+      },
+      "actual": {
+        "age": 33
+      },
+      "checks": {
+        "age": true
+      },
+      "pass": true
+    },
+    {
+      "id": "age-year-imprecise",
+      "route": "age_derivation",
+      "target": "甲",
+      "text": "甲于1990年出生。2023年1月18日甲在屋内赌博。",
+      "source_sha256": "a1c78935c7d243e28e0b3a785180c7d463975c19266c33c42e4f48b648e88c0b",
+      "expected": {
+        "age": null
+      },
+      "actual": {
+        "age": null
+      },
+      "checks": {
+        "age": true
+      },
+      "pass": true
+    },
+    {
+      "id": "age-birthday-boundary",
+      "route": "age_derivation",
+      "target": "甲",
+      "text": "甲于1990年1月18日出生。2023年1月17日甲在屋内赌博。",
+      "source_sha256": "db848506049834e5a7befa4ea30c85561e9c349761de7992ee5892e50624dff6",
+      "expected": {
+        "age": 32
+      },
+      "actual": {
+        "age": 32
+      },
+      "checks": {
+        "age": true
+      },
+      "pass": true
+    }
+  ]
+}

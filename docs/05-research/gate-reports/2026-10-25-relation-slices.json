@@ -1,0 +1,227 @@
+{
+  "scope": "valid_small_support_slice_diagnostic",
+  "test_labels_read": false,
+  "valid_records": 23,
+  "slices": {
+    "amounts.personal_stake": {
+      "all": {
+        "events": 19,
+        "metric": {
+          "records": 23,
+          "silver_missing": 18,
+          "tn": 17,
+          "silver_positive": 5,
+          "fn": 2,
+          "abstain_on_positive": 2,
+          "selected": 4,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "exact_field_match": 3,
+          "tp": 3,
+          "f1": 0.6666666666666666,
+          "presence_recall": 0.6
+        }
+      },
+      "multi_amount": {
+        "records": 5,
+        "events": 4,
+        "metric": {
+          "records": 5,
+          "silver_positive": 3,
+          "fn": 1,
+          "abstain_on_positive": 1,
+          "silver_missing": 2,
+          "selected": 3,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "tn": 1,
+          "exact_field_match": 2,
+          "tp": 2,
+          "f1": 0.6666666666666666,
+          "presence_recall": 0.6666666666666666
+        }
+      },
+      "list_candidate": {
+        "records": 3,
+        "events": 2,
+        "metric": {
+          "records": 3,
+          "silver_missing": 3,
+          "tn": 3,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "exact_field_match": 0,
+          "output_on_silver_missing": 0,
+          "f1": 0.0,
+          "presence_recall": 0.0
+        }
+      },
+      "prior_scene": {
+        "records": 1,
+        "events": 1,
+        "metric": {
+          "records": 1,
+          "silver_missing": 1,
+          "tn": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "exact_field_match": 0,
+          "output_on_silver_missing": 0,
+          "f1": 0.0,
+          "presence_recall": 0.0
+        }
+      }
+    },
+    "amounts.onsite_stake_total": {
+      "all": {
+        "events": 19,
+        "metric": {
+          "records": 23,
+          "silver_positive": 7,
+          "selected": 6,
+          "exact_field_match": 5,
+          "tp": 5,
+          "silver_missing": 16,
+          "tn": 15,
+          "fn": 2,
+          "abstain_on_positive": 2,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "f1": 0.7692307692307693,
+          "presence_recall": 0.7142857142857143
+        }
+      },
+      "multi_amount": {
+        "records": 5,
+        "events": 4,
+        "metric": {
+          "records": 5,
+          "silver_missing": 4,
+          "tn": 3,
+          "silver_positive": 1,
+          "fn": 1,
+          "abstain_on_positive": 1,
+          "selected": 1,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "tp": 0,
+          "exact_field_match": 0,
+          "f1": 0.0,
+          "presence_recall": 0.0
+        }
+      },
+      "list_candidate": {
+        "records": 3,
+        "events": 2,
+        "metric": {
+          "records": 3,
+          "silver_missing": 2,
+          "tn": 2,
+          "silver_positive": 1,
+          "selected": 1,
+          "exact_field_match": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 0,
+          "output_on_silver_missing": 0,
+          "f1": 1.0,
+          "presence_recall": 1.0
+        }
+      },
+      "prior_scene": {
+        "records": 1,
+        "events": 1,
+        "metric": {
+          "records": 1,
+          "silver_positive": 1,
+          "fn": 1,
+          "abstain_on_positive": 1,
+          "tp": 0,
+          "fp": 0,
+          "tn": 0,
+          "exact_field_match": 0,
+          "output_on_silver_missing": 0,
+          "f1": 0.0,
+          "presence_recall": 0.0
+        }
+      }
+    },
+    "persons.participant_count": {
+      "all": {
+        "events": 19,
+        "metric": {
+          "records": 23,
+          "silver_missing": 16,
+          "tn": 13,
+          "silver_positive": 7,
+          "selected": 10,
+          "exact_field_match": 7,
+          "tp": 7,
+          "fp": 3,
+          "output_on_silver_missing": 3,
+          "fn": 0,
+          "f1": 0.8235294117647058,
+          "presence_recall": 1.0
+        }
+      },
+      "multi_amount": {
+        "records": 5,
+        "events": 4,
+        "metric": {
+          "records": 5,
+          "silver_missing": 2,
+          "tn": 1,
+          "silver_positive": 3,
+          "selected": 4,
+          "exact_field_match": 3,
+          "tp": 3,
+          "fp": 1,
+          "output_on_silver_missing": 1,
+          "fn": 0,
+          "f1": 0.8571428571428571,
+          "presence_recall": 1.0
+        }
+      },
+      "list_candidate": {
+        "records": 3,
+        "events": 2,
+        "metric": {
+          "records": 3,
+          "silver_missing": 2,
+          "selected": 3,
+          "fp": 2,
+          "output_on_silver_missing": 2,
+          "silver_positive": 1,
+          "exact_field_match": 1,
+          "tp": 1,
+          "fn": 0,
+          "tn": 0,
+          "f1": 0.5,
+          "presence_recall": 1.0
+        }
+      },
+      "prior_scene": {
+        "records": 1,
+        "events": 1,
+        "metric": {
+          "records": 1,
+          "silver_missing": 1,
+          "tn": 1,
+          "tp": 0,
+          "fp": 0,
+          "fn": 0,
+          "exact_field_match": 0,
+          "output_on_silver_missing": 0,
+          "f1": 0.0,
+          "presence_recall": 0.0
+        }
+      }
+    }
+  },
+  "input_sha256": {
+    "suite_report": "33e7930c9fe1f690ad16c1e4ceaef72a3b88038916ea2b5b8c1099c04f50f152",
+    "suite_predictions": "07b4066405193c5a771f636ec906dfde808e9391b1a72cc2b78bf8c6be43e3d4"
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "scope": "valid_same_candidate_constraint_activation",
+  "test_labels_read": false,
+  "valid_records": 23,
+  "counts": {
+    "surface:selected": 20,
+    "surface:safe_decoder_changed_fields": 0,
+    "surface:records": 23,
+    "local_relation:selected": 10,
+    "local_relation:safe_decoder_changed_fields": 0,
+    "local_relation:records": 23,
+    "scene_relation:selected": 10,
+    "scene_relation:safe_decoder_changed_fields": 0,
+    "scene_relation:records": 23,
+    "surface:same_candidate_two_fields": 1,
+    "valid:records": 23,
+    "valid:list_present": 3,
+    "valid:list_explicit_value_conflict": 0,
+    "valid:age_ambiguous": 1,
+    "train:records": 140,
+    "train:list_present": 33,
+    "train:list_explicit_value_conflict": 0,
+    "train:age_ambiguous": 1
+  },
+  "safe_cross_field_constraint_changes": 0,
+  "reason": "Only source/type/one-output-per-field are mechanically justified here; these are already enforced by candidate construction and individual decoding.",
+  "same_candidate_two_roles_in_single_reviewer_pilot": [
+    "S1-f9f067debee7744d2346"
+  ],
+  "candidate_exclusivity_is_invalid": true,
+  "review_is_not_population_gold": true,
+  "input_sha256": {
+    "suite_report": "33e7930c9fe1f690ad16c1e4ceaef72a3b88038916ea2b5b8c1099c04f50f152",
+    "suite_predictions": "07b4066405193c5a771f636ec906dfde808e9391b1a72cc2b78bf8c6be43e3d4",
+    "review": "43c104603172d04d6db0bd90f0ec0c0b9eb31098f57627a86d1d8a232fae95e4",
+    "review_cases": "0c49ed0590b767938c6120060f036fc0b5c4088eb3eb75ad89cada1cd93f9689"
+  }
+}
