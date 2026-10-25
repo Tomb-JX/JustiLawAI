@@ -1,0 +1,1954 @@
+{
+  "scope": "train_valid_model_selection",
+  "test_labels_used": false,
+  "train_records": 140,
+  "valid_records": 23,
+  "train_events": 91,
+  "valid_events": 19,
+  "fields": {
+    "amounts.personal_stake": {
+      "selected_route": "candidate_nil",
+      "selected_config": "local",
+      "selection_metric": {
+        "records": 23,
+        "silver_missing": 18,
+        "tn": 17,
+        "silver_positive": 5,
+        "fn": 2,
+        "abstain_on_positive": 2,
+        "selected": 4,
+        "fp": 1,
+        "output_on_silver_missing": 1,
+        "exact_field_match": 3,
+        "tp": 3,
+        "f1": 0.6666666666666666,
+        "presence_recall": 0.6
+      },
+      "original_s2": {
+        "train": {
+          "records": 140,
+          "silver_missing": 92,
+          "tn": 87,
+          "selected": 16,
+          "fp": 6,
+          "output_on_silver_missing": 5,
+          "silver_positive": 48,
+          "fn": 38,
+          "abstain_on_positive": 37,
+          "exact_field_match": 10,
+          "tp": 10,
+          "wrong_value_on_positive": 1,
+          "f1": 0.3125,
+          "presence_recall": 0.22916666666666666
+        },
+        "valid": {
+          "records": 23,
+          "silver_missing": 18,
+          "tn": 18,
+          "silver_positive": 5,
+          "fn": 5,
+          "abstain_on_positive": 3,
+          "selected": 2,
+          "fp": 2,
+          "wrong_value_on_positive": 2,
+          "tp": 0,
+          "exact_field_match": 0,
+          "output_on_silver_missing": 0,
+          "f1": 0.0,
+          "presence_recall": 0.4
+        }
+      },
+      "candidates": {
+        "local": {
+          "threshold": 0.75,
+          "train_oof": {
+            "records": 140,
+            "silver_missing": 92,
+            "tn": 88,
+            "silver_positive": 48,
+            "selected": 40,
+            "exact_field_match": 36,
+            "tp": 36,
+            "fn": 12,
+            "abstain_on_positive": 12,
+            "fp": 4,
+            "output_on_silver_missing": 4,
+            "f1": 0.8181818181818182,
+            "presence_recall": 0.75
+          },
+          "valid": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 17,
+            "silver_positive": 5,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "selected": 4,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "exact_field_match": 3,
+            "tp": 3,
+            "f1": 0.6666666666666666,
+            "presence_recall": 0.6
+          },
+          "training_stats": {
+            "silver_missing_negative_candidates": 153,
+            "positive_candidates": 44,
+            "ambiguous_or_missing_positive_records_skipped": 4,
+            "different_value_negative_candidates": 64,
+            "positive_repeat_factor": 5
+          }
+        },
+        "scene_structure": {
+          "threshold": 0.8,
+          "train_oof": {
+            "records": 140,
+            "silver_missing": 92,
+            "tn": 89,
+            "silver_positive": 48,
+            "selected": 38,
+            "exact_field_match": 35,
+            "tp": 35,
+            "fn": 13,
+            "abstain_on_positive": 13,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "f1": 0.813953488372093,
+            "presence_recall": 0.7291666666666666
+          },
+          "valid": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 17,
+            "silver_positive": 5,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "selected": 4,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "exact_field_match": 3,
+            "tp": 3,
+            "f1": 0.6666666666666666,
+            "presence_recall": 0.6
+          },
+          "training_stats": {
+            "silver_missing_negative_candidates": 153,
+            "positive_candidates": 44,
+            "ambiguous_or_missing_positive_records_skipped": 4,
+            "different_value_negative_candidates": 64,
+            "positive_repeat_factor": 5
+          }
+        },
+        "scene_text": {
+          "threshold": 0.8,
+          "train_oof": {
+            "records": 140,
+            "silver_missing": 92,
+            "tn": 89,
+            "silver_positive": 48,
+            "selected": 38,
+            "exact_field_match": 35,
+            "tp": 35,
+            "fn": 13,
+            "abstain_on_positive": 13,
+            "fp": 3,
+            "output_on_silver_missing": 3,
+            "f1": 0.813953488372093,
+            "presence_recall": 0.7291666666666666
+          },
+          "valid": {
+            "records": 23,
+            "silver_missing": 18,
+            "tn": 17,
+            "silver_positive": 5,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "selected": 4,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "exact_field_match": 3,
+            "tp": 3,
+            "f1": 0.6666666666666666,
+            "presence_recall": 0.6
+          },
+          "training_stats": {
+            "silver_missing_negative_candidates": 153,
+            "positive_candidates": 44,
+            "ambiguous_or_missing_positive_records_skipped": 4,
+            "different_value_negative_candidates": 64,
+            "positive_repeat_factor": 5
+          }
+        }
+      },
+      "valid_predictions": {
+        "local": [
+          {
+            "id": "S1-807ef8097b47279da882",
+            "score": 0.05029733297222156,
+            "candidate_id": "Q-0729d7dcf49a5b78",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dd5abc3f75cbc3f99af4",
+            "score": 0.44374090677332634,
+            "candidate_id": "Q-995667b91b9da507",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 3000.0,
+              "max": 3000.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-f58f7ac8aa3926fa613f",
+            "score": 0.9044576193224045,
+            "candidate_id": "Q-44d237a168b13f97",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 10.0,
+              "max": 10.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-c7d344884dccec5522dc",
+            "score": 0.11887368608436619,
+            "candidate_id": "Q-c79341973782ee80",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2000.0,
+              "max": 2000.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-d4774ee9e446bb13d8fb",
+            "score": 0.6035377353890566,
+            "candidate_id": "Q-33ca6dbf9a641efb",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 220.0,
+              "max": 220.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-1d0d02922d5d6afd4ac7",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b8e7bf93286d2549eef4",
+            "score": 0.050593140957432996,
+            "candidate_id": "Q-d2ea955c2c4759c8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-279ea2462be88f3f2639",
+            "score": 0.05623878920855023,
+            "candidate_id": "Q-d39e1d949656a390",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-92bb7a6f15b780095551",
+            "score": 0.04595768840461086,
+            "candidate_id": "Q-07e845659927e463",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-2fb0288a6e36e03a690c",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f3be953570ac66eef954",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-982674442eb41b24695c",
+            "score": 0.5916440157597475,
+            "candidate_id": "Q-d708927f08e80c66",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 400.0,
+              "max": 400.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3ca448f65b0929ccc05f",
+            "score": 0.6041463582227915,
+            "candidate_id": "Q-3ae42f17c8560bec",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-7cfbd0e8e2478be67565",
+            "score": 0.9228714873344871,
+            "candidate_id": "Q-f3b3b353603ea639",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2700.0,
+              "max": 2700.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-3949e5bb6d086dcb4a3e",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dace783c1836b5a7ecf9",
+            "score": 0.04497142965458735,
+            "candidate_id": "Q-63dbd5c3c0da86e8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 7370.0,
+              "max": 7370.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-0cc485f0f177e9086cb6",
+            "score": 0.654403214078474,
+            "candidate_id": "Q-0cacf1ae8a11aedf",
+            "candidate_count": 7,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b5a0e2fb1cb2d5fee02d",
+            "score": 0.33986604896568395,
+            "candidate_id": "Q-4037b3e8a0128376",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 165.0,
+              "max": 165.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-57bdcfacf73116c02030",
+            "score": 0.9103142969276695,
+            "candidate_id": "Q-e5e99196d4cd9f43",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 500.0,
+              "max": 500.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-582686ced1f819c3d6ae",
+            "score": 0.9076166842665674,
+            "candidate_id": "Q-06719b9efffa5c8e",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-bcb1ad43bf3d8c31067c",
+            "score": 0.0073932960577608765,
+            "candidate_id": "Q-7c8603e4b6fa0fb5",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 410.0,
+              "max": 410.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-ffa14709dab1bac3b4f8",
+            "score": 0.40249763006222405,
+            "candidate_id": "Q-45318cb204e60b5b",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 367.0,
+              "max": 367.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-08615581e1700974a27c",
+            "score": 0.3602476676773683,
+            "candidate_id": "Q-6e4ee2d5baf72393",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 20.0,
+              "max": 20.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          }
+        ],
+        "scene_structure": [
+          {
+            "id": "S1-807ef8097b47279da882",
+            "score": 0.047484114262229926,
+            "candidate_id": "Q-0729d7dcf49a5b78",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dd5abc3f75cbc3f99af4",
+            "score": 0.6367875759099326,
+            "candidate_id": "Q-995667b91b9da507",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 3000.0,
+              "max": 3000.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-f58f7ac8aa3926fa613f",
+            "score": 0.905841610904494,
+            "candidate_id": "Q-44d237a168b13f97",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 10.0,
+              "max": 10.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-c7d344884dccec5522dc",
+            "score": 0.1012495137309954,
+            "candidate_id": "Q-c79341973782ee80",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2000.0,
+              "max": 2000.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-d4774ee9e446bb13d8fb",
+            "score": 0.534570518174065,
+            "candidate_id": "Q-33ca6dbf9a641efb",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 220.0,
+              "max": 220.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-1d0d02922d5d6afd4ac7",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b8e7bf93286d2549eef4",
+            "score": 0.0476129138489705,
+            "candidate_id": "Q-d2ea955c2c4759c8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-279ea2462be88f3f2639",
+            "score": 0.05322320168903628,
+            "candidate_id": "Q-d39e1d949656a390",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-92bb7a6f15b780095551",
+            "score": 0.04519522213846366,
+            "candidate_id": "Q-07e845659927e463",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-2fb0288a6e36e03a690c",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f3be953570ac66eef954",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-982674442eb41b24695c",
+            "score": 0.614115631791856,
+            "candidate_id": "Q-d708927f08e80c66",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 400.0,
+              "max": 400.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3ca448f65b0929ccc05f",
+            "score": 0.5982817067415759,
+            "candidate_id": "Q-3ae42f17c8560bec",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-7cfbd0e8e2478be67565",
+            "score": 0.9233643109441292,
+            "candidate_id": "Q-f3b3b353603ea639",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2700.0,
+              "max": 2700.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-3949e5bb6d086dcb4a3e",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dace783c1836b5a7ecf9",
+            "score": 0.044313506950102784,
+            "candidate_id": "Q-63dbd5c3c0da86e8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 7370.0,
+              "max": 7370.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-0cc485f0f177e9086cb6",
+            "score": 0.6359956729512163,
+            "candidate_id": "Q-7c1e324c3b514cc2",
+            "candidate_count": 7,
+            "candidate_projection": {
+              "min": 450.0,
+              "max": 450.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b5a0e2fb1cb2d5fee02d",
+            "score": 0.31085458225135215,
+            "candidate_id": "Q-4037b3e8a0128376",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 165.0,
+              "max": 165.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-57bdcfacf73116c02030",
+            "score": 0.9404249905063881,
+            "candidate_id": "Q-e5e99196d4cd9f43",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 500.0,
+              "max": 500.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-582686ced1f819c3d6ae",
+            "score": 0.9385284147493038,
+            "candidate_id": "Q-06719b9efffa5c8e",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-bcb1ad43bf3d8c31067c",
+            "score": 0.006297298165704129,
+            "candidate_id": "Q-7c8603e4b6fa0fb5",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 410.0,
+              "max": 410.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-ffa14709dab1bac3b4f8",
+            "score": 0.3684421583521627,
+            "candidate_id": "Q-45318cb204e60b5b",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 367.0,
+              "max": 367.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-08615581e1700974a27c",
+            "score": 0.3256404104234637,
+            "candidate_id": "Q-6e4ee2d5baf72393",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 20.0,
+              "max": 20.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          }
+        ],
+        "scene_text": [
+          {
+            "id": "S1-807ef8097b47279da882",
+            "score": 0.04071819737234498,
+            "candidate_id": "Q-0729d7dcf49a5b78",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dd5abc3f75cbc3f99af4",
+            "score": 0.5602006910439657,
+            "candidate_id": "Q-995667b91b9da507",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 3000.0,
+              "max": 3000.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-f58f7ac8aa3926fa613f",
+            "score": 0.8919927291233322,
+            "candidate_id": "Q-44d237a168b13f97",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 10.0,
+              "max": 10.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-c7d344884dccec5522dc",
+            "score": 0.06994649559033597,
+            "candidate_id": "Q-c79341973782ee80",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2000.0,
+              "max": 2000.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-d4774ee9e446bb13d8fb",
+            "score": 0.6001058676399168,
+            "candidate_id": "Q-33ca6dbf9a641efb",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 220.0,
+              "max": 220.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-1d0d02922d5d6afd4ac7",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b8e7bf93286d2549eef4",
+            "score": 0.040850932988366624,
+            "candidate_id": "Q-d2ea955c2c4759c8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-279ea2462be88f3f2639",
+            "score": 0.06215025319461871,
+            "candidate_id": "Q-d39e1d949656a390",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-92bb7a6f15b780095551",
+            "score": 0.0540564559271295,
+            "candidate_id": "Q-07e845659927e463",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-2fb0288a6e36e03a690c",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f3be953570ac66eef954",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-982674442eb41b24695c",
+            "score": 0.6280134957642658,
+            "candidate_id": "Q-d708927f08e80c66",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 400.0,
+              "max": 400.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3ca448f65b0929ccc05f",
+            "score": 0.5720152068719256,
+            "candidate_id": "Q-3ae42f17c8560bec",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-7cfbd0e8e2478be67565",
+            "score": 0.9476543101115086,
+            "candidate_id": "Q-f3b3b353603ea639",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2700.0,
+              "max": 2700.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-3949e5bb6d086dcb4a3e",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dace783c1836b5a7ecf9",
+            "score": 0.04309405066881477,
+            "candidate_id": "Q-63dbd5c3c0da86e8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 7370.0,
+              "max": 7370.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-0cc485f0f177e9086cb6",
+            "score": 0.6291478601331885,
+            "candidate_id": "Q-7c1e324c3b514cc2",
+            "candidate_count": 7,
+            "candidate_projection": {
+              "min": 450.0,
+              "max": 450.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b5a0e2fb1cb2d5fee02d",
+            "score": 0.26278529547435503,
+            "candidate_id": "Q-4037b3e8a0128376",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 165.0,
+              "max": 165.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-57bdcfacf73116c02030",
+            "score": 0.9450678271371271,
+            "candidate_id": "Q-e5e99196d4cd9f43",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 500.0,
+              "max": 500.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-582686ced1f819c3d6ae",
+            "score": 0.9434610115805666,
+            "candidate_id": "Q-06719b9efffa5c8e",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 300.0,
+              "max": 300.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-bcb1ad43bf3d8c31067c",
+            "score": 0.006475620094676126,
+            "candidate_id": "Q-7c8603e4b6fa0fb5",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 410.0,
+              "max": 410.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-ffa14709dab1bac3b4f8",
+            "score": 0.32006928923153627,
+            "candidate_id": "Q-45318cb204e60b5b",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 367.0,
+              "max": 367.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-08615581e1700974a27c",
+            "score": 0.3025482340232622,
+            "candidate_id": "Q-6e4ee2d5baf72393",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 20.0,
+              "max": 20.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          }
+        ]
+      }
+    },
+    "amounts.onsite_stake_total": {
+      "selected_route": "original_s2",
+      "selected_config": "original_s2",
+      "selection_metric": {
+        "records": 23,
+        "silver_positive": 7,
+        "selected": 6,
+        "exact_field_match": 6,
+        "tp": 6,
+        "silver_missing": 16,
+        "tn": 16,
+        "fn": 1,
+        "abstain_on_positive": 1,
+        "fp": 0,
+        "output_on_silver_missing": 0,
+        "f1": 0.9230769230769231,
+        "presence_recall": 0.8571428571428571
+      },
+      "original_s2": {
+        "train": {
+          "records": 140,
+          "silver_missing": 85,
+          "tn": 78,
+          "silver_positive": 55,
+          "selected": 40,
+          "exact_field_match": 33,
+          "tp": 33,
+          "fn": 22,
+          "abstain_on_positive": 22,
+          "fp": 7,
+          "output_on_silver_missing": 7,
+          "f1": 0.6947368421052632,
+          "presence_recall": 0.6
+        },
+        "valid": {
+          "records": 23,
+          "silver_positive": 7,
+          "selected": 6,
+          "exact_field_match": 6,
+          "tp": 6,
+          "silver_missing": 16,
+          "tn": 16,
+          "fn": 1,
+          "abstain_on_positive": 1,
+          "fp": 0,
+          "output_on_silver_missing": 0,
+          "f1": 0.9230769230769231,
+          "presence_recall": 0.8571428571428571
+        }
+      },
+      "candidates": {
+        "local": {
+          "threshold": 0.6,
+          "train_oof": {
+            "records": 140,
+            "silver_missing": 85,
+            "tn": 84,
+            "silver_positive": 55,
+            "selected": 38,
+            "exact_field_match": 37,
+            "tp": 37,
+            "fn": 18,
+            "abstain_on_positive": 18,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "f1": 0.7956989247311828,
+            "presence_recall": 0.6727272727272727
+          },
+          "valid": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 6,
+            "exact_field_match": 5,
+            "tp": 5,
+            "silver_missing": 16,
+            "tn": 15,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "f1": 0.7692307692307693,
+            "presence_recall": 0.7142857142857143
+          },
+          "training_stats": {
+            "silver_missing_negative_candidates": 103,
+            "positive_candidates": 55,
+            "different_value_negative_candidates": 113,
+            "positive_repeat_factor": 4
+          }
+        },
+        "scene_structure": {
+          "threshold": 0.65,
+          "train_oof": {
+            "records": 140,
+            "silver_missing": 85,
+            "tn": 84,
+            "silver_positive": 55,
+            "selected": 38,
+            "exact_field_match": 37,
+            "tp": 37,
+            "fn": 18,
+            "abstain_on_positive": 18,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "f1": 0.7956989247311828,
+            "presence_recall": 0.6727272727272727
+          },
+          "valid": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 6,
+            "exact_field_match": 5,
+            "tp": 5,
+            "silver_missing": 16,
+            "tn": 15,
+            "fn": 2,
+            "abstain_on_positive": 2,
+            "fp": 1,
+            "output_on_silver_missing": 1,
+            "f1": 0.7692307692307693,
+            "presence_recall": 0.7142857142857143
+          },
+          "training_stats": {
+            "silver_missing_negative_candidates": 103,
+            "positive_candidates": 55,
+            "different_value_negative_candidates": 113,
+            "positive_repeat_factor": 4
+          }
+        },
+        "scene_text": {
+          "threshold": 0.35,
+          "train_oof": {
+            "records": 140,
+            "silver_missing": 85,
+            "tn": 70,
+            "selected": 65,
+            "fp": 15,
+            "output_on_silver_missing": 15,
+            "silver_positive": 55,
+            "exact_field_match": 50,
+            "tp": 50,
+            "fn": 5,
+            "abstain_on_positive": 5,
+            "f1": 0.8333333333333334,
+            "presence_recall": 0.9090909090909091
+          },
+          "valid": {
+            "records": 23,
+            "silver_positive": 7,
+            "selected": 12,
+            "exact_field_match": 7,
+            "tp": 7,
+            "silver_missing": 16,
+            "tn": 11,
+            "fp": 5,
+            "output_on_silver_missing": 5,
+            "fn": 0,
+            "f1": 0.7368421052631579,
+            "presence_recall": 1.0
+          },
+          "training_stats": {
+            "silver_missing_negative_candidates": 103,
+            "positive_candidates": 55,
+            "different_value_negative_candidates": 113,
+            "positive_repeat_factor": 4
+          }
+        }
+      },
+      "valid_predictions": {
+        "local": [
+          {
+            "id": "S1-807ef8097b47279da882",
+            "score": 0.9498902040730772,
+            "candidate_id": "Q-0729d7dcf49a5b78",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-dd5abc3f75cbc3f99af4",
+            "score": 0.4435596767237468,
+            "candidate_id": "Q-80b2c28cb61ffb8f",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 50.0,
+              "max": 50.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f58f7ac8aa3926fa613f",
+            "score": 0.43870993031046496,
+            "candidate_id": "Q-3314aaff3d6f113e",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 4400.0,
+              "max": 4400.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-c7d344884dccec5522dc",
+            "score": 0.2302300210621267,
+            "candidate_id": "Q-c79341973782ee80",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2000.0,
+              "max": 2000.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-d4774ee9e446bb13d8fb",
+            "score": 0.32819095532069587,
+            "candidate_id": "Q-33ca6dbf9a641efb",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 220.0,
+              "max": 220.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-1d0d02922d5d6afd4ac7",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b8e7bf93286d2549eef4",
+            "score": 0.9482923682649204,
+            "candidate_id": "Q-d2ea955c2c4759c8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-279ea2462be88f3f2639",
+            "score": 0.9651284718679531,
+            "candidate_id": "Q-d39e1d949656a390",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-92bb7a6f15b780095551",
+            "score": 0.9695009078737472,
+            "candidate_id": "Q-07e845659927e463",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-2fb0288a6e36e03a690c",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f3be953570ac66eef954",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-982674442eb41b24695c",
+            "score": 0.0277436113032179,
+            "candidate_id": "Q-d708927f08e80c66",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 400.0,
+              "max": 400.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3ca448f65b0929ccc05f",
+            "score": 0.01576405942280793,
+            "candidate_id": "Q-3ae42f17c8560bec",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-7cfbd0e8e2478be67565",
+            "score": 0.017175259876394497,
+            "candidate_id": "Q-f3b3b353603ea639",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2700.0,
+              "max": 2700.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3949e5bb6d086dcb4a3e",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dace783c1836b5a7ecf9",
+            "score": 0.9573909518960452,
+            "candidate_id": "Q-63dbd5c3c0da86e8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 7370.0,
+              "max": 7370.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-0cc485f0f177e9086cb6",
+            "score": 0.9680834543935076,
+            "candidate_id": "Q-7b0bf2de43239ec6",
+            "candidate_count": 7,
+            "candidate_projection": {
+              "min": 40150.0,
+              "max": 40150.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b5a0e2fb1cb2d5fee02d",
+            "score": 0.5689972975484858,
+            "candidate_id": "Q-4037b3e8a0128376",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 165.0,
+              "max": 165.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-57bdcfacf73116c02030",
+            "score": 0.488489478067063,
+            "candidate_id": "Q-0b31c703b347cf30",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 1850.0,
+              "max": 1850.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-582686ced1f819c3d6ae",
+            "score": 0.488489478067063,
+            "candidate_id": "Q-22e182fdb276bb3b",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 1850.0,
+              "max": 1850.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-bcb1ad43bf3d8c31067c",
+            "score": 0.05729833652095984,
+            "candidate_id": "Q-7c8603e4b6fa0fb5",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 410.0,
+              "max": 410.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-ffa14709dab1bac3b4f8",
+            "score": 0.48342879988667997,
+            "candidate_id": "Q-45318cb204e60b5b",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 367.0,
+              "max": 367.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-08615581e1700974a27c",
+            "score": 0.5363303204886072,
+            "candidate_id": "Q-6e4ee2d5baf72393",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 20.0,
+              "max": 20.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          }
+        ],
+        "scene_structure": [
+          {
+            "id": "S1-807ef8097b47279da882",
+            "score": 0.9606947441459477,
+            "candidate_id": "Q-0729d7dcf49a5b78",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-dd5abc3f75cbc3f99af4",
+            "score": 0.26622793323725485,
+            "candidate_id": "Q-fe02ebcfba9445b7",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 900,
+              "max": 1100
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f58f7ac8aa3926fa613f",
+            "score": 0.5102164464124183,
+            "candidate_id": "Q-3314aaff3d6f113e",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 4400.0,
+              "max": 4400.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-c7d344884dccec5522dc",
+            "score": 0.2690496825998844,
+            "candidate_id": "Q-c79341973782ee80",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2000.0,
+              "max": 2000.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-d4774ee9e446bb13d8fb",
+            "score": 0.4241283871056907,
+            "candidate_id": "Q-33ca6dbf9a641efb",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 220.0,
+              "max": 220.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-1d0d02922d5d6afd4ac7",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b8e7bf93286d2549eef4",
+            "score": 0.9596390018597832,
+            "candidate_id": "Q-d2ea955c2c4759c8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-279ea2462be88f3f2639",
+            "score": 0.971305640131731,
+            "candidate_id": "Q-d39e1d949656a390",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-92bb7a6f15b780095551",
+            "score": 0.973778829245796,
+            "candidate_id": "Q-07e845659927e463",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-2fb0288a6e36e03a690c",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f3be953570ac66eef954",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-982674442eb41b24695c",
+            "score": 0.01898420339059085,
+            "candidate_id": "Q-d708927f08e80c66",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 400.0,
+              "max": 400.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3ca448f65b0929ccc05f",
+            "score": 0.011795712637437793,
+            "candidate_id": "Q-3ae42f17c8560bec",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-7cfbd0e8e2478be67565",
+            "score": 0.011447907075649551,
+            "candidate_id": "Q-f3b3b353603ea639",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2700.0,
+              "max": 2700.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3949e5bb6d086dcb4a3e",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dace783c1836b5a7ecf9",
+            "score": 0.9659003511708412,
+            "candidate_id": "Q-63dbd5c3c0da86e8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 7370.0,
+              "max": 7370.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-0cc485f0f177e9086cb6",
+            "score": 0.9275191053662837,
+            "candidate_id": "Q-7b0bf2de43239ec6",
+            "candidate_count": 7,
+            "candidate_projection": {
+              "min": 40150.0,
+              "max": 40150.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b5a0e2fb1cb2d5fee02d",
+            "score": 0.6354401280474683,
+            "candidate_id": "Q-4037b3e8a0128376",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 165.0,
+              "max": 165.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-57bdcfacf73116c02030",
+            "score": 0.5629733004993792,
+            "candidate_id": "Q-0b31c703b347cf30",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 1850.0,
+              "max": 1850.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-582686ced1f819c3d6ae",
+            "score": 0.5629733004993792,
+            "candidate_id": "Q-22e182fdb276bb3b",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 1850.0,
+              "max": 1850.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-bcb1ad43bf3d8c31067c",
+            "score": 0.06677402650192774,
+            "candidate_id": "Q-7c8603e4b6fa0fb5",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 410.0,
+              "max": 410.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-ffa14709dab1bac3b4f8",
+            "score": 0.5555046715339562,
+            "candidate_id": "Q-45318cb204e60b5b",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 367.0,
+              "max": 367.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-08615581e1700974a27c",
+            "score": 0.6116825514781504,
+            "candidate_id": "Q-6e4ee2d5baf72393",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 20.0,
+              "max": 20.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          }
+        ],
+        "scene_text": [
+          {
+            "id": "S1-807ef8097b47279da882",
+            "score": 0.9611564689542903,
+            "candidate_id": "Q-0729d7dcf49a5b78",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-dd5abc3f75cbc3f99af4",
+            "score": 0.2908608644148588,
+            "candidate_id": "Q-fe02ebcfba9445b7",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 900,
+              "max": 1100
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f58f7ac8aa3926fa613f",
+            "score": 0.479878676040036,
+            "candidate_id": "Q-3314aaff3d6f113e",
+            "candidate_count": 3,
+            "candidate_projection": {
+              "min": 4400.0,
+              "max": 4400.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-c7d344884dccec5522dc",
+            "score": 0.2389160250311912,
+            "candidate_id": "Q-c79341973782ee80",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2000.0,
+              "max": 2000.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-d4774ee9e446bb13d8fb",
+            "score": 0.2711814720644533,
+            "candidate_id": "Q-33ca6dbf9a641efb",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 220.0,
+              "max": 220.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-1d0d02922d5d6afd4ac7",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b8e7bf93286d2549eef4",
+            "score": 0.9603420650217197,
+            "candidate_id": "Q-d2ea955c2c4759c8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 814.0,
+              "max": 814.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-279ea2462be88f3f2639",
+            "score": 0.9741750829605702,
+            "candidate_id": "Q-d39e1d949656a390",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-92bb7a6f15b780095551",
+            "score": 0.9762877475796504,
+            "candidate_id": "Q-07e845659927e463",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2420.0,
+              "max": 2420.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-2fb0288a6e36e03a690c",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-f3be953570ac66eef954",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-982674442eb41b24695c",
+            "score": 0.020295148461255578,
+            "candidate_id": "Q-d708927f08e80c66",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 400.0,
+              "max": 400.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3ca448f65b0929ccc05f",
+            "score": 0.008332217858003426,
+            "candidate_id": "Q-3ae42f17c8560bec",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 350.0,
+              "max": 350.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-7cfbd0e8e2478be67565",
+            "score": 0.017455168706047696,
+            "candidate_id": "Q-f3b3b353603ea639",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 2700.0,
+              "max": 2700.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-3949e5bb6d086dcb4a3e",
+            "score": 0.0,
+            "candidate_id": null,
+            "candidate_count": 0,
+            "candidate_projection": null,
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-dace783c1836b5a7ecf9",
+            "score": 0.9685632779490396,
+            "candidate_id": "Q-63dbd5c3c0da86e8",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 7370.0,
+              "max": 7370.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-0cc485f0f177e9086cb6",
+            "score": 0.9115960946380474,
+            "candidate_id": "Q-7b0bf2de43239ec6",
+            "candidate_count": 7,
+            "candidate_projection": {
+              "min": 40150.0,
+              "max": 40150.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-b5a0e2fb1cb2d5fee02d",
+            "score": 0.524978310065106,
+            "candidate_id": "Q-4037b3e8a0128376",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 165.0,
+              "max": 165.0
+            },
+            "silver_positive": true,
+            "silver_match_if_selected": true
+          },
+          {
+            "id": "S1-57bdcfacf73116c02030",
+            "score": 0.41781403623277,
+            "candidate_id": "Q-0b31c703b347cf30",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 1850.0,
+              "max": 1850.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-582686ced1f819c3d6ae",
+            "score": 0.41781403623277,
+            "candidate_id": "Q-22e182fdb276bb3b",
+            "candidate_count": 15,
+            "candidate_projection": {
+              "min": 1850.0,
+              "max": 1850.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-bcb1ad43bf3d8c31067c",
+            "score": 0.07045962438775466,
+            "candidate_id": "Q-7c8603e4b6fa0fb5",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 410.0,
+              "max": 410.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-ffa14709dab1bac3b4f8",
+            "score": 0.3854151248474393,
+            "candidate_id": "Q-45318cb204e60b5b",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 367.0,
+              "max": 367.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          },
+          {
+            "id": "S1-08615581e1700974a27c",
+            "score": 0.5098976523935079,
+            "candidate_id": "Q-6e4ee2d5baf72393",
+            "candidate_count": 1,
+            "candidate_projection": {
+              "min": 20.0,
+              "max": 20.0
+            },
+            "silver_positive": false,
+            "silver_match_if_selected": false
+          }
+        ]
+      }
+    }
+  }
+}

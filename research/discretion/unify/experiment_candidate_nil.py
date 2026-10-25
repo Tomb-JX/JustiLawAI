@@ -35,7 +35,7 @@ def candidate_x(q: dict, inp: dict, packet: dict) -> dict[str, float]:
     return x
 
 
-def candidate_examples(records: list[tuple], field: str) -> tuple[list[tuple], dict]:
+def candidate_examples(records: list[tuple], field: str, feature_fn=candidate_x) -> tuple[list[tuple], dict]:
     examples = []
     stats = Counter()
     for rid, inp, packet, ref in records:
@@ -43,7 +43,7 @@ def candidate_examples(records: list[tuple], field: str) -> tuple[list[tuple], d
         amounts = [q for q in packet["quantities"] if q["type"] == "amount" and q["parse_status"] == "resolved"]
         if not present(item):
             for q in amounts:
-                examples.append((candidate_x(q, inp, packet), False))
+                examples.append((feature_fn(q, inp, packet), False))
                 stats["silver_missing_negative_candidates"] += 1
             continue
         matches = [q for q in amounts if same_value(field, item["value"], q)
@@ -54,19 +54,19 @@ def candidate_examples(records: list[tuple], field: str) -> tuple[list[tuple], d
             stats["ambiguous_or_missing_positive_records_skipped"] += 1
             continue
         positive = matches[0]
-        examples.append((candidate_x(positive, inp, packet), True))
+        examples.append((feature_fn(positive, inp, packet), True))
         stats["positive_candidates"] += 1
         for q in amounts:
             if q["candidate_id"] != positive["candidate_id"] and q["engine_projection"] != positive["engine_projection"]:
-                examples.append((candidate_x(q, inp, packet), False))
+                examples.append((feature_fn(q, inp, packet), False))
                 stats["different_value_negative_candidates"] += 1
             elif q["candidate_id"] != positive["candidate_id"]:
                 stats["same_value_rivals_unlabeled"] += 1
     return examples, dict(stats)
 
 
-def fit(records: list[tuple], field: str) -> tuple[SparseLogistic, dict]:
-    examples, stats = candidate_examples(records, field)
+def fit(records: list[tuple], field: str, feature_fn=candidate_x) -> tuple[SparseLogistic, dict]:
+    examples, stats = candidate_examples(records, field, feature_fn)
     positives = [x for x, y in examples if y]
     negatives = [x for x, y in examples if not y]
     if not positives or not negatives:
@@ -81,14 +81,14 @@ def fit(records: list[tuple], field: str) -> tuple[SparseLogistic, dict]:
     return model, stats
 
 
-def predict_rows(records: list[tuple], field: str, model: SparseLogistic) -> list[dict]:
+def predict_rows(records: list[tuple], field: str, model: SparseLogistic, feature_fn=candidate_x) -> list[dict]:
     out = []
     for rid, inp, packet, ref in records:
         item = ref["reference_elements"]["amounts"][field.split(".")[1]]
         amounts = [q for q in packet["quantities"] if q["type"] == "amount" and q["parse_status"] == "resolved"]
-        ranked = sorted(amounts, key=lambda q: (-model.predict(candidate_x(q, inp, packet)), q["start"]))
+        ranked = sorted(amounts, key=lambda q: (-model.predict(feature_fn(q, inp, packet)), q["start"]))
         selected = ranked[0] if ranked else None
-        out.append({"id": rid, "score": model.predict(candidate_x(selected, inp, packet)) if selected else 0.0,
+        out.append({"id": rid, "score": model.predict(feature_fn(selected, inp, packet)) if selected else 0.0,
                     "candidate_id": selected["candidate_id"] if selected else None,
                     "candidate_count": len(amounts),
                     "candidate_projection": selected["engine_projection"] if selected else None,

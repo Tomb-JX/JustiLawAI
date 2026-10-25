@@ -1,0 +1,81 @@
+{
+  "scope": "frozen_test_once",
+  "test_records": 40,
+  "test_events": 25,
+  "selected_routes": {
+    "amounts.personal_stake": "candidate_nil:local",
+    "amounts.onsite_stake_total": "original_s2"
+  },
+  "metrics": {
+    "amounts.personal_stake": {
+      "records": 40,
+      "silver_missing": 21,
+      "tn": 20,
+      "silver_positive": 19,
+      "fn": 10,
+      "abstain_on_positive": 9,
+      "selected": 11,
+      "exact_field_match": 9,
+      "tp": 9,
+      "fp": 2,
+      "output_on_silver_missing": 1,
+      "wrong_value_on_positive": 1,
+      "f1": 0.6,
+      "presence_recall": 0.5263157894736842
+    },
+    "amounts.onsite_stake_total": {
+      "records": 40,
+      "silver_positive": 17,
+      "fn": 7,
+      "abstain_on_positive": 7,
+      "silver_missing": 23,
+      "tn": 18,
+      "selected": 15,
+      "fp": 5,
+      "output_on_silver_missing": 5,
+      "exact_field_match": 10,
+      "tp": 10,
+      "f1": 0.625,
+      "presence_recall": 0.5882352941176471
+    }
+  },
+  "original_s2": {
+    "amounts.personal_stake": {
+      "records": 40,
+      "silver_missing": 21,
+      "tn": 19,
+      "silver_positive": 19,
+      "fn": 14,
+      "abstain_on_positive": 13,
+      "selected": 8,
+      "exact_field_match": 5,
+      "tp": 5,
+      "fp": 3,
+      "output_on_silver_missing": 2,
+      "wrong_value_on_positive": 1,
+      "f1": 0.37037037037037035,
+      "presence_recall": 0.3157894736842105
+    },
+    "amounts.onsite_stake_total": {
+      "records": 40,
+      "silver_positive": 17,
+      "fn": 7,
+      "abstain_on_positive": 7,
+      "silver_missing": 23,
+      "tn": 18,
+      "selected": 15,
+      "fp": 5,
+      "output_on_silver_missing": 5,
+      "exact_field_match": 10,
+      "tp": 10,
+      "f1": 0.625,
+      "presence_recall": 0.5882352941176471
+    }
+  },
+  "input_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d",
+    "original_s2_binding_py": "ec7c555b385f41961c3bb61021eeed95cdcb900909cba7ff29445d647b12a942"
+  }
+}
