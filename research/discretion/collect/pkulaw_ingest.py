@@ -155,7 +155,7 @@ def merge_jsonl(path: Path, new_records: list[dict]) -> tuple[list[dict], int]:
 
 # ---------- parsed-1：统一中间格式（L1）——契约见 justilaw-api/app/discretion/records.py ----------
 
-PARSER_ID = "collect/pkulaw_ingest.py@0.2"
+PARSER_ID = "collect/pkulaw_ingest.py@0.4"
 SOURCE_OF_LIB = {"apy": "法宝执法库", "pfnl": "法宝案例库"}
 CONTRACT_TOP_FIELDS = (
     "record_version", "id", "source", "batch", "parser", "source_type", "source_ref", "doc_no",
@@ -189,6 +189,24 @@ def doc_no_hash(doc_no: str) -> str:
     return hashlib.sha256(doc_no_norm(doc_no).encode("utf-8")).hexdigest()[:16]
 
 
+# L2 缺陷修复（2026-10-25，协调移交）：正文称谓后贪婪捕获会把"汪慧甜在其开设的义乌市江"这类
+# 整句片段当人名吞下（{1,12} 无边界）。真人姓名 ≤6 字；仅对超长捕获按停靠词截断。
+_NAME_STOP_MULTI = ("伙同", "召集", "接受", "聘请", "年龄", "构成", "开设", "参与", "营利",
+                    "目的", "在其", "在该", "在于", "法定", "不服", "到案", "查获")
+_NAME_STOP_ONE = "的了在以因等系现被于之将从对经至持与及或并"
+
+
+def trim_person_name(v: str) -> str:
+    """把句子片段式的 subject_mention 截回姓名本体；短值（真名/掩码）原样返回。"""
+    v = (v or "").strip()
+    if len(v) <= 6:
+        return v
+    for i in range(2, len(v)):
+        if v[i:i + 2] in _NAME_STOP_MULTI or v[i] in _NAME_STOP_ONE:
+            return v[:i]
+    return v[:6]
+
+
 def subject_mention_of(rec: dict) -> str:
     """本人在正文中的原写法（供脱敏替换为"甲"）：决定表/元数据块/正文正则三路兜底。"""
     full = rec.get("text_full") or ""
@@ -196,9 +214,9 @@ def subject_mention_of(rec: dict) -> str:
     table = table_cells(full)
     v = table.get("被处罚对象") or meta_block(flat).get("行政相对人")
     if v:
-        return v.strip()
+        return trim_person_name(v.strip())
     m = re.search(r"(?:违法行为人|被处罚人)[:：]?([\u4e00-\u9fa5*＊xX×]{1,12})", flat)
-    return m.group(1) if m else ""
+    return trim_person_name(m.group(1)) if m else ""
 
 
 def _flatten_map(full: str) -> tuple[str, list[int]]:
@@ -740,16 +758,27 @@ DOC_NO_RE = re.compile(r"[（(]?[\u4e00-\u9fa5][公检法执][\u4e00-\u9fa5]{0,4
 SUBJECT_RE = re.compile(r"(?:违法行为人|被处罚人|违法嫌疑人)[：:]?\s*([\u4e00-\u9fa5*＊xX×]{2,12})")
 
 
+# L2 修复②（协调 2026-10-25 移交，not_gambling 9 件定性）：整篇兜底前剔除的上下文——
+# 前科句式（曾…赌博 / 因赌博被行政处罚 / 经历·前科句内涉赌）与场所名（麻将室/棋牌室内）。
+_PRIOR_SENT = re.compile(
+    r"[^。；]*(?:曾[^。；]{0,4}赌博"
+    r"|因[^。；]{0,8}赌博[^。；]{0,15}?(?:被|给予|处以)[^。；]{0,15}?(?:行政拘留|罚款|处罚|追究)"
+    r"|(?:经历|前科)[^。；]{0,40}?(?:赌博|赌资|麻将|六合彩|牌九))[^。；]*[。；]?")
+_VENUE = re.compile(r"(?:麻将|棋牌)(?:室|馆|厅)[内中]?")
+
+
 def gambling_hint_of(raw: str, doc_no: str, facts: str, meta: dict, table: dict) -> bool:
     """是不是赌博案：先看标题（首个**非空**行，实测导出件的首行常为空）与关键字段，
-    都不命中再兜底整篇——兜底会把"因赌博被处罚"这类前科误命中，但漏掉真赌博案的代价更大。
+    都不命中再兜底整篇——兜底**先剔除前科句式与场所名**（修复②：含赌字≠本案赌博，
+    殴打/吸毒/盗窃文书的"曾因赌博被行拘"或案发现场"麻将室内"不再算赌博案）。
     """
     title = next((l.strip() for l in (raw or "").splitlines() if l.strip()), "")
     primary = flatten(title + doc_no + (facts or "") + meta.get("罚没情况", "")
                       + meta.get("处罚种类", "") + table.get("处罚事由", ""))
     if GAMBLING_MARK.search(primary):
         return True
-    return bool(GAMBLING_MARK.search(flatten(raw)))
+    scrubbed = _VENUE.sub("场所", _PRIOR_SENT.sub("", flatten(raw)))
+    return bool(GAMBLING_MARK.search(scrubbed))
 
 
 def flatten(text: str) -> str:
