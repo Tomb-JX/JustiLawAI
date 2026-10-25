@@ -1,0 +1,69 @@
+{
+  "scope": "train_valid_only",
+  "test_labels_used": false,
+  "implementation_sha256": "82593db3051109a37e5f9aa3717628e4ad3ebff091399394d9cbdc4e738663be",
+  "inputs_sha256": {
+    "teacher": "61d1e9b98138b2d7b57a728226314428f18de1cd558dd5c2ecd58234e1efc16c",
+    "originals": "1d148bdf6507c52102cf471d93b098443d25ae9b3b58ea0e2e45b2cb74cb9ff2",
+    "silver": "b9461e6bfeb6f16b195c4b0bd318eb9201f4d8603d6e95615f3c30b69d58796d"
+  },
+  "splits": {
+    "train": {
+      "records": 140,
+      "explicit_evidence_same": 31,
+      "silver_missing": 86,
+      "abstained": 108,
+      "abstain_on_positive": 27,
+      "masked_collision_selected": 17,
+      "union_candidate_coverage": 51,
+      "union_evidence_local_coverage": 47,
+      "list_candidates": 36,
+      "provisional_participation_edges": 154,
+      "silver_positive": 54,
+      "selected": 32,
+      "matched_silver": 27,
+      "incremental_list_match": 20,
+      "incremental_list_evidence_local_match": 16,
+      "output_on_silver_missing": 5,
+      "match_outside_silver_evidence": 5,
+      "incremental_events": 17,
+      "silver_missing_disagreement_events": 3,
+      "silver_missing_disagreement_ids": [
+        "S1-b8d558364a6dbabea3e3",
+        "S1-252afdd99aee29bb07ef",
+        "S1-7e78e3415b26321bf458",
+        "S1-4cb061ff7ae8fafcb198",
+        "S1-72c37d6c48b386a983cc"
+      ]
+    },
+    "valid": {
+      "records": 23,
+      "explicit_evidence_same": 6,
+      "silver_missing": 16,
+      "abstained": 20,
+      "abstain_on_positive": 6,
+      "masked_collision_selected": 2,
+      "union_candidate_coverage": 7,
+      "union_evidence_local_coverage": 7,
+      "silver_positive": 7,
+      "list_candidates": 3,
+      "provisional_participation_edges": 14,
+      "selected": 3,
+      "output_on_silver_missing": 2,
+      "matched_silver": 1,
+      "incremental_list_match": 1,
+      "incremental_list_evidence_local_match": 1,
+      "incremental_events": 1,
+      "silver_missing_disagreement_events": 2,
+      "silver_missing_disagreement_ids": [
+        "S1-2fb0288a6e36e03a690c",
+        "S1-dace783c1836b5a7ecf9"
+      ]
+    }
+  },
+  "limitations": [
+    "Silver field missing is not a verified negative edge",
+    "Masked repeated names are distinct list slots, not resolved person identities",
+    "Participation and list completeness edges are provisional"
+  ]
+}
