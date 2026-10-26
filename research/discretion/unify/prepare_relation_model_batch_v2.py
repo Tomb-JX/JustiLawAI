@@ -33,7 +33,10 @@ def flags(packet: dict, target: str, aliases: list[str]) -> dict[str, bool]:
 
 
 def prepare(teacher: Path, originals: Path, old_teacher: Path, previous: list[Path], *,
-            size: int, splits: dict[str, int]) -> tuple[list[dict], dict]:
+            size: int | None, splits: dict[str, int],
+            source_run: str = "expansion-1000-20261021/teacher-inputs-v4d") -> tuple[list[dict], dict]:
+    """size=None keeps one record from every event cluster (natural distribution, no oversampling);
+    the last split then takes whatever remains after the others."""
     texts = {r["id"]: r["text_full"] for r in rows(originals)}
     used_sources, used_grams = set(), []
     for path in [old_teacher, *previous]:
@@ -75,6 +78,10 @@ def prepare(teacher: Path, originals: Path, old_teacher: Path, previous: list[Pa
     rest = [r for r in candidates if r not in rich]
     rng.shuffle(rich)
     rng.shuffle(rest)
+    if size is None:
+        size = len(candidates)
+        *head, last = splits
+        splits = {**{k: splits[k] for k in head}, last: size - sum(splits[k] for k in head)}
     # Amount-rich/list records first (the joint-role target), then a natural-distribution remainder.
     # When the random remainder is short, rich records fill the gap (batches 2–3 never hit this).
     n_rich = min(len(rich), max(size * 2 // 3, size - len(rest)))
@@ -91,7 +98,7 @@ def prepare(teacher: Path, originals: Path, old_teacher: Path, previous: list[Pa
                     "source_sha256": row["source_sha256"], "text_full": row["text_full"],
                     "sentence_view": row["sentence_view"], "view_hash": row["view_hash"],
                     "facts_text": row["facts_text"], "meta_text": row.get("meta_text") or "",
-                    "source_run": "expansion-1000-20261021/teacher-inputs-v4d", "flags": row["flags"],
+                    "source_run": source_run, "flags": row["flags"],
                     "selection_group": "challenge" if row in rich else "random", "split": split,
                     "event_cluster_id": "C-" + hashlib.sha256(row["source_sha256"].encode()).hexdigest()[:16],
                     "event_cluster_size": row["cluster_size"]})
@@ -111,14 +118,15 @@ def main() -> None:
     for name in ("teacher", "originals", "old_teacher", "out"):
         ap.add_argument("--" + name.replace("_", "-"), type=Path, required=True)
     ap.add_argument("--previous", type=Path, action="append", default=[])
-    ap.add_argument("--size", type=int, default=360)
+    ap.add_argument("--size", type=int, default=360, help="0 = every event cluster, natural distribution")
+    ap.add_argument("--source-run", default="expansion-1000-20261021/teacher-inputs-v4d")
     ap.add_argument("--splits", default="train=240,calibration=40,model_draft_holdout=80")
     args = ap.parse_args()
     if args.out.exists():
         ap.error("output_already_exists")
     splits = {k: int(v) for k, v in (x.split("=") for x in args.splits.split(","))}
     selected, manifest = prepare(args.teacher, args.originals, args.old_teacher, args.previous,
-                                 size=args.size, splits=splits)
+                                 size=args.size or None, splits=splits, source_run=args.source_run)
     args.out.mkdir(parents=True)
     path = args.out / "inputs.jsonl"
     path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in selected), "utf-8")

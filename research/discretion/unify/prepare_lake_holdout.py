@@ -16,14 +16,15 @@ from audit_supply_replay import rows
 from run_elements import load_work
 
 
-def assemble(queue: Path, data: Path, out: Path) -> Path:
+def assemble(queue: Path, data: Path, out: Path, edits_root: str = "unified_raw_refresh/20261018-party",
+             parsed_root: str = "parsed_refresh/20261018") -> Path:
     records = list(rows(queue / "records.jsonl"))
     by_batch: dict[tuple, dict] = {}
     for key in {(r["channel"], r["source_batch"]) for r in records}:
         ch, b = key
         by_batch[key] = {
-            "edits": {e["id"]: e for e in rows(data / f"unified_raw_refresh/20261018-party/{ch}/{b}/edits.rle.jsonl")},
-            "parsed": {p["id"]: p for p in rows(data / f"parsed_refresh/20261018/{ch}/{b}/records.jsonl")}}
+            "edits": {e["id"]: e for e in rows(data / f"{edits_root}/{ch}/{b}/edits.rle.jsonl")},
+            "parsed": {p["id"]: p for p in rows(data / f"{parsed_root}/{ch}/{b}/records.jsonl")}}
     out.mkdir(parents=True, exist_ok=False)
     with (out / "records.jsonl").open("w", encoding="utf-8") as fr, \
             (out / "edits.rle.jsonl").open("w", encoding="utf-8") as fe, \
@@ -43,8 +44,10 @@ def main() -> None:
     for name in ("queue", "data", "out"):
         ap.add_argument("--" + name, type=Path, required=True)
     ap.add_argument("--run", type=Path, action="append", required=True, help="S1 run dirs; later ones fill gaps")
+    ap.add_argument("--edits-root", default="unified_raw_refresh/20261018-party", help="relative to --data")
+    ap.add_argument("--parsed-root", default="parsed_refresh/20261018", help="relative to --data")
     args = ap.parse_args()
-    unified = assemble(args.queue, args.data, args.out / "input")
+    unified = assemble(args.queue, args.data, args.out / "input", args.edits_root, args.parsed_root)
     seen, teacher, originals, rejected = set(), [], [], Counter()
     for run in args.run:
         work, rej = load_work(run, unified, args.out / "input" / "originals.jsonl")
