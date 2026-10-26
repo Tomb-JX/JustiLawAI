@@ -258,6 +258,20 @@ def test_service_same_amount_different_people_is_unresolved():
     assert set(b["candidate_ids"]) == {"Q-other", "Q1"}
 
 
+def test_service_legacy_candidate_id_maps_only_on_exact_source_span():
+    svc = _service_stub()
+    it = _amount_item()
+    chain = {"amounts.personal_stake": {"status": "selected", "value": {"min": 365, "max": 365},
+                                         "candidate_id": "C-amount-1", "start": 7, "end": 11,
+                                         "raw": "365元"}}
+    agree = {n: {"r": {"personal_stake": (0.9, "amount:365", "Q1")}} for n in svc.routes}
+    b = svc._amount(it, "personal_stake", chain, agree)
+    assert b["binding_status"] == "bound" and b["candidate_ids"] == ["Q1"]
+    assert b["proposals"]["frozen_chain"]["source_candidate_id"] == "C-amount-1"
+    chain["amounts.personal_stake"]["start"] = 0
+    assert svc._amount(it, "personal_stake", chain, agree)["binding_status"] == "unresolved"
+
+
 def test_service_open_amount_keeps_null_upper_bound():
     svc = _service_stub()
     it = _amount_item()

@@ -182,8 +182,23 @@ class BindingService:
     def _amount(self, it: dict, field: str, chain_fields: dict, route_preds: dict) -> dict:
         rid = it["id"]
         out = chain_fields[CHAIN[field]]
-        proposals = {"frozen_chain": {"value": chain_value(field, out),
-                                      "candidate_id": out.get("candidate_id") if out["status"] == "selected" else None}}
+        chain_key = chain_value(field, out)
+        original_cid = out.get("candidate_id") if out["status"] == "selected" else None
+        chain_cid = original_cid
+        quantities = {q["candidate_id"]: q for q in it["packet"]["quantities"]}
+        if original_cid and original_cid not in quantities:
+            # The old S2 route uses C-amount-* IDs, while supply_packet uses Q-*.
+            # Equate them only by the same exact original-text span and typed value.
+            start, end = out.get("start"), out.get("end")
+            source = it["record"]["text_full"]
+            matches = [q for q in quantities.values()
+                       if (type(start) is int and type(end) is int and 0 <= start < end <= len(source)
+                           and q.get("type") == "amount" and q.get("start") == start and q.get("end") == end
+                           and source[start:end] == out.get("raw")
+                           and amount_key(q.get("engine_projection")) == chain_key)]
+            chain_cid = matches[0]["candidate_id"] if len(matches) == 1 else None
+        proposals = {"frozen_chain": {"value": chain_key, "candidate_id": chain_cid,
+                                      "source_candidate_id": original_cid}}
         for name, (_, _, thresholds) in self.routes.items():
             score, key, cid = route_preds[name][rid][field]
             keep = score >= thresholds[field]
