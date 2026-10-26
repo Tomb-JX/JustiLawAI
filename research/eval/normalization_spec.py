@@ -13,7 +13,7 @@ Codex 对接：element_contract 的日期/金额归一化步骤应调用本模�
 from __future__ import annotations
 
 import re
-from datetime import date
+from datetime import date, timedelta
 
 # --- 金额归一化（§3.9 + 标注指南 §2） ---
 
@@ -171,6 +171,63 @@ def normalize_amount(text: str) -> dict | None:
     return None
 
 
+# --- 计数归一化（§3.8 + 标注指南 §3）：人数/次数/场次/台数/年龄等可数整数 ---
+
+_COUNT_DIGITS = "0123456789０１２３４５６７８９〇零一二两三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟"
+_FULLWIDTH = str.maketrans("０１２３４５６７８９", "0123456789")
+
+
+def _count_to_int(s: str) -> int | None:
+    s = s.translate(_FULLWIDTH)
+    if re.fullmatch(r"[0-9]+", s):
+        return int(s)
+    v = cn_to_number(s)
+    if v is None:
+        return None
+    return int(v) if float(v).is_integer() else round(v)
+
+
+def normalize_count(text: str) -> dict | None:
+    """计数/整数归一化（E-05，§3.8）。用于 count / age 类量。
+
+    输入：原文中的计数表述（"3台""30岁""至少3次""20余人""3至5人""三人"）。
+    输出：{"min": int, "max": int|None, "exact": bool} 或 None（无法解析）。
+      - exact=True：明确单值（min==max），可无损投影为整数要素值；
+      - exact=False：边界 / 区间 / 近似 / "余多"，要素层不得据此断言精确整数（投影 value=None）；
+      - max=None：开口（只给下界或上界）。
+
+    规则（与 supply_packet._surface_operator / normalization.project_quantity 对齐）：
+    - "A至B" 区间 → min=A, max=B, exact=False；
+    - "不超过/至多/以下/不足/不到/低于 N" → min=0, max=N, exact=False；
+    - "至少/超过/逾/不低于/以上 N" → min=N, max=None, exact=False；
+    - "N余 / N多" → min=N, max=None, exact=False；
+    - "约/近/左右/上下 N" → min=max=N, exact=False；
+    - 纯数字（无修饰）→ min=max=N, exact=True。
+    """
+    if not text or not isinstance(text, str):
+        return None
+    t = text.strip()
+    nums = [_count_to_int(s) for s in re.findall(f"[{_COUNT_DIGITS}]+", t)]
+    nums = [n for n in nums if n is not None]
+    if not nums:
+        return None
+    if re.search(r"至|到|[-~～]", t) and len(nums) >= 2:
+        lo, hi = nums[0], nums[1]
+        if lo > hi:
+            return None
+        return {"min": lo, "max": hi, "exact": False}
+    n = nums[0]
+    if re.search(r"不超过|至多|以下|不足|不到|低于", t):
+        return {"min": 0, "max": n, "exact": False}
+    if re.search(r"至少|超过|逾|不低于|以上", t):
+        return {"min": n, "max": None, "exact": False}
+    if re.search(r"余|多", t):
+        return {"min": n, "max": None, "exact": False}
+    if re.search(r"约|近|左右|上下", t):
+        return {"min": n, "max": n, "exact": False}
+    return {"min": n, "max": n, "exact": True}
+
+
 # --- 日期归一化（§3.8 + 标注指南 §3） ---
 
 def normalize_date(text: str) -> tuple[date, str] | None:
@@ -210,6 +267,95 @@ def normalize_date(text: str) -> tuple[date, str] | None:
         except ValueError:
             return None
     return None
+
+
+def _last_day_of_month(year: int, month: int) -> date:
+    """该月最后一天。"""
+    if month == 12:
+        return date(year, 12, 31)
+    return date(year, month + 1, 1) - timedelta(days=1)
+
+
+_RANGE_SEPARATORS = r"至|到|迄|—|–|~|～|－"
+
+
+def _parse_date_endpoint(s: str, inherit_year: int | None = None,
+                         inherit_month: int | None = None) -> tuple[int, int | None, int | None] | None:
+    """解析区间端点为 (year, month|None, day|None)；年缺失时用 inherit_year，月缺失时用 inherit_month。
+
+    无法确定年份时返回 None（区间端点必须可定位到具体年）。
+    """
+    ym = re.search(r"(\d{4})\s*年", s)
+    mm = re.search(r"(\d{1,2})\s*月", s)
+    dd = re.search(r"(\d{1,2})\s*日", s)
+    year = int(ym.group(1)) if ym else inherit_year
+    if year is None:
+        return None
+    month = int(mm.group(1)) if mm else inherit_month
+    day = int(dd.group(1)) if dd else None
+    return (year, month, day)
+
+
+def normalize_date_range(text: str) -> dict | None:
+    """日期区间归一化（E-05，§3.8 + 标注指南 §3）。
+
+    输入：原文中的日期表述。**只识别真正的区间**（含 至/到/迄/—/~/－ 分隔符）；
+          单点日期返回 None，由调用方回退 normalize_date。
+    输出：{"start": date, "end": date, "days": int} 或 None（无法解析）。
+          days 为含首尾的天数（(end-start).days + 1）。
+
+    规则：
+    - "X年A月至B月"（右段缺年）→ 右段继承左段年 X；start 取左段起始（精确到日则当日，
+      到月则当月 1 日，到年则当年 1 月 1 日），end 取右段末尾（精确到日则当日，到月则当月
+      最后一天，到年则当年 12 月 31 日）。
+    - 右段缺月但带日时继承左段月。
+    - 跨年（右段缺年且 end < start）→ 右段年取 X+1 重试。
+    - 非法日期 / 端点无法定位到年 → None。
+    """
+    if not text or not isinstance(text, str):
+        return None
+    t = text.strip()
+    if not re.search(_RANGE_SEPARATORS, t):
+        return None
+    parts = re.split(_RANGE_SEPARATORS, t, maxsplit=1)
+    if len(parts) != 2:
+        return None
+    left, right = parts[0].strip(), parts[1].strip()
+    if not left or not right:
+        return None
+
+    l = _parse_date_endpoint(left)
+    if l is None:
+        return None
+    ly, lmonth, lday = l
+    r = _parse_date_endpoint(right, inherit_year=ly, inherit_month=lmonth)
+    if r is None:
+        return None
+    ry, rmonth, rday = r
+
+    def _build(year: int, month: int | None, day: int | None, end: bool) -> date | None:
+        try:
+            if month is None:
+                return date(year, 12, 31) if end else date(year, 1, 1)
+            if day is not None:
+                return date(year, month, day)
+            return _last_day_of_month(year, month) if end else date(year, month, 1)
+        except ValueError:
+            return None
+
+    start = _build(ly, lmonth, lday, end=False)
+    end = _build(ry, rmonth, rday, end=True)
+    if start is None or end is None:
+        return None
+    if end < start:
+        # 右段缺显式年且跨年：年 +1 重试一次
+        if not re.search(r"(\d{4})\s*年", right):
+            end2 = _build(ry + 1, rmonth, rday, end=True)
+            if end2 is not None and end2 >= start:
+                end = end2
+        if end < start:
+            return None
+    return {"start": start, "end": end, "days": (end - start).days + 1}
 
 
 def normalize_duration(text: str) -> float | None:

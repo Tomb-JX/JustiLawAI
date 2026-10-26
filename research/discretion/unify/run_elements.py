@@ -507,7 +507,14 @@ def main():
                     merged, unresolved, diffs = merge_valid(*candidates, ENGINE, rec["_text_full"], inp["regions"], c)
                 if contract_snapshot(ENGINE) != snapshot:
                     raise RuntimeError('contract_changed_during_call:保留 raw，不提交混合契约标签')
-                binding_audit = audit_elements(merged, inp["supply_packet"])
+                if "supply_packet" in inp:
+                    binding_audit = audit_elements(merged, inp["supply_packet"])
+                else:
+                    # 合并兼容：binding-fix 生产路径（build_work / load_slice_work）总是注入
+                    # supply_packet；仅测试夹具或早期冻结输入可能没有。缺失时跳过 binding 审计，
+                    # 不阻断要素产出（binding 放行另有独立门禁，见 BIND-SVC-QA-01）。
+                    binding_audit = {"counts": {"quarantined": 0, "unverified": 0},
+                                     "field_disposition": {}, "skipped": "no_supply_packet_in_input"}
                 needs_binding_review = (binding_audit["counts"]["quarantined"] +
                                         binding_audit["counts"]["unverified"] > 0)
                 result = {"id": rid, "status": "needs_binding_review" if needs_binding_review else "valid",

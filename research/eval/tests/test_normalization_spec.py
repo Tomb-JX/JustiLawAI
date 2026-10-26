@@ -5,7 +5,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from normalization_spec import (cn_to_number, normalize_amount,  # noqa: E402
-                                 normalize_date, normalize_duration,
+                                 normalize_count, normalize_date,
+                                 normalize_date_range, normalize_duration,
                                  validate_amount_against_source,
                                  validate_date_against_source)
 
@@ -153,3 +154,63 @@ def test_validate_date_consistent():
 
 def test_validate_date_inconsistent():
     assert validate_date_against_source("2025-08-15", "于2025年9月1日") is False
+
+
+# --- normalize_date_range（E-05 补全，供 unify supply_packet / evidence_graph 调用）---
+
+def test_date_range_same_year_month_precision():
+    r = normalize_date_range("2025年1月至3月")
+    assert r == {"start": date(2025, 1, 1), "end": date(2025, 3, 31), "days": 90}
+
+
+def test_date_range_explicit_cross_year():
+    r = normalize_date_range("2025年12月至2026年1月")
+    assert r["start"] == date(2025, 12, 1) and r["end"] == date(2026, 1, 31)
+
+
+def test_date_range_implicit_cross_year():
+    # 右段缺年且 end<start → 年 +1 重试
+    r = normalize_date_range("2025年12月至1月")
+    assert r["start"] == date(2025, 12, 1) and r["end"] == date(2026, 1, 31)
+
+
+def test_date_range_day_precision_endpoints():
+    r = normalize_date_range("2025年1月5日至10日")
+    assert r["start"] == date(2025, 1, 5) and r["end"] == date(2025, 1, 10)
+
+
+def test_single_date_is_not_a_range():
+    # 单点日期须返回 None，由调用方回退 normalize_date（birth 日期不得当区间）
+    assert normalize_date_range("1995年11月28日") is None
+    assert normalize_date_range("2025年3月") is None
+
+
+def test_date_range_invalid():
+    assert normalize_date_range("") is None
+    assert normalize_date_range(None) is None
+    # 无法定位到年 → None
+    assert normalize_date_range("1月5日至10日") is None
+
+
+# --- normalize_count（E-05 补全，供 unify supply_packet count/age 调用）---
+
+def test_count_exact():
+    assert normalize_count("3台") == {"min": 3, "max": 3, "exact": True}
+    assert normalize_count("30岁") == {"min": 30, "max": 30, "exact": True}
+    assert normalize_count("三人") == {"min": 3, "max": 3, "exact": True}
+
+
+def test_count_range_not_exact():
+    assert normalize_count("3至5人") == {"min": 3, "max": 5, "exact": False}
+
+
+def test_count_bound_and_vague_not_exact():
+    assert normalize_count("至少3次") == {"min": 3, "max": None, "exact": False}
+    assert normalize_count("20余人") == {"min": 20, "max": None, "exact": False}
+    assert normalize_count("约5人") == {"min": 5, "max": 5, "exact": False}
+    assert normalize_count("不超过10人") == {"min": 0, "max": 10, "exact": False}
+
+
+def test_count_invalid():
+    assert normalize_count("") is None
+    assert normalize_count("赌博") is None
