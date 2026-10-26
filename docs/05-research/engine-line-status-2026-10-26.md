@@ -2,7 +2,7 @@
 
 > 核对方式：逐项读取合并入 main 的引擎代码（`justilaw-api/app/discretion/`、`research/eval/`、`research/discretion/unify/`）、引擎实验报告（`docs/05-research/m4-*.md`、`binding-service-v1-integration-review-2026-10-26.md`、`notes/2026-10-2*`）、协调看板 `$DATA/coordination/CURRENT.md`（v1.1 已按 10-26 **20:18** 看板与 `m4-facts-silver-1740-20261026-v2/manifest.json` 复核）、以及协调工作树未提交的 `PROJECT-PANORAMA-STATUS-2026-10-22.md`。数字为 2026-10-26 实测或引自当日产物。
 > 本文是引擎线（M0–M6 + binding/L5 + 评测）的**现状唯一出处**，取代 `framework-panorama.md` §3 模块表的过时状态列（§3 概念/方法描述仍有效，状态以本文为准）。
-> 配套：[引擎方案](../02-design/gambling-discretion-engine.md)（设计）· [固定对照与阶段门禁](./sota-baselines-and-gates.md)（门禁）· [数据链路现状](../04-plan/data-pipeline-status.md)（供给）· [协调看板](../04-plan/BOARD.md)
+> 配套：[引擎方案](../02-design/gambling-discretion-engine.md)（设计）· [固定对照与阶段门禁](./sota-baselines-and-gates.md)（门禁）· [数据链路现状](../04-plan/data-pipeline-status.md)（供给）· [外部对照 2026-10-26](./external-model-comparison-2026-10-26.md)（同类裁量模型的公开研究与实务系统检索对照，§7 路线裁定的外部依据）· [协调看板](../04-plan/BOARD.md)
 
 ## 0. 一页结论
 
@@ -121,3 +121,4 @@ L5 质量规则（10-26 修复，c3343ec，230 测试绿→合并后 286 绿）�
 |---|---|---|---|
 | 2026-10-26 | v1 | 初版：合并入 main 后整合 M0–M6 + binding/L5 + 评测真实状态；M4 证据链（203/融合/合并/金额闭环）、binding v1.1 影子上限、金标 0 总单点、问题诊断与下一步。取代 framework-panorama §3 过时状态列 | 宏观指引会话（用户指示） |
 | 2026-10-26 | v1.1 | 按当晚 20:18 看板回写：新增 §2.5 统一文本训练包 m4-facts-silver-1740-v2（train 1,740/1,348 事件、valid 357 三套、test 40 封存）与 P3-P7 扩产（631 合格、¥6.31）、§2.6 两阶段数值与事件分组试验（均不替换现行模型）；§4 改为五批文本银标 + L5 隔离批（金丝雀 30/next-30 未放行，待 binding-v2 语义闸；金额硬闸"X元起"误拒缺口 open）；§3 区分 binding H3 工程级审计通过 vs 语义级复核未过；§0/§6 数字同步。旧口径"验证集仅 23–168 条""四批银标"作废 | 宏观指引会话（用户指正数字滞后） |
+| 2026-10-26 | v1.2 | 配套栏互链外部对照笔记 external-model-comparison-2026-10-26（三路网络检索：同类裁量模型公开研究/实务系统/低资源标注实证，§7 路线裁定的外部依据） | 宏观指引会话 |
