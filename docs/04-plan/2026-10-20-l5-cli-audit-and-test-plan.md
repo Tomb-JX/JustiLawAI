@@ -155,3 +155,26 @@ manifest 无 prompt_fingerprint 字段 ⇒ 不再可 resume（治理上正确：
 覆盖声明（诚实版）：监控为**拉取式**（status.py / --watch / audit_run），无推送告警；
 链路二（本地 Ollama）无统一效率视图（per-record seconds 已存记录内）；
 延迟 p50/p90 为记录级（raw 级数据齐备但未聚合展示）。
+
+### 5c. 看板问题修复（2026-10-26，commit c3343ec @ codex/l5-quality-s1-run-aggregate）
+
+响应协调看板 L5-VIEW-01 与金额硬闸公告（l5-money-parser-repair-notice-2026-10-26），
+并与同树另一会话的在途工作（meta_fields 子段投影/掩码等价/--full 模式）一并收编提交：
+
+1. **L5-VIEW-01 person_block 起点收窄**（field_table.parse_fields）：起点三候选取最大——
+   结果性标题"行政处罚决定书"+紧随文号强制剥离、身份锚前最后 person 标签起点（保留
+   "被处罚人党**"前导）、target 前最近分隔（保留"温某某，男"紧邻前导）；掩码异形退化
+   锚前分隔。混合批冻结真实记录 4/4：标题+文号全部剥离、target 完整保留、角色前缀保留。
+2. **金额硬闸短语级修复**（element_contract.check_money_support，公告任务1/2）：
+   区间短语（"10至100元"省略单位左端）入账 supported/mins；"最低下注/押注/赌注/底注/注码
+   +金额"近邻才解释为下界开口（"最低生活保障发放10元"仍拒收，测试钉死）；
+   direct 形态 E-05 对账 all→any（数值由一条引文承担，其余引文承担主体/场景归属；
+   本人绑定审查独立于金额闸——S1-0171 金额过但 binding pending 继续隔离）。
+3. **冻结重放验证**：money-rejection-replay.json 6/6 复现口径——2 条抢救候选
+   （S1-37324a 最低下注、S1-38da 区间开口）、1 条金额过而绑定隔离（S1-0171）、
+   3 条反例保持拒收，与公告"最多 2 条抢救"预期一致。
+4. **回归**：230/230 离线全绿（含新增金额 3 正例 4 反例、person_block 3 例）。
+
+注：同树另一会话未提交工作（meta_fields 投影、mask_contains target 门槛、--full 模式、
+停批分类 FULL_MODE_HARD_STOP、field_table 新模块）一并收编；此前 live 冲突三度
+"file modified since read"，提交后树已收敛。扩产工单仍按 I-21 六道门另行登记。
