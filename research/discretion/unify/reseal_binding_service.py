@@ -48,8 +48,12 @@ def main() -> None:
     root = Path(binding_service.__file__).resolve().parent
     engine_root = args.engine_root.resolve()
     engine_paths = sorted((engine_root / "app/discretion").glob("*.py"))
+    eval_root = engine_root.parent / "research/eval"
+    eval_paths = [eval_root / name for name in ("normalization_spec.py", "evidence_contract.py", "binding_rules.py")]
     if not engine_paths or not (engine_root / "app/discretion/binding.py").is_file():
         raise ValueError("engine_source_missing")
+    if any(not path.is_file() for path in eval_paths):
+        raise ValueError("engine_eval_source_missing")
     out.mkdir(parents=True)
     for rel in old["files"]:
         dest = out / rel
@@ -61,11 +65,13 @@ def main() -> None:
                 "policy": "amounts bound only when all three routes select the same candidate and typed range; "
                           "all other cases unresolved for review",
                 "runtime_files": runtime_files(root),
-                "engine_files": {p.relative_to(engine_root).as_posix(): sha(p) for p in engine_paths}}
+                "engine_files": {p.relative_to(engine_root).as_posix(): sha(p) for p in engine_paths},
+                "eval_files": {p.name: sha(p) for p in eval_paths}}
     (out / "MANIFEST.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", "utf-8")
     print(json.dumps({"version": manifest["version"], "code_revision": revision,
                       "runtime_files": len(manifest["runtime_files"]),
-                      "engine_files": len(manifest["engine_files"]), "out": str(out)}))
+                      "engine_files": len(manifest["engine_files"]),
+                      "eval_files": len(manifest["eval_files"]), "out": str(out)}))
 
 
 if __name__ == "__main__":

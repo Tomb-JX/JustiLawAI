@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import numpy as np
@@ -85,19 +86,27 @@ class PairScorer:
 
 class BindingService:
     def __init__(self, artifacts: Path, engine_root: Path, threads: int = 8):
-        self.root, self.engine_root = artifacts, engine_root
+        self.root, self.engine_root = artifacts, engine_root.resolve()
         manifest = json.loads((artifacts / "MANIFEST.json").read_text("utf-8"))
-        if manifest.get("version") != VERSION or not manifest.get("runtime_files") or not manifest.get("engine_files"):
+        if (manifest.get("version") != VERSION or not manifest.get("runtime_files")
+                or not manifest.get("engine_files") or not manifest.get("eval_files")):
             raise ValueError("binding_manifest_version_or_runtime_missing")
         for rel, digest in manifest["files"].items():
             if hashlib.sha256((artifacts / rel).read_bytes()).hexdigest() != digest:
                 raise ValueError("artifact_hash_mismatch:" + rel)
         for base, files, kind in ((Path(__file__).resolve().parent, manifest["runtime_files"], "runtime"),
-                                  (engine_root, manifest["engine_files"], "engine")):
+                                  (engine_root, manifest["engine_files"], "engine"),
+                                  (engine_root.parent / "research/eval", manifest["eval_files"], "eval")):
             for rel, digest in files.items():
                 path = base / rel
                 if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
                     raise ValueError(f"{kind}_hash_mismatch:{rel}")
+        # element_contract resolves the E-05 package through this environment key.
+        # A process must not silently mix two different engine checkouts.
+        configured_api = os.environ.get("JUSTILAW_ENGINE_API")
+        if configured_api and Path(configured_api).resolve() != self.engine_root:
+            raise ValueError("binding_engine_root_conflict")
+        os.environ["JUSTILAW_ENGINE_API"] = str(self.engine_root)
         self.manifest_sha256 = hashlib.sha256((artifacts / "MANIFEST.json").read_bytes()).hexdigest()
         routes = json.loads((artifacts / "amount_routes.json").read_text("utf-8"))
         self.routes = {n: (Variant(*n.split("/")), Softmax.load(r["softmax"]), r["thresholds"]) for n, r in routes.items()}
