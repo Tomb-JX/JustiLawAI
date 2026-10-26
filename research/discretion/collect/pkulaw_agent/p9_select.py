@@ -25,9 +25,11 @@ from pkulaw_agent.session import data_dir  # noqa: E402
 
 
 def ingested_urls(data: Path) -> set[str]:
+    """排除集 = 已落湖/已解析批次 URL + 已下载 word 记录。**不含当前 P9 队列自身**
+    （那是下载目标而非已完成；2026-10-26 自我排除 bug 修正）。"""
     have = set()
     for f in data.rglob("results.jsonl"):
-        if "cache" in str(f):
+        if "cache" in str(f) or "20261026-P9" in str(f):
             continue
         for l in f.read_text(encoding="utf-8").splitlines():
             if not l.strip():
@@ -38,7 +40,22 @@ def ingested_urls(data: Path) -> set[str]:
                 continue
             if u:
                 have.add(u.split("#")[0].split("?")[0].rstrip("/"))
-    for f in data.rglob("download_list.jsonl"):
+    for f in data.rglob("download_done.jsonl"):
+        if "20261026-P9" in str(f):
+            continue  # 本批自身正在下，不算已入库
+        for l in f.read_text(encoding="utf-8").splitlines():
+            if not l.strip():
+                continue
+            try:
+                d = json.loads(l)
+            except Exception:  # noqa: BLE001
+                continue
+            # 已下载件的 URL 由其所属 run 的 results.jsonl 提供（上面已收），
+            # 这里兜底：done 记录里若带 url 字段（P8+ 格式）直接排除
+            u = d.get("url") or ""
+            if u:
+                have.add(u.split("#")[0].split("?")[0].rstrip("/"))
+    for f in data.rglob("ingest-meta/admin_cases.jsonl"):
         for l in f.read_text(encoding="utf-8").splitlines():
             try:
                 u = json.loads(l).get("url", "")
@@ -46,6 +63,15 @@ def ingested_urls(data: Path) -> set[str]:
                 continue
             if u:
                 have.add(u.split("#")[0].split("?")[0].rstrip("/"))
+    # parsed 批次记录里的 url（unified_raw/extra.source_ref 无 URL，用 manifest 台账）
+    man = data / "manifest.csv"
+    if man.exists():
+        import csv
+        with man.open(encoding="utf-8", errors="ignore") as fh:
+            for row in csv.DictReader(fh):
+                u = (row.get("source_url_or_ref") or "").strip()
+                if u:
+                    have.add(u.split("#")[0].split("?")[0].rstrip("/"))
     return have
 
 
