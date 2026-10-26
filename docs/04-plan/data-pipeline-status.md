@@ -40,7 +40,7 @@ L4 验收        engine/acceptance/、S3 门                           research/
 协调看板        $DATA/coordination/{CURRENT.md,events.jsonl}       coord_event.py（data-coordination 分支）
 ```
 
-**代码位置注意**：L5 管线（`research/discretion/unify/`，含 S1 分区、要素契约、金额硬闸、field_table、binding）**只存在于 codex 分支**（`codex/l5-quality-s1-run-aggregate`＝l5-stable 工作树 c3343ec、`codex/data-coordination`、`codex/seg-v2-design-review`、`codex/binding-service-v1-fix`），**main 上没有**。main 只有 collect/lake/harvest/discover。合并回 main 是待办（§8）。
+**代码位置注意（2026-10-26 更新）**：L5 管线 `research/discretion/unify/`（含 S1 分区、要素契约、金额硬闸、field_table、binding）此前只在 codex 分支、main 缺失。**2026-10-26 已将 engine / coordination / binding-fix / l5-quality 四支并入 main**（两个 L5 血统的 5 个 unify 冲突文件手工合并，保留 binding v1.1 + VIEW-01/金额硬闸修复 + field_table；排除 gate-reports 机器产物 ~11 万行）。合并后集成缺口 `normalize_date_range`/`normalize_count`（binding-fix 调用但 E-05 从未实现）已补全，run_elements binding 审计兼容缺 supply_packet 的输入。**main 现可复现 L5 管线**：collect 67 / eval 83(+1 skip sklearn) / unify 286 测试全绿（需设 `JUSTILAW_ENGINE_API` 指向 justilaw-api）。
 
 ## 3. 数据湖与批次账（lake.db，2026-10-26 实测）
 
@@ -129,7 +129,7 @@ r6 口径要点：输入为 web-r2（4,939→范围内 1,778）+ pkulaw merged-b
 | L5-VIEW-01 | person_block 带入处罚决定书标题 | **已修复**（c3343ec，引擎 ack 10-26 15:28），待看板关闭 |
 | BIND-SVC-QA-01 | binding v1.1 语义错残余，H3 非独立集 | open；影子模式，全新批次独立复核 |
 | r7 放行 | S3 8.36% > 5% | blocked；下一步：L5 教师批、边界人工评测、S1 句内 span 与表格行修复 |
-| 代码归并 | unify/ 全链路只在 codex 分支，main 无法复现 L5 管线；binding 权威依赖（normalization.py/binding.py）未入可复现提交 | 待办：合并回 main 并更新 workstreams 登记 |
+| 代码归并 | ~~unify/ 全链路只在 codex 分支，main 无法复现 L5 管线~~ **已完成（2026-10-26）**：engine/coordination/binding-fix/l5-quality 四支并入 main，5 个 unify 冲突手工合并保留双方逻辑，gate-reports 机器产物排除入库（.gitignore），E-05 缺口 normalize_date_range/normalize_count 补全，三套测试全绿 | ✅ 关闭 |
 | Word 复核队列 | 法条名残缺 6 条（源侧缺陷，重建=治安管理处罚法第 70 条）待 Word 原件签字；与 P8 合并跑 | 挂账（playbook §17）；机构下载权限未生效 |
 
 ## 9. 旧版（10-16）过时点对照——引用旧文档时先看这张表
@@ -149,6 +149,7 @@ r6 口径要点：输入为 web-r2（4,939→范围内 1,778）+ pkulaw merged-b
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-26 | v2.1 | 四支（engine/coordination/binding-fix/l5-quality）并入 main：§2 代码位置注记更新为"main 可复现 L5 管线"、§8 代码归并项关闭；记录 5 个 unify 冲突手工合并、gate-reports ~11 万行排除入库、E-05 缺口 normalize_date_range/normalize_count 补全、collect 67/eval 83/unify 286 测试全绿 | 宏观指引会话（用户指示） |
 | 2026-10-26 | v2 | 全文重写为 2026-10-26 核对版：数据湖/统一层/交付序列/L5 银标四批/密度定论/binding v1.1/阻塞清单/旧版过时点对照；登记重心裁定（法宝主线、网页线停维）。取代 10-16 v1.1 | 宏观指引会话（用户指示） |
 | 2026-10-16 | v1.1 | （历史）阶段总结 + 晚间交付更新 | 模型组 |
 | 2026-10-16 | v1 | （历史）初版核对 | 模型组 |

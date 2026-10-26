@@ -3,7 +3,7 @@
 > **2026-10-18 起：本文件只保留归属边界、交接协议与 Git 纪律；会话状态、未提交清单和“额度耗尽”叙述已过期。当前状态以 [BOARD.md](./BOARD.md) 为准，职责边界见 [OWNERSHIP.md](./OWNERSHIP.md)，产物见 [ARTIFACTS.md](./ARTIFACTS.md)。**
 > **12:46 现状**：引擎 `f0dd746`（语义表 8 shared/28 target）、后处理 `2be05bc`（v4 binding 61/1120/528，字段默认基线；contract accept_in_resolve 仍 lexical/target）；L5 标签仍 0；r7 未放行。§1 表仅作历史。
 
-> **2026-10-26 重心裁定（用户指示，取代上文网页线相关调度）**：① 数据采集与处理重心**全面转向法宝端文书**；**公开网页链路（discover/harvest/parse）停止维护**——不再新增采集、不再修复解析缺口（I-22/I-24 的 web 部分按弃权处理），存量网页数据继续在统一层与 L5 管线流转。② §1 旧线表中"网页发现与交付""发现层"随停维转为封存态。③ 当日活跃线：引擎（`worktree-discretion-engine`）、协调（`codex/data-coordination`）、L5 后处理（`codex/l5-quality-s1-run-aggregate`）、binding 服务（`codex/binding-service-v1-fix` ⊇ `codex/seg-v2-design-review`）、法宝来源（main `collect/`）。④ **L5/unify 管线此前只在 codex 分支、main 缺失**；2026-10-26 已按用户决定将引擎线、协调、binding-fix、l5-quality 四支并入 main（两个 L5 血统的 8 个 unify 冲突文件手工合并，保留 binding v1.1 + VIEW-01/金额硬闸修复 + field_table）。数据链路现状数字唯一出处见 [data-pipeline-status.md（2026-10-26 核对版）](./data-pipeline-status.md)，全项目状态以协调看板 `$DATA/coordination/CURRENT.md` 为准。
+> **2026-10-26 重心裁定（用户指示，取代上文网页线相关调度）**：① 数据采集与处理重心**全面转向法宝端文书**；**公开网页链路（discover/harvest/parse）停止维护**——不再新增采集、不再修复解析缺口（I-22/I-24 的 web 部分按弃权处理），存量网页数据继续在统一层与 L5 管线流转。② §1 旧线表中"网页发现与交付""发现层"随停维转为封存态。③ 当日活跃线：引擎（`worktree-discretion-engine`）、协调（`codex/data-coordination`）、L5 后处理（`codex/l5-quality-s1-run-aggregate`）、binding 服务（`codex/binding-service-v1-fix` ⊇ `codex/seg-v2-design-review`）、法宝来源（main `collect/`）。④ **L5/unify 管线此前只在 codex 分支、main 缺失**；2026-10-26 已按用户决定将引擎线、协调、binding-fix、l5-quality 四支并入 main（两个 L5 血统的 5 个 unify 冲突文件手工合并，保留 binding v1.1 + VIEW-01/金额硬闸修复 + field_table；排除 gate-reports 机器产物 ~11 万行入库；合并后补全 E-05 缺口 normalize_date_range/normalize_count，collect 67/eval 83/unify 286 测试全绿）。数据链路现状数字唯一出处见 [data-pipeline-status.md（2026-10-26 核对版）](./data-pipeline-status.md)，全项目状态以协调看板 `$DATA/coordination/CURRENT.md` 为准。
 
 > 版本 v2.6 · 2026-10-26 · 适用于本项目跨应用并行工作会话
 > **分工权威已移交 [阶段规划 v2](./stage-plan-v2-2026-10-17.md)（目标制会话分工）**；2026-10-18 评审驱动修订见 [review-driven-coordination-revision-2026-10-18.md](./review-driven-coordination-revision-2026-10-18.md)（依赖拆分、职责边界、指标层级、两类结果分离）。本文件保留目录归属（§2）、交接协议（§3）、Git 纪律（§4）；§1 旧线表仅作历史。
@@ -134,4 +134,4 @@ git push -u origin HEAD
 | 2026-10-16 | v1.9 | 登记用户以模型工作流替代人工双标的决定，模型仲裁与人工验证分列，要求 D-002 方法偏离 | 协调 |
 | 2026-10-16 | v2.0 | 网页线 Zcode 接管完成：r4 隐私关闭件与 r5 供给超集发布（LATEST→r5，金标 0），网页/金标两行现状与下一步刷新，状态指针改指现势审计与交接单 | Zcode 接管会话 |
 | 2026-10-17 | v2.1 | 用户将网页发现与共用交付正式交给原 Zcode 网页修复会话；原 Claude 会话停止写入，补正式移交单并纠正金标交接中的旧人工口径 | 协调 |
-| 2026-10-26 | v2.6 | 重心裁定：网页线停维、法宝端为主线；记录四支（引擎/协调/binding-fix/l5-quality）并入 main 与两个 L5 血统 8 文件手工合并；数据链路现状指针改指 data-pipeline-status.md（10-26 核对版）与协调看板 | 宏观指引会话（用户指示） |
+| 2026-10-26 | v2.6 | 重心裁定：网页线停维、法宝端为主线；记录四支（引擎/协调/binding-fix/l5-quality）并入 main、两个 L5 血统 5 个 unify 文件手工合并、gate-reports 产物排除、E-05 缺口补全后测试全绿；数据链路现状指针改指 data-pipeline-status.md（10-26 核对版）与协调看板 | 宏观指引会话（用户指示） |
