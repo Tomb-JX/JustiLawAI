@@ -297,9 +297,16 @@ def test_service_count_gate(monkeypatch):
     it = {"id": "r", "record": {"text_full": "x" * 20, "target": "甲", "aliases": []},
           "packet": {"source": {"target_id": "P-target"}, "quantities": []}}
     monkeypatch.setattr(bs, "predict_count", lambda *a: (0.9, "int:4", [(0.9, "LC1")]))
-    monkeypatch.setattr(bs, "count_paths", lambda *a: [{"kind": "explicit", "value": 4}, {"kind": "list", "value": 4}])
-    assert svc._count(it)["binding_status"] == "bound"
-    monkeypatch.setattr(bs, "count_paths", lambda *a: [{"kind": "explicit", "value": 3}, {"kind": "list", "value": 4}])
+    monkeypatch.setattr(bs, "count_paths", lambda *a: [
+        {"id": "LC1", "kind": "explicit", "value": 4, "start": 0, "end": 2},
+        {"id": "L1", "kind": "list", "value": 4, "start": 2, "end": 8}])
+    bound = svc._count(it)
+    assert bound["binding_status"] == "bound" and len(bound["evidence"]) == 2
+    assert {e["kind"] for e in bound["evidence"]} == {"explicit", "list"}
+    assert all(e["quote"] == it["record"]["text_full"][e["start"]:e["end"]] for e in bound["evidence"])
+    monkeypatch.setattr(bs, "count_paths", lambda *a: [
+        {"id": "LC1", "kind": "explicit", "value": 3, "start": 0, "end": 2},
+        {"id": "L1", "kind": "list", "value": 4, "start": 2, "end": 8}])
     b = svc._count(it)
     assert b["binding_status"] == "unresolved" and b["reason"] == "single_source_count"
     assert b["proposals"]["suggested_value"] == 4

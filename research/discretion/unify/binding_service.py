@@ -152,6 +152,13 @@ class BindingService:
         return [{"candidate_id": candidate_id, "start": q["start"], "end": q["end"],
                  "quote": it["record"]["text_full"][q["start"]:q["end"]], "raw": q["raw"]}]
 
+    @staticmethod
+    def _count_path_evidence(it: dict, path: dict) -> dict:
+        start, end = path["start"], path["end"]
+        quote = it["record"]["text_full"][start:end]
+        return {"candidate_id": path["id"], "start": start, "end": end,
+                "quote": quote, "raw": quote, "kind": path["kind"]}
+
     def bind(self, records: list[dict]) -> list[dict]:
         items = self._items(records)
         self._pair_features(items)
@@ -220,15 +227,19 @@ class BindingService:
                     "reason": "no_candidate" if key is None else "below_nil_threshold"}
         cid = ranked[0][1]
         value = int(key[4:])
-        q = next((q for q in it["packet"]["quantities"] if q["candidate_id"] == cid), None)
-        evidence = self._evidence(it, cid) if q else [{"candidate_id": cid, "kind": "name_list"}]
         paths = count_paths(it["packet"], it["record"]["target"], it["record"]["aliases"])
+        selected = next((p for p in paths if p["id"] == cid), None)
+        evidence = [self._count_path_evidence(it, selected)] if selected else []
         sources = {k: {p["value"] for p in paths if p["kind"] == k} for k in ("explicit", "list")}
         # Auto-bind only when an explicit "X人" and a name list independently give the same number:
         # the single-source model was 82–83% precise on unseen batches (组织者人数, "伙同X三人" +1 errors).
         if value in sources["explicit"] and value in sources["list"]:
-            return {**base, "binding_status": "bound", "value": value, "candidate_ids": [cid],
-                    "evidence": evidence, "reason": None, "decision_source": "explicit_and_list_agree"}
+            corroboration = [next(p for p in paths if p["kind"] == kind and p["value"] == value)
+                             for kind in ("explicit", "list")]
+            return {**base, "binding_status": "bound", "value": value,
+                    "candidate_ids": list(dict.fromkeys([cid] + [p["id"] for p in corroboration])),
+                    "evidence": [self._count_path_evidence(it, p) for p in corroboration],
+                    "reason": None, "decision_source": "explicit_and_list_agree"}
         return {**base, "binding_status": "unresolved", "value": None, "candidate_ids": [cid],
                 "evidence": evidence, "reason": "single_source_count",
                 "proposals": {**base["proposals"], "suggested_value": value}}
