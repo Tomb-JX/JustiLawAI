@@ -27,7 +27,7 @@ import onnxruntime as ort
 from tokenizers import Tokenizer
 
 import experiment_pair_integration as integ
-from evaluate_relation_model_labels import CHAIN, chain_value, frozen_predictions
+from evaluate_relation_model_labels import CHAIN, amount_key, chain_value, frozen_predictions
 from experiment_age_count_closure import age_prediction
 from experiment_joint_amount_roles import Softmax, Variant
 from experiment_relation_edges import Variant as EdgeVariant, amounts_of, predict_count
@@ -37,7 +37,7 @@ from export_pair_examples import window
 from run_pair_relation_labels import persons_of
 from supply_packet import build_packet
 
-VERSION = "binding-v1"
+VERSION = "binding-v1.1"
 AMOUNT_FIELDS = ("personal_stake", "onsite_stake_total")
 ROUTES = ("frozen_chain", "softmax/semantic", "softmax/semantic_pair")
 FIELD_PATH = {"personal_stake": "amounts.personal_stake", "onsite_stake_total": "amounts.onsite_stake_total",
@@ -87,9 +87,17 @@ class BindingService:
     def __init__(self, artifacts: Path, engine_root: Path, threads: int = 8):
         self.root, self.engine_root = artifacts, engine_root
         manifest = json.loads((artifacts / "MANIFEST.json").read_text("utf-8"))
+        if manifest.get("version") != VERSION or not manifest.get("runtime_files") or not manifest.get("engine_files"):
+            raise ValueError("binding_manifest_version_or_runtime_missing")
         for rel, digest in manifest["files"].items():
             if hashlib.sha256((artifacts / rel).read_bytes()).hexdigest() != digest:
                 raise ValueError("artifact_hash_mismatch:" + rel)
+        for base, files, kind in ((Path(__file__).resolve().parent, manifest["runtime_files"], "runtime"),
+                                  (engine_root, manifest["engine_files"], "engine")):
+            for rel, digest in files.items():
+                path = base / rel
+                if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                    raise ValueError(f"{kind}_hash_mismatch:{rel}")
         self.manifest_sha256 = hashlib.sha256((artifacts / "MANIFEST.json").read_bytes()).hexdigest()
         routes = json.loads((artifacts / "amount_routes.json").read_text("utf-8"))
         self.routes = {n: (Variant(*n.split("/")), Softmax.load(r["softmax"]), r["thresholds"]) for n, r in routes.items()}
@@ -106,6 +114,12 @@ class BindingService:
     def _items(self, records: list[dict]) -> list[dict]:
         items = []
         for r in records:
+            if not r.get("source_sha256") or not r.get("view_hash"):
+                raise ValueError("binding_source_or_view_hash_missing")
+            view_digest = hashlib.sha256(json.dumps(r["sentence_view"], ensure_ascii=False,
+                                                     sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
+            if view_digest != r["view_hash"]:
+                raise ValueError("binding_view_hash_mismatch")
             packet = build_packet(r["text_full"], r, record_id=r["id"])
             items.append({"id": r["id"], "record": r, "packet": packet, "persons": persons_of(packet, r)})
         return items
@@ -141,7 +155,11 @@ class BindingService:
             bindings = [self._amount(it, f, chain[rid], route_preds) for f in AMOUNT_FIELDS]
             bindings.append(self._count(it))
             bindings.append(self._age(it))
-            out.append({"id": rid, "target": it["record"]["target"], "service_version": VERSION,
+            out.append({"id": rid, "target": it["record"]["target"],
+                        "target_id": it["packet"]["source"]["target_id"],
+                        "source_sha256": it["packet"]["source"]["text_sha256"],
+                        "view_hash": it["packet"]["source"]["view_hash"],
+                        "service_version": VERSION,
                         "artifact_manifest_sha256": self.manifest_sha256, "bindings": bindings})
         return out
 
@@ -156,12 +174,20 @@ class BindingService:
             proposals[name] = {"value": key if keep else None, "candidate_id": cid if keep else None,
                                "score": round(float(score), 4)}
         values = {p["value"] for p in proposals.values()}
-        base = {"field": FIELD_PATH[field], "target_id": rid, "proposals": proposals}
-        if len(values) == 1 and None not in values:
-            cid = proposals["softmax/semantic_pair"]["candidate_id"]
-            return {**base, "binding_status": "bound", "value": next(iter(values)), "candidate_ids": [cid],
-                    "evidence": self._evidence(it, cid), "decision_source": "consensus_of_3_routes",
-                    "reason": None}
+        candidate_ids = {p["candidate_id"] for p in proposals.values()}
+        base = {"field": FIELD_PATH[field], "target_id": it["packet"]["source"]["target_id"],
+                "proposals": proposals}
+        if len(values) == 1 and None not in values and len(candidate_ids) == 1 and None not in candidate_ids:
+            cid = next(iter(candidate_ids))
+            quantity = next((q for q in it["packet"]["quantities"] if q["candidate_id"] == cid), None)
+            projection = quantity.get("engine_projection") if quantity else None
+            if (quantity and quantity.get("type") == "amount" and isinstance(projection, dict)
+                    and projection.get("min") is not None and "max" in projection
+                    and amount_key(projection) == next(iter(values))):
+                return {**base, "binding_status": "bound",
+                        "value": {"min": projection["min"], "max": projection["max"]},
+                        "candidate_ids": [cid], "evidence": self._evidence(it, cid),
+                        "decision_source": "consensus_of_3_routes", "reason": None}
         if values == {None}:
             # All routes abstained. With amount candidates in the text this is not evidence of absence
             # (H3: 22 personal stakes were silently missed this way), so it goes to review with them.
@@ -170,14 +196,15 @@ class BindingService:
                     "evidence": [e for c in amounts for e in self._evidence(it, c)],
                     "decision_source": "consensus_of_3_routes",
                     "reason": "no_route_output" if amounts else "no_candidate"}
-        cids = sorted({p["candidate_id"] for p in proposals.values() if p["candidate_id"]})
+        cids = sorted(c for c in candidate_ids if c)
         return {**base, "binding_status": "unresolved", "value": None, "candidate_ids": cids,
                 "evidence": [e for c in cids for e in self._evidence(it, c)],
                 "decision_source": "routes_disagree", "reason": "relation_ambiguous"}
 
     def _count(self, it: dict) -> dict:
         score, key, ranked = predict_count(it, self.count_model, self.count_variant.fn)
-        base = {"field": FIELD_PATH["participant_count"], "target_id": it["id"],
+        base = {"field": FIELD_PATH["participant_count"],
+                "target_id": it["packet"]["source"]["target_id"],
                 "decision_source": "count_candidate_nil", "proposals": {"score": round(float(score), 4)}}
         if key is None or score < self.count_threshold:
             return {**base, "binding_status": "unresolved", "value": None, "candidate_ids": [], "evidence": [],
@@ -199,7 +226,8 @@ class BindingService:
 
     def _age(self, it: dict) -> dict:
         p = age_prediction(it["packet"])
-        base = {"field": FIELD_PATH["age"], "target_id": it["id"], "decision_source": "date_interval_derivation"}
+        base = {"field": FIELD_PATH["age"], "target_id": it["packet"]["source"]["target_id"],
+                "decision_source": "date_interval_derivation"}
         if p["status"] != "selected":
             return {**base, "binding_status": "unresolved", "value": None, "candidate_ids": [], "evidence": [],
                     "reason": p["reason"]}

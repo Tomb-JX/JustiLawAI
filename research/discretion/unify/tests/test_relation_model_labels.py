@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -14,7 +15,7 @@ from experiment_relation_edges import agreed_edges, choose, edge_label, utility
 
 def test_point_amount_equals_bare_value():
     assert amount_key({"min": 150, "max": 150}) == amount_key(150) == "amount:150"
-    assert amount_key({"min": "1.50E+2", "max": None}) == "amount:150"
+    assert amount_key({"min": "1.50E+2", "max": None}) == "amount:150+"
     assert amount_key({"min": 100, "max": 200}) == "amount:100-200"
 
 
@@ -221,7 +222,8 @@ def _amount_item():
     text = "张某福持有赌资365元"
     q = {"candidate_id": "Q1", "type": "amount", "parse_status": "resolved", "start": 7, "end": 11, "raw": "365元",
          "engine_projection": {"min": 365, "max": 365}}
-    return {"id": "r", "record": {"text_full": text}, "packet": {"quantities": [q]}}
+    return {"id": "r", "record": {"text_full": text},
+            "packet": {"source": {"target_id": "P-target"}, "quantities": [q]}}
 
 
 def test_service_amount_gate():
@@ -230,7 +232,8 @@ def test_service_amount_gate():
     chain = {"amounts.personal_stake": {"status": "selected", "value": {"min": 365, "max": 365}, "candidate_id": "Q1"}}
     agree = {n: {"r": {"personal_stake": (0.9, "amount:365", "Q1")}} for n in svc.routes}
     b = svc._amount(it, "personal_stake", chain, agree)
-    assert b["binding_status"] == "bound" and b["value"] == "amount:365" and b["evidence"][0]["quote"] == "365元"
+    assert b["binding_status"] == "bound" and b["value"] == {"min": 365, "max": 365}
+    assert b["target_id"] == "P-target" and b["evidence"][0]["quote"] == "365元"
     split = dict(agree, **{"softmax/semantic": {"r": {"personal_stake": (0.2, "amount:365", "Q1")}}})
     b = svc._amount(it, "personal_stake", chain, split)
     assert b["binding_status"] == "unresolved" and b["reason"] == "relation_ambiguous"
@@ -241,11 +244,58 @@ def test_service_amount_gate():
     assert b["reason"] == "no_route_output" and b["candidate_ids"] == ["Q1"]
 
 
+def test_service_same_amount_different_people_is_unresolved():
+    svc = _service_stub()
+    it = _amount_item()
+    it["packet"]["quantities"].append({"candidate_id": "Q-other", "type": "amount",
+        "start": 0, "end": 4, "raw": "365元", "engine_projection": {"min": 365, "max": 365}})
+    chain = {"amounts.personal_stake": {"status": "selected", "value": {"min": 365, "max": 365},
+                                         "candidate_id": "Q-other"}}
+    routes = {"softmax/semantic": {"r": {"personal_stake": (0.9, "amount:365", "Q-other")}},
+              "softmax/semantic_pair": {"r": {"personal_stake": (0.9, "amount:365", "Q1")}}}
+    b = svc._amount(it, "personal_stake", chain, routes)
+    assert b["binding_status"] == "unresolved" and b["reason"] == "relation_ambiguous"
+    assert set(b["candidate_ids"]) == {"Q-other", "Q1"}
+
+
+def test_service_open_amount_keeps_null_upper_bound():
+    svc = _service_stub()
+    it = _amount_item()
+    it["packet"]["quantities"][0]["engine_projection"] = {"min": 365, "max": None}
+    chain = {"amounts.personal_stake": {"status": "selected", "value": {"min": 365, "max": None},
+                                         "candidate_id": "Q1"}}
+    agree = {n: {"r": {"personal_stake": (0.9, "amount:365+", "Q1")}} for n in svc.routes}
+    b = svc._amount(it, "personal_stake", chain, agree)
+    assert b["binding_status"] == "bound" and b["value"] == {"min": 365, "max": None}
+    chain["amounts.personal_stake"]["value"] = {"min": 365, "max": 365}
+    assert svc._amount(it, "personal_stake", chain, agree)["binding_status"] == "unresolved"
+
+
+def test_service_verifies_source_and_allowed_view_hash():
+    import pytest
+    from binding_service import BindingService
+
+    svc = BindingService.__new__(BindingService)
+    text = "甲持有赌资100元。"
+    views = [{"id": "S1", "type": "facts", "start": 0, "end": len(text), "text": text}]
+    row = {"id": "r", "target": "甲", "aliases": [], "text_full": text,
+           "sentence_view": views, "source_sha256": hashlib.sha256(text.encode()).hexdigest(),
+           "view_hash": hashlib.sha256(json.dumps(views, ensure_ascii=False, sort_keys=True,
+                                                  separators=(",", ":")).encode()).hexdigest()}
+    item = svc._items([row])[0]
+    assert item["packet"]["source"]["view_hash"] == row["view_hash"]
+    with pytest.raises(ValueError, match="binding_view_hash_mismatch"):
+        svc._items([{**row, "view_hash": "0" * 64}])
+    with pytest.raises(ValueError, match="supply_source_hash_mismatch"):
+        svc._items([{**row, "source_sha256": "0" * 64}])
+
+
 def test_service_count_gate(monkeypatch):
     import binding_service as bs
     svc = _service_stub()
     svc.count_model, svc.count_variant = None, type("V", (), {"fn": None})()
-    it = {"id": "r", "record": {"text_full": "x" * 20, "target": "甲", "aliases": []}, "packet": {"quantities": []}}
+    it = {"id": "r", "record": {"text_full": "x" * 20, "target": "甲", "aliases": []},
+          "packet": {"source": {"target_id": "P-target"}, "quantities": []}}
     monkeypatch.setattr(bs, "predict_count", lambda *a: (0.9, "int:4", [(0.9, "LC1")]))
     monkeypatch.setattr(bs, "count_paths", lambda *a: [{"kind": "explicit", "value": 4}, {"kind": "list", "value": 4}])
     assert svc._count(it)["binding_status"] == "bound"

@@ -13,6 +13,7 @@ from collections import Counter
 from pathlib import Path
 
 from experiment_relation_edges import load_batch
+from evaluate_relation_model_labels import amount_key
 from review_score import key_of
 
 FIELDS = {"amounts.personal_stake": "personal_stake", "amounts.onsite_stake_total": "onsite_stake_total"}
@@ -50,14 +51,15 @@ def main() -> None:
             c[b["binding_status"] + ":" + (b["reason"] or "value")] += 1
             if b["binding_status"] != "bound":
                 continue
+            value_key = amount_key(b["value"])
             ref = refs[rid][f]["consensus"]
             if ref and ref[0] in {"selected", "absent"}:
                 c["vote_scored"] += 1
-                c["vote_correct"] += ref[0] == "selected" and ref[1] == b["value"]
+                c["vote_correct"] += ref[0] == "selected" and ref[1] == value_key
             g = gold.get(rid, {}).get(f, {}).get("key")
             if g and g != "uncertain":
                 c["review_scored"] += 1
-                c["review_correct"] += g == b["value"]
+                c["review_correct"] += g == value_key
         c["coverage_bound"] = round(sum(v for k, v in c.items() if k.startswith("bound:")) / c["records"], 3)
         c["precision_vs_vote"] = round(c["vote_correct"] / c["vote_scored"], 3) if c["vote_scored"] else None
         c["precision_vs_review"] = round(c["review_correct"] / c["review_scored"], 3) if c["review_scored"] else None

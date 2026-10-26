@@ -51,7 +51,8 @@ def amount_key(value) -> str | None:
     # A point amount {min: x, max: x} and a bare x are the same reference value.
     if isinstance(value, dict) and value.get("min") is not None:
         lo, hi = plain(value["min"]), value.get("max")
-        return "amount:" + lo + ("" if hi is None or plain(hi) == lo else "-" + plain(hi))
+        # A missing upper bound is an open interval, not an exact point amount.
+        return "amount:" + lo + ("+" if hi is None else "" if plain(hi) == lo else "-" + plain(hi))
     if isinstance(value, (int, float, str)) and str(value).strip():
         return "amount:" + plain(value)
     return None
