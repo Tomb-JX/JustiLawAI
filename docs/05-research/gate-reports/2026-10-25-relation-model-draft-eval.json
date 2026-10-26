@@ -1,0 +1,337 @@
+{
+  "label_provenance": "model_draft_majority",
+  "human_gold": false,
+  "voters": [
+    "bailian",
+    "deepseek"
+  ],
+  "arbiter": "kimi",
+  "fields": {
+    "personal_stake": {
+      "records": 120,
+      "ab_exact_agree": 116,
+      "ab_status_kappa": 0.9,
+      "needs_arbiter": 4,
+      "arbitrated": 4,
+      "unresolved": 1,
+      "consensus_status": {
+        "selected": 22,
+        "absent": 96,
+        "uncertain": 1
+      },
+      "chain_vs_consensus": {
+        "all": {
+          "scored": 118,
+          "consensus_positive": 22,
+          "tp": 8,
+          "tn": 96,
+          "no_scorable_consensus": 2,
+          "abstain_on_positive": 14,
+          "precision": 1.0,
+          "recall": 0.364
+        },
+        "split:train": {
+          "scored": 59,
+          "consensus_positive": 11,
+          "tp": 2,
+          "tn": 48,
+          "no_scorable_consensus": 1,
+          "abstain_on_positive": 9,
+          "precision": 1.0,
+          "recall": 0.182
+        },
+        "split:calibration": {
+          "scored": 20,
+          "tn": 17,
+          "consensus_positive": 3,
+          "tp": 2,
+          "abstain_on_positive": 1,
+          "precision": 1.0,
+          "recall": 0.667
+        },
+        "split:model_draft_holdout": {
+          "scored": 39,
+          "tn": 31,
+          "consensus_positive": 8,
+          "abstain_on_positive": 4,
+          "tp": 4,
+          "no_scorable_consensus": 1,
+          "precision": 1.0,
+          "recall": 0.5
+        },
+        "group:challenge": {
+          "scored": 59,
+          "consensus_positive": 14,
+          "tp": 6,
+          "no_scorable_consensus": 1,
+          "tn": 45,
+          "abstain_on_positive": 8,
+          "precision": 1.0,
+          "recall": 0.429
+        },
+        "group:random": {
+          "scored": 59,
+          "tn": 51,
+          "consensus_positive": 8,
+          "tp": 2,
+          "abstain_on_positive": 6,
+          "no_scorable_consensus": 1,
+          "precision": 1.0,
+          "recall": 0.25
+        }
+      }
+    },
+    "onsite_stake_total": {
+      "records": 120,
+      "ab_exact_agree": 118,
+      "ab_status_kappa": 0.932,
+      "needs_arbiter": 2,
+      "arbitrated": 2,
+      "unresolved": 0,
+      "consensus_status": {
+        "selected": 16,
+        "absent": 104
+      },
+      "chain_vs_consensus": {
+        "all": {
+          "scored": 120,
+          "consensus_positive": 16,
+          "tp": 3,
+          "tn": 101,
+          "abstain_on_positive": 10,
+          "wrong_value": 3,
+          "output_on_absent": 3,
+          "precision": 0.333,
+          "recall": 0.188
+        },
+        "split:train": {
+          "scored": 60,
+          "consensus_positive": 10,
+          "tp": 2,
+          "tn": 50,
+          "abstain_on_positive": 7,
+          "wrong_value": 1,
+          "precision": 0.667,
+          "recall": 0.2
+        },
+        "split:calibration": {
+          "scored": 20,
+          "tn": 17,
+          "consensus_positive": 3,
+          "wrong_value": 2,
+          "abstain_on_positive": 1,
+          "precision": 0.0,
+          "recall": 0.0
+        },
+        "split:model_draft_holdout": {
+          "scored": 40,
+          "tn": 34,
+          "consensus_positive": 3,
+          "abstain_on_positive": 2,
+          "tp": 1,
+          "output_on_absent": 3,
+          "precision": 0.25,
+          "recall": 0.333
+        },
+        "group:challenge": {
+          "scored": 60,
+          "consensus_positive": 9,
+          "tp": 2,
+          "tn": 48,
+          "wrong_value": 3,
+          "abstain_on_positive": 4,
+          "output_on_absent": 3,
+          "precision": 0.25,
+          "recall": 0.222
+        },
+        "group:random": {
+          "scored": 60,
+          "tn": 53,
+          "consensus_positive": 7,
+          "abstain_on_positive": 6,
+          "tp": 1,
+          "precision": 1.0,
+          "recall": 0.143
+        }
+      }
+    },
+    "participant_count": {
+      "records": 120,
+      "ab_exact_agree": 112,
+      "ab_status_kappa": 0.828,
+      "needs_arbiter": 8,
+      "arbitrated": 8,
+      "unresolved": 1,
+      "consensus_status": {
+        "absent": 89,
+        "uncertain": 6,
+        "selected": 24
+      },
+      "chain_vs_consensus": {
+        "all": {
+          "scored": 113,
+          "tn": 88,
+          "no_scorable_consensus": 7,
+          "consensus_positive": 24,
+          "tp": 17,
+          "abstain_on_positive": 7,
+          "output_on_absent": 1,
+          "precision": 0.944,
+          "recall": 0.708
+        },
+        "split:train": {
+          "scored": 56,
+          "tn": 46,
+          "no_scorable_consensus": 4,
+          "consensus_positive": 10,
+          "tp": 8,
+          "abstain_on_positive": 2,
+          "precision": 1.0,
+          "recall": 0.8
+        },
+        "split:calibration": {
+          "scored": 20,
+          "tn": 15,
+          "consensus_positive": 4,
+          "tp": 2,
+          "abstain_on_positive": 2,
+          "output_on_absent": 1,
+          "precision": 0.667,
+          "recall": 0.5
+        },
+        "split:model_draft_holdout": {
+          "scored": 37,
+          "consensus_positive": 10,
+          "tp": 7,
+          "no_scorable_consensus": 3,
+          "tn": 27,
+          "abstain_on_positive": 3,
+          "precision": 1.0,
+          "recall": 0.7
+        },
+        "group:challenge": {
+          "scored": 55,
+          "tn": 36,
+          "no_scorable_consensus": 5,
+          "consensus_positive": 19,
+          "tp": 12,
+          "abstain_on_positive": 7,
+          "precision": 1.0,
+          "recall": 0.632
+        },
+        "group:random": {
+          "scored": 58,
+          "tn": 52,
+          "no_scorable_consensus": 2,
+          "consensus_positive": 5,
+          "tp": 5,
+          "output_on_absent": 1,
+          "precision": 0.833,
+          "recall": 1.0
+        }
+      }
+    },
+    "age": {
+      "records": 120,
+      "ab_exact_agree": 116,
+      "ab_status_kappa": 0.919,
+      "needs_arbiter": 4,
+      "arbitrated": 4,
+      "unresolved": 0,
+      "consensus_status": {
+        "absent": 89,
+        "selected": 28,
+        "uncertain": 3
+      },
+      "chain_vs_consensus": {
+        "all": {
+          "scored": 117,
+          "tn": 89,
+          "consensus_positive": 28,
+          "age_definition_conflict": 1,
+          "tp": 25,
+          "abstain_on_positive": 2,
+          "no_scorable_consensus": 3,
+          "precision": 1.0,
+          "recall": 0.926
+        },
+        "split:train": {
+          "scored": 58,
+          "tn": 44,
+          "consensus_positive": 14,
+          "age_definition_conflict": 1,
+          "tp": 11,
+          "abstain_on_positive": 2,
+          "no_scorable_consensus": 2,
+          "precision": 1.0,
+          "recall": 0.846
+        },
+        "split:calibration": {
+          "scored": 20,
+          "tn": 15,
+          "consensus_positive": 5,
+          "tp": 5,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "split:model_draft_holdout": {
+          "scored": 39,
+          "tn": 30,
+          "consensus_positive": 9,
+          "tp": 9,
+          "no_scorable_consensus": 1,
+          "precision": 1.0,
+          "recall": 1.0
+        },
+        "group:challenge": {
+          "scored": 57,
+          "tn": 29,
+          "consensus_positive": 28,
+          "age_definition_conflict": 1,
+          "tp": 25,
+          "abstain_on_positive": 2,
+          "no_scorable_consensus": 3,
+          "precision": 1.0,
+          "recall": 0.926
+        },
+        "group:random": {
+          "scored": 60,
+          "tn": 60,
+          "precision": null,
+          "recall": null
+        }
+      }
+    }
+  },
+  "edges": {
+    "candidates": 346,
+    "decision_agree": 315,
+    "both_asserted": 311,
+    "roles_exact": 282,
+    "owner_agree": 248,
+    "roles_and_owner": 224,
+    "lists": 17,
+    "list_all_agree": 12
+  },
+  "coverage": {
+    "ab_complete": 120
+  },
+  "disagreement_ids": [
+    "W-000147",
+    "W-000158-d5",
+    "W-000159-d39",
+    "W-000214",
+    "W-000218",
+    "W-000221",
+    "W-000254",
+    "W-000328-d5",
+    "W-000480",
+    "W-000487",
+    "W-000490",
+    "W-000516",
+    "W-000520",
+    "W-000544",
+    "W-000887-d7",
+    "W-001492"
+  ]
+}

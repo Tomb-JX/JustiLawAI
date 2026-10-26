@@ -50,7 +50,7 @@ def check_models(a, b, c):
 
 class DurableCalls:
     def __init__(self, out: Path, providers: dict, *, prices: dict, cap: float,
-                 max_calls: int, max_input_bytes: int, execute=False, budget_scope=None):
+                 max_calls: int, max_input_bytes: int, execute=False, budget_scope=None, revive=False):
         if (type(cap) not in (int, float) or not math.isfinite(cap) or cap <= 0
                 or type(max_calls) is not int or max_calls <= 0
                 or type(max_input_bytes) is not int or max_input_bytes <= 0):
@@ -68,6 +68,9 @@ class DurableCalls:
         self.dead = {submitted[r["attempt_id"]]["provider"] for r in self.events
                      if r["event"] == "failed" and r.get("category") in ("balance", "auth")
                      and r["attempt_id"] in submitted}
+        if revive:
+            # Explicit operator decision after a top-up: forget past balance/auth failures.
+            self.dead = set()
         completed = {r["attempt_id"]: r for r in self.events if r["event"] == "finished"}
         # Raw without the finished marker is recoverable without another HTTP request,
         # but its reservation remains held until the ledger is explicitly reconciled.
@@ -75,13 +78,36 @@ class DurableCalls:
                             for k, r in submitted.items())
         self.unknown = {r["key"] for k, r in submitted.items() if k not in completed}
 
+    def abandon_unknown(self) -> int:
+        """Close attempts whose process died in flight, charging the full reservation.
+
+        The remote outcome stays unknown, so cost is booked at the conservative
+        maximum; the key may then be resubmitted as a new attempt.
+        """
+        submitted = {r["attempt_id"]: r for r in self.events if r["event"] == "submitted"}
+        finished = {r["attempt_id"] for r in self.events if r["event"] == "finished"}
+        closed = 0
+        with self.lock:
+            for attempt, row in submitted.items():
+                if attempt in finished or row["key"] in self.raws:
+                    continue
+                append(self.out / "attempts.jsonl", {"event": "finished", "key": row["key"],
+                       "attempt_id": attempt, "charged": row["reservation"], "abandoned": True})
+                self.unknown.discard(row["key"])
+                closed += 1
+        return closed
+
     def call(self, provider_name, msgs, *, context, validator, repairs=1):
         provider = self.providers[provider_name]
         if type(provider.max_tokens) is not int or provider.max_tokens <= 0:
             raise ValueError("invalid_provider_max_tokens")
-        key = digest({"context": context, "messages": msgs, "provider": provider_identity(provider),
-                      "endpoint": provider.base_url, "model": provider.model,
-                      "max_tokens": provider.max_tokens, "temperature": provider.temperature})
+        request = {"context": context, "messages": msgs, "provider": provider_identity(provider),
+                   "endpoint": provider.base_url, "model": provider.model,
+                   "max_tokens": provider.max_tokens, "temperature": provider.temperature}
+        if getattr(provider, "extra_body", None):
+            # Only non-empty extras enter the key, so existing replay caches keep their keys.
+            request["extra_body"] = provider.extra_body
+        key = digest(request)
         if key in self.raws:
             # Validation failures stay visible; a cached invalid response is not a success.
             cached = self.raws[key]

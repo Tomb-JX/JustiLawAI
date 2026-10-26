@@ -1,0 +1,227 @@
+{
+  "scope": "event_5fold_cv_on_development",
+  "dev_records": 480,
+  "reference": "A/B-agreed owner edges (model drafts, not human gold)",
+  "examples": 447,
+  "label_counts": {
+    "shared": 163,
+    "target": 237,
+    "other": 47
+  },
+  "methods": {
+    "majority": {
+      "n": 447,
+      "accuracy": 0.53,
+      "target": {
+        "gold": 237,
+        "pred": 447,
+        "precision": 0.53,
+        "recall": 1.0,
+        "f1": 0.693
+      },
+      "other": {
+        "gold": 47,
+        "pred": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "shared": {
+        "gold": 163,
+        "pred": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "macro_f1": 0.231,
+      "confusion": {
+        "other->target": 47,
+        "shared->target": 163,
+        "target->target": 237
+      }
+    },
+    "packet_actor_hint": {
+      "n": 447,
+      "accuracy": 0.528,
+      "target": {
+        "gold": 237,
+        "pred": 445,
+        "precision": 0.53,
+        "recall": 0.996,
+        "f1": 0.692
+      },
+      "other": {
+        "gold": 47,
+        "pred": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "shared": {
+        "gold": 163,
+        "pred": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "macro_f1": 0.231,
+      "confusion": {
+        "other->target": 47,
+        "shared->other": 1,
+        "shared->target": 162,
+        "target->other": 1,
+        "target->target": 236
+      },
+      "resolved_by_hint": 56,
+      "accuracy_on_resolved": 0.911
+    },
+    "nearest_left_rule": {
+      "n": 447,
+      "accuracy": 0.562,
+      "target": {
+        "gold": 237,
+        "pred": 76,
+        "precision": 0.921,
+        "recall": 0.295,
+        "f1": 0.447
+      },
+      "other": {
+        "gold": 47,
+        "pred": 89,
+        "precision": 0.36,
+        "recall": 0.681,
+        "f1": 0.471
+      },
+      "shared": {
+        "gold": 163,
+        "pred": 282,
+        "precision": 0.528,
+        "recall": 0.914,
+        "f1": 0.67
+      },
+      "macro_f1": 0.529,
+      "confusion": {
+        "other->other": 32,
+        "other->shared": 11,
+        "other->target": 4,
+        "shared->other": 12,
+        "shared->shared": 149,
+        "shared->target": 2,
+        "target->other": 45,
+        "target->shared": 122,
+        "target->target": 70
+      }
+    },
+    "softmax/local": {
+      "n": 447,
+      "accuracy": 0.698,
+      "target": {
+        "gold": 237,
+        "pred": 233,
+        "precision": 0.751,
+        "recall": 0.738,
+        "f1": 0.745
+      },
+      "other": {
+        "gold": 47,
+        "pred": 68,
+        "precision": 0.426,
+        "recall": 0.617,
+        "f1": 0.504
+      },
+      "shared": {
+        "gold": 163,
+        "pred": 146,
+        "precision": 0.74,
+        "recall": 0.663,
+        "f1": 0.699
+      },
+      "macro_f1": 0.649,
+      "confusion": {
+        "other->other": 29,
+        "other->shared": 2,
+        "other->target": 16,
+        "shared->other": 13,
+        "shared->shared": 108,
+        "shared->target": 42,
+        "target->other": 26,
+        "target->shared": 36,
+        "target->target": 175
+      }
+    },
+    "softmax/owner_only": {
+      "n": 447,
+      "accuracy": 0.631,
+      "target": {
+        "gold": 237,
+        "pred": 170,
+        "precision": 0.788,
+        "recall": 0.565,
+        "f1": 0.658
+      },
+      "other": {
+        "gold": 47,
+        "pred": 83,
+        "precision": 0.373,
+        "recall": 0.66,
+        "f1": 0.477
+      },
+      "shared": {
+        "gold": 163,
+        "pred": 194,
+        "precision": 0.603,
+        "recall": 0.718,
+        "f1": 0.655
+      },
+      "macro_f1": 0.597,
+      "confusion": {
+        "other->other": 31,
+        "other->shared": 8,
+        "other->target": 8,
+        "shared->other": 18,
+        "shared->shared": 117,
+        "shared->target": 28,
+        "target->other": 34,
+        "target->shared": 69,
+        "target->target": 134
+      }
+    },
+    "softmax/local+owner": {
+      "n": 447,
+      "accuracy": 0.725,
+      "target": {
+        "gold": 237,
+        "pred": 215,
+        "precision": 0.809,
+        "recall": 0.734,
+        "f1": 0.77
+      },
+      "other": {
+        "gold": 47,
+        "pred": 65,
+        "precision": 0.446,
+        "recall": 0.617,
+        "f1": 0.518
+      },
+      "shared": {
+        "gold": 163,
+        "pred": 167,
+        "precision": 0.725,
+        "recall": 0.742,
+        "f1": 0.733
+      },
+      "macro_f1": 0.674,
+      "confusion": {
+        "other->other": 29,
+        "other->shared": 7,
+        "other->target": 11,
+        "shared->other": 12,
+        "shared->shared": 121,
+        "shared->target": 30,
+        "target->other": 24,
+        "target->shared": 39,
+        "target->target": 174
+      }
+    }
+  }
+}

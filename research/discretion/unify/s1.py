@@ -122,6 +122,8 @@ class Provider:
         self.temperature = params.get("temperature", 0)
         self.max_tokens = params.get("max_tokens", 3500)
         self.timeout = params.get("timeout_s", 120)
+        # Provider-specific body fields, e.g. DashScope thinking_budget; never overrides core keys.
+        self.extra_body = dict(params.get("extra_body") or {})
 
     def chat(self, system: str, user: str) -> tuple[str, dict]:
         """返回 (content, usage)。非 200 / 超时抛 RuntimeError（由调用方记回执并重试）。"""
@@ -135,6 +137,7 @@ class Provider:
             "response_format": {"type": "json_object"},
             "stream": False,
         }
+        body.update({k: v for k, v in self.extra_body.items() if k not in body})
         req = urllib.request.Request(
             url, data=json.dumps(body).encode("utf-8"), method="POST",
             headers={"Authorization": f"Bearer {self._key}",

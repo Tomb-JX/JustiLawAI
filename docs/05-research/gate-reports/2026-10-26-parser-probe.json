@@ -1,0 +1,175 @@
+{
+  "scope": "development owner edges (A/B agreed), no training",
+  "examples": 528,
+  "label_counts": {
+    "shared": 191,
+    "target": 289,
+    "other": 48
+  },
+  "toolkits": {
+    "hanlp": {
+      "parsed": 528,
+      "reached_any_person": 344,
+      "sdp": {
+        "n": 528,
+        "accuracy": 0.576,
+        "target": {
+          "gold": 289,
+          "pred": 196,
+          "precision": 0.724,
+          "recall": 0.491,
+          "f1": 0.586
+        },
+        "other": {
+          "gold": 48,
+          "pred": 77,
+          "precision": 0.325,
+          "recall": 0.521,
+          "f1": 0.4
+        },
+        "shared": {
+          "gold": 191,
+          "pred": 255,
+          "precision": 0.537,
+          "recall": 0.717,
+          "f1": 0.614
+        },
+        "macro_f1": 0.533,
+        "confusion": {
+          "other->other": 25,
+          "other->shared": 4,
+          "other->target": 19,
+          "shared->other": 19,
+          "shared->shared": 137,
+          "shared->target": 35,
+          "target->other": 33,
+          "target->shared": 114,
+          "target->target": 142
+        },
+        "holder_named": 273,
+        "accuracy_when_named": 0.612
+      },
+      "srl": {
+        "n": 528,
+        "accuracy": 0.47,
+        "target": {
+          "gold": 289,
+          "pred": 72,
+          "precision": 0.875,
+          "recall": 0.218,
+          "f1": 0.349
+        },
+        "other": {
+          "gold": 48,
+          "pred": 14,
+          "precision": 0.357,
+          "recall": 0.104,
+          "f1": 0.161
+        },
+        "shared": {
+          "gold": 191,
+          "pred": 442,
+          "precision": 0.407,
+          "recall": 0.942,
+          "f1": 0.569
+        },
+        "macro_f1": 0.36,
+        "confusion": {
+          "other->other": 5,
+          "other->shared": 42,
+          "other->target": 1,
+          "shared->other": 3,
+          "shared->shared": 180,
+          "shared->target": 8,
+          "target->other": 6,
+          "target->shared": 220,
+          "target->target": 63
+        },
+        "holder_named": 86,
+        "accuracy_when_named": 0.791
+      }
+    },
+    "ltp": {
+      "parsed": 528,
+      "reached_any_person": 341,
+      "sdp": {
+        "n": 528,
+        "accuracy": 0.542,
+        "target": {
+          "gold": 289,
+          "pred": 166,
+          "precision": 0.813,
+          "recall": 0.467,
+          "f1": 0.593
+        },
+        "other": {
+          "gold": 48,
+          "pred": 55,
+          "precision": 0.127,
+          "recall": 0.146,
+          "f1": 0.136
+        },
+        "shared": {
+          "gold": 191,
+          "pred": 307,
+          "precision": 0.469,
+          "recall": 0.754,
+          "f1": 0.578
+        },
+        "macro_f1": 0.436,
+        "confusion": {
+          "other->other": 7,
+          "other->shared": 36,
+          "other->target": 5,
+          "shared->other": 21,
+          "shared->shared": 144,
+          "shared->target": 26,
+          "target->other": 27,
+          "target->shared": 127,
+          "target->target": 135
+        },
+        "holder_named": 221,
+        "accuracy_when_named": 0.643
+      },
+      "srl": {
+        "n": 528,
+        "accuracy": 0.487,
+        "target": {
+          "gold": 289,
+          "pred": 95,
+          "precision": 0.842,
+          "recall": 0.277,
+          "f1": 0.417
+        },
+        "other": {
+          "gold": 48,
+          "pred": 16,
+          "precision": 0.25,
+          "recall": 0.083,
+          "f1": 0.125
+        },
+        "shared": {
+          "gold": 191,
+          "pred": 417,
+          "precision": 0.415,
+          "recall": 0.906,
+          "f1": 0.569
+        },
+        "macro_f1": 0.37,
+        "confusion": {
+          "other->other": 4,
+          "other->shared": 41,
+          "other->target": 3,
+          "shared->other": 6,
+          "shared->shared": 173,
+          "shared->target": 12,
+          "target->other": 6,
+          "target->shared": 203,
+          "target->target": 80
+        },
+        "holder_named": 111,
+        "accuracy_when_named": 0.757
+      }
+    }
+  }
+}
