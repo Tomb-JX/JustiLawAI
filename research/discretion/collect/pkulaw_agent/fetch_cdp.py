@@ -78,7 +78,8 @@ def main():
     pw = sync_playwright().start()
     browser = pw.chromium.connect_over_cdp("http://127.0.0.1:9222")
     ctx = browser.contexts[0] if browser.contexts else browser.new_context()
-    page = ctx.new_page()  # 单页复用
+    from pkulaw_agent.cdp_page import open_background_page  # 纪律：后台标签，不抢焦点（crawler-ops §5）
+    page = open_background_page(ctx)  # 单页复用
     session = CDPFetchSession(page)
 
     try:

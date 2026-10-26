@@ -63,8 +63,10 @@ def main():
     ok_count = 0
     fail_count = 0
 
-    # 单页复用，不弹新标签
-    page = ctx.new_page()
+    # 纪律（crawler-ops §5）：后台自动化不得抢占用户界面——开**后台标签**并全程复用，
+    # 绝不 bring_to_front；用户看不到任何弹窗/切页。
+    from pkulaw_agent.cdp_page import open_background_page
+    page = open_background_page(ctx)
 
     try:
         for i, rec in enumerate(remaining, 1):
