@@ -75,6 +75,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--top", type=int, default=200)
     ap.add_argument("--per-prov", type=int, default=25, help="每省配额上限（分省均衡，防拼音序截断新省）")
+    ap.add_argument("--min-score", type=int, default=0, help="质量阈值：低于此分不入清单（负责人指令：保证质量即全量下）")
     ap.add_argument("--out", default="inbox/pkulaw/20261026-P9")
     ap.add_argument("--cap-per-organ", type=int, default=8)
     args = ap.parse_args()
@@ -100,6 +101,8 @@ def main() -> int:
     scored = []
     for u, it in pool.items():
         s, why = score(it)
+        if s < args.min_score:
+            continue
         scored.append((s, u, it, prov_of_url[u], why))
     # 分省桶内按分数降序，再跨省轮转取，保证每省都被覆盖（修拼音序截断）
     by_prov: dict[str, list] = defaultdict(list)

@@ -24,11 +24,23 @@ from pkulaw_mcp.client import Gateway
 PROVS = ["湖北省", "湖南省", "四川省", "江西省", "河北省", "广东省", "福建省", "安徽省"]
 ANCHORS = ["赌资 拘留", "收缴赌资", "赌资 罚款", "开设赌场"]
 SLICES = [("2013.01.01", "2020.12.31"), ("2021.01.01", "2026.10.26")]
+# 二波（负责人 2026-10-26 指令：权限时效内全量下，积分不用即废）：top 省池加密年代切片
+W2_PROVS = ["湖北省", "湖南省", "河北省", "广东省", "四川省", "江西省"]
+W2_ANCHORS = ["赌资 拘留", "收缴赌资"]
+W2_SLICES = [("2013.01.01", "2015.12.31"), ("2016.01.01", "2018.12.31"), ("2019.01.01", "2020.12.31")]
 POINTS_PER_CALL = 75
-TOTAL_BUDGET = 4_800  # 64 次封顶；剩余分留给二波
+TOTAL_BUDGET = 4_800  # 一波封顶；二波自带预算
 
 
-def cells() -> list[dict]:
+def cells(wave: int = 1) -> list[dict]:
+    if wave == 2:
+        out = []
+        for prov in W2_PROVS:
+            for anchor in W2_ANCHORS:
+                for start, end in W2_SLICES:
+                    out.append({"queryText": anchor, "lawRegional": [prov], "searchType": "keyword",
+                                "pageSize": 50, "startPunishmentDate": start, "endPunishmentDate": end})
+        return out
     out = []
     for prov in PROVS:
         for anchor in ANCHORS:
@@ -42,18 +54,21 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--plan", action="store_true")
     ap.add_argument("--execute", action="store_true")
+    ap.add_argument("--wave", type=int, default=1, help="1=定案波 64 cells；2=top 省加密波 36 cells")
+    ap.add_argument("--budget", type=int, default=0, help="本波积分上限（0=cells×75）")
     args = ap.parse_args()
-    cs = cells()
+    cs = cells(args.wave)
     need = len(cs) * POINTS_PER_CALL
-    print(f"cells: {len(cs)}（{len(PROVS)} 省 × {len(ANCHORS)} 锚 × {len(SLICES)} 年代片）预计 {need} 分")
+    budget = args.budget or need
+    print(f"wave{args.wave} cells: {len(cs)} 预计 {need} 分（闸门 {budget}）")
     if args.plan:
         for c in cs[:6]:
             print("  例:", c)
         return 0
     if not args.execute:
         return 0
-    if need > TOTAL_BUDGET:
-        print(f"超预算闸门 {TOTAL_BUDGET}，停"); return 1
+    if need > budget:
+        print(f"超预算闸门 {budget}，停"); return 1
 
     gw = Gateway(workstream="data")
     bal = gw.call("/pkulaw-account/mcp", "get_points_balance", {}, points=0, refresh=True)["structured"]
