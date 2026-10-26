@@ -35,6 +35,10 @@ P3–P7 的 `p3p7-final-s3-20261026` 于 16:10 冻结；协调记录于 18:30 �
 
 ## P3–P7 文本增量实测
 
+已将上述 1740 条固化为**可直接用于开发拟合**的统一训练包 `$DATA/engine/training/m4-facts-silver-1740-20261026-v2/`：`train.jsonl` 只开放 `input.facts_text`，目标字段为处罚类型、拘留天数、罚款；处罚原文证据单列 `answer_provenance.jsonl`。训练集共 1348 个事件，开发验证集分存 168／70／119 条；封存 test 40 条没有写入包或评分。训练事实的现行答案泄漏规则命中 0、跨划分事件重合 0。用包本身重新拟合固定参数模型，三组验证的 **357/357 个逐条预测与原开发模型一致**，见 `reproduction.json`。这确实是训练集与已训练模型，但质量等级仍是**开发银标**，不是人工金标或在线放行。
+
+训练类型分布：罚款 825、并罚 534、拘留 328、不予处罚 50、不构成违法 1、警告 2。极少数类没有足够样本支持稳定学习；新增 P3–P7 偏向罚款，不能把总量 1740 当成各类都已充足。
+
 脚本 `research/eval/train_p3p7_text_increment.py` 保持字符 1–3 gram TF-IDF、LogisticRegression C=3、Ridge alpha=1 和原 168 条开发验证不变；另对 706b valid70 与 P3–P7 valid119 各做一次固定参数检查。Macro-F1 使用旧 203＋909 对照的五类标签集合，未评分封存 test。
 
 | 开发验证 | 1228 条正确数／Macro-F1 | 1740 条正确数／Macro-F1 | 配对变化 |
@@ -54,6 +58,7 @@ P3–P7 的 `p3p7-final-s3-20261026` 于 16:10 冻结；协调记录于 18:30 �
 - `D:/02_Dev/Projects/大创/.claude/worktrees/discretion-engine/research/data/lake-text-706b-audit-v3-20261026/manifest.json`：345/275/70。
 - `$DATA/engine/l5-single-canary-v2-20261026-run/audit.json`、`$DATA/engine/l5-mixed-deepseek20-manual10-20261026/production_summary.json`：L5 两个小批。
 - `$DATA/engine/development/p3p7-text-increment-20261026-v3/{report.json,models.joblib}`：1740 条文本开发模型、配对指标、来源哈希；`release_approved=false`。
+- `$DATA/engine/training/m4-facts-silver-1740-20261026-v2/{manifest.json,train.jsonl,answer_provenance.jsonl,reproduction.json}`：统一事实文本开发训练包；开发验证共 357 条，分文件保存，逐条预测复现 357/357。
 - `$DATA/engine/l5-expansion-next30-20261026/{manifest.json,selected.jsonl}`：本轮 30 个不同 train 事件的冻结候选名单；调用结果见下列审计包。
 - `$DATA/engine/l5-expansion-next30-inputs-c3343ec-20261026-v2/`：当前稳定契约下的 30 条允许视图与模型20／离线10分配。
 - `$DATA/engine/l5-expansion-next30-deepseek20-c3343ec-20261026/audit.json`、`$DATA/engine/l5-expansion-next30-manual-review-20261026-v2/summary.json`：新 L5 小批和离线字段草稿的终账；均未放行训练。
