@@ -35,6 +35,7 @@ class BudgetScope:
 
     @contextmanager
     def _lock(self):
+        from process_guard import lock_holder, process_alive
         path = self.root / "WRITER.lock"
         deadline = time.monotonic() + 5
         while True:
@@ -42,8 +43,18 @@ class BudgetScope:
                 f = path.open("x", encoding="ascii")
                 break
             except FileExistsError:
+                holder = lock_holder(path)
+                if holder is not None and not process_alive(holder):
+                    # 持有者已死（进程被杀留下的残锁）：账本 append 各自 fsync，清锁重入安全。
+                    try:
+                        path.unlink()
+                    except FileNotFoundError:
+                        pass
+                    deadline = time.monotonic() + 5
+                    continue
                 if time.monotonic() >= deadline:
-                    raise RuntimeError("budget_scope_locked:确认进程后恢复，不自动抢锁")
+                    raise RuntimeError(
+                        f"budget_scope_locked:持有进程 {holder} 仍在运行——确认进程后恢复，不自动抢锁")
                 time.sleep(.025)
         try:
             with f:
@@ -65,12 +76,29 @@ class BudgetScope:
 
     def snapshot(self):
         events = self._events()
-        reserved = {e["key"]: e for e in events if e["event"] == "reserved"}
-        settled = {e["key"]: e for e in events if e["event"] == "settled"}
-        used = sum((_amount(settled[k]["charged"] if k in settled else e["amount"]) for k, e in reserved.items()), Decimal(0))
+        reserved, settled = {}, {}
+        for e in events:
+            if e["event"] == "reserved":
+                reserved[e["key"]] = e
+            elif e["event"] == "settled":
+                settled[e["key"]] = e
+            elif e["event"] == "released":
+                # 可证明未送达：整条预留撤销，同 key 之后允许重新购买。
+                reserved.pop(e["key"], None)
+        used = sum((_amount(settled[k]["charged"] if k in settled else e["amount"])
+                    for k, e in reserved.items()), Decimal(0))
         return {"calls": len(reserved), "used_or_reserved": float(used),
                 "unknown_keys": sorted(reserved.keys() - settled.keys()), "cap": self.cap,
                 "max_calls": self.max_calls, "_reserved": reserved, "_settled": settled}
+
+    def release(self, key, *, reason):
+        with self._lock():
+            state = self.snapshot()
+            if key not in state["_reserved"]:
+                raise ValueError("release_without_reservation")
+            if key in state["_settled"]:
+                raise ValueError("release_after_settlement")
+            self._append(self.root / "ledger.jsonl", {"event": "released", "key": key, "reason": reason})
 
     def reserve(self, key, amount, *, owner):
         _amount(amount)

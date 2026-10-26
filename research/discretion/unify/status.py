@@ -1,7 +1,7 @@
 """运行状态板（监控 CLI）：单次运行进度 / 运行列表 / watch 常驻刷新。
 
 用法：
-  python research/discretion/unify/status.py                # 列出全部运行
+  python research/discretion/unify/status.py                # 列出全部运行（含 L5 元素批）
   python research/discretion/unify/status.py --run latest   # 最近一次运行的详细板
   python research/discretion/unify/status.py --run s1-xxx --watch  # 2 秒刷新
 """
@@ -31,25 +31,62 @@ def _load(path: Path) -> dict | None:
         return None
 
 
+def element_summary(d: Path) -> dict | None:
+    """L5 元素批状态：账本合成现场；有 progress.json 时以心跳的 phase/延迟为准（能区分 done/aborted）。"""
+    if not (d / "manifest.json").exists() or not ((d / "attempts.jsonl").exists() or (d / "progress.json").exists()):
+        return None
+    from durable_calls import read_rows
+    events = read_rows(d / "attempts.jsonl")
+    plan = _load(d / "plan.json") or {}
+    prog = _load(d / "progress.json") or {}
+    released = {e["attempt_id"] for e in events if e["event"] == "released"}
+    sub = [e for e in events if e["event"] == "submitted" and e["attempt_id"] not in released]
+    fin = [e for e in events if e["event"] == "finished"]
+    diag = [x for x in read_rows(d / "diagnostics.jsonl")] if (d / "diagnostics.jsonl").exists() else []
+    raws = read_rows(d / "raws.jsonl") if (d / "raws.jsonl").exists() else []
+    capped = sum(1 for r in raws if (r.get("meta") or {}).get("finish_reason") == "length")
+    phase = prog.get("phase") or ("running" if (d / "RUNNING.lock").exists() else "idle")
+    return {"kind": "l5-elements", "phase": phase,
+            "done": prog.get("done", len(list(d.glob("record-*.json")))),
+            "total": prog.get("total", plan.get("eligible", 0)),
+            "valid": prog.get("ok", sum(x.get("status") == "valid" for x in diag)),
+            "invalid": prog.get("fail", sum(x.get("status") != "valid" for x in diag if "status" in x)),
+            "calls": len(sub), "finished": len(fin),
+            "charged": round(sum(e.get("charged", 0) for e in fin), 4),
+            "reserved": round(sum(e.get("reservation", 0) for e in sub
+                                  if e["attempt_id"] not in {f["attempt_id"] for f in fin}), 4),
+            "unknown": len({e["key"] for e in sub}) - len({e["key"] for e in fin}),
+            "capped": capped,
+            "eta_min": prog.get("eta_min"), "latency_p90": prog.get("latency_ms_p90"),
+            "cap": plan.get("cap")}
+
+
 def list_runs() -> None:
     root = _runs_root()
     rows = []
-    for d in sorted(root.glob("s1-*")):
+    for d in sorted(root.glob("*")):
+        if not d.is_dir():
+            continue
         prog = _load(d / "progress.json") or {}
         summ = _load(d / "summary.json") or {}
-        rows.append({
-            "run": d.name, "phase": prog.get("phase", "done" if summ else "?"),
-            "done": prog.get("done", summ.get("n", 0)), "total": prog.get("total", summ.get("n", 0)),
-            "ok": prog.get("ok", summ.get("ok", 0)),
-            "eta_min": prog.get("eta_min"), "cost": prog.get("cost_total", {}).get("cost"),
-            "tokens": prog.get("cost_total", {}).get("tokens"),
-        })
-    print(f"{'run':<26}{'phase':<10}{'done/total':>12}{'ok':>6}{'eta_min':>9}{'tokens':>10}{'¥估':>8}")
+        if d.name.startswith("s1-"):
+            rows.append({"run": d.name, "phase": prog.get("phase", "done" if summ else "?"),
+                         "done": prog.get("done", summ.get("n", 0)), "total": prog.get("total", summ.get("n", 0)),
+                         "ok": prog.get("ok", summ.get("ok", 0)),
+                         "eta_min": prog.get("eta_min"), "cost": prog.get("cost_total", {}).get("cost"),
+                         "tokens": prog.get("cost_total", {}).get("tokens")})
+        else:
+            el = element_summary(d)
+            if el:
+                rows.append({"run": d.name, "phase": el["phase"], "done": el["done"], "total": el["total"],
+                             "ok": el["valid"], "eta_min": None, "cost": el["charged"],
+                             "tokens": f"{el['calls']}calls/{el['unknown']}unknown"})
+    print(f"{'run':<34}{'phase':<10}{'done/total':>12}{'ok':>6}{'eta_min':>9}{'tokens/calls':>14}{'¥估':>8}")
     for r in rows:
         dt = f"{r['done']}/{r['total']}" if r['total'] else "-"
-        print(f"{r['run']:<26}{r['phase']:<10}{dt:>12}{r['ok']:>6}"
+        print(f"{r['run']:<34}{r['phase']:<10}{dt:>12}{r['ok']:>6}"
               f"{str(r['eta_min'] if r['eta_min'] is not None else ''):>9}"
-              f"{str(r['tokens'] or ''):>10}{str(r['cost'] or ''):>8}")
+              f"{str(r['tokens'] or ''):>14}{str(r['cost'] or ''):>8}")
 
 
 def show_run(run: str) -> None:
@@ -69,6 +106,26 @@ def show_run(run: str) -> None:
         for e in prog.get("errors_recent", [])[-5:]:
             print(f"  [{e['ts']}] {e['provider']}/{e['cat']}: {e['error'][:80]}")
         return
+    el = element_summary(d)
+    if el:
+        print(f"元素批 {run}  [{el['phase']}]  {el['done']}/{el['total']} 进度 "
+              f"（valid {el['valid']} / invalid {el['invalid']}）  "
+              f"ETA {el['eta_min']}min 延迟p90 {el['latency_p90']}ms")
+        print(f"调用 {el['calls']}（finished {el['finished']}）  已计 ¥{el['charged']} + 在飞预留 ¥{el['reserved']}  "
+              f"未核账 unknown {el['unknown']}  截断(length) {el['capped']}  预算上限 ¥{el['cap']}")
+        prog = _load(d / "progress.json") or {}
+        for e in (prog.get("errors_recent") or [])[-3:]:
+            print(f"  [{e['ts']}] {e['provider']}/{e['cat']}: {e['error'][:90]}")
+        from audit_run import audit
+        a = audit(d)
+        if a["issues"]:
+            print(f"账本问题: {a['issues']}")
+        if a["raw_recoverable_without_new_call"]:
+            print("提示：以下 key 有 raw 无 finished，续跑将自动补账（不重付费）："
+                  + ",".join(x[:12] for x in a["raw_recoverable_without_new_call"]))
+        if a["unknown_attempts"] and not a["raw_recoverable_without_new_call"]:
+            print(f"人工核账：audit_run.py {run} --settle <attempt_id> --charged X --evidence 账单依据")
+        return
     summ = _load(d / "summary.json")
     if summ:
         print(f"运行 {run} 已完成（无 progress.json，旧格式）：")
@@ -87,7 +144,8 @@ def main() -> None:
         return
     run = a.run
     if run == "latest":
-        dirs = sorted(_runs_root().glob("s1-*"))
+        dirs = [d for d in sorted(_runs_root().glob("*"))
+                if d.is_dir() and ((d / "progress.json").exists() or (d / "attempts.jsonl").exists())]
         run = dirs[-1].name if dirs else ""
     while True:
         show_run(run)

@@ -40,17 +40,29 @@ def provider_identity(provider):
     return host
 
 
-def check_models(a, b, c):
-    from arbitrate import ARBITER_MODEL_WHITELIST
+def is_not_sent(err: str) -> bool:
+    """可证明请求从未到达服务端的失败（DNS 解析失败 / 连接被拒）：远端计费概率为零，
+    允许本地回滚预留。超时/断流等"可能已送达"一律仍按 unknown 处理——宁可多占账不重复付费。"""
+    e = (err or "").lower()
+    return any(mark in e for mark in ("getaddrinfo", "winerror 10061", "connection refused",
+                                      "connectionrefused", "no such host"))
+
+
+def check_models(a, b, c, *, allow_same_domain=False):
+    """allow_same_domain: full 扩产降级——仅剩单一提供方域时允许 A/B 同域，
+    但 A/B 必须是不同模型；C 约束不变（非 DeepSeek、白名单）。"""
+    from arbitrate import arbiter_whitelist
     if provider_identity(a) == provider_identity(b):
-        raise ValueError("A/B 必须不同提供方，不能以配置键伪装隔离")
-    if provider_identity(c) == "deepseek" or c.model not in ARBITER_MODEL_WHITELIST:
+        if not allow_same_domain or a.model == b.model:
+            raise ValueError("A/B 必须不同提供方，不能以配置键伪装隔离")
+    if provider_identity(c) == "deepseek" or c.model not in arbiter_whitelist():
         raise ValueError("C 必须是已登记的非 DeepSeek 裁判")
 
 
 class DurableCalls:
     def __init__(self, out: Path, providers: dict, *, prices: dict, cap: float,
-                 max_calls: int, max_input_bytes: int, execute=False, budget_scope=None, revive=False):
+                 max_calls: int, max_input_bytes: int, execute=False, budget_scope=None,
+                 revive=False, on_finish=None):
         if (type(cap) not in (int, float) or not math.isfinite(cap) or cap <= 0
                 or type(max_calls) is not int or max_calls <= 0
                 or type(max_input_bytes) is not int or max_input_bytes <= 0):
@@ -60,11 +72,18 @@ class DurableCalls:
         self.cap, self.max_calls = cap, max_calls
         self.max_input_bytes, self.execute = max_input_bytes, execute
         self.budget_scope = budget_scope
+        self.on_finish = on_finish      # (model, usage) → 心跳成本回填；不参与计费决策
         self.lock = threading.Lock()
         self.events = read_rows(self.out / "attempts.jsonl")
         self.raws = {r["key"]: r for r in read_rows(self.out / "raws.jsonl")}
-        self.used_calls = sum(r["event"] == "submitted" for r in self.events)
-        submitted = {r["attempt_id"]: r for r in self.events if r["event"] == "submitted"}
+        # released = 可证明未送达（not-sent）的提交：不计调用数、不占预算、不留未知。
+        released = {r["attempt_id"] for r in self.events if r["event"] == "released"}
+        # 编号用"历史提交总数"而非净调用数：released 之后重试同 key 不得复用旧 attempt_id。
+        self.submitted_total = sum(r["event"] == "submitted" for r in self.events)
+        self.used_calls = sum(r["event"] == "submitted" and r["attempt_id"] not in released
+                              for r in self.events)
+        submitted = {r["attempt_id"]: r for r in self.events
+                     if r["event"] == "submitted" and r["attempt_id"] not in released}
         self.dead = {submitted[r["attempt_id"]]["provider"] for r in self.events
                      if r["event"] == "failed" and r.get("category") in ("balance", "auth")
                      and r["attempt_id"] in submitted}
@@ -77,6 +96,34 @@ class DurableCalls:
         self.reserved = sum(completed[k]["charged"] if k in completed else r["reservation"]
                             for k, r in submitted.items())
         self.unknown = {r["key"] for k, r in submitted.items() if k not in completed}
+        if self.execute:
+            # 有 raw 无 finished（进程在上次落 raw 后被打断）：本地补账即恢复，不再花一分钱。
+            self._recover_finished_from_raws()
+
+    def _recover_finished_from_raws(self):
+        submitted = {r["attempt_id"]: r for r in self.events if r["event"] == "submitted"}
+        released = {r["attempt_id"] for r in self.events if r["event"] == "released"}
+        completed = {r["attempt_id"] for r in self.events if r["event"] == "finished"}
+        for attempt_id, ev in list(submitted.items()):
+            if attempt_id in completed or attempt_id in released or ev["key"] not in self.raws:
+                continue
+            raw = self.raws[ev["key"]]
+            usage = (raw.get("meta") or {}).get("usage") or {}
+            price = ev.get("price") or self.prices.get(raw.get("model") or "", {})
+            charged = ((usage["prompt_tokens"] * price["input"] + usage["completion_tokens"] * price["output"]) / 1e6
+                       if all(k in usage for k in ("prompt_tokens", "completion_tokens")) and price
+                       else ev["reservation"])
+            row = {"event": "finished", "key": ev["key"], "attempt_id": attempt_id,
+                   "charged": charged, "usage": usage, "recovered_from_raw": True}
+            with self.lock:
+                append(self.out / "attempts.jsonl", row)
+                self.events.append(row)
+                if self.budget_scope:
+                    self.budget_scope.settle(ev["key"], charged)
+                self.reserved += charged - ev["reservation"]
+                self.unknown.discard(ev["key"])
+            if self.on_finish:
+                self.on_finish(raw.get("model"), usage)
 
     def abandon_unknown(self) -> int:
         """Close attempts whose process died in flight, charging the full reservation.
@@ -148,13 +195,14 @@ class DurableCalls:
                 raise RuntimeError("provider_disabled")
             if self.used_calls >= self.max_calls or self.reserved + reservation > self.cap:
                 raise RuntimeError("budget_stop:包含在飞和未知请求的预留")
-            attempt = f"{key}:{self.used_calls + 1}"
+            attempt = f"{key}:{self.submitted_total + 1}"
             if self.budget_scope:
                 self.budget_scope.reserve(key, reservation, owner=str(self.out.resolve()))
             append(self.out / "attempts.jsonl", {"event": "submitted", "key": key,
                    "attempt_id": attempt, "reservation": reservation, "provider": identity,
                    "model": provider.model, "context": context, "request_hash": digest(msgs), "price": price})
             self.used_calls += 1
+            self.submitted_total += 1
             self.reserved += reservation
             self.unknown.add(key)
         try:
@@ -164,12 +212,25 @@ class DurableCalls:
         except Exception as exc:
             category = classify_error(str(exc))
             with self.lock:
-                # A failed HTTP request can still have unknown remote cost. Keep full reserve.
-                append(self.out / "attempts.jsonl", {"event": "failed", "key": key,
-                       "attempt_id": attempt, "category": category,
-                       "error_type": type(exc).__name__})
-                if category in ("balance", "auth"):
-                    self.dead.add(provider_identity(provider))
+                if is_not_sent(str(exc)):
+                    # 请求可证明从未送达：回滚预留并标记 released，续跑不再需要人工清账。
+                    row = {"event": "released", "key": key, "attempt_id": attempt,
+                           "category": category, "reason": "request_not_sent",
+                           "error_type": type(exc).__name__}
+                    append(self.out / "attempts.jsonl", row)
+                    self.events.append(row)
+                    if self.budget_scope:
+                        self.budget_scope.release(key, reason="request_not_sent")
+                    self.reserved -= reservation
+                    self.used_calls -= 1
+                    self.unknown.discard(key)
+                else:
+                    # A failed HTTP request can still have unknown remote cost. Keep full reserve.
+                    append(self.out / "attempts.jsonl", {"event": "failed", "key": key,
+                           "attempt_id": attempt, "category": category,
+                           "error_type": type(exc).__name__})
+                    if category in ("balance", "auth"):
+                        self.dead.add(provider_identity(provider))
             raise
         with self.lock:
             raw = {"key": key, "attempt_id": attempt, "content": content,
@@ -189,6 +250,8 @@ class DurableCalls:
             self.reserved += charged - reservation
             self.unknown.discard(key)
             overrun = charged > reservation
+        if self.on_finish:
+            self.on_finish(provider.model, usage)
         if overrun:
             self.dead.add(identity)
             raise RuntimeError("reservation_exceeded:检查服务端 token 口径后再继续")

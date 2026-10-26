@@ -9,28 +9,136 @@ import argparse
 import copy
 import hashlib
 import json
+import os
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-from element_contract import (engine_contract, contract_snapshot, digest, messages,
-                              compile_references, merge_valid, validate_located, WIRE_VERSION)
+from element_contract import (engine_contract, contract_snapshot, prompt_fingerprint, digest,
+                              messages, compile_references, merge_valid, validate_located,
+                              is_model_quality_failure, is_full_mode_hard_stop, WIRE_VERSION)
 from locate import OffsetIndex
 from durable_calls import DurableCalls, append, read_rows, check_models
-from s1 import data_root, load_config
-from progress import load_prices
+from s1 import data_root, load_config, META_VIEW_ROLES
+from progress import load_prices, ProgressTracker
 from cleanse import replay_edits, sentence_table
 from evidence_types import CleanSpan, SourceSpan
 from provider_contract import freeze_execution
 from budget_scope import from_order
+from process_guard import lock_holder, process_alive
 from task_result import failure_record
 from fact_spans import fact_view, FACT_VIEW_VERSION
 from normalization import normalize_time
 from supply_packet import VERSION as SUPPLY_VERSION, audit_elements, build_packet
+from s3 import mask_contains  # noqa: E402  掩码/实名变体等价（L5 target 门槛 2026-10-26 接入）
+from field_table import parse_fields as _parse_fields  # noqa: E402  确定性 person/prior 字段兜底
 
 ENGINE = engine_contract()
 FIELD_INFO, PROMPT_VERSION = ENGINE.FIELD_INFO, ENGINE.PROMPT_VERSION
+
+
+MANIFEST_IDENTITY_KEYS = ("version", "prompt_fingerprint", "ids", "views", "source_hashes")
+
+
+def manifest_matches(existing, frozen):
+    """续跑身份只看稳定指纹（ID/视图/来源/提示词指纹）；校验器/计费等不影响提示词的
+    实现漂移不再封死批次（审计 P0-1）。全量实现快照仍记录在 manifest['contract'] 供审计。"""
+    return all(existing.get(k) == frozen.get(k) for k in MANIFEST_IDENTITY_KEYS)
+
+
+def preflight_request_sizes(work):
+    """发射前按真实 messages 量字节——request_too_large 绝不该在中途才炸（审计 P0-4）。"""
+    sizes = {}
+    for rid, _, inp in work:
+        msgs = messages(ENGINE, inp)
+        sizes[rid] = sum(len(m["content"].encode("utf-8")) for m in msgs) + 1024
+    return sizes
+
+
+def acquire_run_lock(out, take_over=False):
+    """残留锁：持有者活着 ⇒ 拒绝双跑；已死 ⇒ 明示后用 --take-over 接管（审计 P0-3）。"""
+    lock = out / "RUNNING.lock"
+    try:
+        f = lock.open("x", encoding="ascii")
+    except FileExistsError:
+        holder = lock_holder(lock)
+        if process_alive(holder):
+            raise RuntimeError(f"running_elsewhere: 本批正在被进程 {holder} 执行，禁止双跑")
+        if not take_over:
+            raise RuntimeError(f"stale_running_lock: 原执行进程 (PID {holder}) 已退出；"
+                               "确认无活动写入后用 --take-over 重跑接管")
+        lock.unlink()
+        f = lock.open("x", encoding="ascii")
+    with f:
+        f.write(str(os.getpid()))
+    return lock
+
+
+def _append_meta_fields(view, meta_fields, types, first_f, sentences, index, original):
+    """Append only person/case/prior meta sub-spans before facts.
+
+    Outcome/other meta sub-spans never enter the teacher view. The model already
+    supplied exact quotes; validation resolved start/end in cleaned coordinates.
+    """
+    last_end = -1
+    fields = [f for f in meta_fields
+              if isinstance(f, dict) and f.get("role") in META_VIEW_ROLES
+              and isinstance(f.get("sentence"), int) and f["sentence"] < first_f
+              and types.get(f["sentence"]) == "meta"
+              and isinstance(f.get("start"), int) and isinstance(f.get("end"), int)
+              and f["start"] < f["end"]]
+    for number, field in enumerate(sorted(fields, key=lambda f: (f["start"], f["end"])), 1):
+        sid, cs, ce = field["sentence"], field["start"], field["end"]
+        left, right = sentences[sid - 1]
+        if not (left <= cs < ce <= right) or cs < last_end:
+            continue
+        last_end = ce
+        projected = index.project_span(CleanSpan(cs, ce), original)
+        for part, span in enumerate(projected, 1):
+            a, b = span.start, span.end
+            text = original[a:b]
+            if text.strip():
+                view.append({"id": f"S{sid}.m{number}.{part}", "sentence_id": sid,
+                             "type": "meta", "start": a, "end": b, "text": text,
+                             "meta_role": field["role"]})
+
+
+def _append_field_spans(view, rec, seg_out, index, original, sentences):
+    """确定性 person/prior 字段兜底投影（2026-10-26 L5 门槛修复，引擎审计 127 条）。
+
+    触发条件：视图尚无 person 项（S1 未产 meta_fields，或 meta_fields 无 person）。
+    field_table.parse_fields 按**字段角色**抽取（outcome/other 永不入），不受 zone 限制——
+    decision 区的身份字段按角色隔离路由（person_only_in_nonmeta_zone），meta 区可投影
+    （person_meta_span_can_be_projected）。与既有视图 span 重叠即跳过，防重复。
+    """
+    if any(s.get("type") == "meta" and s.get("meta_role") == "person" for s in view):
+        return
+    try:
+        fields = _parse_fields(rec, seg_out or {})
+    except Exception:
+        return
+    number = 0
+    for f in fields:
+        if f.get("role") not in ("person", "prior") or f.get("status") != "ok":
+            continue
+        sid, cs, ce = f.get("sentence_id"), f.get("start"), f.get("end")
+        if not (isinstance(sid, int) and isinstance(cs, int) and isinstance(ce, int)
+                and 1 <= sid <= len(sentences) and cs < ce):
+            continue
+        left, right = sentences[sid - 1]
+        if not (left <= cs < ce <= right):
+            continue
+        if any(not (ce <= v["start"] or cs >= v["end"]) for v in view):
+            continue
+        for part, span in enumerate(index.project_span(CleanSpan(cs, ce), original), 1):
+            a, b = span.start, span.end
+            text = original[a:b]
+            if text.strip():
+                number += 1
+                view.append({"id": f"S{sid}.df{number}.{part}", "sentence_id": sid,
+                             "type": "meta", "start": a, "end": b, "text": text,
+                             "meta_role": f["role"]})
 
 
 def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
@@ -39,7 +147,7 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
     zones = (seg_out or {}).get("zones") or rec.get("zones_det") or []
     sentences = rec.get("sentences") or []
     original = rec.get("_text_full") or ""
-    if not target or not zones or not sentences or target not in original:
+    if not target or not zones or not sentences or not (target in original or mask_contains(original, target)):
         return None
     if hashlib.sha256(original.encode("utf-8")).hexdigest() != rec["text_orig_sha256"]:
         raise ValueError("text_hash_mismatch")
@@ -60,10 +168,14 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
     if refined is not None:
         for item in refined:
             refined_by_sentence.setdefault(item["sentence"], []).append(item)
-    first_f = (min(refined_by_sentence) if refined_by_sentence else len(sentences) + 1) if refined is not None else next(
-        (sid for sid, typ in types.items() if typ == "facts"), len(sentences) + 1)
+    first_f = (min(refined_by_sentence) if refined_by_sentence else next(
+        (sid for sid, typ in types.items() if typ == "facts"), len(sentences) + 1))
+    meta_fields = (seg_out or {}).get("meta_fields")
+    use_meta_fields = isinstance(meta_fields, list)
     view = []
     for sid, typ in types.items():
+        if use_meta_fields and typ == "meta":
+            continue
         has_refined_facts = refined is not None and sid in refined_by_sentence
         if not has_refined_facts and typ != "facts" and not (typ == "meta" and sid < first_f):
             continue
@@ -91,12 +203,19 @@ def build_inputs(rec: dict, seg_out: dict, index: OffsetIndex) -> dict | None:
                             ref = SourceSpan.from_text(original, a, a + len(stripped))
                             item["normalized_time"] = normalize_time(stripped, ref)
                     view.append(item)
+    if use_meta_fields:
+        _append_meta_fields(view, meta_fields, types, first_f, sentences, index, original)
+    _append_field_spans(view, rec, seg_out or {}, index, original, sentences)
+    view.sort(key=lambda s: s["start"])
     if not view:
         return None
-    if target not in '\n'.join(s['text'] for s in view):
+    view_text = '\n'.join(s['text'] for s in view)
+    if not (target in view_text or mask_contains(view_text, target)):
         return None
     aliases = (seg_out or {}).get("subject", {}).get("aliases") or []
-    if not isinstance(aliases, list) or any(not isinstance(a, str) or a not in original for a in aliases):
+    if not isinstance(aliases, list) or any(
+            not isinstance(a, str) or not (a in original or mask_contains(original, a))
+            for a in aliases):
         raise ValueError("invalid_alias")
     return {"target": target, "aliases": aliases, "sentence_view": view,
             "facts_text": "\n".join(s["text"] for s in view if s["type"] == "facts"),
@@ -236,7 +355,16 @@ def main():
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--ids", type=Path, help="预冻结的分层 ID JSON 数组；不按完成顺序取烟测样本")
     p.add_argument("--execute", action="store_true", help="requires registered smoke order and finite cap")
+    p.add_argument("--take-over", action="store_true",
+                   help="确认原进程已死后接管残留 RUNNING.lock；活锁永远拒绝")
     p.add_argument("--order", type=Path, help="frozen reviewed order JSON; never inferred from defaults")
+    p.add_argument("--full", action="store_true",
+                   help="user-authorized full batch: bypass smoke/spec36/order caps; keep evidence, cache, ledger, no-double-charge guards")
+    p.add_argument("--providers", default="deepseek,xiaomi-pro,bailian",
+                   help="full mode A,B,C config keys (default: deepseek,xiaomi-pro,bailian)")
+    p.add_argument("--cap", type=float, default=1000.0, help="full-mode execution safety cap (not a governance gate)")
+    p.add_argument("--max-calls", type=int, default=5000, help="full-mode call safety ceiling")
+    p.add_argument("--max-input-bytes", type=int, default=200000, help="full-mode per-request byte ceiling")
     args = p.parse_args()
     out = args.out.resolve()
     if not out.is_relative_to((data_root() / "s1_runs").resolve()) or (args.run and out == args.run.resolve()):
@@ -260,7 +388,8 @@ def main():
     if args.limit:
         work = work[:args.limit]
     snapshot = contract_snapshot(ENGINE)
-    frozen = {"version": WIRE_VERSION, "contract": snapshot,
+    fp_digest = digest(prompt_fingerprint(ENGINE))
+    frozen = {"version": WIRE_VERSION, "prompt_fingerprint": fp_digest, "contract": snapshot,
               "binding_contract_version": SUPPLY_VERSION,
               'input_mode': 'development_slice_no_s3_certificate' if args.slice else 's1_s3_qualified',
               "ids": [w[0] for w in work], "views": {rid: inp["view_hash"] for rid, _, inp in work},
@@ -268,56 +397,100 @@ def main():
                                 for f in sources}}
     out.mkdir(parents=True, exist_ok=True)
     manifest = out / "manifest.json"
-    if manifest.exists() and json.loads(manifest.read_text("utf-8")) != frozen:
-        p.error("run manifest 不匹配，换新批次目录")
+    if manifest.exists() and not manifest_matches(json.loads(manifest.read_text("utf-8")), frozen):
+        p.error("run manifest 身份不匹配（ID/视图/来源/提示词指纹），换新批次目录")
     if not manifest.exists():
         manifest.write_text(json.dumps(frozen, ensure_ascii=False, indent=2) + "\n", "utf-8")
-    plan = {"eligible": len(work), "rejected": rejected, "contract_hash": digest(snapshot),
+    plan = {"eligible": len(work), "rejected": rejected, "contract_hash": fp_digest,
+            "full_contract_hash": digest(snapshot),
             "execute": args.execute, "release_approved": False}
     (out / "plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=2) + "\n", "utf-8")
     if not args.execute:
         print(json.dumps(plan, ensure_ascii=False))
         return
-    if not args.order:
-        p.error("付费须提供预登记 --order；默认只离线规划")
-    order = json.loads(args.order.read_text("utf-8"))
-    if (order.get("contract_hash") != digest(snapshot) or order.get("ids") != frozen["ids"]
-            or not order.get("review_record") or not order.get("executor_review")
-            or not order.get("engine_ack") or order.get("free_replay_pass") is not True):
-        p.error("工单未固定本批 ID/契约，或缺复核/知会/免费重放回执")
-    if order.get("stage") == "smoke12":
-        if len(work) > 12 or order.get("cap", 0) > 4:
-            p.error("首段仅允许 ≤12 件 / ¥4")
-    elif order.get("stage") == "spec36":
-        prior = order.get("prior_stage_receipt")
-        if not prior or not Path(prior).is_file():
-            p.error("第二段须有首段验收回执")
-        receipt = json.loads(Path(prior).read_text("utf-8"))
-        if receipt.get("pass") is not True or receipt.get("contract_hash") != digest(snapshot):
-            p.error("首段回执未通过或契约不一致")
+    if args.full:
+        if args.order:
+            p.error("--full 与 --order 二选一")
+        names = [x.strip() for x in args.providers.split(",") if x.strip()]
+        if len(names) != 3:
+            p.error("--providers 须为 A,B,C 三个配置键")
+        cap, maximum = float(args.cap), int(args.max_calls)
+        if not (cap > 0 and maximum > 0):
+            p.error("--full 须提供正的 cap/max-calls")
+        order = {
+            "stage": "full",
+            "ids": frozen["ids"],
+            "contract_hash": fp_digest,
+            "review_record": "user-authorized-full-2026-10-21",
+            "executor_review": "zcode-full-run",
+            "engine_ack": "user-authorized-full",
+            "free_replay_pass": True,
+            "cap": cap,
+            "max_calls": maximum,
+            "max_input_bytes": args.max_input_bytes,
+            "providers": {"A": names[0], "B": names[1], "C": names[2]},
+            "budget_scope": {"path": str((out / "budget").resolve()),
+                             "cap": cap, "max_calls": maximum},
+        }
     else:
-        p.error("工单须明确 smoke12/spec36 分段")
-    cap, maximum = order.get("cap", 0), order.get("max_calls", 0)
-    if not 0 < cap <= 12 or not 0 < maximum <= 252 or len(work) > 36:
-        p.error("本 runner 仅支持已评审的小批上界；全量须另审工单")
+        if not args.order:
+            p.error("付费须提供预登记 --order；默认只离线规划")
+        order = json.loads(args.order.read_text("utf-8"))
+        if (order.get("contract_hash") not in (fp_digest, digest(snapshot))
+                or order.get("ids") != frozen["ids"]
+                or not order.get("review_record") or not order.get("executor_review")
+                or not order.get("engine_ack") or order.get("free_replay_pass") is not True):
+            p.error("工单未固定本批 ID/契约，或缺复核/知会/免费重放回执")
+        if order.get("stage") == "smoke12":
+            if len(work) > 12 or order.get("cap", 0) > 4:
+                p.error("首段仅允许 ≤12 件 / ¥4")
+        elif order.get("stage") == "spec36":
+            prior = order.get("prior_stage_receipt")
+            if not prior or not Path(prior).is_file():
+                p.error("第二段须有首段验收回执")
+            receipt = json.loads(Path(prior).read_text("utf-8"))
+            if receipt.get("pass") is not True or receipt.get("contract_hash") not in (fp_digest, digest(snapshot)):
+                p.error("首段回执未通过或契约不一致")
+        else:
+            p.error("工单须明确 smoke12/spec36 分段")
+        cap, maximum = order.get("cap", 0), order.get("max_calls", 0)
+        if not 0 < cap <= 12 or not 0 < maximum <= 252 or len(work) > 36:
+            p.error("本 runner 仅支持已评审的小批上界；全量须另审工单")
+    oversized = [(rid, size) for rid, size in preflight_request_sizes(work).items()
+                 if size > order["max_input_bytes"]]
+    if oversized:
+        p.error(f"字节闸预检失败 {len(oversized)} 条（示例 {oversized[:3]}）；"
+                "须换更大 max_input_bytes 的工单，禁止中途炸批")
     providers, _, _ = load_config()
     names = order["providers"]
-    check_models(*(providers[names[k]] for k in ("A", "B", "C")))
+    check_models(*(providers[names[k]] for k in ("A", "B", "C")), allow_same_domain=args.full)
     prices = load_prices(data_root() / "config/s1_prices.json")
     freeze_execution(out, order, providers, prices)
+    try:
+        lock = acquire_run_lock(out, args.take_over)
+    except RuntimeError as exc:
+        p.error(str(exc))
+    tracker = ProgressTracker(out, total=len(work), prices=prices,
+                              meta={"run_id": out.name, "kind": "l5-elements",
+                                    "stage": order.get("stage"),
+                                    "provider_primary": names.get("A"), "providers": names})
     calls = DurableCalls(out, providers, prices=prices, budget_scope=from_order(order, data_root()),
-                         cap=cap, max_calls=maximum, max_input_bytes=order["max_input_bytes"], execute=True)
-    lock = out / "RUNNING.lock"
-    with lock.open("x", encoding="ascii") as f:
-        f.write(str(__import__("os").getpid()))
+                         cap=cap, max_calls=maximum, max_input_bytes=order["max_input_bytes"],
+                         execute=True, on_finish=lambda model, usage: tracker.cost.add(model, usage))
+    import time
     try:
         for rid, rec, inp in work:
+            started = time.monotonic()
+            calls_before = calls.used_calls
+            tracker.begin_record()
+            ok = False
+            reason = ""
             try:
                 if contract_snapshot(ENGINE) != snapshot:
                     raise RuntimeError("engine_contract_changed:中途不换契约")
                 if not __import__("re").fullmatch(r"[A-Za-z0-9_-]+", rid):
                     raise ValueError("unsafe_record_id")
-                context = {"id": rid, "view": inp["view_hash"], "contract": digest(snapshot),
+                context = {"id": rid, "view": inp["view_hash"], "contract": fp_digest,
                            "source": rec["text_orig_sha256"]}
                 def valid(payload):
                     compile_references(payload, inp, rec["_text_full"], ENGINE)
@@ -346,6 +519,7 @@ def main():
                           "element_schema_version": ENGINE.SCHEMA_VERSION,
                           "element_prompt_version": ENGINE.PROMPT_VERSION,
                           "wire_version": WIRE_VERSION, "contract_hash": digest(snapshot),
+                          "prompt_fingerprint": fp_digest,
                           "view_hash": inp["view_hash"], "label_provenance": "model-adjudicated",
                           "human_review": False, "release_approved": False}
                 # Per-record immutable commit; resume does not duplicate candidate rows.
@@ -355,17 +529,43 @@ def main():
                     with temp.open("w", encoding="utf-8") as f:
                         json.dump(result, f, ensure_ascii=False)
                         f.flush()
-                        __import__("os").fsync(f.fileno())
+                        os.fsync(f.fileno())
                     temp.replace(dest)
                 elif digest(json.loads(dest.read_text("utf-8"))) != digest(result):
                     raise RuntimeError("existing_commit_mismatch:不覆盖既有记录")
                 append(out / "diagnostics.jsonl", {"id": rid, "n_diffs": len(diffs),
                        "status": result["status"], "binding_counts": binding_audit["counts"],
                        "difference_kinds": dict(__import__("collections").Counter(d["kind"] for d in diffs))})
-            except Exception as exc:
+                ok = True
+            except (ValueError, TypeError) as exc:
+                fail = failure_record(rid, exc)
+                reason = fail["reason"]
+                append(out / "diagnostics.jsonl", fail)
+                # 模型质量失败（校验器拒收/坏 JSON）：隔离本条继续——批量标注不能因单条模型输出中断；
+                # 契约/授权/预算类失败仍 fail-fast。full 扩产模式下非硬停一律隔离单条。
+                # 前缀表是单一事实源：element_contract.MODEL_QUALITY_PREFIXES + 测试守卫。
+                if args.full:
+                    if is_full_mode_hard_stop(exc):
+                        raise
+                elif not is_model_quality_failure(exc):
+                    raise
+            except BaseException as exc:
+                # 管线级阻塞（预算/授权/传输/RuntimeError）：停批前先把"谁、在哪条、为何挡住"落盘，
+                # 监控侧必须看得见阻塞原因，而不是只看到一个不再更新的进度板。
+                reason = f"{type(exc).__name__}: {exc}"
                 append(out / "diagnostics.jsonl", failure_record(rid, exc))
-                # A smoke is fail-fast; never continue through a contract/authority/budget failure.
+                # full 扩产模式：超时/断流/单条传输故障隔离该条继续；只有预算/契约/授权类硬停。
+                if args.full and not is_full_mode_hard_stop(exc):
+                    continue
                 raise
+            finally:
+                tracker.finish_record(ok, calls.used_calls - calls_before, names.get("A", ""),
+                                      error="" if ok else reason,
+                                      latency_ms=int((time.monotonic() - started) * 1000))
+        tracker.set_phase("done")
+    except BaseException:
+        tracker.set_phase("aborted")   # done 只代表全批走完；中止原因见 diagnostics 与 errors_recent
+        raise
     finally:
         lock.unlink()
 

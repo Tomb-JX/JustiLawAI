@@ -314,6 +314,79 @@ def check_dates(ctx):
     return findings
 
 
+# ---------- 掩码名/实名变体绑定（格式折叠，非语义归属，B-10 允许） ----------
+# 同一人在队列 target、S1 mention、正文不同区间可用不同写法：
+#   掩码字形异写：王*乙 ↔ 王x乙 ↔ 王×乙（* / x / X / × / 某 互换）
+#   实名↔掩码变体：蔡** ↔ 蔡素珍（不予处罚决定书决定段常书实名、事实段书掩码）
+# 706 湖文本实测：精确字符串比对造成 subject 闸 57 条假阳性，64 条法宝"不予处罚"
+# 输出被毙 51 条（决定区实名 vs 目标掩码）。规则＝**等长 + 逐位"字符相同或至少一方
+# 为掩码字符"**；仍不做姓级模糊匹配——等长同姓的不同实名（张大明↔张小明）在实名位
+# 冲突即拒配；mask_contains 对实名变体加唯一性护栏（正文出现两个互异实名变体即拒）。
+# 残余风险（记录在案）：多当事人文书里 target=王** 而模型误选同姓等长的王小明，
+# 等值闸无法识破——语义归属仍由模型负责（B-10），闸门只做格式绑定。
+_MASK_CHARS = "*xX×某"
+
+
+def mask_key(name: str) -> str:
+    """掩码名 → 等价类 key：掩码字符折叠为同一占位符，实名字符保留。"""
+    return "".join("●" if c in _MASK_CHARS else c for c in (name or ""))
+
+
+def mask_compatible(a: str, b: str) -> bool:
+    """等长且逐位：字符相同，或至少一方是掩码字符。蔡**↔蔡素珍 ✓，张大明↔张小明 ✗。"""
+    if not a or not b or len(a) != len(b):
+        return False
+    return all(ca == cb or ca in _MASK_CHARS or cb in _MASK_CHARS for ca, cb in zip(a, b))
+
+
+def mask_equal(a: str, b: str) -> bool:
+    """两个写法能否绑定为同一人（掩码字形异写 + 实名↔掩码变体）。"""
+    return mask_compatible(a, b)
+
+
+def mask_contains(text: str, mention: str) -> bool:
+    """mention 是否以任一变体命中 text。三级：
+    ① 精确子串；② mention 的掩码位按掩码字符类匹配（王*乙 命中 王x乙）；
+    ③ 实名↔掩码变体逐位绑定，带防歧义护栏：text 中与 mention 兼容的**实名**变体
+       必须唯一（出现 曾红权/曾国藩 两个即拒配）；无实名变体时兼容窗口须唯一。"""
+    if not mention or not text:
+        return False
+    if mention in text:
+        return True
+    pat = "".join(f"[{_MASK_CHARS}]" if c in _MASK_CHARS else re.escape(c) for c in mention)
+    if re.search(pat, text):
+        return True
+    n = len(mention)
+    anchor = mention[0] if mention[0] not in _MASK_CHARS else None
+    compat = set()
+    for i in range(len(text) - n + 1):
+        # 首字为实名字符时窗口须锚定同字：否则词中截断的掩码开头窗口
+        # （"…邹×为在…"里的"×为在"）会污染变体集，把真命中挤成"歧义"
+        if anchor is not None and text[i] != anchor:
+            continue
+        w = text[i:i + n]
+        if mask_compatible(w, mention):
+            compat.add(w)
+    if not compat:
+        return False
+    real = {w for w in compat if not any(c in _MASK_CHARS for c in w)}
+    if len(real) == 1:
+        return True
+    return not real and len(compat) == 1
+
+
+_ROLE_PREFIXES = ("被处罚人", "违法行为人", "违法人员", "当事人", "行为人")
+
+
+def strip_role_prefix(mention: str) -> str:
+    """剥离 mention 的角色前缀（'被处罚人王xx'→'王xx'）；仅格式清理。"""
+    m = mention or ""
+    for p in _ROLE_PREFIXES:
+        if m.startswith(p) and len(m) > len(p):
+            return m[len(p):]
+    return m
+
+
 def check_subject(ctx):
     out, rec = ctx["output"], ctx["record"]
     subj = (out.get("subject") or {}).get("mention")
@@ -322,9 +395,10 @@ def check_subject(ctx):
     cleaned = rec.get("cleaned_text") or ""
     refined = _validated_refined_facts(ctx)
     facts = zone_text({"facts": refined} if refined is not None else ctx["spans"], cleaned, "facts").strip()
-    if facts and subj in facts:
+    variants = {subj, strip_role_prefix(subj)}
+    if facts and any(mask_contains(facts, v) for v in variants):
         return []
-    if subj in cleaned:
+    if any(mask_contains(cleaned, v) for v in variants):
         return [_mk("subject", "warn", f"本人写法见于 decision/reasoning 等区间而非 facts（facts len={len(facts)}）")]
     return [_mk("subject", "error", f"本人写法在正文中未找到：{subj[:6]}…（疑幻觉）")]
 
@@ -377,7 +451,8 @@ def _CN_READ(v: int) -> str:
 # 小写、大写、千分位、混合书写"三佰"），再查模型值成员——正向生成读法会漏大写形态
 # （贰佰肆拾元=240），ds300 实测曾把 52/68 件大写金额误判幻觉，教训在此。
 _NUM_CHARS = "0-9０-９〇零○一二三四五六七八九十百千万萬亿佰仟拾两壹贰貳叁參肆伍陆陸柒捌玖拾"
-_AMOUNT = re.compile(rf"([{_NUM_CHARS}]{{1,16}})[ \t]*元")
+# 单位收 元/圆：法宝决定书大写金额惯书"伍佰圆整"（706 湖文本实测 8 件因此误判幻觉）
+_AMOUNT = re.compile(rf"([{_NUM_CHARS}]{{1,16}})[ \t]*[元圆]")
 # 字段表公示的金额列常无"元"单位（"罚款金额：300"）——标签+纯数字模式
 _LABEL_AMOUNT = re.compile(r"(?:金额|罚款)[：:]?\s*(\d{1,10})(?![\d.])")
 _DAYS = re.compile(rf"([{_NUM_CHARS}]{{1,8}})[ \t]*(?:日|天)")

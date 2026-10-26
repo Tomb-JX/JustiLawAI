@@ -128,3 +128,50 @@ def test_role_contract_rejects_heading_and_date_as_behavior():
         except ValueError:
             continue
         raise AssertionError("invalid role accepted")
+
+
+# ---------- 2026-10-26 湖文本降本：text_slim 瘦身提示词 + 关 clause-refine 的整段 facts 回退 ----------
+
+def test_text_slim_prompt_drops_unused_fields():
+    from s1 import TEXT_SLIM_SYSTEM_PROMPT, SYSTEM_PROMPT
+    # 瘦身版必须移除文本路径不消费的两字段，保留核心
+    assert "meta_fields" not in TEXT_SLIM_SYSTEM_PROMPT
+    assert "prior_sentence_ids" not in TEXT_SLIM_SYSTEM_PROMPT
+    assert "【字段（" in TEXT_SLIM_SYSTEM_PROMPT and '"zones"' in TEXT_SLIM_SYSTEM_PROMPT
+    assert '"gambling"' in TEXT_SLIM_SYSTEM_PROMPT and '"outcome"' in TEXT_SLIM_SYSTEM_PROMPT
+    # 原版仍含这两字段（瘦身是派生，不改原版）
+    assert "meta_fields" in SYSTEM_PROMPT and "prior_sentence_ids" in SYSTEM_PROMPT
+    assert len(TEXT_SLIM_SYSTEM_PROMPT) < len(SYSTEM_PROMPT)
+
+
+def test_text_slim_request_uses_slim_and_rejects_refine():
+    rec, _ = _case()
+    msgs = request_for(rec, text_slim=True)
+    assert "meta_fields" not in msgs[0]["content"]
+    # 瘦身与 meta/prior refine 互斥
+    for bad in ({"meta_refine": True}, {"prior_refine": True}):
+        try:
+            request_for(rec, text_slim=True, **bad)
+            raise AssertionError("应拒绝 text_slim+refine 组合")
+        except ValueError:
+            pass
+
+
+def test_no_clause_refine_defaults_whole_zone_facts():
+    # 关 clause-refine：fact_clause_ids 默认 []，fact_view 回退整段 facts 区（非 None）。
+    # 用干净叙述式 fixture（facts 句不含 _MIXED_CUE 结论 cue，代表湖文本 facts-only 路径）。
+    text = "经查，张某于2024年3月在某棋牌室参与赌博。现决定对张某罚款五百元。"
+    rec = {"cleaned_text": text, "sentences": sentence_table(text), "form": "叙述式-独立成篇",
+           "source_type": "处罚决定书", "prefilter": {"gambling": "是"}}
+    output = {"zones": [{"type": "facts", "from": 1, "to": 1}, {"type": "decision", "from": 2, "to": 2}],
+              "subject": {"mention": "张某", "aliases": []},
+              "outcome": {"type": "罚款", "detention_days": 0, "fine": 500},
+              "dates": {"behavior": None, "decision": None},
+              "review": {"result": "无", "changed_outcome": None},
+              "gambling": {"verdict": "是", "reason": "原文载明"}, "confidence": "high"}
+    checked = validated_output(output, rec, clause_refine=False)
+    assert checked.get("fact_clause_ids") == []
+    view = fact_view(rec, checked)
+    assert view is not None and len(view) >= 1
+    facts_text = "".join(v["text"] for v in view)
+    assert "张某" in facts_text and "罚款" not in facts_text  # 只含事实句，决定句被分区隔离
