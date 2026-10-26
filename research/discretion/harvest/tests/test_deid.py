@@ -210,9 +210,9 @@ def test_jaccard_and_inclusion():
     a, b = shingles("甲在某村以打麻将的方式赌博被查获", 5), shingles("甲在某村以打麻将的方式赌博被查获了", 5)
     assert jaccard_pairs({"x": a, "y": b}, 0.8)
     rec = {"text_facts": "甲在某村以打麻将的方式赌博，现场查获赌资三千元，甲持有赌资五百元。", "outcome": {"type": "罚款"},
-           "province_code": "130000", "subject_alias": "甲", "review": {"result": "无"}}
+           "province_code": "130000", "subject_mention": "甲", "review": {"result": "无"}}
     assert inclusion(rec) == []
-    assert inclusion({**rec, "text_facts": "因赌博"}) == ["②事实不足", "本人未在事实段出现"]
+    assert inclusion({**rec, "text_facts": "因赌博"}) == ["②事实不足"]
     assert inclusion({**rec, "review": {"result": ""}}) == ["复议结论未解析"]
 
 

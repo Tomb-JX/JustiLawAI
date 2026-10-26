@@ -22,8 +22,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
-from deid import (ALIASES, FUNC, MASK, MASK_CH, MASKED, REAL, SEP, STATION_STOP, STOP_WORDS, apply,  # noqa: E402
-                  cell_wraps, looks_like_name)
+from deid import (ALIASES, CUE_NAME_STRONG, FUNC, LOC_NAME, MASK, MASK_CH, MASKED, REAL, REVIEW_NAME, SEP, STATION_STOP,  # noqa: E402
+                  STOP_WORDS, TABLE_NAME, apply, cell_wraps, cue_ok, looks_like_name, strong_ok)
 
 WHITELIST = HERE / "r6_whitelist.txt"
 TEXT_FIELDS = ("text_full", "text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review", "title")
@@ -36,7 +36,7 @@ HARD = [
     ("phone", re.compile(r"(?<!\d)1[3-9]\d{9}(?!\d)|(?<!\d)0\d{2,3}-\d{7,8}(?!\d)")),
     ("plate", re.compile(r"[京津沪渝冀豫云辽黑湘皖鲁新苏浙赣鄂桂甘晋蒙陕吉闽贵粤青藏川宁琼][A-Z][·\s]?[A-Z0-9]{5,6}(?![A-Za-z0-9])")),
     ("email", re.compile(r"[\w.-]+@[\w-]+\.[A-Za-z]{2,}")),
-    ("house", re.compile(r"(?<![第\d])\d+\s*(号楼|号院|栋|幢|单元|室)|(?<![第\d])\d{1,5}\s*号(?![令文决])")),
+    ("house", re.compile(r"(?<![第\d])\d+\s*(号楼|号院|栋|幢|单元|室)|(?<![第\d])\d{1,5}\s*(?:房间|号房)(?![令文决])|(?<![第\d])\d{1,5}\s*号(?![令文决])")),
     ("person_masked", re.compile(rf"{MASKED}")),
     ("date_day", re.compile(r"\d{4}\s*年\s*\d{1,2}\s*月\s*\d{1,2}\s*日|(?<!\d)\d{1,2}\s*月\s*\d{1,2}\s*日"
                             r"|[〇○零一二三四五六七八九]{4}年[一二三四五六七八九十]{1,2}月[一二三四五六七八九十]{1,3}日"
@@ -54,6 +54,8 @@ ROLE_REAL = re.compile(rf"(?:违法行为人|行为人|违法嫌疑人|被处罚
                        r"(?=[，,。；;、（(\s于因在等和与及系的被将从对后]|$)")
 NAME_CTX = re.compile(rf"(?:(?<=[、，,和与及对])|(?<=伙同)|(?<=给予)|(?<=违法行为人)|(?<=被处罚人)|(?<=违法嫌疑人)|(?<=申请人)|(?<=当事人))"
                       rf"(?P<name>{REAL})(?={SEP}|等|在|于|因|的|被|行政拘留|罚款|，|。|$)")
+# 括号注记前的真名（"××（微信名：×某）"，2026-10-16 r3 接管：复议当事人名录漏网）：硬命中兜底
+ANNOT_NAME = re.compile(rf"(?P<name>{REAL})(?=[（(](?:微信名|网名|化名))")
 
 
 @dataclass
@@ -113,6 +115,22 @@ def scan_text(text: str, field: str = "text", whitelist: set[str] | None = None)
             continue
         hits.append(Hit("person_role", True, field, m.start("name"), m.end("name"),
                         text[max(0, m.start() - 12): m.end() + 12]))
+    # 强语境里的真名（"其中×××持有""；×××罚款""×××坐庄""在×××位于"）：硬命中（2026-10-16 r2 抽检漏网 20 余件）
+    for rx in (CUE_NAME_STRONG, TABLE_NAME, LOC_NAME):
+        for m in rx.finditer(text):
+            tok = m.group("name")
+            if tok in wl or tok[0] in ALIASES + ["甲"] or not cue_ok(tok):
+                continue
+            hits.append(Hit("person_cue", True, field, m.start("name"), m.end("name"),
+                            text[max(0, m.start() - 12): m.end() + 12]))
+    # 复议申请人位真名（"。××不服，申请行政复议"）与括号注记前的真名：硬命中（2026-10-16 r3 接管补）
+    for rx, cat in ((REVIEW_NAME, "person_review"), (ANNOT_NAME, "person_annot")):
+        for m in rx.finditer(text):
+            tok = m.group("name")
+            if tok in wl or tok in STOP_WORDS or tok[:2] in STOP_WORDS or tok[0] in ALIASES + ["甲"] or not strong_ok(tok):
+                continue
+            hits.append(Hit(cat, True, field, m.start("name"), m.end("name"),
+                            text[max(0, m.start() - 12): m.end() + 12]))
     for m in NAME_CTX.finditer(text):
         tok = m.group("name")
         if tok in wl or tok in STOP_WORDS or tok[:2] in STOP_WORDS or tok[0] in ALIASES + ["甲"] or not looks_like_name(tok):

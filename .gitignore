@@ -48,3 +48,8 @@ research/.venv/
 
 # ===== 本地备份（迁移脚本产物，不入库） =====
 *.bak
+
+# ===== 门禁报告机器产物（JSON/JSONL 实验/预测 dump，只留 $DATA，不入库；2026-10-26 用户决定）=====
+# 人类可读的 *.md 门禁报告仍入库；此处只排除机器生成的大体积数据产物
+docs/05-research/gate-reports/*.json
+docs/05-research/gate-reports/*.jsonl

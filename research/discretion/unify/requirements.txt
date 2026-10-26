@@ -1,0 +1,4 @@
+# New postprocessing entry points. Engine dependencies remain engine-owned.
+# Verified locally: jsonschema 4.26.0, pydantic 2.13.1, pytest 9.0.3, Python 3.14.3.
+jsonschema>=4.26,<5
+jionlp==1.5.29

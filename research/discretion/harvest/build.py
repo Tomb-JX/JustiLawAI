@@ -1,16 +1,16 @@
-"""脱敏前案例 → 交付引擎的行政案例文件（文本处理规范 docs/04-plan/text-processing-spec.md §4.2–§4.6）。
+"""parsed-1 → 交付引擎的行政案例文件（文本处理规范；2026-10-17 起主管线零遮蔽，修订案 D-003）。
 
 步骤：
-  1. 逐件脱敏（deid.py）：正本 text_full 脱敏，各段按位置投影成正本的切片并记起止位置；找不到原样的段单独脱敏、起止记空。
-  2. R6 第一次扫描（r6_scan.py）：有硬命中的案例不交付，列入排除清单（原因 R6:类别）。
-  3. 区划（regions.py 产出的 regions.csv，人工覆盖 regions_manual.csv）。
-  4. 纳入判定（规范 §4.5）：② 事实 ≥30 字且含赌博行为描述、③ 处罚结果已解析、④ 能定位到省、本人可指认（有"甲"）。
+  1. 原文正本组装（build_record）：text_full 即 parsed-1 原文，各段为原文连续子串；文号明文（D3 放宽）+
+     doc_no_hash 去重键；subject_mention 承担本人定位；B 类定性句裁剪（parse.trim_facts_conclusions）。
+     deid / R6 / deid_map 已停产——外发前另跑衍生遮蔽（text-processing-spec §4.2/§4.3）。
+  2. 区划（regions.py 产出的 regions.csv，人工覆盖 regions_manual.csv）。
+  3. 纳入判定（规范 §4.5）：② 事实 ≥30 字且含赌博行为描述、③ 处罚结果已解析、④ 能定位到省、本人可指认（subject_mention）。
      ③④ 满足但事实不够的（汇总条目、只有案件名的字段表）进 admin_outcomes_only.jsonl（D6 建议 B），不进金标。
-  5. 去重与关联（规范 §4.4）：文号哈希相同 → 只留一份；近重复（事实 + 决定段字符 5-gram Jaccard ≥ 0.8）、
+  4. 去重与关联（规范 §4.4）：文号哈希相同 → 只留一份；近重复（事实 + 决定段字符 5-gram Jaccard ≥ 0.8）、
      同站同日且事实相似（3-gram Jaccard ≥ 0.5）的多人同案、复议与原处罚（复议正文引用的原处罚文号）→ 归入同一 event_id，
      划分训练/测试时整组同侧（R7、G1.3）。linked_ids 只记复议 ↔ 原处罚。
-  6. 写出 admin_cases.schema-1.0.0.jsonl、admin_outcomes_only.jsonl、admin_excluded.csv、build_stats.json、SHA256SUMS；
-     deid_map.jsonl（代号 → 原文位置与长度，不含原名）同目录存放，不入库。最后对两个交付文件整体再做一次 R6。
+  5. 写出 admin_cases.schema-1.0.0.jsonl、admin_outcomes_only.jsonl、admin_excluded.csv、build_stats.json、SHA256SUMS。
 
 用法（仓库根目录）：
   # 只跑网页来源（旧行为）：
@@ -41,14 +41,15 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "discover"))
 
-import r6_scan  # noqa: E402
-from deid import deidentify, doc_no_hash, parse_meta_date  # noqa: E402
+import r6_scan  # noqa: E402  # 仅外发衍生工具入口保留；主管线不再调用（修订案 D-003）
+from deid import doc_no_hash, parse_meta_date  # noqa: E402
+from parse import CONCLUSION_MARK, trim_facts_conclusions  # noqa: E402
 from regions import Resolver, load_regions, load_table  # noqa: E402
 from search import data_root  # noqa: E402
 from triage import DOC_NO  # noqa: E402
 
 SCHEMA_VERSION = "1.0.0"
-PIPELINE_VERSION = "harvest-0.4"
+PIPELINE_VERSION = "harvest-0.6"   # 0.6：脱敏全量取消（D-003）——原文正本交付、文号明文、R6/deid_map 停产、B 类定性句裁剪
 SEGMENTS = ("text_facts", "text_evidence", "text_reasoning", "text_decision", "text_review")
 TYPE_RANK = {"处罚决定书": 3, "行政复议决定书": 3, "执法公示": 1}
 GAMBLING_FACT = re.compile(r"赌|抽头|抽水|六合彩|私彩|牌九|麻将|扑克|炸金花|押宝|牛牛|三公|推筒|跑胡子|下注|投注|彩票")
@@ -91,23 +92,31 @@ def place_segment(full: str, seg: str) -> tuple[int, int] | None:
     return pos, pos + len(best)
 
 
-def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
-    """脱敏一件；返回 (交付记录, deid_map)。字段按数据交付规格 v0.2（docs/05-research/data-spec.md）。"""
-    bd = rec.get("behavior_date", "")
-    behavior = parse_meta_date(bd)
+def build_record(rec: dict) -> tuple[dict, bool]:
+    """原文正本交付（修订案 D-003 / 用户 2026-10-17：主管线零遮蔽）。
+
+    - 各段取原文连续子串（place_segment，无投影——text_full 即 parsed-1 原文）；
+    - 文号明文交付（D3 放宽），doc_no_hash 保留为去重/关联键；
+    - subject_mention 承担本人定位（subject_alias"甲"取消）；
+    - deidentified/r6_scan 字段取消；deid_map 停产；B 类定性句裁剪（parse.trim_facts_conclusions）。
+    返回 (交付记录, 是否发生 B 类裁剪)。
+    """
     full = rec.get("text_full") or ""
-    d = deidentify(full, subject=(rec.get("subject_mention") or None), behavior=behavior,
-                   behavior_has_day=len(bd) == 10)
     out_segments, offsets = {}, {}
     for f in SEGMENTS:
         seg = (rec.get(f) or "").strip()
         place = place_segment(full, seg) if seg else None
         if place:
-            a, b = d.project(place[0], is_end=False), d.project(place[1], is_end=True)
-            out_segments[f], offsets[f] = d.text[a:b], [a, b]
+            out_segments[f], offsets[f] = full[place[0]:place[1]], [place[0], place[1]]
         else:
             out_segments[f], offsets[f] = "", None
-    authority = deidentify(rec.get("authority") or "", persons=d.persons).text if rec.get("authority") else ""
+    facts_raw = out_segments.get("text_facts") or ""
+    facts_trim, trimmed = trim_facts_conclusions(facts_raw)
+    if trimmed:
+        place = place_segment(full, facts_trim)
+        if place:   # 裁剪后仍是原文连续子串才换；否则保留原文（连续性优先）
+            out_segments["text_facts"], offsets["text_facts"] = full[place[0]:place[1]], [place[0], place[1]]
+            trimmed = out_segments["text_facts"] == facts_trim
     oc = dict(rec.get("outcome") or {})
     internal = {k: oc.pop(k) for k in ("detention_items", "from_execution_clause") if k in oc}
     oc["articles"] = tag_articles(oc.get("articles") or [], oc.get("law_version", ""))
@@ -115,44 +124,45 @@ def deid_record(rec: dict, today: str = "") -> tuple[dict, list]:
     rv["result"] = {"驳回": "程序驳回"}.get(rv.get("result", ""), rv.get("result", ""))
     rv["changed_outcome"] = rv.get("changed_outcome") or None
     no = rec.get("doc_no") or ""
-    warns = rec.get("parse_warnings") or []
+    warns = [w for w in (rec.get("parse_warnings") or []) if w != "facts_contains_conclusion"]
+    fcc = bool(CONCLUSION_MARK.search(out_segments.get("text_facts") or ""))
+    if fcc:
+        warns.append("facts_contains_conclusion")
     out = {
         "id": rec["id"],
         "source_type": rec.get("source_type", ""),
+        "doc_no": no,
         "doc_no_hash": doc_no_hash(no) if no else "",
         "harvest_date": rec.get("harvest_date", ""),
-        "deidentified": "是",
-        "r6_scan": {"passed": False, "date": today},
-        "behavior_date": bd,
+        "behavior_date": rec.get("behavior_date", ""),
         "decision_date": rec.get("decision_date", ""),
-        "authority": authority,
+        "authority": rec.get("authority") or "",
         "region": "", "region_level": "", "province": "", "province_code": "",
-        "law_version": law_version_of(bd, oc.get("law_version", "")),
-        "subject_alias": "甲" if d.subject else "",
+        "law_version": law_version_of(rec.get("behavior_date", ""), oc.get("law_version", "")),
+        "subject_mention": rec.get("subject_mention", ""),
         "event_id": "",
         "linked_ids": [],
         "schema_version": SCHEMA_VERSION,
         "pipeline_version": PIPELINE_VERSION,
-        "text_full": d.text,
-        "text_sha256": hashlib.sha256(d.text.encode("utf-8")).hexdigest(),
+        "text_full": full,
+        "text_sha256": hashlib.sha256(full.encode("utf-8")).hexdigest(),
         **out_segments,
         "segmented": bool(rec.get("segmented")),
         "segments": offsets,
         "outcome": oc,
         "review": rv,
         "quality": {"ocr": bool(rec.get("ocr")), "completeness": rec.get("completeness") or {},
-                    "parse_warnings": warns, "ambiguous_persons": d.ambiguous_persons,
-                    "age_uncertain": d.age_uncertain,
-                    "facts_contains_conclusion": bool(rec.get("facts_contains_conclusion"))
-                    or "facts_contains_conclusion" in warns,
-                    "subject_variants": d.subject_variants, "persons": len(set(d.persons.values())),
-                    "deid_counts": d.counts, **internal},
+                    "parse_warnings": warns,
+                    "facts_contains_conclusion": fcc,
+                    "ambiguous_persons": False,   # 原为 deid 派生布尔；引擎契约修订（修订案 §B）后删除
+                    "age_uncertain": False,
+                    **internal},
     }
-    # 复议引用的原处罚文号（脱敏前取，只留哈希）用于关联
+    # 复议引用的原处罚文号（原文取，留哈希做关联键）
     out["_cited"] = sorted({doc_no_hash(m.group(1)) for m in DOC_NO.finditer(full) if m.group(1) != no})
     out["_site"] = rec.get("site", "")
     out["_region"] = rec.get("_region")  # parsed-1 来源在接入时已解析的区划（无站点来源用；写出时按 _ 前缀剥离）
-    return out, d.deid_map()
+    return out, trimmed
 
 
 BOILERPLATE = re.compile(r"违法行为人|违法嫌疑人|被处罚人|[甲乙丙丁戊己庚壬癸]|因?实施了?|(?:为赌博提供条件、?)?赌博的?违法行为|的违法行为"
@@ -175,10 +185,11 @@ def inclusion(out: dict) -> list[str]:
         miss.append("③结果未解析")
     if not out.get("province_code"):
         miss.append("④无区划")
-    if not out.get("subject_alias"):
+    subject = out.get("subject_mention") or ""
+    if not subject:
         miss.append("本人不可指认")
-    elif "甲" not in facts:  # 规格 v0.2 §4：本人代称须在事实段出现，否则抽不出本人的要素
-        miss.append("本人未在事实段出现")
+    # 修订案 §B：subject_alias"甲出现率"检查随脱敏取消删除——本人定位由 subject_mention 承担，
+    # 不再要求其在事实段字面出现（正文以"违法行为人"等指代为合法形态）
     if (out.get("review") or {}).get("result") not in REVIEW_VALUES:
         miss.append("复议结论未解析")
     return miss
@@ -335,6 +346,20 @@ def from_parsed1(rec: dict, resolver: Resolver) -> dict | None:
     oc.update(extra.get("outcome") or {})            # detention_items 等内部字段还原
     # 依地方条例处罚的记录没有治安法版本 → 用顶层"未知"，避免按治安法上限误判（实测 P-550 罚款 4000）
     oc["law_version"] = oc.get("law_version") or rec.get("law_version") or ""
+    # fine_masked 豁免（协同指令 §2.4，P-715–717）：发布方遮蔽金额（"＊＊＊元"）致结果未解析的，
+    # 按决定段关键词定 type，金额不猜测记 fine_masked（引擎 acfabf6 的 outcome.fine_masked 字段口径）
+    if not oc.get("type"):
+        probe = (rec.get("text_decision") or "") + (rec.get("text_full") or "")[:300]
+        if re.search(r"[＊*xX×]{1,8}\s*元", probe):
+            t = ("拘留并处罚款" if "拘留" in probe and "罚款" in probe
+                 else "拘留" if "拘留" in probe
+                 else "罚款" if "罚款" in probe
+                 else "警告" if "警告" in probe else "")
+            if t:
+                oc["type"] = t
+                oc["fine"] = oc.get("fine") or 0
+                oc["detention_days"] = oc.get("detention_days") or 0
+                oc["fine_masked"] = True
     site = extra.get("site", "")                     # 网页来源（to_parsed1.py）带站点，区划与"同站同日"事件分组都靠它
     if rec.get("region") and rec.get("province"):    # 解析层已给区划（网页按站点表）的直接用，否则按机关名解析
         region = {"region_code": rec["region"], "level": extra.get("region_level", ""), "province": rec["province"],
@@ -428,7 +453,7 @@ def main() -> int:
     ap.add_argument("--force", action="store_true", help="允许写进已有内容的输出目录（默认拒绝：交付不覆盖，I-08）")
     args = ap.parse_args()
 
-    today = date.today().isoformat()
+    today = date.today().isoformat()   # 保留：登记表时间戳口径
     root = data_root().parent
     if args.out:
         adir = Path(args.out)
@@ -457,30 +482,20 @@ def main() -> int:
         rows, desc = load_parsed_source(spec, resolver)
         inputs.append(desc)
         scope += rows
-    wl = r6_scan.load_whitelist()
-    main_rows, outcome_rows, excluded, maps = [], [], [], []
-    r6_soft = Counter()
+    main_rows, outcome_rows, excluded = [], [], []
+    b_trimmed = 0
     for rec in scope:
-        out, dmap = deid_record(rec, today)
+        out, trimmed = build_record(rec)
+        b_trimmed += trimmed
         attach_region(out, regions)
-        hits = r6_scan.scan_record(out, wl)
-        hard = [h for h in hits if h.hard]
-        r6_soft.update(h.cat for h in hits if not h.hard)
-        out["quality"]["r6_soft"] = sum(not h.hard for h in hits)
-        if hard:
-            excluded.append((out["id"], "R6:" + ",".join(sorted({h.cat for h in hard}))))
-            continue
-        out["r6_scan"]["passed"] = True   # 第一次扫描通过；第二次对交付文件整体扫，不通过则整批返工
         miss = inclusion(out)
         if not miss:
             main_rows.append(out)
-        # I-04：只有结果的文件也要求本人可指认（规格：subject_alias 必填"甲"）；多人一行的结果表等找不到本人的排除
+        # I-04：只有结果的文件也要求本人可指认（subject_mention 承担）；多人一行的结果表等找不到本人的排除
         elif set(miss) <= {"②事实不足", "本人未在事实段出现"}:
             outcome_rows.append(out)
         else:
             excluded.append((out["id"], ";".join(miss)))
-            continue
-        maps.append({"id": out["id"], "deid_map": dmap})
     main_rows, dropped_main, link_stats = dedupe_and_link(main_rows)
     outcome_rows, dropped_oc, _ = dedupe_and_link(outcome_rows)
     # 汇总条目与金标重复（同一文号）时只留金标那份
@@ -503,7 +518,7 @@ def main() -> int:
         w.writerow(["id", "reason"])
         w.writerows(sorted(excluded))
     kept_ids = {r["id"] for r in main_rows} | {r["id"] for r in outcome_rows}
-    write_jsonl(adir / "deid_map.jsonl", [m for m in maps if m["id"] in kept_ids])
+    # deid_map.jsonl 停产（修订案 D-003）：主管线零遮蔽，无遮蔽映射可记
     sums = "".join(f"{hashlib.sha256(p.read_bytes()).hexdigest()}  {p.name}\n" for p in (out_main, out_oc))
     (adir / "SHA256SUMS").write_text(sums, encoding="utf-8")
 
@@ -524,13 +539,14 @@ def main() -> int:
         }
     stats = {"pipeline_version": PIPELINE_VERSION, "version": args.version or adir.name,
              "inputs": inputs, "in_scope": len(scope),
+             "deid": "removed per D-003（规范修订案 2026-10-17）：主管线零遮蔽；r6_scan/deid_map 转外发衍生工具",
+             "doc_no_plaintext": True,
              "main": describe(main_rows), "outcomes_only": describe(outcome_rows),
              "excluded": len(excluded),
-             "excluded_reasons": dict(Counter(r.split(":")[0] if r.startswith(("R6", "重复")) else r for _, r in excluded)),
-             "dedupe_main": link_stats, "r6_first_pass_soft": dict(r6_soft)}
-    # R6 第二次：交付文件整体扫描
-    rc = r6_scan.main([str(out_main), str(out_oc)])
-    stats["r6_second_pass"] = json.loads((adir / "r6_report.json").read_text(encoding="utf-8"))["hard_hit_records"]
+             "excluded_reasons": dict(Counter(r.split(":")[0] if r.startswith("重复") else r for _, r in excluded)),
+             "dedupe_main": link_stats,
+             "b_class_trimmed": b_trimmed,
+             "fine_masked_rescued": sum(bool(r["outcome"].get("fine_masked")) for r in main_rows + outcome_rows)}
     (adir / "build_stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
     # 版本指针 + 登记表（总览 §6；登记失败不阻断构建）
     try:
@@ -545,7 +561,7 @@ def main() -> int:
     except Exception as exc:  # noqa: BLE001
         print(f"[warn] 登记表写入失败（忽略）：{exc}")
     print(json.dumps(stats, ensure_ascii=False, indent=1))
-    return rc
+    return 0
 
 
 if __name__ == "__main__":

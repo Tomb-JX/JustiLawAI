@@ -1,0 +1,3949 @@
+{
+  "method": "Read-only Python -B imports; accept_element_labels.evaluate (paired call crash retained; unpaired call for structural diagnostics only); s3.run_checks; classify persisted diff by presence/value then status then span; compare build_inputs with direct OffsetIndex.span(cs,ce). No Provider created; no network or DATA writes.",
+  "source_hashes": {
+    "D:\\02_Dev\\Data\\justilaw-research\\s1_runs\\s1-20261018-segv2-final300\\outputs.jsonl": "cf88ba45c0ad7f8dffc996018d8ba8a9e0b90b446e9b50901b94d9de20397bf8",
+    "D:\\02_Dev\\Data\\justilaw-research\\s1_runs\\s1-20261018-segv2-final300\\manifest.json": "fbf6cca586bb8baafc6a98de7e87e6c972ba9e342b110f732c89ccac721f4153",
+    "D:\\02_Dev\\Data\\justilaw-research\\s1_runs\\s1-20261018-segv2-final300\\elements\\A.jsonl": "8c8cabbe394c4a6265453dc4ceb02dba0ea37a3992cfddc68957a14ec586f029",
+    "D:\\02_Dev\\Data\\justilaw-research\\s1_runs\\s1-20261018-segv2-final300\\elements\\B.jsonl": "77898bf621c831808f3f2505a92de9efd820f1b5fe5e808b5f232fdfb81419f9",
+    "D:\\02_Dev\\Data\\justilaw-research\\s1_runs\\s1-20261018-segv2-final300\\elements\\labels.jsonl": "0afe0e7d1edbcb05a90318ec8c324b7af873fad4f7571519c8963a35700760ff",
+    "D:\\02_Dev\\Data\\justilaw-research\\s1_runs\\s1-20261018-segv2-final300\\elements\\diffs.jsonl": "d85aeee2cbb7c3903fe1bf517d7616636f11fec3bd47c7aea2748617670585bd",
+    "D:\\02_Dev\\Data\\justilaw-research\\unified_raw\\web\\20261017-web-r3\\records.jsonl": "8b6fc2893c42ded47d84eadffa0ba100df6b9041f2c8f218642d4f339fc34c67",
+    "D:\\02_Dev\\Data\\justilaw-research\\unified_raw\\web\\20261017-web-r3\\edits.rle.jsonl": "63e8627742cb4a308b34ed9a62e6a17c746059bf387d3fbd4864a3d99a1e291b",
+    "D:\\02_Dev\\Data\\justilaw-research\\parsed\\web\\20261017-web-r3\\records.jsonl": "2d02dd0486b1ea8a0b048cde94743166bff96f32e4a83eed26fea1332822ef49"
+  },
+  "accept_paired_error": "TypeError: float() argument must be a string or a real number, not 'dict'",
+  "elements_acceptance_without_ab": {
+    "checker": "element-accept-v1",
+    "records": 88,
+    "expected_pilot_range": [
+      200,
+      300
+    ],
+    "model_adjudicated_not_human_gold": true,
+    "schema_valid_records": 6,
+    "schema_valid_rate": 0.06818181818181818,
+    "evidence_quotes": 666,
+    "evidence_hit_rate": 0.9594594594594594,
+    "numeric_checkable": 31,
+    "numeric_consistency_rate": 0.8064516129032258,
+    "absent_rate_by_field": {
+      "conduct.behavior_type": 0.0909,
+      "conduct.role": 0.1023,
+      "conduct.method": 0.2727,
+      "conduct.times": 0.3409,
+      "conduct.duration_days": 0.8409,
+      "conduct.cheating": 1.0,
+      "amounts.personal_stake": 0.7841,
+      "amounts.per_bet": 0.9659,
+      "amounts.onsite_stake_total": 0.9091,
+      "amounts.cumulative_stake": 0.9205,
+      "amounts.commission": 1.0,
+      "amounts.illegal_gain": 1.0,
+      "persons.participant_count": 0.5227,
+      "persons.cumulative_participants": 0.8523,
+      "persons.minors_involved": 1.0,
+      "persons.civil_servant": 0.9886,
+      "persons.relatives_only": 0.9886,
+      "persons.abroad_organized_count": 1.0,
+      "venue.venue_type": 0.125,
+      "intent.profit_purpose": 0.9659,
+      "circumstances.last_prior_penalty_date": 0.9091,
+      "circumstances.surrendered": 0.7955,
+      "circumstances.truthful_statement": 0.9773,
+      "circumstances.admits_and_accepts": 0.9659,
+      "circumstances.remedied_consequence": 1.0,
+      "circumstances.victim_forgiveness": 1.0,
+      "circumstances.coerced_or_lured": 1.0,
+      "circumstances.meritorious": 1.0,
+      "circumstances.instigated_others": 1.0,
+      "circumstances.retaliation": 1.0,
+      "circumstances.obstructed_police": 1.0,
+      "circumstances.minor_circumstance": 0.9886,
+      "circumstances.first_offense": 0.7386,
+      "circumstances.violations_last_year": 0.8409,
+      "person.age": 0.6591,
+      "person.pregnant_or_nursing": 0.5682
+    },
+    "presence_proxy_warnings_gt_20pp": [
+      {
+        "field": "conduct.behavior_type",
+        "marker_presence": 0.5341,
+        "label_presence": 0.9091
+      },
+      {
+        "field": "conduct.role",
+        "marker_presence": 0.2273,
+        "label_presence": 0.8977
+      }
+    ],
+    "arbitration": null,
+    "prompt_revision_needed": false,
+    "issue_counts": {
+      "bad_value": 239,
+      "bad_evidence_shape": 27,
+      "numeric_mismatch": 6,
+      "missing_field": 1,
+      "bad_field_shape": 1
+    },
+    "issues": [
+      {
+        "id": "W-000630",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000630",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000622",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000622",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000622",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000362",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000362",
+        "field": "persons.participant_count",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000362",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000362",
+        "field": "person.pregnant_or_nursing",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000609",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000609",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000609",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000609",
+        "field": "amounts.per_bet",
+        "code": "numeric_mismatch"
+      },
+      {
+        "id": "W-000634",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000634",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000634",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d29",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d29",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d29",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000376",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000376",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001428",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001428",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001428",
+        "field": "circumstances.first_offense",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000582",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000582",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000582",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000582",
+        "field": "amounts.personal_stake",
+        "code": "numeric_mismatch"
+      },
+      {
+        "id": "W-000891-d14",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d14",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d14",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001991",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001991",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001991",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001954",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001954",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001954",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000336-d1",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000336-d1",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000336-d1",
+        "field": "conduct.role",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000336-d1",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000336-d1",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000336-d1",
+        "field": "intent.profit_purpose",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000326-d5",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000326-d5",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000326-d5",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000326-d5",
+        "field": "persons.participant_count",
+        "code": "numeric_mismatch"
+      },
+      {
+        "id": "W-001620",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001620",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d235",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d235",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d235",
+        "field": "conduct.role",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000880-d235",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d235",
+        "field": "conduct.method",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000880-d235",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000544",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000544",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000544",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001676",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001676",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000031",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000031",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000031",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000248",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000248",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000248",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000054",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000054",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001492",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001492",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000888-d6",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000888-d6",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000888-d6",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000602",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000602",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000602",
+        "field": "conduct.method",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000602",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000602",
+        "field": "venue.venue_type",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000602",
+        "field": "circumstances.truthful_statement",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000602",
+        "field": "circumstances.surrendered",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000464",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000464",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000464",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000464",
+        "field": "conduct.times",
+        "code": "numeric_mismatch"
+      },
+      {
+        "id": "W-001997",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001997",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001997",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000218",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000218",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000218",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000218",
+        "field": "circumstances.admits_and_accepts",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-001987",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001987",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001987",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001900",
+        "field": "conduct.times",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001900",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001900",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001900",
+        "field": "persons.participant_count",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001900",
+        "field": "persons.cumulative_participants",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000895-d13",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000895-d13",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000895-d13",
+        "field": "persons.cumulative_participants",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000895-d13",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d129",
+        "field": "conduct.times",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d129",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d129",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d129",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d67",
+        "field": "person.pregnant_or_nursing",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000285",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000285",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d47",
+        "field": "conduct.behavior_type",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000881-d47",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d47",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d47",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000884-d10",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000884-d10",
+        "field": "conduct.times",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000884-d10",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000884-d10",
+        "field": "conduct.role",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000884-d10",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000884-d10",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000335-d7",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000335-d7",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000335-d7",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001990",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001990",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001990",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d176",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d176",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d176",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d176",
+        "field": "persons.participant_count",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000881-d176",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000023",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000023",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001493",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001493",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002113",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002113",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001479",
+        "field": "conduct.times",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001479",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001479",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001479",
+        "field": "circumstances.last_prior_penalty_date",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d209",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d209",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d209",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d209",
+        "field": "person.age",
+        "code": "missing_field"
+      },
+      {
+        "id": "W-000884-d8",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000884-d8",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000884-d8",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000311",
+        "field": "conduct.times",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000311",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000311",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000311",
+        "field": "persons.participant_count",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000311",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000887-d6",
+        "field": "conduct.times",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000887-d6",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000887-d6",
+        "field": "conduct.role",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000887-d6",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000887-d6",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002103",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002103",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002103",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002103",
+        "field": "persons.participant_count",
+        "code": "numeric_mismatch"
+      },
+      {
+        "id": "W-002103",
+        "field": "persons.cumulative_participants",
+        "code": "numeric_mismatch"
+      },
+      {
+        "id": "W-001558",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001558",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001558",
+        "field": "circumstances.last_prior_penalty_date",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001944",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001944",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001944",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000335-d1",
+        "field": "conduct.behavior_type",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000335-d1",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000335-d1",
+        "field": "conduct.role",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000335-d1",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000335-d1",
+        "field": "conduct.method",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000335-d1",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000048",
+        "field": "conduct.times",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000048",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000048",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001878",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001878",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001878",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001419",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001419",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d25",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000891-d25",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002065-d26",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002065-d26",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002065-d26",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001892",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001892",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001892",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001951",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001951",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001951",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001909",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001909",
+        "field": "persons.participant_count",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001909",
+        "field": "persons.participant_count",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-001980",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001980",
+        "field": "persons.participant_count",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001980",
+        "field": "persons.participant_count",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-001980",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001980",
+        "field": "person.pregnant_or_nursing",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-001414",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001414",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001414",
+        "field": "circumstances.last_prior_penalty_date",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000328-d5",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000328-d5",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001894",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001894",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001894",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d151",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d151",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000880-d151",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000322",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000322",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000322",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000332-d12",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000332-d12",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001591",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001591",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001422",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001422",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001422",
+        "field": "circumstances.last_prior_penalty_date",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d152",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d152",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d152",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d152",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002065-d14",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002065-d14",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000128",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000128",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000128",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002056-d5",
+        "field": "conduct.behavior_type",
+        "code": "bad_field_shape"
+      },
+      {
+        "id": "W-002065-d21",
+        "field": "conduct.duration_days",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-002065-d21",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-002065-d21",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000332-d37",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000332-d37",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000332-d37",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000332-d37",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000140",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000140",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000140",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d71",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d71",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d71",
+        "field": "persons.cumulative_participants",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000881-d71",
+        "field": "persons.cumulative_participants",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000881-d71",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000294",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000294",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000294",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001700",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001700",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001700",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001700",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000109",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000109",
+        "field": "amounts.cumulative_stake",
+        "code": "bad_evidence_shape"
+      },
+      {
+        "id": "W-000109",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000109",
+        "field": "circumstances.minor_circumstance",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000515",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000515",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000515",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000515",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001496",
+        "field": "conduct.behavior_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001496",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001496",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001496",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001496",
+        "field": "circumstances.last_prior_penalty_date",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001566",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001566",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-001566",
+        "field": "circumstances.first_offense",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000330-d2",
+        "field": "conduct.role",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000330-d2",
+        "field": "conduct.method",
+        "code": "bad_value"
+      },
+      {
+        "id": "W-000330-d2",
+        "field": "venue.venue_type",
+        "code": "bad_value"
+      }
+    ],
+    "pilot_pass": false
+  },
+  "raw_validation": {
+    "A": {
+      "issue_counts_excluding_evidence_not_found": {
+        "bad_value": 169,
+        "missing_field": 8,
+        "bad_evidence_shape": 9,
+        "unknown_group": 824,
+        "missing_group": 161
+      },
+      "field_issues": {
+        "conduct.role": 82,
+        "conduct.cheating": 27,
+        "venue.venue_type": 79,
+        "conduct.method": 67,
+        "conduct.behavior_type": 32,
+        "conduct.times": 24,
+        "amounts.onsite_stake_total": 24,
+        "amounts.personal_stake": 24,
+        "persons.participant_count": 24,
+        "circumstances.admits_and_accepts": 25,
+        "person.age": 23,
+        "person.pregnant_or_nursing": 23,
+        "amounts.cumulative_stake": 23,
+        "persons.abroad_organized_count": 23,
+        "circumstances.truthful_statement": 23,
+        "circumstances.violations_last_year": 23,
+        "conduct.duration_days": 23,
+        "intent.profit_purpose": 23,
+        "circumstances.retaliation": 23,
+        "circumstances.victim_forgiveness": 23,
+        "persons.civil_servant": 23,
+        "circumstances.surrendered": 23,
+        "circumstances.meritorious": 23,
+        "amounts.illegal_gain": 23,
+        "circumstances.coerced_or_lured": 23,
+        "circumstances.minor_circumstance": 24,
+        "circumstances.remedied_consequence": 23,
+        "amounts.per_bet": 23,
+        "circumstances.obstructed_police": 23,
+        "circumstances.first_offense": 23,
+        "persons.cumulative_participants": 23,
+        "persons.minors_involved": 23,
+        "persons.relatives_only": 23,
+        "circumstances.last_prior_penalty_date": 26,
+        "circumstances.instigated_others": 23,
+        "amounts.commission": 23,
+        "conduct": 23,
+        "amounts": 23,
+        "persons": 23,
+        "venue": 23,
+        "intent": 23,
+        "circumstances": 23,
+        "person": 23
+      },
+      "records_with_structural_value_issues": 85,
+      "payload_top_level_keys": {
+        "conduct,amounts,persons,venue,intent,circumstances,person": 65,
+        "conduct.behavior_type,conduct.role,conduct.method,conduct.times,conduct.duration_days,conduct.cheating,amounts.personal_stake,amounts.per_bet,amounts.onsite_stake_total,amounts.cumulative_stake,amounts.commission,amounts.illegal_gain,persons.participant_count,persons.cumulative_participants,persons.minors_involved,persons.civil_servant,persons.relatives_only,persons.abroad_organized_count,venue.venue_type,intent.profit_purpose,circumstances.last_prior_penalty_date,circumstances.surrendered,circumstances.truthful_statement,circumstances.admits_and_accepts,circumstances.remedied_consequence,circumstances.victim_forgiveness,circumstances.coerced_or_lured,circumstances.meritorious,circumstances.instigated_others,circumstances.retaliation,circumstances.obstructed_police,circumstances.minor_circumstance,circumstances.first_offense,circumstances.violations_last_year,person.age,person.pregnant_or_nursing": 19,
+        "conduct.behavior_type,conduct.role,conduct.method,conduct.times,conduct.duration_days,amounts.personal_stake,amounts.per_bet,amounts.onsite_stake_total,amounts.cumulative_stake,amounts.commission,amounts.illegal_gain,persons.participant_count,persons.cumulative_participants,persons.minors_involved,persons.civil_servant,persons.relatives_only,persons.abroad_organized_count,venue.venue_type,intent.profit_purpose,circumstances.last_prior_penalty_date,circumstances.surrendered,circumstances.truthful_statement,circumstances.admits_and_accepts,circumstances.remedied_consequence,circumstances.victim_forgiveness,circumstances.coerced_or_lured,circumstances.meritorious,circumstances.instigated_others,circumstances.retaliation,circumstances.obstructed_police,circumstances.minor_circumstance,circumstances.first_offense,circumstances.violations_last_year,person.age,person.pregnant_or_nursing": 4
+      },
+      "examples": [
+        {
+          "id": "W-000630",
+          "field": "conduct.role",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000630",
+          "field": "venue.venue_type",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000622",
+          "field": "conduct.role",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000622",
+          "field": "conduct.method",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000622",
+          "field": "venue.venue_type",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000362",
+          "field": "venue.venue_type",
+          "value_type": "str"
+        }
+      ]
+    },
+    "B": {
+      "issue_counts_excluding_evidence_not_found": {
+        "unknown_group": 581,
+        "missing_group": 126,
+        "bad_value": 207,
+        "bad_evidence_shape": 240,
+        "unknown_field": 5,
+        "bad_field_shape": 1,
+        "missing_field": 10
+      },
+      "field_issues": {
+        "conduct.cheating": 16,
+        "person.age": 39,
+        "person.pregnant_or_nursing": 19,
+        "conduct.role": 110,
+        "conduct.times": 36,
+        "amounts.cumulative_stake": 18,
+        "persons.abroad_organized_count": 16,
+        "circumstances.truthful_statement": 16,
+        "circumstances.violations_last_year": 22,
+        "conduct.duration_days": 23,
+        "intent.profit_purpose": 16,
+        "circumstances.retaliation": 15,
+        "circumstances.victim_forgiveness": 15,
+        "persons.civil_servant": 18,
+        "persons.participant_count": 38,
+        "circumstances.surrendered": 19,
+        "circumstances.meritorious": 15,
+        "amounts.illegal_gain": 15,
+        "amounts.onsite_stake_total": 20,
+        "venue.venue_type": 105,
+        "circumstances.coerced_or_lured": 15,
+        "circumstances.minor_circumstance": 15,
+        "conduct.behavior_type": 53,
+        "circumstances.remedied_consequence": 15,
+        "conduct.method": 102,
+        "amounts.personal_stake": 29,
+        "amounts.per_bet": 17,
+        "circumstances.obstructed_police": 15,
+        "circumstances.first_offense": 28,
+        "persons.cumulative_participants": 20,
+        "persons.minors_involved": 16,
+        "persons.relatives_only": 17,
+        "circumstances.last_prior_penalty_date": 20,
+        "circumstances.instigated_others": 15,
+        "amounts.commission": 15,
+        "circumstances.admits_and_accepts": 15,
+        "conduct": 17,
+        "amounts": 18,
+        "persons": 18,
+        "venue": 18,
+        "intent": 18,
+        "circumstances": 18,
+        "person": 19,
+        "record_id": 7,
+        "source": 1,
+        "target_person": 4,
+        "elements": 2,
+        "processing_status": 1,
+        "notes": 3,
+        "schema_version": 3,
+        "source_type": 1,
+        "target_party": 1,
+        "record_type": 1,
+        "aliases": 8,
+        "name": 2,
+        "person_name": 1,
+        "venue.location_type": 1,
+        "alias": 1,
+        "case_id": 1,
+        "source_ref": 1,
+        "penalty": 1,
+        "persons_related": 1,
+        "confidence_notes": 1,
+        "persons.occupation": 1,
+        "persons.pregnant_or_nursing": 1,
+        "persons.age": 1,
+        "persons.target": 1
+      },
+      "records_with_structural_value_issues": 87,
+      "payload_top_level_keys": {
+        "conduct.behavior_type,conduct.role,conduct.method,conduct.times,conduct.duration_days,conduct.cheating,amounts.personal_stake,amounts.per_bet,amounts.onsite_stake_total,amounts.cumulative_stake,amounts.commission,amounts.illegal_gain,persons.participant_count,persons.cumulative_participants,persons.minors_involved,persons.civil_servant,persons.relatives_only,persons.abroad_organized_count,venue.venue_type,intent.profit_purpose,circumstances.last_prior_penalty_date,circumstances.surrendered,circumstances.truthful_statement,circumstances.admits_and_accepts,circumstances.remedied_consequence,circumstances.victim_forgiveness,circumstances.coerced_or_lured,circumstances.meritorious,circumstances.instigated_others,circumstances.retaliation,circumstances.obstructed_police,circumstances.minor_circumstance,circumstances.first_offense,circumstances.violations_last_year,person.age,person.pregnant_or_nursing": 15,
+        "conduct,amounts,persons,venue,intent,circumstances,person": 55,
+        "record_id,target_person,conduct,amounts,persons,venue,intent,circumstances,person,source": 1,
+        "schema_version,record_id,source_type,processing_status,elements,notes": 1,
+        "record_type,target_party,elements,notes": 1,
+        "name,aliases,conduct,amounts,persons,venue,intent,circumstances,person": 1,
+        "aliases,conduct,amounts,persons,venue,intent,circumstances,person": 3,
+        "person_name,aliases,conduct,amounts,persons,venue,intent,circumstances,person": 1,
+        "record_id,schema_version,target_person,conduct,amounts,persons,venue,intent,circumstances,person": 1,
+        "conduct,amounts,persons,venue,intent,person,circumstances": 1,
+        "name,alias,conduct,amounts,persons,venue,intent,circumstances,person": 1,
+        "record_id,aliases,conduct,amounts,persons,venue,intent,circumstances,person": 2,
+        "case_id,target_person,conduct,amounts,persons,venue,intent,circumstances,person": 1,
+        "conduct,amounts,persons,venue,intent,circumstances,person,aliases": 1,
+        "conduct": 1,
+        "record_id,target_person,conduct,amounts,persons,venue,intent,circumstances,person": 1,
+        "record_id,schema_version,source_ref,persons,conduct,venue,amounts,persons_related,intent,circumstances,penalty,notes,confidence_notes": 1
+      },
+      "examples": [
+        {
+          "id": "W-000630",
+          "field": "conduct.role",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000630",
+          "field": "venue.venue_type",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000622",
+          "field": "conduct.role",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000622",
+          "field": "conduct.method",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000622",
+          "field": "venue.venue_type",
+          "value_type": "str"
+        },
+        {
+          "id": "W-000362",
+          "field": "conduct.method",
+          "value_type": "str"
+        }
+      ]
+    }
+  },
+  "diff_decomposition": {
+    "status_with_or_without_span": 64,
+    "value_or_presence": 394,
+    "span_only": 83
+  },
+  "diff_by_field": {
+    "conduct.behavior_type": {
+      "status_with_or_without_span": 6,
+      "span_only": 22,
+      "value_or_presence": 41
+    },
+    "conduct.role": {
+      "status_with_or_without_span": 21,
+      "span_only": 12,
+      "value_or_presence": 39
+    },
+    "conduct.times": {
+      "value_or_presence": 37,
+      "span_only": 5,
+      "status_with_or_without_span": 13
+    },
+    "amounts.personal_stake": {
+      "span_only": 4,
+      "value_or_presence": 5
+    },
+    "amounts.onsite_stake_total": {
+      "span_only": 3,
+      "value_or_presence": 2
+    },
+    "conduct.method": {
+      "value_or_presence": 48,
+      "span_only": 7,
+      "status_with_or_without_span": 2
+    },
+    "persons.participant_count": {
+      "span_only": 8,
+      "value_or_presence": 26,
+      "status_with_or_without_span": 3
+    },
+    "venue.venue_type": {
+      "value_or_presence": 70,
+      "span_only": 5
+    },
+    "person.age": {
+      "span_only": 10,
+      "value_or_presence": 14,
+      "status_with_or_without_span": 4
+    },
+    "person.pregnant_or_nursing": {
+      "value_or_presence": 31,
+      "status_with_or_without_span": 2,
+      "span_only": 1
+    },
+    "amounts.per_bet": {
+      "value_or_presence": 3
+    },
+    "conduct.duration_days": {
+      "value_or_presence": 10,
+      "span_only": 1,
+      "status_with_or_without_span": 1
+    },
+    "circumstances.surrendered": {
+      "value_or_presence": 16,
+      "status_with_or_without_span": 3
+    },
+    "circumstances.admits_and_accepts": {
+      "value_or_presence": 3
+    },
+    "circumstances.first_offense": {
+      "value_or_presence": 12,
+      "span_only": 2,
+      "status_with_or_without_span": 3
+    },
+    "circumstances.violations_last_year": {
+      "value_or_presence": 7,
+      "status_with_or_without_span": 3,
+      "span_only": 1
+    },
+    "persons.cumulative_participants": {
+      "value_or_presence": 15
+    },
+    "intent.profit_purpose": {
+      "value_or_presence": 3
+    },
+    "amounts.cumulative_stake": {
+      "value_or_presence": 4,
+      "span_only": 1,
+      "status_with_or_without_span": 2
+    },
+    "circumstances.last_prior_penalty_date": {
+      "span_only": 1,
+      "value_or_presence": 5
+    },
+    "circumstances.truthful_statement": {
+      "value_or_presence": 1
+    },
+    "persons.civil_servant": {
+      "value_or_presence": 1,
+      "status_with_or_without_span": 1
+    },
+    "circumstances.minor_circumstance": {
+      "value_or_presence": 1
+    }
+  },
+  "projection_available_records": 227,
+  "projection_mismatches": [
+    {
+      "id": "W-000376",
+      "label_exists": true,
+      "actual_facts_chars": 160,
+      "correct_facts_chars": 161,
+      "actual_meta_chars": 146,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-000630",
+      "label_exists": true,
+      "actual_facts_chars": 286,
+      "correct_facts_chars": 133,
+      "actual_meta_chars": 318,
+      "correct_meta_chars": 168
+    },
+    {
+      "id": "W-000622",
+      "label_exists": true,
+      "actual_facts_chars": 281,
+      "correct_facts_chars": 277,
+      "actual_meta_chars": 198,
+      "correct_meta_chars": 188
+    },
+    {
+      "id": "W-000609",
+      "label_exists": true,
+      "actual_facts_chars": 385,
+      "correct_facts_chars": 349,
+      "actual_meta_chars": 335,
+      "correct_meta_chars": 296
+    },
+    {
+      "id": "W-000362",
+      "label_exists": true,
+      "actual_facts_chars": 132,
+      "correct_facts_chars": 134,
+      "actual_meta_chars": 213,
+      "correct_meta_chars": 218
+    },
+    {
+      "id": "W-000563",
+      "label_exists": true,
+      "actual_facts_chars": 0,
+      "correct_facts_chars": 0,
+      "actual_meta_chars": 380,
+      "correct_meta_chars": 378
+    },
+    {
+      "id": "W-000634",
+      "label_exists": true,
+      "actual_facts_chars": 272,
+      "correct_facts_chars": 268,
+      "actual_meta_chars": 178,
+      "correct_meta_chars": 170
+    },
+    {
+      "id": "W-001428",
+      "label_exists": true,
+      "actual_facts_chars": 49,
+      "correct_facts_chars": 49,
+      "actual_meta_chars": 142,
+      "correct_meta_chars": 143
+    },
+    {
+      "id": "W-001954",
+      "label_exists": true,
+      "actual_facts_chars": 87,
+      "correct_facts_chars": 86,
+      "actual_meta_chars": 130,
+      "correct_meta_chars": 130
+    },
+    {
+      "id": "W-000326-d5",
+      "label_exists": true,
+      "actual_facts_chars": 87,
+      "correct_facts_chars": 86,
+      "actual_meta_chars": 151,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-001991",
+      "label_exists": true,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 88,
+      "actual_meta_chars": 143,
+      "correct_meta_chars": 143
+    },
+    {
+      "id": "W-000544",
+      "label_exists": true,
+      "actual_facts_chars": 449,
+      "correct_facts_chars": 453,
+      "actual_meta_chars": 128,
+      "correct_meta_chars": 132
+    },
+    {
+      "id": "W-000248",
+      "label_exists": true,
+      "actual_facts_chars": 78,
+      "correct_facts_chars": 78,
+      "actual_meta_chars": 170,
+      "correct_meta_chars": 171
+    },
+    {
+      "id": "W-001492",
+      "label_exists": true,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 144,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-000880-d235",
+      "label_exists": true,
+      "actual_facts_chars": 66,
+      "correct_facts_chars": 66,
+      "actual_meta_chars": 154,
+      "correct_meta_chars": 155
+    },
+    {
+      "id": "W-001620",
+      "label_exists": true,
+      "actual_facts_chars": 46,
+      "correct_facts_chars": 46,
+      "actual_meta_chars": 131,
+      "correct_meta_chars": 132
+    },
+    {
+      "id": "W-001676",
+      "label_exists": true,
+      "actual_facts_chars": 51,
+      "correct_facts_chars": 51,
+      "actual_meta_chars": 144,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-000612",
+      "label_exists": true,
+      "actual_facts_chars": 159,
+      "correct_facts_chars": 145,
+      "actual_meta_chars": 182,
+      "correct_meta_chars": 179
+    },
+    {
+      "id": "W-000602",
+      "label_exists": true,
+      "actual_facts_chars": 237,
+      "correct_facts_chars": 241,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-001997",
+      "label_exists": true,
+      "actual_facts_chars": 85,
+      "correct_facts_chars": 84,
+      "actual_meta_chars": 129,
+      "correct_meta_chars": 129
+    },
+    {
+      "id": "W-001987",
+      "label_exists": true,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 88,
+      "actual_meta_chars": 140,
+      "correct_meta_chars": 140
+    },
+    {
+      "id": "W-000880-d129",
+      "label_exists": true,
+      "actual_facts_chars": 94,
+      "correct_facts_chars": 94,
+      "actual_meta_chars": 155,
+      "correct_meta_chars": 156
+    },
+    {
+      "id": "W-001900",
+      "label_exists": true,
+      "actual_facts_chars": 69,
+      "correct_facts_chars": 68,
+      "actual_meta_chars": 167,
+      "correct_meta_chars": 166
+    },
+    {
+      "id": "W-000881-d47",
+      "label_exists": true,
+      "actual_facts_chars": 88,
+      "correct_facts_chars": 87,
+      "actual_meta_chars": 160,
+      "correct_meta_chars": 160
+    },
+    {
+      "id": "W-000881-d67",
+      "label_exists": true,
+      "actual_facts_chars": 79,
+      "correct_facts_chars": 78,
+      "actual_meta_chars": 153,
+      "correct_meta_chars": 153
+    },
+    {
+      "id": "W-000884-d10",
+      "label_exists": true,
+      "actual_facts_chars": 91,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 145,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-000884-d8",
+      "label_exists": true,
+      "actual_facts_chars": 187,
+      "correct_facts_chars": 185,
+      "actual_meta_chars": 148,
+      "correct_meta_chars": 148
+    },
+    {
+      "id": "W-000285",
+      "label_exists": true,
+      "actual_facts_chars": 50,
+      "correct_facts_chars": 50,
+      "actual_meta_chars": 131,
+      "correct_meta_chars": 132
+    },
+    {
+      "id": "W-001990",
+      "label_exists": true,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 88,
+      "actual_meta_chars": 143,
+      "correct_meta_chars": 143
+    },
+    {
+      "id": "W-001558",
+      "label_exists": true,
+      "actual_facts_chars": 79,
+      "correct_facts_chars": 79,
+      "actual_meta_chars": 144,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-001493",
+      "label_exists": true,
+      "actual_facts_chars": 37,
+      "correct_facts_chars": 37,
+      "actual_meta_chars": 172,
+      "correct_meta_chars": 173
+    },
+    {
+      "id": "W-002113",
+      "label_exists": true,
+      "actual_facts_chars": 92,
+      "correct_facts_chars": 92,
+      "actual_meta_chars": 179,
+      "correct_meta_chars": 180
+    },
+    {
+      "id": "W-000881-d176",
+      "label_exists": true,
+      "actual_facts_chars": 120,
+      "correct_facts_chars": 119,
+      "actual_meta_chars": 151,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-002103",
+      "label_exists": true,
+      "actual_facts_chars": 90,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 137,
+      "correct_meta_chars": 137
+    },
+    {
+      "id": "W-000880-d209",
+      "label_exists": true,
+      "actual_facts_chars": 76,
+      "correct_facts_chars": 76,
+      "actual_meta_chars": 148,
+      "correct_meta_chars": 149
+    },
+    {
+      "id": "W-000311",
+      "label_exists": true,
+      "actual_facts_chars": 78,
+      "correct_facts_chars": 78,
+      "actual_meta_chars": 150,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-001479",
+      "label_exists": true,
+      "actual_facts_chars": 45,
+      "correct_facts_chars": 45,
+      "actual_meta_chars": 147,
+      "correct_meta_chars": 148
+    },
+    {
+      "id": "W-001878",
+      "label_exists": true,
+      "actual_facts_chars": 75,
+      "correct_facts_chars": 74,
+      "actual_meta_chars": 147,
+      "correct_meta_chars": 147
+    },
+    {
+      "id": "W-001944",
+      "label_exists": true,
+      "actual_facts_chars": 67,
+      "correct_facts_chars": 66,
+      "actual_meta_chars": 140,
+      "correct_meta_chars": 140
+    },
+    {
+      "id": "W-001951",
+      "label_exists": true,
+      "actual_facts_chars": 86,
+      "correct_facts_chars": 85,
+      "actual_meta_chars": 129,
+      "correct_meta_chars": 129
+    },
+    {
+      "id": "W-001892",
+      "label_exists": true,
+      "actual_facts_chars": 74,
+      "correct_facts_chars": 73,
+      "actual_meta_chars": 185,
+      "correct_meta_chars": 184
+    },
+    {
+      "id": "W-001894",
+      "label_exists": true,
+      "actual_facts_chars": 92,
+      "correct_facts_chars": 91,
+      "actual_meta_chars": 176,
+      "correct_meta_chars": 175
+    },
+    {
+      "id": "W-001419",
+      "label_exists": true,
+      "actual_facts_chars": 48,
+      "correct_facts_chars": 48,
+      "actual_meta_chars": 141,
+      "correct_meta_chars": 142
+    },
+    {
+      "id": "W-001980",
+      "label_exists": true,
+      "actual_facts_chars": 71,
+      "correct_facts_chars": 70,
+      "actual_meta_chars": 143,
+      "correct_meta_chars": 143
+    },
+    {
+      "id": "W-001414",
+      "label_exists": true,
+      "actual_facts_chars": 66,
+      "correct_facts_chars": 66,
+      "actual_meta_chars": 148,
+      "correct_meta_chars": 149
+    },
+    {
+      "id": "W-001909",
+      "label_exists": true,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 99,
+      "actual_meta_chars": 129,
+      "correct_meta_chars": 129
+    },
+    {
+      "id": "W-001422",
+      "label_exists": true,
+      "actual_facts_chars": 66,
+      "correct_facts_chars": 66,
+      "actual_meta_chars": 148,
+      "correct_meta_chars": 149
+    },
+    {
+      "id": "W-000880-d151",
+      "label_exists": true,
+      "actual_facts_chars": 58,
+      "correct_facts_chars": 58,
+      "actual_meta_chars": 141,
+      "correct_meta_chars": 142
+    },
+    {
+      "id": "W-002065-d34",
+      "label_exists": true,
+      "actual_facts_chars": 0,
+      "correct_facts_chars": 0,
+      "actual_meta_chars": 154,
+      "correct_meta_chars": 160
+    },
+    {
+      "id": "W-000322",
+      "label_exists": true,
+      "actual_facts_chars": 80,
+      "correct_facts_chars": 78,
+      "actual_meta_chars": 139,
+      "correct_meta_chars": 138
+    },
+    {
+      "id": "W-000328-d5",
+      "label_exists": true,
+      "actual_facts_chars": 96,
+      "correct_facts_chars": 95,
+      "actual_meta_chars": 155,
+      "correct_meta_chars": 155
+    },
+    {
+      "id": "W-000515",
+      "label_exists": true,
+      "actual_facts_chars": 132,
+      "correct_facts_chars": 133,
+      "actual_meta_chars": 114,
+      "correct_meta_chars": 115
+    },
+    {
+      "id": "W-001591",
+      "label_exists": true,
+      "actual_facts_chars": 47,
+      "correct_facts_chars": 47,
+      "actual_meta_chars": 125,
+      "correct_meta_chars": 126
+    },
+    {
+      "id": "W-000881-d152",
+      "label_exists": true,
+      "actual_facts_chars": 59,
+      "correct_facts_chars": 58,
+      "actual_meta_chars": 145,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-000513",
+      "label_exists": true,
+      "actual_facts_chars": 124,
+      "correct_facts_chars": 127,
+      "actual_meta_chars": 104,
+      "correct_meta_chars": 105
+    },
+    {
+      "id": "W-000128",
+      "label_exists": true,
+      "actual_facts_chars": 138,
+      "correct_facts_chars": 137,
+      "actual_meta_chars": 151,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-000881-d71",
+      "label_exists": true,
+      "actual_facts_chars": 90,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 151,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-000109",
+      "label_exists": true,
+      "actual_facts_chars": 189,
+      "correct_facts_chars": 188,
+      "actual_meta_chars": 185,
+      "correct_meta_chars": 185
+    },
+    {
+      "id": "W-000294",
+      "label_exists": true,
+      "actual_facts_chars": 67,
+      "correct_facts_chars": 67,
+      "actual_meta_chars": 145,
+      "correct_meta_chars": 146
+    },
+    {
+      "id": "W-000140",
+      "label_exists": true,
+      "actual_facts_chars": 88,
+      "correct_facts_chars": 87,
+      "actual_meta_chars": 146,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-001700",
+      "label_exists": true,
+      "actual_facts_chars": 67,
+      "correct_facts_chars": 67,
+      "actual_meta_chars": 145,
+      "correct_meta_chars": 146
+    },
+    {
+      "id": "W-001496",
+      "label_exists": true,
+      "actual_facts_chars": 79,
+      "correct_facts_chars": 79,
+      "actual_meta_chars": 144,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-000327-d4",
+      "label_exists": true,
+      "actual_facts_chars": 84,
+      "correct_facts_chars": 83,
+      "actual_meta_chars": 152,
+      "correct_meta_chars": 152
+    },
+    {
+      "id": "W-001566",
+      "label_exists": true,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 144,
+      "correct_meta_chars": 145
+    },
+    {
+      "id": "W-001915",
+      "label_exists": false,
+      "actual_facts_chars": 102,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 216,
+      "correct_meta_chars": 214
+    },
+    {
+      "id": "W-000881-d63",
+      "label_exists": false,
+      "actual_facts_chars": 85,
+      "correct_facts_chars": 84,
+      "actual_meta_chars": 161,
+      "correct_meta_chars": 161
+    },
+    {
+      "id": "W-000520",
+      "label_exists": false,
+      "actual_facts_chars": 96,
+      "correct_facts_chars": 96,
+      "actual_meta_chars": 130,
+      "correct_meta_chars": 131
+    },
+    {
+      "id": "W-001708",
+      "label_exists": false,
+      "actual_facts_chars": 40,
+      "correct_facts_chars": 40,
+      "actual_meta_chars": 152,
+      "correct_meta_chars": 153
+    },
+    {
+      "id": "W-001943",
+      "label_exists": false,
+      "actual_facts_chars": 65,
+      "correct_facts_chars": 64,
+      "actual_meta_chars": 143,
+      "correct_meta_chars": 143
+    },
+    {
+      "id": "W-000881-d174",
+      "label_exists": false,
+      "actual_facts_chars": 0,
+      "correct_facts_chars": 0,
+      "actual_meta_chars": 224,
+      "correct_meta_chars": 235
+    },
+    {
+      "id": "W-001402",
+      "label_exists": false,
+      "actual_facts_chars": 50,
+      "correct_facts_chars": 50,
+      "actual_meta_chars": 147,
+      "correct_meta_chars": 148
+    },
+    {
+      "id": "W-000465",
+      "label_exists": false,
+      "actual_facts_chars": 80,
+      "correct_facts_chars": 81,
+      "actual_meta_chars": 135,
+      "correct_meta_chars": 137
+    },
+    {
+      "id": "W-000884-d21",
+      "label_exists": false,
+      "actual_facts_chars": 187,
+      "correct_facts_chars": 185,
+      "actual_meta_chars": 155,
+      "correct_meta_chars": 155
+    },
+    {
+      "id": "W-002101",
+      "label_exists": false,
+      "actual_facts_chars": 79,
+      "correct_facts_chars": 78,
+      "actual_meta_chars": 141,
+      "correct_meta_chars": 141
+    },
+    {
+      "id": "W-000880-d172",
+      "label_exists": false,
+      "actual_facts_chars": 0,
+      "correct_facts_chars": 0,
+      "actual_meta_chars": 167,
+      "correct_meta_chars": 168
+    },
+    {
+      "id": "W-000880-d74",
+      "label_exists": false,
+      "actual_facts_chars": 139,
+      "correct_facts_chars": 139,
+      "actual_meta_chars": 141,
+      "correct_meta_chars": 142
+    },
+    {
+      "id": "W-000254",
+      "label_exists": false,
+      "actual_facts_chars": 50,
+      "correct_facts_chars": 50,
+      "actual_meta_chars": 148,
+      "correct_meta_chars": 149
+    },
+    {
+      "id": "W-000880-d44",
+      "label_exists": false,
+      "actual_facts_chars": 188,
+      "correct_facts_chars": 188,
+      "actual_meta_chars": 156,
+      "correct_meta_chars": 157
+    },
+    {
+      "id": "W-000880-d208",
+      "label_exists": false,
+      "actual_facts_chars": 143,
+      "correct_facts_chars": 143,
+      "actual_meta_chars": 143,
+      "correct_meta_chars": 144
+    },
+    {
+      "id": "W-000883-d4",
+      "label_exists": false,
+      "actual_facts_chars": 201,
+      "correct_facts_chars": 197,
+      "actual_meta_chars": 152,
+      "correct_meta_chars": 152
+    },
+    {
+      "id": "W-000881-d189",
+      "label_exists": false,
+      "actual_facts_chars": 90,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 157,
+      "correct_meta_chars": 157
+    },
+    {
+      "id": "W-000333-d10",
+      "label_exists": false,
+      "actual_facts_chars": 0,
+      "correct_facts_chars": 0,
+      "actual_meta_chars": 153,
+      "correct_meta_chars": 159
+    },
+    {
+      "id": "W-000244",
+      "label_exists": false,
+      "actual_facts_chars": 62,
+      "correct_facts_chars": 62,
+      "actual_meta_chars": 170,
+      "correct_meta_chars": 171
+    },
+    {
+      "id": "W-001694",
+      "label_exists": false,
+      "actual_facts_chars": 51,
+      "correct_facts_chars": 51,
+      "actual_meta_chars": 145,
+      "correct_meta_chars": 146
+    },
+    {
+      "id": "W-000884-d13",
+      "label_exists": false,
+      "actual_facts_chars": 65,
+      "correct_facts_chars": 64,
+      "actual_meta_chars": 141,
+      "correct_meta_chars": 141
+    },
+    {
+      "id": "W-000323-d9",
+      "label_exists": false,
+      "actual_facts_chars": 294,
+      "correct_facts_chars": 293,
+      "actual_meta_chars": 153,
+      "correct_meta_chars": 153
+    },
+    {
+      "id": "W-000880-d43",
+      "label_exists": false,
+      "actual_facts_chars": 91,
+      "correct_facts_chars": 91,
+      "actual_meta_chars": 150,
+      "correct_meta_chars": 151
+    },
+    {
+      "id": "W-000428",
+      "label_exists": false,
+      "actual_facts_chars": 33,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 166,
+      "correct_meta_chars": 139
+    },
+    {
+      "id": "W-002087",
+      "label_exists": false,
+      "actual_facts_chars": 29,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 154,
+      "correct_meta_chars": 135
+    },
+    {
+      "id": "W-001953",
+      "label_exists": false,
+      "actual_facts_chars": 86,
+      "correct_facts_chars": 85,
+      "actual_meta_chars": 203,
+      "correct_meta_chars": 201
+    },
+    {
+      "id": "W-002098",
+      "label_exists": false,
+      "actual_facts_chars": 29,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 156,
+      "correct_meta_chars": 137
+    },
+    {
+      "id": "W-000481",
+      "label_exists": false,
+      "actual_facts_chars": 137,
+      "correct_facts_chars": 138,
+      "actual_meta_chars": 66,
+      "correct_meta_chars": 70
+    },
+    {
+      "id": "W-000421",
+      "label_exists": false,
+      "actual_facts_chars": 33,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 171,
+      "correct_meta_chars": 144
+    },
+    {
+      "id": "W-000094",
+      "label_exists": false,
+      "actual_facts_chars": 166,
+      "correct_facts_chars": 167,
+      "actual_meta_chars": 68,
+      "correct_meta_chars": 72
+    },
+    {
+      "id": "W-000454",
+      "label_exists": false,
+      "actual_facts_chars": 29,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 155,
+      "correct_meta_chars": 136
+    },
+    {
+      "id": "W-000431",
+      "label_exists": false,
+      "actual_facts_chars": 33,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 165,
+      "correct_meta_chars": 138
+    },
+    {
+      "id": "W-000487",
+      "label_exists": false,
+      "actual_facts_chars": 114,
+      "correct_facts_chars": 115,
+      "actual_meta_chars": 67,
+      "correct_meta_chars": 71
+    },
+    {
+      "id": "W-000486",
+      "label_exists": false,
+      "actual_facts_chars": 114,
+      "correct_facts_chars": 115,
+      "actual_meta_chars": 67,
+      "correct_meta_chars": 71
+    },
+    {
+      "id": "W-000429",
+      "label_exists": false,
+      "actual_facts_chars": 33,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 171,
+      "correct_meta_chars": 144
+    },
+    {
+      "id": "W-000492",
+      "label_exists": false,
+      "actual_facts_chars": 153,
+      "correct_facts_chars": 154,
+      "actual_meta_chars": 68,
+      "correct_meta_chars": 72
+    },
+    {
+      "id": "W-000490",
+      "label_exists": false,
+      "actual_facts_chars": 116,
+      "correct_facts_chars": 117,
+      "actual_meta_chars": 68,
+      "correct_meta_chars": 72
+    },
+    {
+      "id": "W-000459",
+      "label_exists": false,
+      "actual_facts_chars": 29,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 162,
+      "correct_meta_chars": 143
+    },
+    {
+      "id": "W-000502",
+      "label_exists": false,
+      "actual_facts_chars": 104,
+      "correct_facts_chars": 105,
+      "actual_meta_chars": 66,
+      "correct_meta_chars": 70
+    },
+    {
+      "id": "W-000352-19",
+      "label_exists": false,
+      "actual_facts_chars": 138,
+      "correct_facts_chars": 139,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000136",
+      "label_exists": false,
+      "actual_facts_chars": 104,
+      "correct_facts_chars": 92,
+      "actual_meta_chars": 94,
+      "correct_meta_chars": 87
+    },
+    {
+      "id": "W-000644-r10",
+      "label_exists": false,
+      "actual_facts_chars": 69,
+      "correct_facts_chars": 70,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000350-28",
+      "label_exists": false,
+      "actual_facts_chars": 87,
+      "correct_facts_chars": 88,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000644-r2",
+      "label_exists": false,
+      "actual_facts_chars": 122,
+      "correct_facts_chars": 123,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000350-5",
+      "label_exists": false,
+      "actual_facts_chars": 80,
+      "correct_facts_chars": 81,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000644-r15",
+      "label_exists": false,
+      "actual_facts_chars": 91,
+      "correct_facts_chars": 92,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000156-d25",
+      "label_exists": false,
+      "actual_facts_chars": 163,
+      "correct_facts_chars": 161,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000083-7",
+      "label_exists": false,
+      "actual_facts_chars": 97,
+      "correct_facts_chars": 98,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000355-22",
+      "label_exists": false,
+      "actual_facts_chars": 95,
+      "correct_facts_chars": 96,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000156-d21",
+      "label_exists": false,
+      "actual_facts_chars": 164,
+      "correct_facts_chars": 162,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000447",
+      "label_exists": false,
+      "actual_facts_chars": 29,
+      "correct_facts_chars": 9,
+      "actual_meta_chars": 161,
+      "correct_meta_chars": 142
+    },
+    {
+      "id": "W-000647-r2",
+      "label_exists": false,
+      "actual_facts_chars": 85,
+      "correct_facts_chars": 86,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000352-1",
+      "label_exists": false,
+      "actual_facts_chars": 139,
+      "correct_facts_chars": 140,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000477-5",
+      "label_exists": false,
+      "actual_facts_chars": 93,
+      "correct_facts_chars": 94,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000087-36",
+      "label_exists": false,
+      "actual_facts_chars": 134,
+      "correct_facts_chars": 135,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-002117-16",
+      "label_exists": false,
+      "actual_facts_chars": 139,
+      "correct_facts_chars": 140,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000204",
+      "label_exists": false,
+      "actual_facts_chars": 3,
+      "correct_facts_chars": 4,
+      "actual_meta_chars": 17,
+      "correct_meta_chars": 19
+    },
+    {
+      "id": "W-000086-11",
+      "label_exists": false,
+      "actual_facts_chars": 121,
+      "correct_facts_chars": 122,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000081-7",
+      "label_exists": false,
+      "actual_facts_chars": 85,
+      "correct_facts_chars": 86,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000350-4",
+      "label_exists": false,
+      "actual_facts_chars": 101,
+      "correct_facts_chars": 102,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000159-d39",
+      "label_exists": false,
+      "actual_facts_chars": 119,
+      "correct_facts_chars": 117,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000086-29",
+      "label_exists": false,
+      "actual_facts_chars": 124,
+      "correct_facts_chars": 125,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000089-24",
+      "label_exists": false,
+      "actual_facts_chars": 94,
+      "correct_facts_chars": 95,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000643-r2",
+      "label_exists": false,
+      "actual_facts_chars": 94,
+      "correct_facts_chars": 95,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000350-27",
+      "label_exists": false,
+      "actual_facts_chars": 88,
+      "correct_facts_chars": 89,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000159-d26",
+      "label_exists": false,
+      "actual_facts_chars": 93,
+      "correct_facts_chars": 91,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000082-9",
+      "label_exists": false,
+      "actual_facts_chars": 109,
+      "correct_facts_chars": 110,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000159-d22",
+      "label_exists": false,
+      "actual_facts_chars": 92,
+      "correct_facts_chars": 90,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000153-d18",
+      "label_exists": false,
+      "actual_facts_chars": 83,
+      "correct_facts_chars": 82,
+      "actual_meta_chars": 39,
+      "correct_meta_chars": 36
+    },
+    {
+      "id": "W-000087-15",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000156-d22",
+      "label_exists": false,
+      "actual_facts_chars": 163,
+      "correct_facts_chars": 161,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000159-d27",
+      "label_exists": false,
+      "actual_facts_chars": 93,
+      "correct_facts_chars": 91,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-28",
+      "label_exists": false,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 90,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000090-22",
+      "label_exists": false,
+      "actual_facts_chars": 123,
+      "correct_facts_chars": 124,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000350-9",
+      "label_exists": false,
+      "actual_facts_chars": 80,
+      "correct_facts_chars": 81,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-18",
+      "label_exists": false,
+      "actual_facts_chars": 86,
+      "correct_facts_chars": 87,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000644-r8",
+      "label_exists": false,
+      "actual_facts_chars": 119,
+      "correct_facts_chars": 121,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000083-27",
+      "label_exists": false,
+      "actual_facts_chars": 98,
+      "correct_facts_chars": 99,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000640-r22",
+      "label_exists": false,
+      "actual_facts_chars": 113,
+      "correct_facts_chars": 114,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000153-d32",
+      "label_exists": false,
+      "actual_facts_chars": 61,
+      "correct_facts_chars": 60,
+      "actual_meta_chars": 40,
+      "correct_meta_chars": 37
+    },
+    {
+      "id": "W-000349-7",
+      "label_exists": false,
+      "actual_facts_chars": 131,
+      "correct_facts_chars": 132,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000640-r6",
+      "label_exists": false,
+      "actual_facts_chars": 68,
+      "correct_facts_chars": 69,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000153-d31",
+      "label_exists": false,
+      "actual_facts_chars": 61,
+      "correct_facts_chars": 60,
+      "actual_meta_chars": 40,
+      "correct_meta_chars": 37
+    },
+    {
+      "id": "W-000351-4",
+      "label_exists": false,
+      "actual_facts_chars": 120,
+      "correct_facts_chars": 121,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000085-9",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000158-d5",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 98,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000087-35",
+      "label_exists": false,
+      "actual_facts_chars": 108,
+      "correct_facts_chars": 109,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000158-d12",
+      "label_exists": false,
+      "actual_facts_chars": 112,
+      "correct_facts_chars": 110,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000343-10",
+      "label_exists": false,
+      "actual_facts_chars": 102,
+      "correct_facts_chars": 103,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000087-10",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000348-2",
+      "label_exists": false,
+      "actual_facts_chars": 99,
+      "correct_facts_chars": 100,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000641-r14",
+      "label_exists": false,
+      "actual_facts_chars": 77,
+      "correct_facts_chars": 78,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-2",
+      "label_exists": false,
+      "actual_facts_chars": 117,
+      "correct_facts_chars": 118,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000090-40",
+      "label_exists": false,
+      "actual_facts_chars": 123,
+      "correct_facts_chars": 124,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000152-d26",
+      "label_exists": false,
+      "actual_facts_chars": 105,
+      "correct_facts_chars": 103,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000083-34",
+      "label_exists": false,
+      "actual_facts_chars": 106,
+      "correct_facts_chars": 107,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000081-21",
+      "label_exists": false,
+      "actual_facts_chars": 76,
+      "correct_facts_chars": 77,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-25",
+      "label_exists": false,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 90,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000087-13",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000640-r13",
+      "label_exists": false,
+      "actual_facts_chars": 68,
+      "correct_facts_chars": 69,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000080-8",
+      "label_exists": false,
+      "actual_facts_chars": 104,
+      "correct_facts_chars": 105,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000085-4",
+      "label_exists": false,
+      "actual_facts_chars": 108,
+      "correct_facts_chars": 109,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000159-d25",
+      "label_exists": false,
+      "actual_facts_chars": 93,
+      "correct_facts_chars": 91,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000080-22",
+      "label_exists": false,
+      "actual_facts_chars": 104,
+      "correct_facts_chars": 105,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000354-7",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000346-12",
+      "label_exists": false,
+      "actual_facts_chars": 74,
+      "correct_facts_chars": 75,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000340-37",
+      "label_exists": false,
+      "actual_facts_chars": 80,
+      "correct_facts_chars": 81,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000153-d28",
+      "label_exists": false,
+      "actual_facts_chars": 61,
+      "correct_facts_chars": 60,
+      "actual_meta_chars": 40,
+      "correct_meta_chars": 37
+    },
+    {
+      "id": "W-000341-27",
+      "label_exists": false,
+      "actual_facts_chars": 95,
+      "correct_facts_chars": 96,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-8",
+      "label_exists": false,
+      "actual_facts_chars": 118,
+      "correct_facts_chars": 119,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000339-23",
+      "label_exists": false,
+      "actual_facts_chars": 101,
+      "correct_facts_chars": 102,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000350-2",
+      "label_exists": false,
+      "actual_facts_chars": 100,
+      "correct_facts_chars": 101,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000644-r3",
+      "label_exists": false,
+      "actual_facts_chars": 166,
+      "correct_facts_chars": 169,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000085-11",
+      "label_exists": false,
+      "actual_facts_chars": 81,
+      "correct_facts_chars": 82,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-26",
+      "label_exists": false,
+      "actual_facts_chars": 84,
+      "correct_facts_chars": 85,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-3",
+      "label_exists": false,
+      "actual_facts_chars": 118,
+      "correct_facts_chars": 119,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000088-4",
+      "label_exists": false,
+      "actual_facts_chars": 158,
+      "correct_facts_chars": 159,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-37",
+      "label_exists": false,
+      "actual_facts_chars": 89,
+      "correct_facts_chars": 90,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000477-4",
+      "label_exists": false,
+      "actual_facts_chars": 93,
+      "correct_facts_chars": 94,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000347-2",
+      "label_exists": false,
+      "actual_facts_chars": 111,
+      "correct_facts_chars": 112,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000082-15",
+      "label_exists": false,
+      "actual_facts_chars": 103,
+      "correct_facts_chars": 104,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000084-31",
+      "label_exists": false,
+      "actual_facts_chars": 86,
+      "correct_facts_chars": 87,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000337-7",
+      "label_exists": false,
+      "actual_facts_chars": 98,
+      "correct_facts_chars": 99,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000338-2",
+      "label_exists": false,
+      "actual_facts_chars": 83,
+      "correct_facts_chars": 84,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    },
+    {
+      "id": "W-000476-7",
+      "label_exists": false,
+      "actual_facts_chars": 104,
+      "correct_facts_chars": 105,
+      "actual_meta_chars": 0,
+      "correct_meta_chars": 0
+    }
+  ],
+  "stored_input_not_direct_projection_ids": [
+    "W-000376",
+    "W-000630",
+    "W-000622",
+    "W-000609",
+    "W-000362",
+    "W-000563",
+    "W-000634",
+    "W-001428",
+    "W-001954",
+    "W-000326-d5",
+    "W-001991",
+    "W-000544",
+    "W-000248",
+    "W-001492",
+    "W-000880-d235",
+    "W-001620",
+    "W-001676",
+    "W-000612",
+    "W-000602",
+    "W-001997",
+    "W-001987",
+    "W-000880-d129",
+    "W-001900",
+    "W-000881-d47",
+    "W-000881-d67",
+    "W-000884-d10",
+    "W-000884-d8",
+    "W-000285",
+    "W-001990",
+    "W-001558",
+    "W-001493",
+    "W-002113",
+    "W-000881-d176",
+    "W-002103",
+    "W-000880-d209",
+    "W-000311",
+    "W-001479",
+    "W-001878",
+    "W-001944",
+    "W-001951",
+    "W-001892",
+    "W-001894",
+    "W-001419",
+    "W-001980",
+    "W-001414",
+    "W-001909",
+    "W-001422",
+    "W-000880-d151",
+    "W-002065-d34",
+    "W-000322",
+    "W-000328-d5",
+    "W-000515",
+    "W-001591",
+    "W-000881-d152",
+    "W-000513",
+    "W-000128",
+    "W-000881-d71",
+    "W-000109",
+    "W-000294",
+    "W-000140",
+    "W-001700",
+    "W-001496",
+    "W-000327-d4",
+    "W-001566"
+  ],
+  "stored_input_not_current_code_ids": [],
+  "s3_status": {
+    "pass": 121,
+    "warn": 152,
+    "error": 26
+  },
+  "field_value_counts": {
+    "conduct.behavior_type": {
+      "A_valued": 61,
+      "A_missing": 23,
+      "A_invalid_value": 8,
+      "B_missing": 17,
+      "B_valued": 68,
+      "B_invalid_value": 6,
+      "merged_valued": 80,
+      "merged_invalid_value": 11
+    },
+    "conduct.role": {
+      "A_valued": 61,
+      "A_invalid_value": 58,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 67,
+      "B_invalid_value": 66,
+      "merged_valued": 79,
+      "merged_invalid_value": 76
+    },
+    "conduct.method": {
+      "A_valued": 50,
+      "A_invalid_value": 43,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 57,
+      "B_invalid_value": 53,
+      "merged_valued": 64,
+      "merged_invalid_value": 59
+    },
+    "conduct.times": {
+      "A_valued": 49,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 33,
+      "B_invalid_value": 4,
+      "merged_valued": 58,
+      "merged_invalid_value": 4
+    },
+    "conduct.duration_days": {
+      "A_valued": 13,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 12,
+      "merged_valued": 14
+    },
+    "conduct.cheating": {
+      "A_missing": 31,
+      "B_missing": 18
+    },
+    "amounts.personal_stake": {
+      "A_valued": 18,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 18,
+      "merged_valued": 19
+    },
+    "amounts.per_bet": {
+      "A_valued": 2,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 2,
+      "merged_valued": 3
+    },
+    "amounts.onsite_stake_total": {
+      "A_valued": 8,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 9,
+      "merged_valued": 8
+    },
+    "amounts.cumulative_stake": {
+      "A_missing": 23,
+      "A_valued": 4,
+      "B_missing": 18,
+      "B_valued": 6,
+      "merged_valued": 7
+    },
+    "amounts.commission": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "amounts.illegal_gain": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "persons.participant_count": {
+      "A_valued": 32,
+      "A_missing": 23,
+      "B_missing": 19,
+      "B_valued": 38,
+      "B_invalid_value": 6,
+      "merged_valued": 42,
+      "merged_invalid_value": 5
+    },
+    "persons.cumulative_participants": {
+      "A_missing": 23,
+      "A_valued": 8,
+      "B_missing": 19,
+      "B_valued": 7,
+      "B_invalid_value": 1,
+      "merged_valued": 13,
+      "merged_invalid_value": 2
+    },
+    "persons.minors_involved": {
+      "A_missing": 23,
+      "B_missing": 19
+    },
+    "persons.civil_servant": {
+      "A_missing": 23,
+      "A_valued": 1,
+      "B_missing": 18,
+      "B_valued": 2,
+      "merged_valued": 1
+    },
+    "persons.relatives_only": {
+      "A_missing": 23,
+      "A_valued": 1,
+      "B_missing": 19,
+      "B_valued": 1,
+      "merged_valued": 1
+    },
+    "persons.abroad_organized_count": {
+      "A_missing": 23,
+      "B_missing": 19
+    },
+    "venue.venue_type": {
+      "A_valued": 59,
+      "A_invalid_value": 56,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 63,
+      "B_invalid_value": 61,
+      "merged_valued": 77,
+      "merged_invalid_value": 73
+    },
+    "intent.profit_purpose": {
+      "A_valued": 3,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 2,
+      "merged_valued": 3
+    },
+    "circumstances.last_prior_penalty_date": {
+      "A_missing": 23,
+      "A_valued": 5,
+      "A_invalid_value": 3,
+      "B_missing": 18,
+      "B_valued": 6,
+      "B_invalid_value": 3,
+      "merged_valued": 8,
+      "merged_invalid_value": 5
+    },
+    "circumstances.surrendered": {
+      "A_valued": 16,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 6,
+      "B_invalid_value": 1,
+      "merged_valued": 18,
+      "merged_invalid_value": 1
+    },
+    "circumstances.truthful_statement": {
+      "A_missing": 23,
+      "A_valued": 1,
+      "B_missing": 18,
+      "B_valued": 2,
+      "B_invalid_value": 1,
+      "merged_valued": 2,
+      "merged_invalid_value": 1
+    },
+    "circumstances.admits_and_accepts": {
+      "A_valued": 2,
+      "A_missing": 23,
+      "B_missing": 18,
+      "B_valued": 1,
+      "merged_valued": 3
+    },
+    "circumstances.remedied_consequence": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.victim_forgiveness": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.coerced_or_lured": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.meritorious": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.instigated_others": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.retaliation": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.obstructed_police": {
+      "A_missing": 23,
+      "B_missing": 18
+    },
+    "circumstances.minor_circumstance": {
+      "A_missing": 23,
+      "A_valued": 1,
+      "A_invalid_value": 1,
+      "B_missing": 18,
+      "merged_valued": 1,
+      "merged_invalid_value": 1
+    },
+    "circumstances.first_offense": {
+      "A_missing": 23,
+      "A_valued": 17,
+      "B_missing": 18,
+      "B_valued": 20,
+      "B_invalid_value": 4,
+      "merged_valued": 23,
+      "merged_invalid_value": 1
+    },
+    "circumstances.violations_last_year": {
+      "A_missing": 23,
+      "A_valued": 12,
+      "B_missing": 18,
+      "B_valued": 9,
+      "merged_valued": 14
+    },
+    "person.age": {
+      "A_valued": 21,
+      "A_missing": 23,
+      "B_missing": 19,
+      "B_valued": 26,
+      "B_invalid_value": 1,
+      "merged_valued": 29,
+      "merged_missing": 1
+    },
+    "person.pregnant_or_nursing": {
+      "A_valued": 34,
+      "A_missing": 23,
+      "B_missing": 19,
+      "B_valued": 11,
+      "merged_valued": 38
+    }
+  },
+  "labeled_input_regions_overlap_forbidden_zones": [
+    {
+      "id": "W-000563",
+      "overlap_chars_by_type": {
+        "decision": 2,
+        "reasoning": 1
+      }
+    },
+    {
+      "id": "W-000630",
+      "overlap_chars_by_type": {
+        "reasoning": 163
+      }
+    },
+    {
+      "id": "W-000622",
+      "overlap_chars_by_type": {
+        "reasoning": 3
+      }
+    },
+    {
+      "id": "W-000609",
+      "overlap_chars_by_type": {
+        "decision": 9,
+        "reasoning": 8
+      }
+    },
+    {
+      "id": "W-000634",
+      "overlap_chars_by_type": {
+        "reasoning": 3
+      }
+    },
+    {
+      "id": "W-000326-d5",
+      "overlap_chars_by_type": {
+        "reasoning": 1
+      }
+    },
+    {
+      "id": "W-000612",
+      "overlap_chars_by_type": {
+        "reasoning": 8
+      }
+    },
+    {
+      "id": "W-000881-d67",
+      "overlap_chars_by_type": {
+        "reasoning": 1
+      }
+    },
+    {
+      "id": "W-000328-d5",
+      "overlap_chars_by_type": {
+        "reasoning": 1
+      }
+    },
+    {
+      "id": "W-000322",
+      "overlap_chars_by_type": {
+        "reasoning": 1
+      }
+    }
+  ],
+  "code_hashes": {
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\seg-v2-design-review\\research\\discretion\\unify\\run_elements.py": "a228a9095e25bd5929e5abf24b98040331b2891a8f279d557a4d1de5df535106",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\seg-v2-design-review\\research\\discretion\\unify\\locate.py": "b3fab51c74737869fb067138871b05ded5f710f0e5a12b834384c255847853fb",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\seg-v2-design-review\\research\\discretion\\unify\\s1.py": "551d97af11f2bd2fe1e19149595cd715e99c4af3ce7224a8384ded09617e89fa",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\seg-v2-design-review\\research\\discretion\\unify\\arbitrate.py": "49e86c0fcfb2877f59e1193eaa9d2aff2fc56df6158ec3368a7986d37a7ceef3",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\discretion-engine\\justilaw-api\\app\\discretion\\schema.py": "4f21ad185d52659042d157ce59f96ffef4c94be66b69d4c748d6b65af2321001",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\discretion-engine\\justilaw-api\\app\\discretion\\element_labels.py": "5b80d9c076890e269afbe0d82096bdaf14e43bd66207b3dd9ce1bf4fc4164ba0",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\discretion-engine\\research\\eval\\accept_element_labels.py": "6b3d80f3650c9bd99bd915c5e7d87fa238a25631d6193b90cf054f5d0a0a9946",
+    "D:\\02_Dev\\Projects\\大创\\.claude\\worktrees\\discretion-engine\\research\\eval\\agreement.py": "fc2f345d13a44b12f3e4d08c6cd8884c4cacd8162aca9e5a2363e9720c7621e6"
+  },
+  "structural_valid_ids": [
+    "W-000327-d4",
+    "W-000513",
+    "W-000563",
+    "W-000612",
+    "W-002065-d13",
+    "W-002065-d34"
+  ],
+  "all_absent_merged_raw_flat_check": [
+    {
+      "id": "W-000563",
+      "merged_nonempty": 0,
+      "raw_flat_nonempty": {
+        "A": 0,
+        "B": 0
+      }
+    },
+    {
+      "id": "W-000612",
+      "merged_nonempty": 0,
+      "raw_flat_nonempty": {
+        "A": 1,
+        "B": 0
+      }
+    },
+    {
+      "id": "W-002065-d13",
+      "merged_nonempty": 0,
+      "raw_flat_nonempty": {
+        "A": 8,
+        "B": 5
+      }
+    },
+    {
+      "id": "W-000513",
+      "merged_nonempty": 0,
+      "raw_flat_nonempty": {
+        "A": 12,
+        "B": 10
+      }
+    },
+    {
+      "id": "W-000327-d4",
+      "merged_nonempty": 0,
+      "raw_flat_nonempty": {
+        "A": 8,
+        "B": 7
+      }
+    }
+  ],
+  "raw_records_missing_expected_groups": [
+    {
+      "id": "W-000563",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000609",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000891-d29",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-001428",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-001991",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-001620",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000880-d235",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-001676",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000612",
+      "A_missing_groups": 7,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-001492",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000602",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-001997",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-001900",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000895-d13",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-002065-d13",
+      "A_missing_groups": 7,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000285",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000881-d47",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000881-d176",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-002113",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-001479",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000311",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000887-d6",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000335-d1",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-001878",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-002065-d26",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000328-d5",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000880-d151",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    },
+    {
+      "id": "W-000332-d12",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-001591",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000513",
+      "A_missing_groups": 7,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-002065-d14",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-002056-d5",
+      "A_missing_groups": 7,
+      "B_missing_groups": 6
+    },
+    {
+      "id": "W-000332-d37",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-000327-d4",
+      "A_missing_groups": 7,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-001700",
+      "A_missing_groups": 0,
+      "B_missing_groups": 7
+    },
+    {
+      "id": "W-001496",
+      "A_missing_groups": 0,
+      "B_missing_groups": 1
+    },
+    {
+      "id": "W-001566",
+      "A_missing_groups": 7,
+      "B_missing_groups": 0
+    }
+  ],
+  "diff_candidate_value_validity": {
+    "diffs_no_invalid_candidate_value": 305,
+    "diffs_with_invalid_candidate_value": 236
+  },
+  "manifest_input_hash_matches_current_unified": true,
+  "source_snapshots": {
+    "review_base_web_commit": "32621fe",
+    "engine_commit": "113db420f4b10c434807c9438785f19674c5454d",
+    "coordination_commit": "84fa5f7ea130e75bba76b9917fa466b401bc6366",
+    "date_Asia_Shanghai": "2026-10-18"
+  }
+}

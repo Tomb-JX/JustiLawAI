@@ -34,8 +34,10 @@ PROVINCE_SHORT = re.compile(r"(省|市|自治区|壮族自治区|回族自治区
 
 
 def load_table(path: Path = TABLE) -> list[dict]:
-    with open(path, encoding="utf-8", newline="") as f:
-        return list(csv.DictReader(f))
+    rows = list(csv.DictReader(open(path, encoding="utf-8", newline="")))
+    for r in rows:   # 民政部表省直辖县级市带脚注星号（"仙桃市*"）——剥离，否则字面永远匹配不上
+        r["name"] = r["name"].strip().rstrip("*†‡")
+    return rows
 
 
 class Resolver:
@@ -47,6 +49,15 @@ class Resolver:
         self.short = {r["code"]: PROVINCE_SHORT.sub("", r["name"]) for r in self.provinces}
         name_count = Counter(r["name"] for r in self.counties)
         self.dup = {n for n, c in name_count.items() if c > 1}
+        # 去后缀机关名匹配（协同交涉 2026-10-17 问题 B：法宝机关名"六合分局/××派出所"无"区/县"
+        # 后缀，精确名匹配不到，只能退市）。stem=县名去行政区划后缀；歧义保护=同 stem 多县全部
+        # 进入打分，由 parent_bonus（上级市/省出现）与同分回退裁决，不打单边。
+        self.county_stems: dict[str, list[dict]] = defaultdict(list)
+        for r in self.counties:
+            stem = re.sub(r"(?:自治县|自治旗|林区|特区|[区县旗])$", "", r["name"])
+            if len(stem) >= 2:
+                self.county_stems.setdefault(stem, []).append(r)
+        self.ORGAN_TAIL = re.compile(r"(?=分局|派出所|大队|公安局|司法局|交警)")
 
     def _occ(self, name: str, texts: list[tuple[str, int]]) -> int:
         return sum(t.count(name) * w for t, w in texts)
@@ -88,20 +99,35 @@ class Resolver:
         matched = {n for _, r in found for n in self.names_of(r)}
         found = [(o, r) for o, r in found
                  if not any(n != m and n in m for n in self.names_of(r) for m in matched)]
+        # 去后缀机关名匹配（问题 B）：精确名全空时启用——stem 后紧跟机关名词才算命中
+        # （"南京市公安局六合分局"→"六合"+分局），避免散文里的普通词误配；歧义交由打分与同分回退
+        organ_method = ""
+        if not found:
+            stem_found = []
+            for stem, rows_ in self.county_stems.items():
+                occ = sum(sum(1 for _m in re.finditer(re.escape(stem) + r"(?=分局|派出所|大队|公安局|司法局|交警)", t)) * w
+                          for t, w in texts)
+                if occ:
+                    for r in rows_:
+                        stem_found.append((occ, r))
+            if stem_found:
+                found = stem_found
+                organ_method = "_organ"
         scored = [(o + self._parent_bonus(r, texts), r) for o, r in found]
         scored.sort(key=lambda x: -x[0])
         if scored:
             best, r = scored[0]
             ties = [x for x in scored if x[0] == best and x[1]["code"] != r["code"]]
             if not ties:
-                return self.row(r, best, "county" if r["name"] not in self.dup or best > 3 else "county_dup_name")
+                return self.row(r, best, ("county" if r["name"] not in self.dup or best > 3
+                                          else "county_dup_name") + organ_method)
             # 同分：若都在同一地级市或同一省，退到该级
             same_city = {x[1]["city_code"] for x in ties} | {r["city_code"]}
             same_prov = {x[1]["province_code"] for x in ties} | {r["province_code"]}
             if len(same_city) == 1 and same_city.pop() in self.by_code:
-                return self.row(self.by_code[r["city_code"]], best, "ambiguous_city")
+                return self.row(self.by_code[r["city_code"]], best, "ambiguous_city" + organ_method)
             if len(same_prov) == 1:
-                return self.row(self.by_code[r["province_code"]], best, "ambiguous_province")
+                return self.row(self.by_code[r["province_code"]], best, "ambiguous_province" + organ_method)
         for r in self.cities:
             occ = self._occ(r["name"], texts)
             if occ:

@@ -35,6 +35,7 @@ docs/
 │   ├── web-harvest-design.md    公开网页收割设计（分诊 → 收割 → 解析 → 脱敏）
 │   ├── text-processing-spec.md  文本处理规范与数据对接分析（分段 / 脱敏 / D1–D5 待拍板）
 │   ├── project-status.md        ★ 项目现状总览与数据流水线规范化方案（唯一入口：会话归属、产物分层、问题、待人工决定事项）
+│   ├── zcode-web-discovery-handoff-2026-10-17.md 网页发现层正式移交单（现行 Zcode 执行归属）
 │   ├── data-pipeline-status.md  数据链路阶段总结（核对版，各来源件数与缺口）
 │   ├── data-program-500-gold.md 500 件金标计划（双来源供给、质检、交付与门禁）
 │   ├── coordination-audit-2026-10-16.md 交接文档现势审计（当前交付／质检／差异与责任）

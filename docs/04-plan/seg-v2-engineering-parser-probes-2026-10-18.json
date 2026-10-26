@@ -1,0 +1,493 @@
+{
+  "scope": "Synthetic parser probes only; no API, package installation, project implementation changes, DATA reads or writes. Audit hook blocks network/subprocess/filesystem writes outside review tree. No pass-rate benchmark; no expected-policy adapter applied.",
+  "python": "3.14.3",
+  "jionlp_version": "1.5.29",
+  "jionlp_import_error": null,
+  "time_base": [
+    2026,
+    10,
+    18,
+    12,
+    0,
+    0
+  ],
+  "time_base_purpose": "Fixed synthetic context only; production requires per-expression evidence anchor.",
+  "jionlp_options": {
+    "strict": true,
+    "ret_future": false
+  },
+  "engine_extract_sha256": "b3107759969c1bd3835a551d98d892038579181f5af4d745b0eeb5766d8b0bad",
+  "dates": [
+    {
+      "text": "2026年10月18日",
+      "current_parse_date": {
+        "date": "2026-10-18",
+        "inferred": false
+      },
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-18 00:00:00",
+            "2026-10-18 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "二〇二六年十月十八日",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-18 00:00:00",
+            "2026-10-18 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "二零二六年十月十八日",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-18 00:00:00",
+            "2026-10-18 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "2026.10.18",
+      "current_parse_date": {
+        "date": "2026-10-18",
+        "inferred": false
+      },
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-18 00:00:00",
+            "2026-10-18 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "2026年10月",
+      "current_parse_date": {
+        "date": "2026-10-01",
+        "inferred": true
+      },
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-01 00:00:00",
+            "2026-10-31 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "2026年",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-01-01 00:00:00",
+            "2026-12-31 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "去年六月",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_span",
+          "definition": "accurate",
+          "time": [
+            "2025-06-01 00:00:00",
+            "2025-06-30 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "同年六月",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_span",
+          "definition": "accurate",
+          "time": [
+            "2026-06-01 00:00:00",
+            "2026-06-30 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "次日",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-19 00:00:00",
+            "2026-10-19 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "本月5日",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-05 00:00:00",
+            "2026-10-05 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "2023年5月至7月",
+      "current_parse_date": {
+        "date": "2023-05-01",
+        "inferred": true
+      },
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_span",
+          "definition": "accurate",
+          "time": [
+            "2023-05-01 00:00:00",
+            "2023-07-31 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "2026年2月30日",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": false,
+        "error_type": "ValueError",
+        "message": "the given time string is illegal.\nTraceback (most recent call last):\n  File \"C:\\Users\\17728\\AppData\\Roaming\\Python\\Python314\\site-packages\\jionlp\\gadget\\time_parser_new\\time_utility.py\", line 240, in "
+      }
+    },
+    {
+      "text": "三个月",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_delta",
+          "definition": "accurate",
+          "time": {
+            "month": 3.0
+          }
+        }
+      }
+    },
+    {
+      "text": "30日",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-30 00:00:00",
+            "2026-10-30 23:59:59"
+          ]
+        }
+      }
+    },
+    {
+      "text": "二〇二六年十月十八日作出处罚决定",
+      "current_parse_date": null,
+      "jionlp_parse_time": {
+        "ok": false,
+        "error_type": "ValueError",
+        "message": "## exception string `二〇二六年十月十八日作出处罚决定`."
+      }
+    },
+    {
+      "text": "2026-10-18",
+      "current_parse_date": {
+        "date": "2026-10-18",
+        "inferred": false
+      },
+      "jionlp_parse_time": {
+        "ok": true,
+        "result": {
+          "type": "time_point",
+          "definition": "accurate",
+          "time": [
+            "2026-10-18 00:00:00",
+            "2026-10-18 23:59:59"
+          ]
+        }
+      }
+    }
+  ],
+  "amounts": [
+    {
+      "text": "贰佰肆拾元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": null
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "240.00",
+          "case": "元",
+          "definition": "accurate"
+        }
+      }
+    },
+    {
+      "text": "三佰元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": null
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "300.00",
+          "case": "元",
+          "definition": "accurate"
+        }
+      }
+    },
+    {
+      "text": "1.2万元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 12000.0,
+          "max": 12000.0
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "12000.00",
+          "case": "元",
+          "definition": "accurate"
+        }
+      }
+    },
+    {
+      "text": "万元以上",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 10000.0,
+          "max": null
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "10000.00",
+          "case": "元",
+          "definition": "blur+"
+        }
+      }
+    },
+    {
+      "text": "超过5000元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 5000.0,
+          "max": null
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "5000.00",
+          "case": "元",
+          "definition": "blur+"
+        }
+      }
+    },
+    {
+      "text": "不足1000元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 0.0,
+          "max": 1000.0
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "1000.00",
+          "case": "元",
+          "definition": "blur-"
+        }
+      }
+    },
+    {
+      "text": "三千余元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 3000.0,
+          "max": 3999.0
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": [
+            "3000.00",
+            "4000.00"
+          ],
+          "case": "元",
+          "definition": "blur"
+        }
+      }
+    },
+    {
+      "text": "约5万元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 45000.0,
+          "max": 55000.0
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "50000.00",
+          "case": "元",
+          "definition": "blur"
+        }
+      }
+    },
+    {
+      "text": "3到5万元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 3.0,
+          "max": 50000.0
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": [
+            "30000.00",
+            "50000.00"
+          ],
+          "case": "元",
+          "definition": "blur"
+        }
+      }
+    },
+    {
+      "text": "三十五块八",
+      "current_parse_amount": {
+        "ok": true,
+        "result": null
+      },
+      "jionlp_parse_money": {
+        "ok": false,
+        "error_type": "ValueError",
+        "message": "the given money_string `三十五块八` is illegal."
+      }
+    },
+    {
+      "text": "100.50元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": {
+          "min": 100.5,
+          "max": 100.5
+        }
+      },
+      "jionlp_parse_money": {
+        "ok": true,
+        "result": {
+          "num": "100.50",
+          "case": "元",
+          "definition": "accurate"
+        }
+      }
+    },
+    {
+      "text": "罚款500元，收缴赌资500元",
+      "current_parse_amount": {
+        "ok": true,
+        "result": null
+      },
+      "jionlp_parse_money": {
+        "ok": false,
+        "error_type": "ValueError",
+        "message": "the given money_string `罚款500元收缴赌资500元` is illegal."
+      }
+    }
+  ],
+  "integers": [
+    {
+      "text": "20余人",
+      "current_parse_int": 20
+    },
+    {
+      "text": "多次",
+      "current_parse_int": null
+    },
+    {
+      "text": "至少3次",
+      "current_parse_int": 3
+    },
+    {
+      "text": "3至5人",
+      "current_parse_int": 3
+    }
+  ],
+  "installed_jionlp_source_hashes": {
+    "C:\\Users\\17728\\AppData\\Roaming\\Python\\Python314\\site-packages\\jionlp\\__init__.py": "b7f931be6de3607a8d300e25de885e8a8ef322b9b309424ef84ca2b76c9a3dcd",
+    "C:\\Users\\17728\\AppData\\Roaming\\Python\\Python314\\site-packages\\jionlp\\gadget\\money_parser.py": "c3d8767e1a5be022c6c79e08af4f595ff4b5942b4a9b34f5b24f16c9718ab1fc",
+    "C:\\Users\\17728\\AppData\\Roaming\\Python\\Python314\\site-packages\\jionlp\\gadget\\time_parser.py": "9889ff63f29c43a6eeed82081ecf83c636001adcefbb19ab6921a035c9d7dfd6"
+  }
+}
