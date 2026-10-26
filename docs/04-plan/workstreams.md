@@ -1,6 +1,6 @@
 # 并行工作流与分工
 
-> 版本 v0.2 · 2026-10-15 · 适用于裁量引擎相关的并行开发（人或 AI 会话都适用）
+> 版本 v0.3 · 2026-10-26（§1–§6 为 10-15 原文；现行实况见 §7） · 适用于裁量引擎相关的并行开发（人或 AI 会话都适用）
 > 配套：[引擎方案](../02-design/gambling-discretion-engine.md) · [数据收集计划](./data-collection.md) · [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)
 >
 > 起因：2026-10-15 两条工作流共用一个工作树，一方做 rebase 时把另一方的原始数据临时移走（已全部恢复、核对无误）。本文件的规则就是为了不再出现这种互相打断。
@@ -72,8 +72,27 @@
 
 已移到 [collab-log.md](./collab-log.md)（设为 union 合并，多方同时追加不会冲突）。新增记录请写在那里。
 
+## 7. 2026-10-26 实况（用户裁定与分支现状；§1 登记表待周会正式改版）
+
+**重心裁定（用户，2026-10-26）**：数据采集与处理重心**全面转向法宝端文书**；**公开网页链路（discover/harvest/parse）停止维护**——不再新增采集、不再修复解析缺口（含 I-22/I-24 的 web 部分），存量网页数据继续在统一层与 L5 管线流转。发现层工作流随之转入停止状态，其维护的共用 L2 构建（harvest/build.py）仍被交付版本使用。
+
+**实际活跃的工作线（以协调看板 `$DATA/coordination/CURRENT.md` 为准）**：
+
+| 线 | 分支 / 工作树 | 在做 |
+|---|---|---|
+| 法宝线（主检出） | main（collect/） | P 系列定向采集、L2 解析质量修复（PARSER@0.4）、Word 复核队列 |
+| L5 质量线（后处理） | `codex/l5-quality-s1-run-aggregate`（l5-stable 工作树） | S1–S3 管线、要素契约、金额硬闸、VIEW 规则、field_table（230 测试） |
+| 引擎 | `worktree-discretion-engine` | M4 开发银标试验、binding 影子审计、L5 金丝雀、门禁 |
+| binding 服务 | `codex/seg-v2-design-review` → `codex/binding-service-v1-fix` | binding v1→v1.1 冻结与代修 |
+| 协调 | `codex/data-coordination` | 看板/事件账本、审计、现行主状态文档（CURRENT-STATUS / PROJECT-PANORAMA-STATUS） |
+| 前端平台 | main + 部署 | 平台功能与公网部署（与数据线独立） |
+| 发现层 / 数据链路（旧登记） | `project-data-collection-audit-4bac93` / `legal-ai-gambling-sentencing-cb2c21` | **停止/半停止**：网页线停维；复议、CAIL/LeCaRD 已就位无新任务 |
+
+**待治理事项**：① `research/discretion/unify/`（L5 全链路）只在 codex 分支，main 无法复现，需择期合并并更新本表与 §2 目录归属；② §1 的三工作流登记表与实况已严重脱节，待周会正式改版；③ 数据链路现状数字唯一出处为 [data-pipeline-status.md（2026-10-26 核对版）](./data-pipeline-status.md)。
+
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-26 | v0.3 | 新增 §7 实况：重心转法宝/网页线停维裁定、活跃工作线与分支对照、unify 未合 main 等治理待办 | 宏观指引会话（用户指示） |
 | 2026-10-15 | v0.1 | 初版：工作流登记、目录归属、数据目录外置、Git 纪律、接口约定 | 模型组 |
 | 2026-10-15 | v0.2 | §6 协作记录移到 collab-log.md 并设为 union 合并 | 模型组 |
