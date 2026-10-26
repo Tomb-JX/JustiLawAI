@@ -509,7 +509,7 @@ def runner_env(tmp_path, monkeypatch, fail=None):
     monkeypatch.setattr(RE, "data_root", lambda: data)
     monkeypatch.setattr(RE, "from_order", lambda order, root: None)
     monkeypatch.setattr(RE, "freeze_execution", lambda *a, **k: {})
-    monkeypatch.setattr(RE, "check_models", lambda *a: None)
+    monkeypatch.setattr(RE, "check_models", lambda *a, **k: None)
     monkeypatch.setattr(RE, "load_config", lambda: ({"p": SimpleNamespace(
         base_url="https://api.example.test/v1", model="fake", max_tokens=1000, temperature=0)}, {}, "cfg"))
     monkeypatch.setattr(RE, "load_prices", lambda path: {"fake": {"input": 1, "output": 1}})
@@ -566,3 +566,78 @@ def test_e2e_runner_fatal_abort_is_diagnosed_not_masked(tmp_path, monkeypatch):
     assert not (out / "RUNNING.lock").exists()
     from status import element_summary
     assert element_summary(out)["phase"] == "aborted"
+
+
+# ---------- 2026-10-26 金额硬闸修复（后处理线公告）守卫 ----------
+
+from element_contract import check_money_support
+from field_table import parse_fields
+
+
+def _amount_item(value, quotes):
+    return {"status": "明确", "value": value, "evidence": [{"quote": q} for q in quotes]}
+
+
+def test_money_floor_phrase_rescues_minimum_bet():
+    # 公告 S1-37324a：'最低下注10元' → {10,null} 是合法下界开口
+    check_money_support({"amounts": {"per_bet": _amount_item(
+        {"min": 10, "max": None}, ["现场赌局最低下注10元，多者不限"])}})
+
+
+def test_money_range_phrase_with_open_top_rescues():
+    # 公告 S1-38da：'赌注10至100元，上不封顶' 左端省略单位须按短语入账
+    check_money_support({"amounts": {"per_bet": _amount_item(
+        {"min": 10, "max": None}, ["赌注10至100元，上不封顶"])}})
+
+
+def test_money_multiquote_value_quote_carries_number():
+    # 公告 S1-0171：数值由一条引文承担，其余引文承担主体/场景归属，不逐条强制等值
+    check_money_support({"amounts": {"commission": _amount_item(
+        {"min": 300, "max": 300},
+        ["龚x甲等人抽头，第一次抽头得200元", "第二次抽头得30元", "龚x甲共计渔利300元"])}})
+
+
+@pytest.mark.parametrize("value,quotes", [
+    ({"min": 2, "max": None}, ["扣张2元、自摸翻倍"]),                     # 公告 S1-0034：无开口词
+    ({"min": 2000, "max": 2000}, ["每点代表十元，初始点数两百点"]),         # 公告 S1-e69f：乘积≠本人赌资
+    ({"min": 800, "max": 800}, ["共抽头900余元", "事后给刘xx300元现金", "给王xx200元现金"]),  # 公告 S1-41e3
+    ({"min": 10, "max": None}, ["最低生活保障发放10元"]),                  # '最低'无金额语境不得开口
+])
+def test_money_counterexamples_stay_rejected(value, quotes):
+    with pytest.raises(ValueError):
+        check_money_support({"amounts": {"amounts_x": _amount_item(value, quotes)}})
+
+
+# ---------- 2026-10-26 L5-VIEW-01 person_block 起点收窄守卫 ----------
+
+def _field_rec(line, target, facts="经查明，甲以麻将形式赌博。"):
+    cleaned = line + "。" + facts
+    return ({"subject_mention": target, "cleaned_text": cleaned,
+             "sentences": [[0, len(line)], [len(line), len(cleaned)]]},
+            {"zones": [{"type": "meta", "from": 1, "to": 1},
+                       {"type": "facts", "from": 2, "to": 2}]})
+
+
+def test_person_block_excludes_decision_title_and_doc_no():
+    line = ("呼和浩特市公安局回民区分局行政处罚决定书呼公回（环）行罚决字〔2026〕84号"
+            "违法行为人温某某，男，33岁，1990年1月1日出生，户籍所在地：丰镇市某镇")
+    rec, out = _field_rec(line, "温某某")
+    blocks = [f for f in parse_fields(rec, out) if f["label"] == "person_block"]
+    assert len(blocks) == 1
+    assert "行政处罚决定书" not in blocks[0]["value"] and "84号" not in blocks[0]["value"]
+    assert "温某某" in blocks[0]["value"] and blocks[0]["start"] > 0
+
+
+def test_person_block_keeps_role_prefix_and_masked_target():
+    line = ("岳阳市某区公安局公安行政处罚决定书屈公（青）决字[2023]第0268号"
+            "被处罚人党**，男，居民身份证：**********，****年**月**日出生，户籍地：湖南省某市")
+    rec, out = _field_rec(line, "党**")
+    blocks = [f for f in parse_fields(rec, out) if f["label"] == "person_block"]
+    assert len(blocks) == 1 and blocks[0]["value"].startswith("被处罚人")
+    assert "党**" in blocks[0]["value"] and "行政处罚决定书" not in blocks[0]["value"]
+
+
+def test_person_block_absent_without_identity_marker():
+    line = "某局行政处罚决定书某公决字〔2026〕9号温某某被处以罚款五百元。"
+    rec, out = _field_rec(line, "温某某")
+    assert not [f for f in parse_fields(rec, out) if f["label"] == "person_block"]

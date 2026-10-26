@@ -23,7 +23,26 @@ MODEL_QUALITY_PREFIXES = (
     "numeric_evidence_unsupported:", "invalid_candidate:", "invalid_legacy:",
     "legacy_evidence_not_allowed_or_ambiguous", "evidence_outside_input",
     "reference_not_allowed:", "reference_out_of_bounds", "reference_source_mismatch", "facts_empty",
+    "unknown fact clause ID", "S1_invalid_outcome_numbers", "无法提取 JSON",
 )
+
+# full 扩产模式下只有这些必须整批停；超时/断流/单条传输故障/未知账单条隔离后继续
+# （unknown_remote_outcome 只跳过该条，不杀批；批次末尾统一核账）。
+FULL_MODE_HARD_STOP_PREFIXES = (
+    "budget_stop", "shared_budget_stop", "provider_disabled",
+    "engine_contract_changed", "contract_changed_during_call", "implementation_changed",
+    "execution_settings_changed", "running_elsewhere", "invalid_call_limits",
+    "missing_price", "invalid_registered_price",
+)
+
+
+def is_full_mode_hard_stop(exc):
+    text = str(exc)
+    if text.startswith(FULL_MODE_HARD_STOP_PREFIXES):
+        return True
+    # Account-level provider failures (arrears/revoked key) burn a 400 on every
+    # remaining record; stop the batch instead of quarantining each one.
+    return "Arrearage" in text or "Access denied" in text
 
 
 def is_model_quality_failure(exc):
@@ -272,6 +291,14 @@ def check_money_support(payload):
     from s3 import _text_numbers
     tokens = re.compile(r"(?:约|近|超过|至少|逾|不足|不低于)?[0-9０-９〇零一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟两.,，]+[余多]?元(?:以上|以下)?")
     open_top = re.compile(r"上不封顶|以上|超过|至少|逾|不低于|余|多")
+    # 2026-10-26 金额硬闸修复（后处理线公告任务1）：
+    # 1) 区间短语级扫描——"赌注10至100元"左端省略单位，单 token 扫描只见"100元"；
+    #    权威归一化已支持整短语区间，按短语入账（两端进 supported/mins，不进 points：
+    #    区间端点不是可加总的确切数额）。
+    # 2) "最低下注/押注"近邻开口——仅当"最低"+金额同短语时该数值才解释为下界开口；
+    #    无金额 token 的"最低"（如"最低生活保障"）不会触发。
+    range_phrase = re.compile(r"[0-9０-９〇零一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟两.,，]+(?:至|到|—|–|~|-)[0-9０-９〇零一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟两.,，]+元")
+    floor_phrase = re.compile(r"最低(?:下注|押注|赌注|底注|注码)?\s*[0-9０-９〇零一二三四五六七八九十百千万壹贰叁肆伍陆柒捌玖拾佰仟两.,，]+[余多]?元")
     additive_etc = re.compile(r"等")
     for name, item in payload.get("amounts", {}).items():
         if item["status"] == "未提及":
@@ -281,12 +308,20 @@ def check_money_support(payload):
         mins = set()      # 单 token 下界集合
         quote_open = False
         quote_etc = False
+        floor_open = False
         for ev in item["evidence"]:
             quote = ev.get("quote", "")
             if open_top.search(quote):
                 quote_open = True
             if additive_etc.search(quote):
                 quote_etc = True
+            if floor_phrase.search(quote):
+                floor_open = True
+            for match in range_phrase.finditer(quote):
+                value = parse_amount(match.group())
+                if value is not None and value.min is not None:
+                    supported.add((value.min, value.max))
+                    mins.add(value.min)
             for match in tokens.finditer(quote):
                 value = parse_amount(match.group())
                 if value is not None:
@@ -307,21 +342,21 @@ def check_money_support(payload):
         direct = (mn, mx) in supported
         ok = direct
         if not ok and mn is not None:
-            if mx is None and mn in mins and quote_open:
-                ok = True  # '上不封顶/以上' 类开区间：下界逐字有据
+            if mx is None and mn in mins and (quote_open or floor_open):
+                ok = True  # 开口上界：'上不封顶/以上'整引文或'最低下注'近邻短语，下界逐字有据
             elif mx is not None and mx >= mn and mn in points and mx in points:
                 ok = True  # 多值列举合成区间：两端点都是证据内确切数额
             elif points and mn == sum(points) and (mx == sum(points) or (mx is None and quote_etc)):
                 ok = True  # 指南加总：逐项列出合计；'等' → 上界开口
         if not ok:
             raise ValueError(f"numeric_evidence_unsupported:amounts.{name}")
-        # E-05 归一化对账只对"单一数额直取"形态有效：合成/加总/开区间的值天然跨
-        # quote（每条 quote 只含一个被加数），逐 quote 机械对账与第一层接地互斥；
-        # 此类值的第一层端点/求和接地即权威，跳过第二层。
+        # E-05 归一化对账只对"单一数额直取"形态有效（2026-10-26 多句职责判定，公告任务2）：
+        # 数值支持由**至少一条**引文承担；其余引文可承担主体/场景归属，不逐条强制等值——
+        # 逐条 all 曾误杀"前两句他人付款、第三句渔利300元"的合法标注。
+        # 本人绑定审查独立于本闸（binding pending 门负责），金额闸通过不等于归属成立。
         if direct:
-            for ev in item["evidence"]:
-                if not validate_amount_e05(value, ev.get("quote", "")):
-                    raise ValueError(f"e05_amount_mismatch:amounts.{name}")
+            if not any(validate_amount_e05(value, ev.get("quote", "")) for ev in item["evidence"]):
+                raise ValueError(f"e05_amount_mismatch:amounts.{name}")
 
 
 def validate_located(payload, text_full: str, engine, regions=()) -> None:

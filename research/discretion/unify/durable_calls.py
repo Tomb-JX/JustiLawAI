@@ -48,10 +48,13 @@ def is_not_sent(err: str) -> bool:
                                       "connectionrefused", "no such host"))
 
 
-def check_models(a, b, c):
+def check_models(a, b, c, *, allow_same_domain=False):
+    """allow_same_domain: full 扩产降级——仅剩单一提供方域时允许 A/B 同域，
+    但 A/B 必须是不同模型；C 约束不变（非 DeepSeek、白名单）。"""
     from arbitrate import arbiter_whitelist
     if provider_identity(a) == provider_identity(b):
-        raise ValueError("A/B 必须不同提供方，不能以配置键伪装隔离")
+        if not allow_same_domain or a.model == b.model:
+            raise ValueError("A/B 必须不同提供方，不能以配置键伪装隔离")
     if provider_identity(c) == "deepseek" or c.model not in arbiter_whitelist():
         raise ValueError("C 必须是已登记的非 DeepSeek 裁判")
 

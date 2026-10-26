@@ -270,3 +270,66 @@ def test_cn_read():
     assert _CN_READ(15) == "十五"
     assert _CN_READ(10) == "十"
     assert _CN_READ(500) == "五百"
+
+
+# ---------- 706 湖文本假阳性修复：大写金额"圆整" + 掩码名等价 ----------
+
+def test_value_grounded_fine_cn_upper_yuan():
+    # 法宝决定书大写金额惯书"伍佰圆整"——单位类须收"圆"（706 实测 8 件误判幻觉）
+    from s3 import check_value_grounded
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 500,
+                        "fine_masked": False, "articles": []},
+               rec={"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
+                    "form": "叙述式-独立成篇",
+                    "cleaned_text": "根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对王xx罚款伍佰圆整。"})
+    assert not [x for x in check_value_grounded(ctx) if x.check == "value_grounded"]
+
+
+def test_value_grounded_fine_still_catches_hallucination_with_yuan():
+    from s3 import check_value_grounded
+    ctx = _ctx(outcome={"type": "罚款", "detention_days": 0, "fine": 500,
+                        "fine_masked": False, "articles": []},
+               rec={"prefilter": {"gambling": "是"}, "source_type": "处罚决定书",
+                    "form": "叙述式-独立成篇", "cleaned_text": "现决定对王xx罚款贰佰圆整。"})
+    assert any(x.severity == "error" for x in check_value_grounded(ctx))
+
+
+def test_mask_helpers():
+    from s3 import mask_equal, mask_contains, strip_role_prefix
+    assert mask_equal("王*乙", "王x乙")
+    assert mask_equal("崔**", "崔xx")
+    assert not mask_equal("叶*", "叶XX")          # 掩码字数不同 → 保守拒配
+    assert mask_equal("张某谋", "张某某")        # 谋落某的掩码位 → 同变体类（target 提取损坏可救回）
+    assert mask_equal("蔡**", "蔡素珍")          # 实名↔掩码变体（不予处罚文书决定段书实名）
+    assert not mask_equal("张大明", "张小明")     # 等长同姓但实名位冲突 → 拒配
+    assert not mask_equal("曾**", "曾国藩x")      # 长度不同 → 拒配
+    assert mask_contains("现决定对侯xx以赌博行政拘留三日", "侯xx")
+    # 实名↔掩码变体 + 唯一性护栏
+    assert mask_contains("曾红权的赌博违法事实不能成立，现决定不予处罚。", "曾**")
+    assert not mask_contains("曾红权与曾国藩共同赌博", "曾**")       # 两个实名变体 → 歧义拒配
+    assert mask_contains("现查明胡**在棋牌室赌博", "胡汉杨")         # 唯一掩码变体
+    assert not mask_contains("胡**和胡××分别处罚", "胡汉杨")        # 两个掩码变体 → 保守拒配
+    # 首字锚定：词中截断的掩码开头窗口不得污染变体集（"×为在"不是姓名变体）
+    assert mask_contains("民警当场查获邹×为", "邹**")              # 锚定后唯一变体命中
+    assert not mask_contains("×为在现场赌博", "邹**")               # 无锚点字 → 不命中
+    # 子串语义与原生 in 同宽（"侯某"命中"侯xx"前两位，如同"张某"命中"张某谋"）；
+    # 等值闸仍对字数不同保守拒配
+    assert mask_contains("现决定对侯xx以赌博", "侯某")
+    assert not mask_equal("侯某", "侯xx")
+    assert strip_role_prefix("被处罚人王xx") == "王xx"
+    assert strip_role_prefix("违法行为人温某某") == "温某某"
+    assert strip_role_prefix("当事人") == "当事人"  # 纯前缀不剥成空
+
+
+def test_subject_mask_equivalence():
+    # 掩码异写与角色前缀不应触发 subject 硬失败；真幻觉仍须 error
+    cleaned = "经查，王x乙在某棋牌室赌博。决定罚款伍佰圆整。"
+    spans = {"facts": [(0, 13, 0, 13)]}
+    assert check_subject(_ctx(subject={"mention": "王*乙"}, spans=spans, cleaned=cleaned)) == []
+    assert check_subject(_ctx(subject={"mention": "被处罚人王x乙"}, spans=spans, cleaned=cleaned)) == []
+    f = check_subject(_ctx(subject={"mention": "魏凤权"}, spans=spans, cleaned=cleaned))
+    assert ("subject", "error") in _sev(f)
+    # 实名 mention vs 掩码正文（不予处罚文书形态）：变体绑定应通过
+    cleaned2 = "经查，蔡**在某棋牌室赌博。违法事实不能成立，决定不予处罚。"
+    spans2 = {"facts": [(0, 14, 0, 14)]}
+    assert check_subject(_ctx(subject={"mention": "蔡素珍"}, spans=spans2, cleaned=cleaned2)) == []

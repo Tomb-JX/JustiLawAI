@@ -38,6 +38,63 @@ PROMPT_VERSION = "seg-v2"
 # 分区 + 字段——覆盖/不重叠由"区间铺满句表"的结构校验保证；定性句归置由确定性 snap 执行。
 SEG_TYPES = ["facts", "evidence", "reasoning", "decision", "review", "meta"]
 OUTCOME_TYPES = ["不予处罚", "不构成违法", "警告", "罚款", "拘留", "拘留并处罚款", "移送刑事"]
+META_ROLES = ("person", "case", "prior", "outcome", "other")
+META_VIEW_ROLES = ("person", "case", "prior")
+
+
+def validate_prior_sentence_ids(rec: dict, out: dict) -> list[int]:
+    """Prior sentences are referenced by sentence ID only; no model text."""
+    ids = out.get("prior_sentence_ids")
+    if not isinstance(ids, list) or any(type(x) is not int for x in ids):
+        raise ValueError("S1_invalid_prior_sentence_ids:not_int_array")
+    if ids != sorted(set(ids)):
+        raise ValueError("S1_invalid_prior_sentence_ids:not_sorted_unique")
+    if any(not 1 <= x <= len(rec.get("sentences") or []) for x in ids):
+        raise ValueError("S1_invalid_prior_sentence_ids:out_of_range")
+    return ids
+
+
+def validate_meta_fields(rec: dict, out: dict) -> list[dict]:
+    """Resolve meta field quotes against the sentence table.
+
+    Exact, unique, sentence-local quotes only. Resolved start/end are cleaned_text
+    coordinates; build_inputs projects them to the original text.
+    """
+    fields = out.get("meta_fields")
+    if not isinstance(fields, list):
+        raise ValueError("S1_invalid_meta_fields:not_a_list")
+    sentences = rec.get("sentences") or []
+    cleaned = rec.get("cleaned_text") or ""
+    meta_sids = {sid for z in (out.get("zones") or [])
+                 if z.get("type") == "meta"
+                 for sid in range(z.get("from", 0), z.get("to", 0) + 1)}
+    resolved, seen = [], set()
+    for index, item in enumerate(fields):
+        if not isinstance(item, dict) or set(item) != {"sentence", "role", "quote"}:
+            raise ValueError(f"S1_invalid_meta_fields:shape:{index}")
+        sid, role, quote = item["sentence"], item["role"], item["quote"]
+        if type(sid) is not int or not 1 <= sid <= len(sentences):
+            raise ValueError(f"S1_invalid_meta_fields:sentence:{index}")
+        if sid not in meta_sids:
+            raise ValueError(f"S1_invalid_meta_fields:not_meta_zone:{sid}")
+        if role not in META_ROLES:
+            raise ValueError(f"S1_invalid_meta_fields:role:{role!r}")
+        if not isinstance(quote, str) or not quote.strip():
+            raise ValueError(f"S1_invalid_meta_fields:quote_empty:{index}")
+        quote = quote.strip()
+        left, right = sentences[sid - 1]
+        text = cleaned[left:right]
+        if text.count(quote) != 1:
+            raise ValueError(f"S1_invalid_meta_fields:quote_not_unique:{sid}")
+        start = left + text.index(quote)
+        key = (sid, start, start + len(quote), role)
+        if key in seen:
+            continue
+        seen.add(key)
+        resolved.append({"sentence": sid, "role": role, "quote": quote,
+                         "start": start, "end": start + len(quote)})
+    out["meta_fields"] = resolved
+    return resolved
 
 _DEFAULT_DATA = Path(r"D:\02_Dev\Data\justilaw-research")
 
@@ -63,12 +120,25 @@ SYSTEM_PROMPT = """你是行政处罚文书的结构化抽取器。输入是清�
 - reasoning：认定理由与裁量说明，以及一切定性/结论句（"行为已构成赌博""情节严重""从轻处罚"等）；
 - decision：处罚决定及其依据、执行方式（"决定给予…"）；
 - review：复议/诉讼机关的审查意见与结论（无则不设）；
-- meta：表单元数据（案件名称、文号、日期栏、当事人栏等）。
+- meta：只放案件名称、文书名称、文号、日期栏、当事人栏（姓名/性别/出生日期/住址/证件号/工作单位）、违法前科。
+  不得放处罚种类、处罚结果、罚款金额、没收财物、执法依据、执行方式；这些属于 decision。
 
 【硬性结构规则】
 1. zones 依序衔接：首区间 from=1；相邻区间前一个 to+1=后一个 from；最后区间 to=N。无缝隙、不重叠、不跳句。
 2. 定性/结论句（"已构成""情节严重""决定给予""从轻处罚"等）一律归 reasoning 或 decision，绝不进 facts；facts 的最后一句必须是行为事实陈述。
-3. meta 用于表单元数据行（字段表/公示的名称、文号、日期、当事人栏）。
+   处罚种类、处罚结果、罚款金额、没收财物、执法依据、执行方式同样不进 facts，也不得标成 meta 的 person/case/prior。
+3. meta 只放上面定义的字段；一行同时含当事人字段和处罚字段时，不要整行都当 meta，按字段片段在 meta_fields 中分别标注。
+
+【前科句】另输出 prior_sentence_ids：正文中陈述本人前科、曾受治安管理处罚、曾被判刑、曾被处理的句子 ID（可以在 meta/facts/reasoning 任何区）；只输出句子 ID，不抄原文；没有则 []。
+
+【meta_fields】对每个 meta 区句子，按字段片段输出：
+{"sentence":句号,"role":"person|case|prior|outcome|other","quote":"原文逐字片段"}
+- person：姓名、性别、出生日期、住址、证件号、工作单位；
+- case：案件名称、文书名称、文号、日期栏、机关、地域、公布日期；
+- prior：违法前科、曾因…被处罚；
+- outcome：处罚种类、处罚结果、罚款金额、没收财物、执法依据、执行方式；
+- other：其他。
+quote 必须逐字来自该句，不得改写；同一句可输出多个片段；没有 meta 句输出 []。
 
 【字段（基于 facts/decision 区间内容）】
 - 文书没有的信息给 null 或 []，不得编造；dates 缺失给 null。
@@ -89,7 +159,41 @@ SYSTEM_PROMPT = """你是行政处罚文书的结构化抽取器。输入是清�
  "dates":{"behavior":"YYYY-MM-DD或null","decision":"YYYY-MM-DD或null"},
  "review":{"result":"维持|变更|撤销|确认违法|程序驳回|无","changed_outcome":null},
  "gambling":{"verdict":"是|否|待定","reason":"…"},
+ "prior_sentence_ids":[],
+ "meta_fields":[{"sentence":3,"role":"person","quote":"行政相对人： 蒋永明"},
+                 {"sentence":3,"role":"outcome","quote":"处罚种类： 行政拘留"}],
  "confidence":"high|low"}"""
+
+
+def _build_text_slim_prompt() -> str:
+    """湖文本 facts-only 路径的瘦身系统提示词：移除 prior_sentence_ids + meta_fields。
+
+    这两个字段是 L5 要素路径专用；湖文本 M4 路径（audit-v3/funnel）只消费
+    zones/fact_clause_ids/outcome/subject/gambling，从不读 meta_fields/prior——
+    但 base prompt 无条件要求它们，白烧 reasoning（占 S1 成本 81%）。此处按精确
+    子串移除并断言，SYSTEM_PROMPT 漂移时 fail-fast 而非静默产错提示词。
+    """
+    s = SYSTEM_PROMPT
+    # A) 删【前科句】+【meta_fields】两段（从"【前科句】"到"【字段（"之前）
+    a0 = s.index("【前科句】")
+    a1 = s.index("【字段（")
+    s = s[:a0] + s[a1:]
+    # B) 硬性规则3 去掉悬空的 meta_fields 指引
+    b_old = "不要整行都当 meta，按字段片段在 meta_fields 中分别标注。"
+    assert b_old in s, "slim: 规则3 meta_fields 指引未匹配（SYSTEM_PROMPT 已漂移）"
+    s = s.replace(b_old, "不要整行都当 meta。")
+    # C) 输出 schema 删 prior_sentence_ids + meta_fields 两行
+    c_old = (' "prior_sentence_ids":[],\n'
+             ' "meta_fields":[{"sentence":3,"role":"person","quote":"行政相对人： 蒋永明"},\n'
+             '                 {"sentence":3,"role":"outcome","quote":"处罚种类： 行政拘留"}],\n')
+    assert c_old in s, "slim: schema 两字段未匹配（SYSTEM_PROMPT 已漂移）"
+    s = s.replace(c_old, "")
+    assert "meta_fields" not in s and "prior_sentence_ids" not in s, "slim: 仍残留字段"
+    assert "【字段（" in s and '"zones"' in s and '"gambling"' in s, "slim: 误删核心段"
+    return s
+
+
+TEXT_SLIM_SYSTEM_PROMPT = _build_text_slim_prompt()
 
 
 def build_user_prompt(form: str, source_type: str, sentences: list[str],
@@ -122,6 +226,12 @@ class Provider:
         self.temperature = params.get("temperature", 0)
         self.max_tokens = params.get("max_tokens", 3500)
         self.timeout = params.get("timeout_s", 120)
+        # None=不发送，沿用提供方默认；True/False 显式开关（qwen3.x thinking 控制，
+        # 初筛等轻任务关思考省费用）。不支持该参数的提供方由调用方降级处理。
+        self.enable_thinking = params.get("enable_thinking")
+        # qwen3.x 思考预算：封顶 reasoning tokens（降本主杠杆——reasoning 占 S1 成本 81%）。
+        # None=不发送，沿用模型默认深度思考。
+        self.thinking_budget = params.get("thinking_budget")
 
     def chat(self, system: str, user: str) -> tuple[str, dict]:
         """返回 (content, usage)。非 200 / 超时抛 RuntimeError（由调用方记回执并重试）。"""
@@ -135,6 +245,10 @@ class Provider:
             "response_format": {"type": "json_object"},
             "stream": False,
         }
+        if self.enable_thinking is not None:
+            body["enable_thinking"] = self.enable_thinking
+        if self.thinking_budget is not None:
+            body["thinking_budget"] = self.thinking_budget
         req = urllib.request.Request(
             url, data=json.dumps(body).encode("utf-8"), method="POST",
             headers={"Authorization": f"Bearer {self._key}",
