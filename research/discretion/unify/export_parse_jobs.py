@@ -16,8 +16,8 @@ from minimal_amount_closure import load_records
 from supply_packet import build_packet
 
 
-def jobs_from(text_full: str, record: dict, rid: str):
-    packet = build_packet(text_full, record, record_id=rid)
+def jobs_from(text_full: str, record: dict, rid: str, layout_wraps: bool = False):
+    packet = build_packet(text_full, record, record_id=rid, layout_wraps=layout_wraps)
     for view in packet["visible_spans"]:
         if view["zone"] == "facts" and view["quote"].strip():
             yield hashlib.sha256(view["quote"].encode("utf-8")).hexdigest(), view["quote"]
@@ -28,11 +28,14 @@ def main() -> None:
     ap.add_argument("--batch", type=Path, action="append", default=[])
     ap.add_argument("--silver", nargs=3, type=Path, metavar=("TEACHER", "ORIGINALS", "SILVER"))
     ap.add_argument("--out", type=Path, required=True)
+    ap.add_argument("--layout-wraps", action="store_true", help="also export the views joined across layout wraps")
     args = ap.parse_args()
     seen: dict[str, str] = {}
     for batch in args.batch:
         for r in rows(batch / "inputs.jsonl"):
             seen.update(jobs_from(r["text_full"], r, r["id"]))
+            if args.layout_wraps:
+                seen.update(jobs_from(r["text_full"], r, r["id"], layout_wraps=True))
     if args.silver:
         teacher, originals, silver = args.silver
         texts = {r["id"]: r["text_full"] for r in rows(originals)}
