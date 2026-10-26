@@ -1,0 +1,196 @@
+{
+  "conduct": {
+    "behavior_type": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "role": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "method": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "times": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "duration_days": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "cheating": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  },
+  "amounts": {
+    "personal_stake": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "per_bet": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "onsite_stake_total": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "cumulative_stake": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "commission": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "illegal_gain": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  },
+  "persons": {
+    "participant_count": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "cumulative_participants": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "minors_involved": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "civil_servant": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "relatives_only": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "abroad_organized_count": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  },
+  "venue": {
+    "venue_type": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  },
+  "intent": {
+    "profit_purpose": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  },
+  "circumstances": {
+    "last_prior_penalty_date": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "surrendered": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "truthful_statement": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "admits_and_accepts": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "remedied_consequence": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "victim_forgiveness": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "coerced_or_lured": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "meritorious": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "instigated_others": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "retaliation": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "obstructed_police": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "minor_circumstance": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "first_offense": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "violations_last_year": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  },
+  "person": {
+    "age": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    },
+    "pregnant_or_nursing": {
+      "status": "未提及",
+      "value": null,
+      "evidence": []
+    }
+  }
+}

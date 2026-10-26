@@ -19,9 +19,8 @@ def _span(seg: str) -> list[int]:
 
 def delivery() -> dict:
     return {
-        "id": "W-000001", "event_id": "E-1", "linked_ids": [], "subject_alias": "甲",
+        "id": "W-000001", "event_id": "E-1", "linked_ids": [], "subject_mention": "甲",
         "source_type": "处罚决定书", "doc_no_hash": "abcd1234abcd1234", "harvest_date": "2026-10-16",
-        "deidentified": "是", "r6_scan": {"passed": True, "date": "2026-10-16"},
         "behavior_date": "2025-11-03", "decision_date": "2025-11-04", "authority": "某县公安局",
         "region": "451203", "province": "广西壮族自治区", "law_version": "旧法",
         "text_full": FULL, "text_sha256": hashlib.sha256(FULL.encode("utf-8")).hexdigest(),
@@ -41,8 +40,8 @@ def delivery() -> dict:
 
 def parsed() -> dict:
     d = delivery()
-    for k in ("event_id", "linked_ids", "subject_alias", "r6_scan", "text_sha256", "schema_version",
-              "pipeline_version", "segments", "doc_no_hash", "deidentified"):
+    for k in ("event_id", "linked_ids", "text_sha256", "schema_version",
+              "pipeline_version", "segments", "doc_no_hash"):
         d.pop(k)
     d.update({"record_version": R.RECORD_VERSION, "source": "公开网页", "batch": "20261015-weekly",
               "parser": "harvest/parse.py@0.4", "source_ref": "https://example.gov.cn/a.html",
@@ -104,15 +103,15 @@ def test_valid_records_have_no_errors():
     (lambda r: r["review"].update(result="驳回"), "bad_enum"),
     (lambda r: r.update(text_sha256="0" * 64), "sha_mismatch"),
     (lambda r: r["segments"].update(text_facts=[0, 5]), "segment_offset_mismatch"),
-    (lambda r: r.update(deidentified=False), "not_deidentified"),
-    (lambda r: r.update(r6_scan={"passed": False}), "r6_not_passed"),
-    (lambda r: r.update(doc_no="宜公〔2025〕1号"), "internal_field_leaked"),
+    (lambda r: r.update(extra={"page_id": "internal"}), "internal_field_leaked"),
+    (lambda r: r.update(source_ref="https://example.gov.cn"), "internal_field_leaked"),
+    (lambda r: r.update(subject_alias="甲"), "internal_field_leaked"),
+    (lambda r: r.update(r6_scan={"passed": True}), "internal_field_leaked"),
     (lambda r: r["outcome"].update(fine=200), "outcome_inconsistent"),
     (lambda r: r["outcome"].update(type="拘留并处罚款", fine=4000), "fine_over_limit"),
     (lambda r: r["outcome"].update(detention_days=21), "detention_over_limit"),
     (lambda r: r.update(behavior_date="2026-02-01"), "law_version_conflict"),
     (lambda r: r["outcome"].update(law_version="新法"), "law_version_mismatch"),
-    (lambda r: r.update(subject_alias="乙"), "bad_alias"),
 ])
 def test_delivery_problems_are_caught(mutate, code):
     r = delivery()
@@ -130,8 +129,10 @@ def _with_text(full: str, facts: str) -> dict:
     return r
 
 
-def test_subject_must_appear_in_facts():
-    assert "subject_not_in_facts" in errors(R.check_delivery(_with_text("经查：某人参与赌博。", "某人参与赌博。")))
+def test_original_subject_and_doc_number_are_allowed():
+    r = _with_text("经查：张某参与赌博。", "张某参与赌博。")
+    r.update(subject_mention="张某", doc_no="某公〔2025〕1号")
+    assert not errors(R.check_delivery(r))
 
 
 def test_conclusion_words_in_facts_unless_flagged():
@@ -147,9 +148,9 @@ def test_prior_penalty_wording_is_not_a_conclusion():
 
 
 @pytest.mark.parametrize("leak", ["身份证号码110101199001011234", "联系电话13812345678", "详见 http://x.gov.cn"])
-def test_privacy_residue_is_caught(leak):
+def test_original_document_text_is_not_redacted_by_delivery_checker(leak):
     r = _with_text(f"经查：甲参与赌博。{leak}", "甲参与赌博。")
-    assert "privacy_hit" in errors(R.check_delivery(r))
+    assert not errors(R.check_delivery(r))
 
 
 def test_merged_detention_is_only_a_warning():

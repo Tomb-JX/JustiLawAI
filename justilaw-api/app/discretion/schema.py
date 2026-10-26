@@ -134,10 +134,15 @@ class MinorLevel(str, Enum):
 
 class Conduct(BaseModel):
     behavior_type: Extracted[BehaviorType] = Field(default_factory=Extracted,
-        description="本人的行为类型。只按事实描述判断，拿不准时选最接近的一项并标'推断'")
-    role: Extracted[Role] = Field(default_factory=Extracted, description="本人在赌博活动中的角色")
-    method: Extracted[GamblingMethod] = Field(default_factory=Extracted, description="赌博方式")
-    times: Extracted[int] = Field(default_factory=Extracted, description="赌博或提供条件的次数（场次）")
+        description="本人的行为类型。只按事实描述判断，拿不准时选最接近的一项并标'推断'；"
+                    "多种行为时选最严重的一项（开设赌场>聚众赌博>以赌博为业>为赌博提供条件>参与赌博>带彩娱乐）")
+    role: Extracted[Role] = Field(default_factory=Extracted,
+        description="本人在赌博活动中的角色。多角色并存时选最能代表本人主要获利方式的一项；"
+                    "优先级：组织者>抽头者>提供条件者>参赌者；望风者和放贷者独立标注")
+    method: Extracted[GamblingMethod] = Field(default_factory=Extracted,
+        description="赌博方式。'打牌'默认记为扑克；同一次查处涉及多种方式时选本人实际参与的方式")
+    times: Extracted[int] = Field(default_factory=Extracted,
+        description="赌博或提供条件的次数（场次）。'多次/数次'等无法确定确切次数时值记 null、状态推断")
     duration_days: Extracted[float] = Field(default_factory=Extracted, description="持续时间（天），如'持续三个月'记 90")
     cheating: Extracted[bool] = Field(default_factory=Extracted, description="是否以作弊手段赢取财物（可能转为诈骗）")
 
@@ -158,7 +163,7 @@ class Amounts(BaseModel):
 
 class Persons(BaseModel):
     participant_count: Extracted[int] = Field(default_factory=Extracted,
-        description="参赌人数（同一场次在场参赌的人数，不含本人以外的围观者）")
+        description="参赌人数（同一场次在场参赌的人数，含本人，不含围观者）。'多人/数人'等无法确定确切人数时值记 null、状态推断")
     cumulative_participants: Extracted[int] = Field(default_factory=Extracted, description="累计参赌人数（多场次合计）")
     minors_involved: Extracted[bool] = Field(default_factory=Extracted, description="是否有未成年人参赌")
     civil_servant: Extracted[bool] = Field(default_factory=Extracted, description="本人是否为国家工作人员")
@@ -168,7 +173,8 @@ class Persons(BaseModel):
 
 
 class Venue(BaseModel):
-    venue_type: Extracted[VenueType] = Field(default_factory=Extracted, description="赌博场所类型")
+    venue_type: Extracted[VenueType] = Field(default_factory=Extracted,
+        description="赌博场所类型。多场所时选赌博实际发生的主要场所，不选被抓获的场所")
 
 
 class Intent(BaseModel):
@@ -208,7 +214,9 @@ class Circumstances(BaseModel):
 
 
 class Person(BaseModel):
-    age: Extracted[int] = Field(default_factory=Extracted, description="行为时的周岁年龄")
+    age: Extracted[int] = Field(default_factory=Extracted,
+        description="行为时的周岁年龄。只有出生年份时按 7 月 1 日估算并标'推断'；"
+                    "'三十余岁'等模糊表述值记 null、状态推断")
     pregnant_or_nursing: Extracted[bool] = Field(default_factory=Extracted,
         description="是否怀孕或哺乳自己不满一周岁的婴儿")
 

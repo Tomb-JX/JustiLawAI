@@ -1,0 +1,2281 @@
+{
+  "type": "object",
+  "properties": {
+    "conduct": {
+      "type": "object",
+      "properties": {
+        "behavior_type": {
+          "type": "object",
+          "description": "本人的行为类型。只按事实描述判断，拿不准时选最接近的一项并标'推断'；多种行为时选最严重的一项（开设赌场>聚众赌博>以赌博为业>为赌博提供条件>参与赌博>带彩娱乐）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "参与赌博",
+                    "为赌博提供条件",
+                    "聚众赌博",
+                    "开设赌场",
+                    "以赌博为业",
+                    "带彩娱乐",
+                    "其他"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "role": {
+          "type": "object",
+          "description": "本人在赌博活动中的角色。多角色并存时选最能代表本人主要获利方式的一项；优先级：组织者>抽头者>提供条件者>参赌者；望风者和放贷者独立标注",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "组织者",
+                    "提供条件者",
+                    "抽头者",
+                    "参赌者",
+                    "望风者",
+                    "放贷者",
+                    "其他"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "method": {
+          "type": "object",
+          "description": "赌博方式。'打牌'默认记为扑克；同一次查处涉及多种方式时选本人实际参与的方式",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "麻将",
+                    "扑克",
+                    "骰子",
+                    "赌博机",
+                    "网络赌博",
+                    "私彩",
+                    "六合彩",
+                    "赌球",
+                    "其他"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "times": {
+          "type": "object",
+          "description": "赌博或提供条件的次数（场次）。'多次/数次'等无法确定确切次数时值记 null、状态推断",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "duration_days": {
+          "type": "object",
+          "description": "持续时间（天），如'持续三个月'记 90",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "cheating": {
+          "type": "object",
+          "description": "是否以作弊手段赢取财物（可能转为诈骗）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "behavior_type",
+        "role",
+        "method",
+        "times",
+        "duration_days",
+        "cheating"
+      ],
+      "additionalProperties": false
+    },
+    "amounts": {
+      "type": "object",
+      "properties": {
+        "personal_stake": {
+          "type": "object",
+          "description": "本人的赌资：本人用作赌注、换取筹码的款物及赢取的款物（元）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "per_bet": {
+          "type": "object",
+          "description": "单注或每局输赢的金额（元）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "onsite_stake_total": {
+          "type": "object",
+          "description": "现场查获的赌资合计（元）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "cumulative_stake": {
+          "type": "object",
+          "description": "累计赌资（元），多次赌博累计",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "commission": {
+          "type": "object",
+          "description": "抽头渔利、头钱、水钱、台费等从赌博中获取的收入（元）。只有台费、场地费时也记在这里，但它本身不证明以营利为目的（见 intent.profit_purpose）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "illegal_gain": {
+          "type": "object",
+          "description": "其他违法所得（元）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "max": {
+                      "type": [
+                        "number",
+                        "null"
+                      ],
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "min",
+                    "max"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "personal_stake",
+        "per_bet",
+        "onsite_stake_total",
+        "cumulative_stake",
+        "commission",
+        "illegal_gain"
+      ],
+      "additionalProperties": false
+    },
+    "persons": {
+      "type": "object",
+      "properties": {
+        "participant_count": {
+          "type": "object",
+          "description": "参赌人数（同一场次在场参赌的人数，含本人，不含围观者）。'多人/数人'等无法确定确切人数时值记 null、状态推断",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "cumulative_participants": {
+          "type": "object",
+          "description": "累计参赌人数（多场次合计）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "minors_involved": {
+          "type": "object",
+          "description": "是否有未成年人参赌",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "civil_servant": {
+          "type": "object",
+          "description": "本人是否为国家工作人员",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "relatives_only": {
+          "type": "object",
+          "description": "参与者是否均为亲属",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "abroad_organized_count": {
+          "type": "object",
+          "description": "组织中国公民出境赌博的人数",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "participant_count",
+        "cumulative_participants",
+        "minors_involved",
+        "civil_servant",
+        "relatives_only",
+        "abroad_organized_count"
+      ],
+      "additionalProperties": false
+    },
+    "venue": {
+      "type": "object",
+      "properties": {
+        "venue_type": {
+          "type": "object",
+          "description": "赌博场所类型。多场所时选赌博实际发生的主要场所，不选被抓获的场所",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "住宅",
+                    "经营场所",
+                    "公共场所",
+                    "交通工具",
+                    "网络",
+                    "境外",
+                    "其他"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "venue_type"
+      ],
+      "additionalProperties": false
+    },
+    "intent": {
+      "type": "object",
+      "properties": {
+        "profit_purpose": {
+          "type": "object",
+          "description": "是否以营利为目的。只记两类依据：原文对本人写明'以营利为目的'或'营利性赌博'，或原文写明本人抽头、渔利、收头钱水钱、坐庄获利——都标'明确'为是；本人是场所或条件提供者、原文写了现场有抽头头钱但没说谁收的，标'推断'为是；原文写明'不以营利为目的''娱乐消遣'的标'明确'为否。赌资或输赢金额大小、赌博方式、被当场查获、只收台费场地费、平台名里的'娱乐'、所引法条原文、'构成赌博'等定性用语都不是依据，此时标'未提及'。对其他参赌人的营利事实不算本人的",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "profit_purpose"
+      ],
+      "additionalProperties": false
+    },
+    "circumstances": {
+      "type": "object",
+      "properties": {
+        "last_prior_penalty_date": {
+          "type": "object",
+          "description": "本人最近一次受治安管理处罚的决定日期；只写到月份时取该月 1 日并标'推断'",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "surrendered": {
+          "type": "object",
+          "description": "是否主动投案",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "truthful_statement": {
+          "type": "object",
+          "description": "是否如实陈述违法事实",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "admits_and_accepts": {
+          "type": "object",
+          "description": "是否承认违法事实并愿意接受处罚（认错认罚）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "remedied_consequence": {
+          "type": "object",
+          "description": "是否主动消除或减轻违法后果",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "victim_forgiveness": {
+          "type": "object",
+          "description": "是否取得被侵害人谅解",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "coerced_or_lured": {
+          "type": "object",
+          "description": "是否出于他人胁迫或诱骗",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "meritorious": {
+          "type": "object",
+          "description": "是否有立功表现",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "instigated_others": {
+          "type": "object",
+          "description": "是否教唆、胁迫、诱骗他人参与",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "retaliation": {
+          "type": "object",
+          "description": "是否对报案人、举报人、证人打击报复",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "obstructed_police": {
+          "type": "object",
+          "description": "是否阻碍民警执行职务",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "minor_circumstance": {
+          "type": "object",
+          "description": "原文明确认定的'情节轻微'或'情节特别轻微'（只记原文认定，不自行判断；2012 版减轻条件是'特别轻微'，2025 版是'轻微'）",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "情节轻微",
+                    "情节特别轻微"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "first_offense": {
+          "type": "object",
+          "description": "是否初次违反治安管理：本次是第一次被公安机关发现或查处（公通字〔2007〕1号第五项）。曾有仍在追究时效内的违法、曾因不满十六周岁不执行拘留、曾经调解结案、曾被收容教养或劳动教养、曾被判处刑罚或免除刑事处罚的，都不算初次",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "violations_last_year": {
+          "type": "object",
+          "description": "本次行为前一年内违反治安管理的次数",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "last_prior_penalty_date",
+        "surrendered",
+        "truthful_statement",
+        "admits_and_accepts",
+        "remedied_consequence",
+        "victim_forgiveness",
+        "coerced_or_lured",
+        "meritorious",
+        "instigated_others",
+        "retaliation",
+        "obstructed_police",
+        "minor_circumstance",
+        "first_offense",
+        "violations_last_year"
+      ],
+      "additionalProperties": false
+    },
+    "person": {
+      "type": "object",
+      "properties": {
+        "age": {
+          "type": "object",
+          "description": "行为时的周岁年龄。只有出生年份时按 7 月 1 日估算并标'推断'；'三十余岁'等模糊表述值记 null、状态推断",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
+        "pregnant_or_nursing": {
+          "type": "object",
+          "description": "是否怀孕或哺乳自己不满一周岁的婴儿",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "start": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "end": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
+                },
+                "required": [
+                  "quote",
+                  "start",
+                  "end"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "age",
+        "pregnant_or_nursing"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "conduct",
+    "amounts",
+    "persons",
+    "venue",
+    "intent",
+    "circumstances",
+    "person"
+  ],
+  "additionalProperties": false
+}
