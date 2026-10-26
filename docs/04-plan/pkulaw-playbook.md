@@ -13,6 +13,8 @@
 
 **红线：不对 pkulaw 写自动抓取脚本、不绕每日导出限额**——只用其官方检索/浏览/批量导出功能（账号条款）。
 
+**开发工作区（负责人 2026-10-26 指令）**：法宝线（数据链路）的开发/提交一律在独立工作树 `.claude/worktrees/pkulaw-line`（分支 `zcode/pkulaw-line`，推法同 data-coordination：`git push origin HEAD:zcode/pkulaw-line`），**main 主检出不再当本线开发目录**——main 上只接受协调/负责人落账，法宝线脚本与台账改动从本工作树提交、由协调按节奏合流。$DATA 路径、CDP 9222、下载器与队列文件均为绝对路径，两检出等价。
+
 ## 1. 开工先侦察（半天，结果填 §6）
 
 用账号登录 pkulaw.com 逐项确认：
