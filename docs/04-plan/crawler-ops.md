@@ -1,5 +1,7 @@
 # 批量采集运维计划：站点台账与定期适配
 
+> **已归档（2026-10-18）**：2026-10-16 已停止执行；仅保留适配 SOP 参考。现行发现/收割见 [search-discovery-design](./search-discovery-design.md) 与 [web-harvest-design](./web-harvest-design.md)。
+
 > 版本 v0.2 · 2026-10-16 · 由**数据链路**工作流执行（[分工文档](./workstreams.md) §1）
 > 配套：[数据收集计划](./data-collection.md) · 采集工具与已知坑见 [`research/discretion/collect/README.md`](../../research/discretion/collect/README.md)
 >

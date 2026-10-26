@@ -13,6 +13,17 @@
 5. [ARTIFACTS.md](./ARTIFACTS.md)（只读“现行”行）。
 6. **不要从 `collab-log.md`、续跑单、`workstreams.md` 开始读**；它们是历史/归属参考。
 
+## 2026-10-22 里程碑快照（覆盖 10-18 状态）
+
+> 现行主文档：[CURRENT-STATUS-2026-10-22.md](./CURRENT-STATUS-2026-10-22.md)；全项目分层对齐：[PROJECT-PANORAMA-STATUS-2026-10-22.md](./PROJECT-PANORAMA-STATUS-2026-10-22.md)。10-18 以下各线状态保留为历史。
+
+| 线 | 2026-10-22 状态 | 下一步 |
+|---|---|---|
+| 数据/要素 | 909 timesfix 完成但 training-only；字段/前科闭环 37+12 样本通过 | 909 路由/重标、M1 坐标 |
+| 千问 S1 | 3.7-flash 12 条 11/12、¥0.075；30c 26/30 完成 | fallback/硬停/100 条 |
+| 706 湖文本 | 新根 706b pilot12 12/12 | full 567/706 incomplete（139 missing；113 Arrearage） |
+| 阻塞 | 57 复议/26 前科/199 公示；M1 587/219；key 已暴露需轮换 | 见 CURRENT-STATUS §6 |
+
 ## 各线当前状态（17:15）
 
 | 线 | 最新动作 | 下一步 | 注意 |

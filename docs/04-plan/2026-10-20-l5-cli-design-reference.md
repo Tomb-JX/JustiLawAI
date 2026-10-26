@@ -5,6 +5,11 @@ commit `6a0c596`（203/203 离线测试全绿）。本文是设计+使用+约束
 与审计（2026-10-20-l5-cli-audit-and-test-plan.md）互补：审计记问题，本文记现状。
 **密约：本文不载任何密钥；密钥只存 `$DATA/config/s1_models.json`。**
 
+> **2026-10-21 用户裁决**：允许移除 smoke12/spec36 工单与 36 条小批上限，使用 `--full`
+> 跑全量；仍保留“不重复计费、证据逐字可编译、无 answer leakage、test 封存”四条必要保护。
+> `--full` 默认 A=deepseek、B=xiaomi-pro、C=bailian(qwen3.8-flash)，数据侧执行，不涉及引擎训练。
+> 代码层使用正数 `--cap/--max-calls/--max-input-bytes` 作为执行安全上限，不再是审批门。
+
 ---
 
 ## 1. 定位与数据流

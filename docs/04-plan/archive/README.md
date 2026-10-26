@@ -19,15 +19,24 @@
 | [phase-review-2026-10-16.md](../phase-review-2026-10-16.md) | 阶段审查 | 历史 | DECISIONS |
 | [web-integration-directive-2026-10-17.md](../web-integration-directive-2026-10-17.md) | 网页接入指令 | 已执行/过时 | 当前管线文档 |
 | [zcode-web-discovery-handoff-2026-10-17.md](../zcode-web-discovery-handoff-2026-10-17.md) | 网页发现移交 | 历史 | workstreams 归属 |
+| [data-program-500-gold.md](../data-program-500-gold.md) | 500 件金标供给/验收计划 | 已被 stage-plan-v2 取代；500 金标推迟到 Stage 3，旧人工门禁未关闭（D-002） | stage-plan-v2、dataset-registry |
+| [milestones.md](../milestones.md) | 12 周 M1–M6 里程碑计划 | 已被目标制阶段计划取代 | stage-plan-v2 |
+| [project-status.md](../project-status.md) | 2026-10-16 项目现状快照 | 状态已由 BOARD/CURRENT 取代 | BOARD、dataset-registry |
+| [data-collection.md](../data-collection.md) | v0.5 数据收集计划 | 供给数字/口径已由 r7 候选池与 registry 取代 | data-distribution、dataset-registry |
+| [crawler-ops.md](../crawler-ops.md) | 批量采集运维计划 | 2026-10-16 已停止执行；仅保留适配 SOP 参考 | search-discovery-design、web-harvest-design |
+| [data-pipeline-status.md](../data-pipeline-status.md) | 2026-10-16 数据链路快照 | 数字已过期 | dataset-registry、data-distribution |
+
+> 2026-10-18 归档登记：旧 500 计划、里程碑、收集、状态、运维计划。按本目录规则**不移动文件**，避免断链；只在文首加归档横幅。
 
 ## 仍然现行（不要归档）
 
 - [stage-plan-v2-2026-10-17.md](../stage-plan-v2-2026-10-17.md)：目标、依赖与门禁仍有效；状态看 BOARD。
 - [review-driven-coordination-revision-2026-10-18.md](../review-driven-coordination-revision-2026-10-18.md)：A-01–A-06 决策来源。
 - [design-docs-index-2026-10-18.md](../design-docs-index-2026-10-18.md)：设计文档版本判定。
-- [data-program-500-gold.md](../data-program-500-gold.md)：标注/数据计划。
 - [model-adjudicated-labeling-decision-2026-10-16.md](../model-adjudicated-labeling-decision-2026-10-16.md)：D-001/D-002 来源。
 - [normative-revision-deid-cancel-2026-10-17.md](../normative-revision-deid-cancel-2026-10-17.md)：D-003 来源。
+- [dataset-registry-2026-10-18.md](../dataset-registry-2026-10-18.md)：现行数据版本口径。
+- [data-distribution-2026-10-18.md](../data-distribution-2026-10-18.md)：现行供给事实与 r7 候选池。
 - [issues/](../issues/)：I-20/I-21 原始问题单。
 
 ## 使用规则
