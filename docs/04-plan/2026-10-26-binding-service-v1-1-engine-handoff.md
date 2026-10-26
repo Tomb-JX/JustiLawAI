@@ -21,7 +21,8 @@
 
 - `research/discretion/unify/tests`：217 passed；新增同额异人、旧/新候选同坐标映射、开口/确切金额、来源/视图哈希反例。
 - 三条冻结输入的 CLI 烟测和引擎影子审计通过，输出在 `$DATA/engine/binding-service-audit-20261026/outputs-v1.1-47bffae-smoke.jsonl`，审计在同目录 `smoke-47bffae-audit.json`。
-- H3 171 条的离线回放结果待填；同一批已用于开发，不能作为独立上线验收。
+- H3 171 条离线回放：引擎影子审计 **171/171 通过，来源/坐标/结构错误 0**；自动绑定个人赌资 17、现场总额 19、参赌人数 6、年龄 10。金额其余字段保留 `no_candidate`、`no_route_output` 或 `relation_ambiguous`，未静默变成“未提及”。输出和审计分别为 `$DATA/engine/binding-service-audit-20261026/h3-v1.1-47bffae.jsonl` 与 `h3-v1.1-47bffae-shadow-audit.json`。
+- H3 的质量复核：个人赌资与模型投票参照 16/16 一致，但 Claude 双盲复核可评分的自动绑定仅 3/4 正确；现场总额与投票 17/18 一致，Claude 复核为 6/7 正确。两处错误分别是候选缺失导致的个人赌资错选、把非现场总额金额错当现场总额。**三路候选共识只能防同额异人误绑定，不能证明字段语义正确。**H3 已多次用于开发，复核样本小，不能作独立上线验收。
 - 当前仍为**影子接入**。4 个字段 `bound` 不能直接转换为 `reference_elements`、M4 训练特征或在线裁量输入。引擎线需完成字段适配、证据坐标校验和独立样本评估，逐字段放行。`unresolved` 必须留在人工复核队列，不可自动当作“未提及”。
 
 `$DATA` = `D:/02_Dev/Data/justilaw-research`。原文只留在外置数据目录，本交接不包含原文正文。
