@@ -155,7 +155,7 @@ def merge_jsonl(path: Path, new_records: list[dict]) -> tuple[list[dict], int]:
 
 # ---------- parsed-1：统一中间格式（L1）——契约见 justilaw-api/app/discretion/records.py ----------
 
-PARSER_ID = "collect/pkulaw_ingest.py@0.4"
+PARSER_ID = "collect/pkulaw_ingest.py@0.5"
 SOURCE_OF_LIB = {"apy": "法宝执法库", "pfnl": "法宝案例库"}
 CONTRACT_TOP_FIELDS = (
     "record_version", "id", "source", "batch", "parser", "source_type", "source_ref", "doc_no",
@@ -195,16 +195,33 @@ _NAME_STOP_MULTI = ("伙同", "召集", "接受", "聘请", "年龄", "构成", 
                     "目的", "在其", "在该", "在于", "法定", "不服", "到案", "查获")
 _NAME_STOP_ONE = "的了在以因等系现被于之将从对经至持与及或并"
 
+# @0.5（协调 10-26 移交 9 条定性）：多人合罚决定书行政相对人栏并列多人，table_cells 拍平后
+# 串成"张**李**陈*赵*"式掩码姓名链；单位被处罚件（电竞馆/电玩城/网站投资人）**不是**片段缺陷。
+_PERSON_CHAIN = re.compile(r"([\u4e00-\u9fa5][*＊xX×]{1,3})((?:[\u4e00-\u9fa5][*＊xX×]{1,3})+)$")
+_ORG_HINT = re.compile(r"(?:馆|厅|店|吧|公司|网吧|会所|棋牌室|电玩|游戏厅|中心|广场|投资人)$|[0-9a-zA-Z]")
+
 
 def trim_person_name(v: str) -> str:
-    """把句子片段式的 subject_mention 截回姓名本体；短值（真名/掩码）原样返回。"""
+    """把句子片段式的 subject_mention 截回姓名本体；短值（真名/掩码）原样返回。
+    无停靠词命中时**不截**——[:6] 盲切会把单位名截半（协调 10-26 回滚教训，@0.5）。"""
     v = (v or "").strip()
     if len(v) <= 6:
         return v
     for i in range(2, len(v)):
         if v[i:i + 2] in _NAME_STOP_MULTI or v[i] in _NAME_STOP_ONE:
             return v[:i]
-    return v[:6]
+    return v
+
+
+def subject_from_field(v: str) -> str:
+    """元数据/表格栏值 → 本人姓名：先拆多人串联链，再片段截断；单位名原样保留。"""
+    v = (v or "").strip()
+    m = _PERSON_CHAIN.match(v)
+    if m:
+        return m.group(1)
+    if _ORG_HINT.search(v):
+        return v
+    return trim_person_name(v)
 
 
 def subject_mention_of(rec: dict) -> str:
@@ -214,7 +231,7 @@ def subject_mention_of(rec: dict) -> str:
     table = table_cells(full)
     v = table.get("被处罚对象") or meta_block(flat).get("行政相对人")
     if v:
-        return trim_person_name(v.strip())
+        return subject_from_field(v)
     m = re.search(r"(?:违法行为人|被处罚人)[:：]?([\u4e00-\u9fa5*＊xX×]{1,12})", flat)
     return trim_person_name(m.group(1)) if m else ""
 
@@ -1280,7 +1297,11 @@ def build_record(parsed: dict, *, manifest_id: str = "", harvest_date: str = "",
             "law_version_raw": lv_raw,
             "parse_warnings": warns,
         },
-        "event_key": event_key_of(parsed["authority"], facts),
+        "event_key": event_key_of(parsed["authority"], facts,
+                                   full=parsed["body"], decision_date=parsed["decision_date"] or "",
+                                   subject=subject_from_field(
+                                       (table_cells(parsed["body"]).get("被处罚对象")
+                                        or meta_block(flatten(parsed["body"])).get("行政相对人")) or "")),
         "event_hint": {"authority": parsed["authority"], "decision_date": parsed["decision_date"],
                        "doc_seq": _doc_seq(parsed["doc_no"])},
     }
@@ -1364,17 +1385,39 @@ def build_judgment_doc_record(parsed: dict, *, manifest_id: str = "", harvest_da
     }
 
 
-def event_key_of(authority: str, facts: str) -> str:
+_AUTHORITY_NOISE = re.compile(r"^【[^】]*】\s*")
+
+
+def event_key_of(authority: str, facts: str, *, full: str = "", decision_date: str = "",
+                 subject: str = "") -> str:
     """事件指纹：机关 + 事实段首个日期 + 赌资金额集合。
 
     同一次集中查处的多名当事人会各出一份决定书，这三项相同（实测：一次抓赌 5–8 份），
     门禁 §7 要求按事件分组划分，所以交付记录必须带这个键；批次报告也用它算"篇数→事件数"折算率。
+
+    @0.5 降级链（协调 10-26 移交：P3–P7 72 件 facts 区无锚）：
+    facts 锚 → 正文日期+金额 → 决定日期+金额 → 决定日期+主体（一人一事件，宁欠勿过，
+    杜绝"机关|-|-"式退化键把同机关异案并成假事件）。机关名先剥页头【区域】前缀防同局异写。
     """
-    f = facts or ""
-    dates = re.findall(r"(\d{4}年\d{1,2}月\d{1,2}日)", f)
-    money = re.findall(r"(?:赌资|资金|款)[^\d]{0,6}([\d,]+)\s*元", f) or re.findall(r"([\d,]{2,})\s*元", f)
-    money_key = ",".join(sorted(set(money))) if money else "-"
-    return f"{authority}|{dates[0] if dates else '-'}|{money_key}"
+    auth = _AUTHORITY_NOISE.sub("", authority or "").strip() or authority or ""
+
+    def _anchors(t: str) -> tuple[str, str]:
+        dates = re.findall(r"(\d{4}年\d{1,2}月\d{1,2}日)", t or "")
+        money = re.findall(r"(?:赌资|资金|款)[^\d]{0,6}([\d,]+)\s*元", t or "") or re.findall(r"([\d,]{2,})\s*元", t or "")
+        return (dates[0] if dates else "-"), (",".join(sorted(set(money))) if money else "-")
+
+    date, money = _anchors(facts)
+    if date != "-" or money != "-":
+        return f"{auth}|{date}|{money}"
+    date2, money2 = _anchors(full)
+    if date2 != "-":
+        return f"{auth}|{date2}|{money2}"
+    dd = re.sub(r"\s", "", decision_date or "")
+    if dd:
+        return f"{auth}|{dd}|{money2 if money2 != '-' else (subject or '-')}"
+    if money2 != "-":
+        return f"{auth}|-|{money2}"
+    return f"{auth}|-|-"
 
 
 def tier_of(*, has_facts: bool, has_outcome: bool, gambling: bool, in_scope: bool) -> dict:
