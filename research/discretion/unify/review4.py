@@ -284,6 +284,14 @@ def final_keys(root: Path) -> dict[str, dict[str, dict]]:
     return final
 
 
+def wilson_low(k: int, n: int, z: float = 1.96) -> float:
+    """Lower end of the Wilson score interval for k successes out of n."""
+    p = k / n
+    centre = p + z * z / (2 * n)
+    margin = z * ((p * (1 - p) + z * z / (4 * n)) / n) ** 0.5
+    return (centre - margin) / (1 + z * z / n)
+
+
 def _pred_key(field: str, binding: dict) -> str | None:
     """Service output -> key; None = unresolved (to a person). An absent binding predicts 'absent'."""
     status, value = binding["binding_status"], binding.get("value")
@@ -292,7 +300,8 @@ def _pred_key(field: str, binding: dict) -> str | None:
     if status != "bound":
         return None
     if field in ("personal_stake", "onsite_stake_total"):
-        return str(value)
+        # v1 writes "amount:<v>"; v1.1 writes the structured {min, max} projection.
+        return amount_key(value) if isinstance(value, dict) else str(value)
     return f"{'count' if field == 'participant_count' else 'age'}:{int(value)}"
 
 
@@ -325,6 +334,8 @@ def score(root: Path, runs: list[tuple[str, Path]], out: Path, batch: Path | Non
                         c["ref_uncertain"] += 1
                     elif pred is None:
                         c["to_person_ref_absent" if gold == "absent" else "to_person_ref_value"] += 1
+                        reason = (preds[rid][f].get("reason") or "none").split(":")[0]
+                        c[f"reason:{reason}:{'ref_absent' if gold == 'absent' else 'ref_value'}"] += 1
                     elif pred == "absent":
                         c["absent_correct" if gold == "absent" else "silent_miss"] += 1
                     elif gold == "absent":
@@ -337,6 +348,7 @@ def score(root: Path, runs: list[tuple[str, Path]], out: Path, batch: Path | Non
                         c["wrong_value"] += 1
                 auto = c["correct"] + c["wrong_value"] + c["output_on_absent"] + c["age_convention"]
                 c["value_precision"] = round(c["correct"] / auto, 3) if auto else None
+                c["precision_wilson_low95"] = round(wilson_low(c["correct"], auto), 3) if auto else None
                 block[f] = dict(c)
             sys_block[stratum] = block
         report["systems"][name] = sys_block

@@ -59,3 +59,10 @@ def test_behavior_date_alone_is_absent_age():
                           "stated_age": None}, TASK) == "absent"
     assert key_of("age", {"status": "value", "birth_date": "1990-05-03", "behavior_date": None,
                           "stated_age": None}, TASK) == "uncertain"
+
+
+def test_structured_amount_prediction_and_wilson():
+    from review4 import wilson_low
+    assert _pred_key("personal_stake", {"binding_status": "bound", "value": {"min": 500.0, "max": 500.0}}) == "amount:500"
+    assert round(wilson_low(19, 20), 3) == 0.764
+    assert round(wilson_low(20, 20), 3) == 0.839
