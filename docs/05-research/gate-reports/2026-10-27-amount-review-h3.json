@@ -1,0 +1,251 @@
+{
+  "reviewed_records": 80,
+  "sources": {
+    "agreed": 155,
+    "adjudicated": 5
+  },
+  "gold_status": {
+    "personal_stake": {
+      "amount": 40,
+      "uncertain": 5,
+      "absent": 33,
+      "missing": 2
+    },
+    "onsite_stake_total": {
+      "absent": 54,
+      "uncertain": 5,
+      "amount": 21
+    }
+  },
+  "strata": {
+    "all": {
+      "records": 80,
+      "personal_stake": {
+        "frozen_chain": {
+          "abstain_on_positive": 32,
+          "gold_uncertain": 5,
+          "tn": 31,
+          "tp": 6,
+          "output_on_absent": 2,
+          "wrong_value": 4,
+          "utility": -6,
+          "precision": 0.5
+        },
+        "softmax/semantic": {
+          "abstain_on_positive": 25,
+          "gold_uncertain": 5,
+          "tp": 13,
+          "tn": 29,
+          "wrong_value": 4,
+          "output_on_absent": 4,
+          "utility": -3,
+          "precision": 0.619
+        },
+        "softmax/semantic_pair": {
+          "abstain_on_positive": 22,
+          "gold_uncertain": 5,
+          "tp": 16,
+          "tn": 31,
+          "wrong_value": 3,
+          "output_on_absent": 2,
+          "unreachable_abstain": 1,
+          "utility": 6,
+          "precision": 0.762
+        },
+        "model_vote": {
+          "tp": 38,
+          "gold_uncertain": 5,
+          "abstain_on_positive": 1,
+          "tn": 32,
+          "output_on_absent": 1,
+          "wrong_value": 1,
+          "reference_unresolved": 2,
+          "utility": 34,
+          "precision": 0.95
+        }
+      },
+      "onsite_stake_total": {
+        "frozen_chain": {
+          "tn": 50,
+          "gold_uncertain": 5,
+          "wrong_value": 1,
+          "abstain_on_positive": 10,
+          "tp": 10,
+          "output_on_absent": 4,
+          "utility": 0,
+          "precision": 0.667
+        },
+        "softmax/semantic": {
+          "tn": 48,
+          "gold_uncertain": 5,
+          "tp": 16,
+          "wrong_value": 2,
+          "output_on_absent": 6,
+          "abstain_on_positive": 3,
+          "utility": 0,
+          "precision": 0.667
+        },
+        "softmax/semantic_pair": {
+          "tn": 49,
+          "output_on_absent": 5,
+          "gold_uncertain": 5,
+          "tp": 13,
+          "wrong_value": 2,
+          "abstain_on_positive": 6,
+          "utility": -1,
+          "precision": 0.65
+        },
+        "model_vote": {
+          "tn": 54,
+          "gold_uncertain": 5,
+          "tp": 20,
+          "reference_unresolved": 1,
+          "utility": 20,
+          "precision": 1.0
+        }
+      }
+    },
+    "disagree": {
+      "records": 65,
+      "personal_stake": {
+        "frozen_chain": {
+          "abstain_on_positive": 32,
+          "gold_uncertain": 4,
+          "tp": 3,
+          "tn": 20,
+          "output_on_absent": 2,
+          "wrong_value": 4,
+          "utility": -9,
+          "precision": 0.333
+        },
+        "softmax/semantic": {
+          "abstain_on_positive": 25,
+          "gold_uncertain": 4,
+          "tp": 10,
+          "wrong_value": 4,
+          "output_on_absent": 4,
+          "tn": 18,
+          "utility": -6,
+          "precision": 0.556
+        },
+        "softmax/semantic_pair": {
+          "abstain_on_positive": 22,
+          "gold_uncertain": 4,
+          "tp": 13,
+          "wrong_value": 3,
+          "output_on_absent": 2,
+          "tn": 20,
+          "unreachable_abstain": 1,
+          "utility": 3,
+          "precision": 0.722
+        },
+        "model_vote": {
+          "tp": 35,
+          "gold_uncertain": 4,
+          "abstain_on_positive": 1,
+          "tn": 21,
+          "output_on_absent": 1,
+          "wrong_value": 1,
+          "reference_unresolved": 2,
+          "utility": 31,
+          "precision": 0.946
+        }
+      },
+      "onsite_stake_total": {
+        "frozen_chain": {
+          "tn": 35,
+          "gold_uncertain": 5,
+          "wrong_value": 1,
+          "abstain_on_positive": 10,
+          "tp": 10,
+          "output_on_absent": 4,
+          "utility": 0,
+          "precision": 0.667
+        },
+        "softmax/semantic": {
+          "tn": 33,
+          "gold_uncertain": 5,
+          "tp": 16,
+          "wrong_value": 2,
+          "output_on_absent": 6,
+          "abstain_on_positive": 3,
+          "utility": 0,
+          "precision": 0.667
+        },
+        "softmax/semantic_pair": {
+          "tn": 34,
+          "output_on_absent": 5,
+          "gold_uncertain": 5,
+          "tp": 13,
+          "wrong_value": 2,
+          "abstain_on_positive": 6,
+          "utility": -1,
+          "precision": 0.65
+        },
+        "model_vote": {
+          "tn": 39,
+          "gold_uncertain": 5,
+          "tp": 20,
+          "reference_unresolved": 1,
+          "utility": 20,
+          "precision": 1.0
+        }
+      }
+    },
+    "random_agree": {
+      "records": 15,
+      "personal_stake": {
+        "frozen_chain": {
+          "tn": 11,
+          "tp": 3,
+          "gold_uncertain": 1,
+          "utility": 3,
+          "precision": 1.0
+        },
+        "softmax/semantic": {
+          "tn": 11,
+          "tp": 3,
+          "gold_uncertain": 1,
+          "utility": 3,
+          "precision": 1.0
+        },
+        "softmax/semantic_pair": {
+          "tn": 11,
+          "tp": 3,
+          "gold_uncertain": 1,
+          "utility": 3,
+          "precision": 1.0
+        },
+        "model_vote": {
+          "tn": 11,
+          "tp": 3,
+          "gold_uncertain": 1,
+          "utility": 3,
+          "precision": 1.0
+        }
+      },
+      "onsite_stake_total": {
+        "frozen_chain": {
+          "tn": 15,
+          "utility": 0,
+          "precision": null
+        },
+        "softmax/semantic": {
+          "tn": 15,
+          "utility": 0,
+          "precision": null
+        },
+        "softmax/semantic_pair": {
+          "tn": 15,
+          "utility": 0,
+          "precision": null
+        },
+        "model_vote": {
+          "tn": 15,
+          "utility": 0,
+          "precision": null
+        }
+      }
+    }
+  }
+}

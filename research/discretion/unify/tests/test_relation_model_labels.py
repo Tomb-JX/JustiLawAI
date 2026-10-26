@@ -206,3 +206,50 @@ def test_window_topic_prefix_and_subjectless_flag():
     w = window(it, q, far, topic=True, flag_subjectless=True)
     assert w["text"].startswith("[无主][人:目标]王某霞[/人]：") and w["topic_prefixed"]
     assert not window(it, q, other, topic=True)["text"].startswith("[人:")
+
+
+def _service_stub():
+    from binding_service import BindingService
+    svc = BindingService.__new__(BindingService)
+    svc.routes = {n: (None, None, {"personal_stake": 0.5, "onsite_stake_total": 0.5})
+                  for n in ("softmax/semantic", "softmax/semantic_pair")}
+    svc.count_threshold = 0.5
+    return svc
+
+
+def _amount_item():
+    text = "张某福持有赌资365元"
+    q = {"candidate_id": "Q1", "type": "amount", "parse_status": "resolved", "start": 7, "end": 11, "raw": "365元",
+         "engine_projection": {"min": 365, "max": 365}}
+    return {"id": "r", "record": {"text_full": text}, "packet": {"quantities": [q]}}
+
+
+def test_service_amount_gate():
+    svc = _service_stub()
+    it = _amount_item()
+    chain = {"amounts.personal_stake": {"status": "selected", "value": {"min": 365, "max": 365}, "candidate_id": "Q1"}}
+    agree = {n: {"r": {"personal_stake": (0.9, "amount:365", "Q1")}} for n in svc.routes}
+    b = svc._amount(it, "personal_stake", chain, agree)
+    assert b["binding_status"] == "bound" and b["value"] == "amount:365" and b["evidence"][0]["quote"] == "365元"
+    split = dict(agree, **{"softmax/semantic": {"r": {"personal_stake": (0.2, "amount:365", "Q1")}}})
+    b = svc._amount(it, "personal_stake", chain, split)
+    assert b["binding_status"] == "unresolved" and b["reason"] == "relation_ambiguous"
+    none_chain = {"amounts.personal_stake": {"status": "abstain"}}
+    silent = {n: {"r": {"personal_stake": (0.1, "amount:365", "Q1")}} for n in svc.routes}
+    b = svc._amount(it, "personal_stake", none_chain, silent)
+    # Abstention with a candidate in the text is sent to review, never reported as absence.
+    assert b["reason"] == "no_route_output" and b["candidate_ids"] == ["Q1"]
+
+
+def test_service_count_gate(monkeypatch):
+    import binding_service as bs
+    svc = _service_stub()
+    svc.count_model, svc.count_variant = None, type("V", (), {"fn": None})()
+    it = {"id": "r", "record": {"text_full": "x" * 20, "target": "甲", "aliases": []}, "packet": {"quantities": []}}
+    monkeypatch.setattr(bs, "predict_count", lambda *a: (0.9, "int:4", [(0.9, "LC1")]))
+    monkeypatch.setattr(bs, "count_paths", lambda *a: [{"kind": "explicit", "value": 4}, {"kind": "list", "value": 4}])
+    assert svc._count(it)["binding_status"] == "bound"
+    monkeypatch.setattr(bs, "count_paths", lambda *a: [{"kind": "explicit", "value": 3}, {"kind": "list", "value": 4}])
+    b = svc._count(it)
+    assert b["binding_status"] == "unresolved" and b["reason"] == "single_source_count"
+    assert b["proposals"]["suggested_value"] == 4
