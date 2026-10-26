@@ -1,98 +1,137 @@
-# 并行工作流与分工
+# 数据与裁量引擎工作树分工
 
-> 版本 v0.3 · 2026-10-26（§1–§6 为 10-15 原文；现行实况见 §7） · 适用于裁量引擎相关的并行开发（人或 AI 会话都适用）
-> 配套：[引擎方案](../02-design/gambling-discretion-engine.md) · [数据收集计划](./data-collection.md) · [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)
->
-> 起因：2026-10-15 两条工作流共用一个工作树，一方做 rebase 时把另一方的原始数据临时移走（已全部恢复、核对无误）。本文件的规则就是为了不再出现这种互相打断。
+> **2026-10-18 起：本文件只保留归属边界、交接协议与 Git 纪律；会话状态、未提交清单和“额度耗尽”叙述已过期。当前状态以 [BOARD.md](./BOARD.md) 为准，职责边界见 [OWNERSHIP.md](./OWNERSHIP.md)，产物见 [ARTIFACTS.md](./ARTIFACTS.md)。**
+> **12:46 现状**：引擎 `f0dd746`（语义表 8 shared/28 target）、后处理 `2be05bc`（v4 binding 61/1120/528，字段默认基线；contract accept_in_resolve 仍 lexical/target）；L5 标签仍 0；r7 未放行。§1 表仅作历史。
 
-## 1. 工作流登记
+> **2026-10-26 重心裁定（用户指示，取代上文网页线相关调度）**：① 数据采集与处理重心**全面转向法宝端文书**；**公开网页链路（discover/harvest/parse）停止维护**——不再新增采集、不再修复解析缺口（I-22/I-24 的 web 部分按弃权处理），存量网页数据继续在统一层与 L5 管线流转。② §1 旧线表中"网页发现与交付""发现层"随停维转为封存态。③ 当日活跃线：引擎（`worktree-discretion-engine`）、协调（`codex/data-coordination`）、L5 后处理（`codex/l5-quality-s1-run-aggregate`）、binding 服务（`codex/binding-service-v1-fix` ⊇ `codex/seg-v2-design-review`）、法宝来源（main `collect/`）。④ **L5/unify 管线此前只在 codex 分支、main 缺失**；2026-10-26 已按用户决定将引擎线、协调、binding-fix、l5-quality 四支并入 main（两个 L5 血统的 8 个 unify 冲突文件手工合并，保留 binding v1.1 + VIEW-01/金额硬闸修复 + field_table）。数据链路现状数字唯一出处见 [data-pipeline-status.md（2026-10-26 核对版）](./data-pipeline-status.md)，全项目状态以协调看板 `$DATA/coordination/CURRENT.md` 为准。
 
-| 工作流 | 工作树（`.claude/worktrees/`） | 分支 | 负责内容 | 当前任务 |
-|---|---|---|---|---|
-| **数据链路** | `legal-ai-gambling-sentencing-cb2c21` | `claude/legal-ai-gambling-sentencing-cb2c21` | 采集、筛选、台账、脱敏、标注流水线 | 复议决定书多省适配、赌博案筛选 |
-| **引擎** | `discretion-engine` | `worktree-discretion-engine` | 规范层、要素本体、评测框架、模型、接口 | P0：规范层 + 要素本体 + 指标框架 |
-| **发现层** | `project-data-collection-audit-4bac93` | `claude/project-data-collection-audit-4bac93` | 用百度千帆官方搜索 API 发现赌博文书 URL 与可收割栏目，交付数据链路收割（[设计](./search-discovery-design.md)） | M0：API 探针；M1：查询规划 + 执行器 |
+> 版本 v2.6 · 2026-10-26 · 适用于本项目跨应用并行工作会话
+> **分工权威已移交 [阶段规划 v2](./stage-plan-v2-2026-10-17.md)（目标制会话分工）**；2026-10-18 评审驱动修订见 [review-driven-coordination-revision-2026-10-18.md](./review-driven-coordination-revision-2026-10-18.md)（依赖拆分、职责边界、指标层级、两类结果分离）。本文件保留目录归属（§2）、交接协议（§3）、Git 纪律（§4）；§1 旧线表仅作历史。
 
-**2026-10-16 晚实况（发现层登记；正式归属待[项目现状总览](./project-status.md) §7 第 2、3 条由用户定）**：
+## 1.1 逻辑职责边界（2026-10-18 评审驱动，不新增服务）
 
-| 实际在做的会话 | 实际负责 | 与上表的出入 |
+| 逻辑职责 | 承诺 | 不应代为承诺 |
 |---|---|---|
-| 数据链路（`legal-ai-gambling-sentencing-cb2c21`） | 复议专栏、CAIL / LeCaRD、裁判文书入库脚本（`collect/`） | 上表的"脱敏、标注流水线"实际不在这里 |
-| 发现层（本工作树） | 千帆发现、公开网页收割与解析、OCR；**网页来源的 L1（`parsed/web/`）**；**共用 L2 构建**（`harvest/build.py`、`deid.py`、`r6_scan.py`、`regions.py`：脱敏、隐私扫描、区划、去重、事件分组、按版本发布交付）；试标抽样 | 交付构建与 L1 超出上表登记 |
-| 引擎（`discretion-engine`） | 记录契约 `records.py`、交付验收 `accept_delivery.py`、交付规格、门禁、全景笔记、规范库、法宝 MCP 调用层 | 一致 |
-| 主检出会话（主检出目录，**未登记**，自称"引擎（主检出会话）"） | **法宝来源全线**：手工导出入账（`collect/import_manual.py`）、解析与 parsed-1（`collect/pkulaw_ingest.py`、`parsed/pkulaw/`）、作业台（已暂停）；也跑过统一构建 pk1–pk3 并改过 `harvest/build.py`、`deid.py` | 写进了数据链路（`collect/`）和发现层（`harvest/`）两边的目录 |
+| 来源与案例准备 | 原文不变、出处可追、本人/事件可定位、输入视图与历史结果各有证据 | 模型标签已正确、要素特征一定足够 |
+| 抽取能力 | 从允许的事实视图抽取当前契约，输出可验证候选与未知 | 源头没写的事实、法律应然结论、自己给自己判准确率 |
+| 教师与参考标注 | 冻结案例上产独立有版本的参考与分歧记录 | 来源格式通过＝标签通过；模型共识＝人工真值 |
+| 规范与预测 | 按已知事实算规范结论；按训练数据预测历史结果 | 修改原文事实以适应规范/预测 |
+| 独立评测与报告 | 对特定能力/数据/版本给结论与局限 | 用管线内部 ok 数替代外部正确性 |
 
-建议（未定）：L2 共用构建归发现层一家维护，各来源只交 L1（parsed-1），要改构建在协作记录提；法宝来源并入数据链路工作流（主检出会话迁到 `cb2c21` 工作树或单独登记）。交付版本由构建写到 `delivery/<版本>/`，引擎验收后再在协作记录宣布可用。
+**指标层级**：项目主线（端到端辅助可用）> 阶段诊断（切片覆盖/事件数、M1 证据/丢弃、文本 vs 特征同切片、M2 可处理比例、成本与失败去向）> 模块指标（zones/JSON、F1、坐标、A/B、S3）。模块指标须由消费需求解释，不得当项目增益。
 
-- **一条工作流只在自己的工作树里写**。新开工作流先在此表登记，再开工。
-- 主检出目录（`D:/02_Dev/Projects/大创`，`main`）只用于浏览和人工操作，不作为任何工作流的开发目录。
+**两类结果分离**：历史观察值（公开文书实际处罚，训练目标）／规范结论（规范层可行/待确认，单独报告）／部署可知输入（“情节严重”等既成认定可作标签或预测目标，未经论证不得当输入特征）。字段清单逐项写使用时点/来源/消费。
+> 阶段目标与计数口径见 [500 件金标计划](./data-program-500-gold.md)；字段契约见 [数据交付规格](../05-research/data-spec.md)，门禁见 [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md)。
 
-## 2. 目录归属
+**现行交付和金标状态见 [交接文档现势审计](./coordination-audit-2026-10-16.md) 顶部结论与 [r4 交接单](./zcode-web-r4-handoff-2026-10-16.md)**（23:50：r4 隐私关闭件、r5 现行超集，LATEST→r5，金标 0，待金标线内容复检）。下表的提交、数量与任务交接为 18:28 快照；目录归属规则继续适用。
 
-| 归属 | 路径 | 规则 |
-|---|---|---|
-| 数据链路 | `research/discretion/collect/**`、`docs/04-plan/data-collection.md` | 只有数据链路写 |
-| 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`research/papers/**`、`docs/05-research/**`、`docs/02-design/gambling-discretion-engine.md` | 只有引擎写 |
-| 发现层 | `research/discretion/discover/**`、`research/discretion/harvest/**`、`docs/04-plan/search-discovery-design.md`、`docs/04-plan/web-harvest-design.md`、`docs/04-plan/text-processing-spec.md`、`docs/04-plan/data-pipeline-status.md`、`docs/04-plan/manual-collection-guide.md` | 只有发现层写；不写 `collect/`。公开网页的收割与解析（`harvest/`）在数据链路主攻北大法宝期间由发现层承担（2026-10-15），台账用独立的 `harvest/manifest_web.csv`（id 前缀 W-），与 `collect/manifest.csv` 并列 |
-| 共享 | `.gitignore`、`README.md`、`docs/README.md`、`research/README.md`、`justilaw-api/requirements.txt`、`docs/04-plan/milestones.md`、本文件 | 小改动、单独提交；提交前在[协作记录](./collab-log.md)留一行 |
-| 平台其他代码 | `justilaw-api/app/**`（discretion 以外）、`justilaw-web/**`、`launcher/**`、`ops/**` | 引擎接入平台时只做最小改动（注册路由、开关、卡片），单独提交 |
+**21:45 更正**：阶段审查也已落后；现势与隐私退回见[交接文档审计](./coordination-audit-2026-10-16.md)。
 
-需要改对方目录时：在[协作记录](./collab-log.md)留言说明需求，由对方改；紧急时改完立即留言。
+**22:39 标注方法变更**：用户决定用模型盲标、仲裁和完整日志推进 500 件；旧人工双标任务已被[方法变更决策](./model-adjudicated-labeling-decision-2026-10-16.md)取代。模型仲裁数与人工验证数分别报，原门禁正式修订状态另报。
 
-## 3. 数据目录：放在所有工作树之外
+**工作树不是会话。**用户确认：法宝和网页前端设计在 Zcode，引擎和网页信息在 Claude；金标线因 Zcode 内容审查易触发，于 22:06 转交新建的 Codex 执行会话。其他应用的历史与模型额度保留在原应用，不迁入 Codex。本会话只协调；其他会话的活动状态和消息送达仍需在各原应用核对。
 
-- 原始数据和派生数据统一放在**仓库之外**的固定目录，默认 `D:/02_Dev/Data/justilaw-research/`，用环境变量 `JUSTILAW_DATA_DIR` 指定。
-- 结构沿用现有约定：`raw/`、`cail/`、`lecard/`、`reconsider/`……
-- **数据链路负责**：把 `research/discretion/collect/common.py` 的 `DATA_DIR` 改为优先读 `JUSTILAW_DATA_DIR`，并把现有 `research/data/` 迁移过去（迁移前后核对文件数与 SHA-256）。
-- **引擎只读**这个目录；引擎生成的中间产物写到 `$JUSTILAW_DATA_DIR/engine/`。
-- 封存测试集不放在这里，按[门禁文档 §7](../05-research/sota-baselines-and-gates.md) 由保管人另行存放。
-- 迁移完成前，引擎通过环境变量直接指向数据链路工作树里的 `research/data/`，只读。
+**2026-10-17 网页线归属变更**：用户把网页发现、公开网页收割及共用交付构建正式移交给 Zcode 中此前完成 r3→r4/r5 修复的同一会话。原 Claude 网页会话停止写入该工作树和外置交付目录；分支名仍带 `claude/` 只是历史命名。执行边界、基线及接续指令见[正式移交单](./zcode-web-discovery-handoff-2026-10-17.md)，本段取代下表“临时接管、Claude 恢复后再写”的旧说法。Zcode 网页前端设计会话仍是另一任务。
 
-## 4. Git 纪律（当前不走 PR，直接推 main）
+**2026-10-17 规范决策修订：脱敏全量取消（用户指示，同日登记派发）**：L3 交付层不再二次脱敏，正文保留来源公开文书原文；红线 R6 口径改为"仅承载依法公开文书原文、不引入源文之外的个人信息"；`deid_map.jsonl` 停产、`r6_scan.py` 退役（首版建议 report-only）。连锁：r4 退回中 A/F privacy 类（21 件）整体作废关闭，B/C/D/E 按数据质量继续；r4/r5 不追改，下一版 r6＝r5 同批输入−脱敏＋B 类定性句裁剪，作为新标注冻结基准；堆积批次入 r7 不变。变更单与依据、过渡规则、残余提示见 collab-log 2026-10-17 行与 coordination-audit 顶部同名节；**各线实施前先读变更单，勿按旧规格开工**。
 
-1. **只按明确路径 `git add`**，禁止 `git add -A` / `git add .`，避免把对方进行中的文件一起提交。
-2. 推送前 `git pull --rebase origin main`，推送用 `git push origin HEAD:main`。
-3. **禁止在别人的工作树里**执行 rebase、reset、stash、checkout、clean 或移动文件。
-4. 提交小而频繁；推送后在 §6 记录一行（日期、工作流、提交、内容）。
-5. 推到 main 的引擎代码默认关闭（`DISCRETION_ENABLED=false`），保证随时打 `v*` 标签发布不会带出半成品。
-6. 原始数据、封存测试集、模型权重永不入库。
+**2026-10-17 工作流重组（用户确认）：金标线解散，职能归并**。独立金标线失去功能理由：四维复检的 privacy 维随脱敏取消死亡，subject/facts/event 转入 S3 确定性校验；盲标协议已被 seg-v1 schema 吸收；一致性计算早已由引擎 agreement.py 唯一实现；仲裁 runner（161 行）并入网页线管线。真独立性改由两处保障：**模型级隔离**（仲裁模型提供方 ≠ 生成模型提供方，写成代码断言）与**引擎线独立验收**（accept_delivery＋规范库法律锚——代码库与归属均不同）。D-002 方法学登记继续有效，执行主体并入管线。网页线执行蓝本见[接入完善指令](./web-integration-directive-2026-10-17.md)（r6 细则、S3 组装、常量表接口、仲裁吸收、试点批→全量两步走、切换判据）。金标树未提交资产由用户关闭会话前一次性提交存档；引擎文档改动放弃。
 
-## 5. 两条工作流之间的接口
+**2026-10-17 协调线会话变更（总控交接）**：用户将协调总控移交 Zcode 新协调会话；原 Codex 协调会话停止写入。协调分支 `codex/data-coordination` 的 17 笔历史于交接日首推 origin（此前从未推送），合入 main 仍待审阅。同日更正 §1 两处登记：① 法宝线实际执行分支为 `zcode/pkulaw-agent-stable`（主检出目录检出该分支；`legal-ai-gambling-sentencing-cb2c21` 为历史工作树，作业台 M0/M1 起点）；② 协调行为本行。现势快照与跨线待办清单见[交接文档现势审计](./coordination-audit-2026-10-16.md) 顶部 2026-10-17 节。
 
-| 接口 | 提供方 | 使用方 | 约定 |
+## 1. 工作树登记与当前任务
+
+| 工作线 | 工作树与分支 | 执行会话 | 目标任务与当前交接 |
 |---|---|---|---|
-| 要素本体 `schema.py`（字段、取值、证据格式） | 引擎 | 数据链路（标注） | 引擎在 P0 发布 v1；变更时提升版本号并在协作记录中通知 |
-| 案例数据交付 | 数据链路 | 引擎 | 按[行政案例数据交付规格](../05-research/data-spec.md)：来源、时间地点、**原文分段**（事实 / 理由 / 决定 / 复议审查分开存放）、结构化处罚结果、事实要素；JSONL + `SHA256SUMS` |
-| 数据划分 | 数据链路生成，引擎复核 | 双方 | 按事件分组；划分文件只记 id 列表并入库；测试集封存按门禁 §7 |
-| 金标标注 | 数据链路组织，法律组校正 | 引擎 | 按 `schema.py` 当前版本导出，文件名带本体版本号 |
+| 协调总控 | `data-coordination` · `codex/data-coordination` | **Zcode 协调会话（2026-10-17 接管）**；原 Codex 协调会话停止写入 | 调查进度、决策记录、排期、跨线验收与合并顺序；只写协调文档；现势快照见 coordination-audit 顶部 2026-10-17 节 |
+| **后处理链路实现（Codex，原评委端）** | `.claude/worktrees/seg-v2-design-review` · `codex/seg-v2-design-review` | **Codex 会话额度耗尽（2026-10-18）**；续跑交接见[后处理续跑单](./codex-postprocessing-continuation-2026-10-18.md) | **8 个修改＋17 个新增未提交**（arbitrate/element_contract/normalization/evidence_graph/outcome_arbitration/contract_bundle 等）＋10:28 诊断产物；只读备份 `$DATA/handoff/2026-10-18/postprocessing/`。新会话第一步：对照备份、跑测试、按逻辑分组小提交；之后完成 element-v2 语义接入、免费回放、≤12→≤36 烟测；不碰采集/交付/标签/引擎/门禁 |
+| 网页发现与交付 | `project-data-collection-audit-4bac93` · `claude/project-data-collection-audit-4bac93` | **原 Zcode 网页会话额度耗尽（2026-10-18）**；职能拆分：A 运维下载（新增采集冻结至链路稳定；P2 L4 Word 下载可交法宝线/另派）与 B 后处理链路（已移交 Codex） | A 运维下载：网页发现/收割/下载、120 批续跑、inbox 归位；**新增采集冻结**。B 后处理链路见上一行 |
+| 法宝来源 | **`D:/02_Dev/Projects/大创` 主检出目录 · `zcode/pkulaw-agent-stable`**（2026-10-17 更正；`legal-ai-gambling-sentencing-cb2c21` 为历史工作树） | **Zcode：法宝线（主检出会话）** | 作业台 v1.2（常驻服务化/18 倍提速/断点续跑）；台账 P-001–P-927；r5 四项修复已交并入指引；补缺轮 105 下载（不予处罚 63）；两省 YAML 已代录 `50671fd` 待引擎复核。待办：回应引擎 `acfabf6`（I-19 `fine_masked` 落点＋I-02 `text_party`）；同壳件正文通道待查；扩批节奏待用户调度 |
+| ~~金标质检与标注~~ | `jolly-cerf-82e544` · `claude/jolly-cerf-82e544` | **已解散（2026-10-17 用户确认）**；Codex 会话可关闭 | 职能归并：仲裁与分歧裁决→网页线（模型隔离断言）；一致性计算→引擎 agreement.py（唯一实现）；内容复检→S3 校验＋抽样仲裁。树内未提交 qa 工具由用户一次性提交存档；引擎文档改动放弃。D-002 方学与 pilot50-proxy、r4 评审等历史留档 |
+| 引擎与验收 | `discretion-engine` · `worktree-discretion-engine` | **引擎会话额度耗尽（2026-10-18）**；续跑交接见[引擎续跑单](./codex-engine-continuation-2026-10-18.md) | **1 个修改＋3 个新增未提交**（m2_dev_slice_audit/m4_negative_diagnosis/slice_quality_review）＋M2 10:29、M4 10:33 结果；只读备份 `$DATA/handoff/2026-10-18/engine/`。新会话第一步：对照备份、提交、复核 M2/M4；之后 E-02/E-04/E-05/E-06；不编辑 `unify/**`、不付费、不放行 r7 |
+| 主检出历史会话 | `D:/02_Dev/Projects/大创` · `main` | **历史会话待核** | 实际完成 `parsed-1` 和统一构建，最新 L3 为 `delivery/2026-10-16.pk1`；给各归属线交代码、批次与验收哈希后停止跨线写入 |
 
-接口有变化时，先改本节再改代码。
+Zcode 的网页前端设计会话继续负责平台前端；它不是网页案例发现与收割工作线，不参与 L0–L5 计数。若未来调整执行应用，只转交任务契约、代码提交与数据批次哈希，保留原应用中的历史，不以复制聊天记录来重建上下文。
 
-## 6. 协作记录（只追加）
+**金标转交执行规则（22:06）**：Codex 金标会话已创建并开始运行，项目目录直接指向现有 `jolly-cerf-82e544` 工作树，不复制聊天历史或覆盖未提交文件。原 Zcode 会话的停止写入尚需在 Zcode 侧确认；在确认前，新会话须先检查并发修改，遇到同文件冲突立即停写该文件并报告。外置 `qa/**`、`labels/**` 由金标新会话单写；已作废 r1、内容安全未通过的 r2 与 r3（r3 的 r6_report.json 曾被接管会话误覆盖，已按会话捕获内容逐字节重建，主文件未动）不升格正式标注输入；r4 为隐私关闭件、r5 为其超集（LATEST→r5），均待金标线复检签字。
 
-已移到 [collab-log.md](./collab-log.md)（设为 union 合并，多方同时追加不会冲突）。新增记录请写在那里。
+主检出目录 `D:/02_Dev/Projects/大创` 的 `main` 拟只用于浏览与人工集成，不用于并行开发。一个工作树可能被多个应用会话同时打开；**每条线只保留一个执行写入会话**，其余会话的用途要在原应用核对后决定，不能擅自标为只读或继续并发编辑。旧工作树保留到任务交接完成，不因重组而改名或删除。
 
-## 7. 2026-10-26 实况（用户裁定与分支现状；§1 登记表待周会正式改版）
+## 2. 路径与数据写入权
 
-**重心裁定（用户，2026-10-26）**：数据采集与处理重心**全面转向法宝端文书**；**公开网页链路（discover/harvest/parse）停止维护**——不再新增采集、不再修复解析缺口（含 I-22/I-24 的 web 部分），存量网页数据继续在统一层与 L5 管线流转。发现层工作流随之转入停止状态，其维护的共用 L2 构建（harvest/build.py）仍被交付版本使用。
-
-**实际活跃的工作线（以协调看板 `$DATA/coordination/CURRENT.md` 为准）**：
-
-| 线 | 分支 / 工作树 | 在做 |
+| 写入方 | 仓库内范围 | 外置数据范围 |
 |---|---|---|
-| 法宝线（主检出） | main（collect/） | P 系列定向采集、L2 解析质量修复（PARSER@0.4）、Word 复核队列 |
-| L5 质量线（后处理） | `codex/l5-quality-s1-run-aggregate`（l5-stable 工作树） | S1–S3 管线、要素契约、金额硬闸、VIEW 规则、field_table（230 测试） |
-| 引擎 | `worktree-discretion-engine` | M4 开发银标试验、binding 影子审计、L5 金丝雀、门禁 |
-| binding 服务 | `codex/seg-v2-design-review` → `codex/binding-service-v1-fix` | binding v1→v1.1 冻结与代修 |
-| 协调 | `codex/data-coordination` | 看板/事件账本、审计、现行主状态文档（CURRENT-STATUS / PROJECT-PANORAMA-STATUS） |
-| 前端平台 | main + 部署 | 平台功能与公网部署（与数据线独立） |
-| 发现层 / 数据链路（旧登记） | `project-data-collection-audit-4bac93` / `legal-ai-gambling-sentencing-cb2c21` | **停止/半停止**：网页线停维；复议、CAIL/LeCaRD 已就位无新任务 |
+| 网页 | `research/discretion/discover/**`、`research/discretion/harvest/**`、网页发现／处理设计文档 | 网页源台账与 `parsed/web/**`；共用 `delivery/<版本>/**` 唯一发布者 |
+| 数据湖基建（任务制，2026-10-18 设） | `research/discretion/lake/**`、`docs/02-design/data-lake-design-*.md` | `lake/**`（landing/blobs/catalog/curated/ops）；现由法宝线会话实现（设计者＋首个双写批次），引擎 M4/网页 M2 在各自接入点消费；单写者原则：catalog 事务＋批次级锁 |
+| 法宝 | `research/discretion/collect/**`、法宝采集／解析设计文档 | `inbox/pkulaw/**`、`raw/pkulaw/**`、`ingest/<法宝批次>/**`、`parsed/pkulaw/**`；现有原件只追加和核对，不覆盖 |
+| 金标 | 标注指南建议、质检报告、标注任务与版本台账；需要修改 `harvest/sample_pilot.py` 时提出变更要求，由网页负责人落地 | `qa/**`、`labels/**`；不得修改 L0–L3 正本 |
+| 引擎 | `justilaw-api/app/discretion/**`、`research/eval/**`、`docs/05-research/**` | `engine/acceptance/**`、封存治理产物；读取 L0–L3，不改来源批次 |
+| 协调 | `docs/04-plan/workstreams.md`、`data-program-500-gold.md`、文档索引和协调记录 | 只读台账和统计，不触碰原件、交付或标签 |
 
-**待治理事项**：① `research/discretion/unify/`（L5 全链路）只在 codex 分支，main 无法复现，需择期合并并更新本表与 §2 目录归属；② §1 的三工作流登记表与实况已严重脱节，待周会正式改版；③ 数据链路现状数字唯一出处为 [data-pipeline-status.md（2026-10-26 核对版）](./data-pipeline-status.md)。
+外置数据根目录由 `JUSTILAW_DATA_DIR` 指定，当前为 `D:/02_Dev/Data/justilaw-research`。原件、未脱敏正文、登录态、标签正文、封存测试集和模型权重不进 Git。共享文件（契约、构建入口、`docs/README.md`、依赖、平台入口）由协调先登记变更要求，再由归属方在自己的工作树单独提交；一次提交只解决一类跨线接口。
+
+## 3. 交接协议
+
+1. 来源方交 L0 原件清单与 SHA-256、来源凭据和批次日期；L1 `parsed/<来源>/<批次>/records.jsonl` 通过 `records check --layer parsed`，并附分级、事件数、缺失率与重复报告。法宝已有正式 `parsed-1`；`ingest/` 中的旧产物仍只是过渡层。
+2. 网页线指定一名 L2/L3 构建负责人，按显式批次清单合并、去重、脱敏和分流；发布 `delivery/<版本>/` 及校验和、统计、排除清单、数据卡草稿。任何修订另起版本；不在旧 `admin/` 路径重建覆盖。
+3. 引擎线按交付版本与哈希验收，退回项只由来源或构建负责人修复。金标线另做独立逐件内容复检；自动字段通过不等于事实可标注。
+4. 金标线仅从通过记录级复检、可指认本人、隐私扫描合格且事件不重复的冻结记录抽样。按 D-002 用异构旗舰模型盲标与独立仲裁，正文哈希变化的标签重标；模型仲裁候选与人工验证件数分开报告，不把前者计作已通过原人工金标门禁。
+5. 跨线问题写入 [协作记录](./collab-log.md)：`版本/哈希｜现象与样本 ID｜归属方｜验收条件｜交接状态`。协调会话维护一张当前状态表；旧数字作为历史保留，不与新批次混算。
+
+用户 2026-10-16 21:24 已明确开放法宝作业台的自动检索、正文读取与有限额下载；原暂停决定已解除，执行边界与文档冲突处理见[阶段审查补记](./phase-review-2026-10-16.md)。河北＋江苏作为采集目标，省级裁量基准的现行效力和 2026 年法律衔接由法律组核验后才能冻结标注依据。
+
+## 4. Git 与并行纪律
+
+1. 每会话只在登记的工作树写；运行前看 `git status --short --branch`、分支和目标数据目录。相同外置目录同一时间只有一名发布者；批次名、交付版本名不可复用。
+2. 用明确路径 `git add <路径>`，检查 `git diff --cached --stat` 与 `git diff --cached --check`。禁止 `git add .` / `git add -A` 把他人的文件带入提交。
+3. 在自己的**干净**工作树同步 `origin/main`。绝不在别人的工作树执行 rebase、reset、stash、clean、checkout、移动或删除；有未提交文件时先由该树负责人处理。协调不替来源方改产物。
+4. 分支推送为 `git push -u origin HEAD`，共享契约、里程碑和本分工经审阅／PR 后顺序合入 `main`；取消旧规则的 `git push origin HEAD:main`。合并前复查新主线，避免两线同时修改同一接口。
+5. `DISCRETION_ENABLED=false` 维持默认关闭；尚未验收的引擎功能不得因主线合并而对用户开放。
+
+## 5. 管理命令模板（PowerShell）
+
+```powershell
+$repoRoot = 'D:\02_Dev\Projects\大创'
+$dataRoot = 'D:\02_Dev\Data\justilaw-research'
+git -C $repoRoot worktree list
+git -C "$repoRoot\.claude\worktrees\project-data-collection-audit-4bac93" status --short --branch
+git -C "$repoRoot\.claude\worktrees\legal-ai-gambling-sentencing-cb2c21" status --short --branch
+git -C "$repoRoot\.claude\worktrees\jolly-cerf-82e544" status --short --branch
+Get-ChildItem -LiteralPath "$dataRoot\ingest" -Recurse -File -Filter 'pkulaw_ingest.stats.json'
+Get-ChildItem -LiteralPath "$dataRoot\engine\acceptance" -Directory
+```
+
+工作树内的提交流程：
+
+```powershell
+git status --short --branch
+git diff --check
+git add <自己拥有的明确路径>
+git diff --cached --stat
+git diff --cached --check
+git commit -m 'docs(plan): 描述本次交付'
+git fetch origin main
+git rebase origin/main
+git push -u origin HEAD
+```
+
+此模板中的 `<...>` 必须替换成实际路径；先确定上游新提交没有改同一外置批次或接口，才同步与发布。数据目录不是 Git 工作树，不能用 Git 操作代替文件与哈希核对。
 
 ## 变更日志
+
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
-| 2026-10-26 | v0.3 | 新增 §7 实况：重心转法宝/网页线停维裁定、活跃工作线与分支对照、unify 未合 main 等治理待办 | 宏观指引会话（用户指示） |
-| 2026-10-15 | v0.1 | 初版：工作流登记、目录归属、数据目录外置、Git 纪律、接口约定 | 模型组 |
-| 2026-10-15 | v0.2 | §6 协作记录移到 collab-log.md 并设为 union 合并 | 模型组 |
+| 2026-10-15 | v0.1–v0.2 | 原三工作流及直接推主线规则 | 模型组 |
+| 2026-10-16 | v1.0 | 拆双来源、独立金标与验收，定义唯一写入与审阅合并 | 协调 |
+| 2026-10-16 | v1.1 | 更正工作树与会话的关系；跨应用会话绑定待核，撤回仅凭 Codex 列表派工 | 协调 |
+| 2026-10-16 | v1.2 | 记录用户确认的 Zcode／Claude 归属；保留各应用历史与额度，不向 Codex 镜像派工 | 协调 |
+| 2026-10-16 | v1.3 | 同步法宝新增南京批与跨批去重的最新基线 | 协调 |
+| 2026-10-16 | v1.4 | 确认金标质检线沿用现有原会话 | 协调 |
+| 2026-10-16 | v1.5 | 更新 Claude 网页线暂停期间的主线交付与质检状态 | 协调 |
+| 2026-10-16 | v1.6 | 确认金标原会话在 Zcode；记录四子代理试标分工与临时调度 | 协调 |
+| 2026-10-16 | v1.7 | 记录 Claude 网页额度恢复与法宝作业台开放的用户决定 | 协调 |
+| 2026-10-16 | v1.8 | 按用户决定将金标执行转到独立 Codex 会话，保留原工作树与 Zcode 历史，登记并发写入风险 | 协调 |
+| 2026-10-16 | v1.9 | 登记用户以模型工作流替代人工双标的决定，模型仲裁与人工验证分列，要求 D-002 方法偏离 | 协调 |
+| 2026-10-16 | v2.0 | 网页线 Zcode 接管完成：r4 隐私关闭件与 r5 供给超集发布（LATEST→r5，金标 0），网页/金标两行现状与下一步刷新，状态指针改指现势审计与交接单 | Zcode 接管会话 |
+| 2026-10-17 | v2.1 | 用户将网页发现与共用交付正式交给原 Zcode 网页修复会话；原 Claude 会话停止写入，补正式移交单并纠正金标交接中的旧人工口径 | 协调 |
+| 2026-10-26 | v2.6 | 重心裁定：网页线停维、法宝端为主线；记录四支（引擎/协调/binding-fix/l5-quality）并入 main 与两个 L5 血统 8 文件手工合并；数据链路现状指针改指 data-pipeline-status.md（10-26 核对版）与协调看板 | 宏观指引会话（用户指示） |
