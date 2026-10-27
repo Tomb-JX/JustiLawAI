@@ -3,6 +3,7 @@ import { NavLink, Outlet } from 'react-router-dom'
 import {
   Bot,
   Cpu,
+  Gavel,
   Library,
   Menu,
   MessagesSquare,
@@ -35,6 +36,7 @@ const navItems = [
   { to: '/models', label: '模型', icon: Cpu },
   { to: '/providers', label: '模型服务', icon: Server },
   { to: '/workflows', label: '工作流', icon: Workflow },
+  { to: '/discretion', label: '裁量建议', icon: Gavel },
   { to: '/admin', label: '管理后台', icon: ShieldCheck, adminOnly: true },
 ]
 

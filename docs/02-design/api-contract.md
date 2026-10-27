@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.6（已按 justilaw-api 实现对齐） · 2026-10-22
+> 版本 v0.7（§3.11 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -359,6 +359,29 @@ GET /health  → data: {
 
 后端检测到 `WEB_DIST_DIR`（默认 `../justilaw-web/dist`）存在时，直接托管前端：`/api/*` 以外的路径返回静态文件或 `index.html`（SPA 回退），`assets/` 下不存在的文件返回 404（让旧页面触发整页刷新）。单机部署只需一个端口。
 
+### 3.11 裁量建议（赌博类治安处罚，引擎第一版）
+
+输入为办案人员填写的要素（不经大模型抽取）；输出是裁量建议，不是处罚决定。设计见[引擎方案](./gambling-discretion-engine.md) v0.6。前端 Mock 模式下也直连后端。
+
+```
+GET  /discretion/meta    → data: { behavior_types, methods, gambling_forms, venue_types, minor_levels: string[],
+                                   provinces: { code, name }[], laws: { id, title }[] }
+POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decision_date?, region? (六位区划码),
+                           personal_stake? / onsite_stake_total? / commission?: { min, max | null },
+                           method?, gambling_form?, venue_type?, civil_servant?, age?, first_offense?, … }
+                           // 字段与 norm_layer.Facts 同名；未传 = 未知（不是"否"）；未知字段 → 422
+  → data: {
+      penalty_type: string | null,       // 罚款 / 拘留 / 拘留并处罚款 / 不予处罚；null = 未确定
+      route: 'rule_single' | 'rule_candidates' | 'model_fallback' | 'undetermined',
+      candidates: string[],              // 省级分档允许的种类；空 = 无省级分档
+      quantities: { fine?: [值, 占比][], detention_days?: [值, 占比][] },   // 档内历史分布，已按法定幅度过滤
+      assessment: { law_id, temporal_note, tiers: { 一般, 情节严重 → { options: [{ detention, fine, via, basis, kind }],
+                    detention_executable, not_executed_reason } }, directions, referral, stake_threshold, needs_review },
+      notes: string[]
+    }
+  // 行为日期晚于决定日期、日期超出规范库覆盖范围 → 422 { code: 42200, message }
+```
+
 ## 4. 联调约定
 
 1. 前端基于 MSW 按本契约**全量 Mock**（SSE 用 ReadableStream 模拟增量），先行开发
@@ -375,4 +398,5 @@ GET /health  → data: {
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v0.7 | 新增 §3.11 裁量建议：`GET /discretion/meta`、`POST /discretion/decide`（引擎第一版，人工要素输入） | 引擎 |
 | 2026-10-22 | v0.6 | 模型能力自动识别（免手动填写）：`/providers/{id}/remote-models` 返回 `{ id, capabilities }[]`（读上游 capabilities/supported_parameters/architecture.input_modalities，族名兜底）；`POST /providers/{id}/models` 的 `capabilities` 可缺省，缺省时服务端自动识别，显式数组仅表人工覆盖 | 前端平台 |

@@ -20,6 +20,9 @@ import type {
   RemoteModel,
   UsagePoint,
   Workflow,
+  DiscretionDecision,
+  DiscretionFacts,
+  DiscretionMeta,
 } from '@/types/api'
 
 /* ============ 会话 ============ */
@@ -382,6 +385,17 @@ export async function getUsageStats(): Promise<UsagePoint[]> {
 export async function getModelDist(): Promise<ModelDist[]> {
   if (USE_MOCK) return mockApi.getModelDist()
   return (await http.get('/admin/stats/models')) as ModelDist[]
+}
+
+/* ============ 裁量建议 ============ */
+// 规则引擎没有可模拟的意义：Mock 模式下也直连后端，后端未启动时页面提示
+
+export async function getDiscretionMeta(): Promise<DiscretionMeta> {
+  return (await http.get('/discretion/meta')) as DiscretionMeta
+}
+
+export async function decideDiscretion(body: DiscretionFacts): Promise<DiscretionDecision> {
+  return (await http.post('/discretion/decide', body)) as DiscretionDecision
 }
 
 export { delay }

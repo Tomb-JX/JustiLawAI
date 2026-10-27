@@ -6,6 +6,7 @@ import pytest
 import yaml
 
 from app.discretion import norm_layer as nl
+from app.discretion.decide import decide
 from app.discretion.norm_store import load, validate
 from app.discretion.schema import AmountRange
 
@@ -141,11 +142,19 @@ def test_provincial_note_when_new_law_applies():
     a = nl.assess(nl.Facts(behavior_date=date(2026, 3, 1), behavior_type="参与赌博", region="320582",
                            method="网络赌博", personal_stake=AmountRange(min=300, max=300)))
     assert a.law_id == "psal-2025"
-    assert a.stake_threshold["status"] == "法律衔接待核验"
-    assert a.stake_threshold["bands"] == []
-    assert a.stake_threshold["hard_filter_allowed"] is False
-    assert any("数额衔接待核验" in n for n in a.stake_threshold["notes"])
-    assert any("衔接未核验" in n for n in a.needs_review)
+    r = a.stake_threshold
+    assert r["law_alignment"] == "新法推定沿用" and r["applicability"] == "provisional"
+    assert r["bands"] == ["第一档"]                     # 档次判断沿用：网络赌博属第一类，个人 300 元落在 100–500
+    assert r["hard_filter_allowed"] is False
+    assert any("推定沿用" in n for n in a.needs_review)
+
+
+def test_new_law_case_gets_type_from_band_and_amount_from_new_law():
+    d = decide(nl.Facts(behavior_date=date(2026, 9, 1), decision_date=date(2026, 9, 10), region="130102",
+                        behavior_type="参与赌博", personal_stake=AmountRange(min=1500, max=1500)))
+    assert (d.penalty_type, d.route) == ("拘留并处罚款", "rule_single")
+    assert d.assessment.tiers["情节严重"].options[0].fine == (1000, 5000)
+    assert all(1000 <= v <= 5000 for v, _ in d.quantities["fine"])   # 旧法 500 元等取值被新法幅度滤掉
 
 
 def test_jiangsu_provide_conditions_bands():

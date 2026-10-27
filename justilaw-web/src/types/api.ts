@@ -288,3 +288,80 @@ export interface ChatCompletionRequest {
   retrieval?: { dataset_ids: string[]; top_k: number }
   attachments?: { file_id: string; filename: string }[]
 }
+
+/* ============ 裁量建议（赌博类治安处罚，引擎第一版） ============ */
+
+export interface AmountRange {
+  min: number
+  max: number | null // null = 无上界（"以上"开口写法）
+}
+
+/** 与后端 norm_layer.Facts 同名；未填 = 未知（不是"否"） */
+export interface DiscretionFacts {
+  behavior_date: string
+  decision_date?: string
+  region?: string
+  behavior_type: string
+  age?: number
+  first_offense?: boolean
+  surrendered?: boolean
+  truthful_statement?: boolean
+  admits_and_accepts?: boolean
+  minor_circumstance?: string
+  personal_stake?: AmountRange
+  onsite_stake_total?: AmountRange
+  commission?: AmountRange
+  participant_count?: number
+  method?: string
+  gambling_form?: string
+  venue_type?: string
+  civil_servant?: boolean
+  minors_involved?: boolean
+  profit_purpose?: boolean
+  times?: number
+}
+
+export interface DiscretionMeta {
+  behavior_types: string[]
+  methods: string[]
+  gambling_forms: string[]
+  venue_types: string[]
+  minor_levels: string[]
+  provinces: { code: string; name: string }[]
+  laws: { id: string; title: string }[]
+}
+
+export interface PenaltyOption {
+  detention: [number, number] | null
+  fine: [number, number] | null
+  via: string
+  basis: string[]
+  kind: string
+}
+
+export interface DiscretionDecision {
+  penalty_type: string | null
+  route: 'rule_single' | 'rule_candidates' | 'model_fallback' | 'undetermined'
+  candidates: string[]
+  quantities: Record<string, [number, number][]>
+  notes: string[]
+  assessment: {
+    law_id: string
+    temporal_note: string
+    tiers: Record<string, { options: PenaltyOption[]; detention_executable: boolean | null; not_executed_reason: string | null }>
+    directions: { effect: string; trigger: string; basis: string }[]
+    referral: { item: string; threshold: number | null; status: string; basis?: string }[]
+    stake_threshold: {
+      status?: string
+      reason?: string
+      bands: string[]
+      band_penalty: string[]
+      measures_used: string[]
+      basis: string | null
+      law_alignment?: string | null
+      unknown_conditions: string[]
+      notes: string[]
+    }
+    needs_review: string[]
+  }
+}

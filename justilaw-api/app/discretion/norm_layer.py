@@ -369,17 +369,18 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
             or (end and decision and decision > end)):
         return _stake_unavailable("基准未生效", "省级基准不适用于本案行为或决定日期",
                                   basis=basis, verified=verified)
-    if decision and decision >= date(2026, 1, 1) and doc.get("new_law_alignment") == "未更新-旧法数额":
-        note = f"省级基准依据 {doc.get('law_basis')} 制定；本案决定在新法施行后，数额衔接待核验"
-        return _stake_unavailable("法律衔接待核验", "省级旧法基准与新法衔接未核验",
-                                  basis=basis, verified=verified, notes=[note])
-    if law is not None and doc.get("law_basis") and doc["law_basis"] != law.law_id:
-        note = f"省级基准依据 {doc['law_basis']} 制定，本案适用 {law.law_id}，数额衔接待核验"
-        return _stake_unavailable("法律衔接待核验", "省级基准所依法律与本案适用法律不一致",
-                                  basis=basis, verified=verified, notes=[note])
     if not verified:
         return _stake_unavailable("基准待核验", "省级基准尚未核验", basis=basis)
     notes, used, unknown = [], [], []
+    # 新法施行后省级基准未更新（法宝 2026-10-28 核：两省及公安部均无新法版本，旧版仍标现行有效）。
+    # 新法第八十二条档次结构不变（一般：拘留或罚款；情节严重：拘留并处罚款），只提高了罚款数额，
+    # 故推定沿用省级门槛与档次判断处罚种类；档位原文中的罚款数额是旧法数额，本案数额以新法法定幅度为准。
+    alignment = None
+    if ((decision and decision >= date(2026, 1, 1) and doc.get("new_law_alignment") == "未更新-旧法数额")
+            or (law is not None and doc.get("law_basis") and doc["law_basis"] != law.law_id)):
+        alignment = (f"省级基准依据 {doc.get('law_basis')} 制定，本案适用 {law.law_id if law else '新法'}：推定沿用其"
+                     "赌资门槛与档次判断处罚种类；档位原文中的罚款数额为旧法数额，本案数额以新法法定幅度为准")
+        notes.append(alignment)
     possible = {0}                  # 已知计量下可能的档次索引；0 = 未达第一档
     has_signal = measure_found = False
     if f.decision_date is None:
@@ -448,12 +449,14 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
         out = _stake_unavailable("无法判断", "缺少分档所需的数额或情节", basis=basis, verified=verified)
         out["unknown_conditions"] = list(dict.fromkeys(unknown))
         out["notes"] = notes
+        out["law_alignment"] = "新法推定沿用" if alignment else None
         return out
     lo, hi = min(possible), max(possible)
     names = ["未达起罚标准" if k == 0 else bands["names"][k - 1] for k in sorted(possible)]
     out = {"bands": names, "band_penalty": [bands["penalty"][k - 1] for k in sorted(possible) if k > 0],
            "measures_used": used, "basis": basis, "verified": verified,
-           "applicability": "applicable" if f.decision_date is not None else "provisional",
+           "applicability": "applicable" if f.decision_date is not None and alignment is None else "provisional",
+           "law_alignment": "新法推定沿用" if alignment else None,
            "scope": "已知要素的省级建议，不是最终处罚结论",
            "observed_band_indices": sorted(possible),
            "unknown_conditions": list(dict.fromkeys(unknown)),
@@ -496,9 +499,11 @@ def _assess_with(lib: NormLibrary, law: Law, f: Facts) -> Assessment:
         notes.append("认错认罚'可以依法从宽'：从宽幅度由裁量模型学习，规范层不改变处罚空间")
     used = {law.law_id, lib.mitigation_rules.get("basis", "").split("#")[0]} if "减轻" in effects else {law.law_id}
     stake = _stake_threshold(lib, f, law)
-    if stake["status"] in ("基准未生效", "法律衔接待核验", "基准待核验"):
+    if stake["status"] in ("基准未生效", "基准待核验"):
         notes.append(stake["reason"])
         notes.extend(stake["notes"])
+    elif stake.get("law_alignment"):
+        notes.extend(n for n in stake["notes"] if "推定沿用" in n)
     return Assessment(
         law_id=law.law_id, temporal_note="", tiers=tiers, directions=dirs,
         referral=_referral(lib, f), stake_threshold=stake,

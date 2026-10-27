@@ -16,6 +16,7 @@ const ModelsPage = lazy(() => import('@/features/models/models-page'))
 const ProvidersPage = lazy(() => import('@/features/models/providers-page'))
 const WorkflowsPage = lazy(() => import('@/features/workflows/workflows-page'))
 const WorkflowEditorPage = lazy(() => import('@/features/workflows/workflow-editor-page'))
+const DiscretionPage = lazy(() => import('@/features/discretion/discretion-page'))
 const AdminPage = lazy(() => import('@/features/admin/admin-page'))
 const NotFound = lazy(() => import('@/features/misc/not-found'))
 const LoginPage = lazy(() => import('@/features/auth/login-page'))
@@ -45,6 +46,7 @@ export const router = createBrowserRouter([
       { path: 'providers', element: page(<ProvidersPage />) },
       { path: 'workflows', element: page(<WorkflowsPage />) },
       { path: 'workflows/:id/edit', element: page(<WorkflowEditorPage />) },
+      { path: 'discretion', element: page(<DiscretionPage />) },
       { path: 'admin', element: <RequireAdmin>{page(<AdminPage />)}</RequireAdmin> },
       { path: '*', element: page(<NotFound />) },
     ],

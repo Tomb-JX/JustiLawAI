@@ -15,7 +15,7 @@ from . import config
 from .auth import AUTH_ENABLED
 from .model_gateway.gateway import provider_store
 from .resp import err
-from .routers import chat, conversations, datasets, files, misc, models, workflows
+from .routers import chat, conversations, datasets, discretion, files, misc, models, workflows
 from .seed import seed
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -52,7 +52,7 @@ async def unhandled_error(_: Request, exc: Exception):
     return JSONResponse(err(50000, f"服务器内部错误：{exc}"), status_code=500)
 
 
-for r in (models, chat, conversations, datasets, files, workflows, misc):
+for r in (models, chat, conversations, datasets, files, workflows, misc, discretion):
     app.include_router(r.router, prefix="/api/v1")
 
 
