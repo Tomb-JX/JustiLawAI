@@ -126,6 +126,25 @@ def run(root: Path, out: Path, providers: dict, names: tuple[str, ...], *, worke
     return stats
 
 
+def export_passes(root: Path, out: Path, names: tuple[str, str]) -> dict:
+    """Write each model's answers as a review4 pass (pass1 = first provider, pass2 = second),
+    so `review4.py merge` and the adjudication flow run unchanged on model drafts."""
+    counts = {}
+    for pass_name, name in zip(("pass1", "pass2"), names):
+        (root / pass_name).mkdir(exist_ok=False)
+        n = 0
+        for label in sorted((out / "labels").glob(f"*-{name}.json")):
+            row = json.loads(label.read_text("utf-8"))
+            (root / pass_name / f"{row['id']}.json").write_text(
+                json.dumps(row["answer"], ensure_ascii=False, indent=1), "utf-8")
+            n += 1
+        counts[pass_name] = {"provider": name, "answers": n}
+    (root / "PASSES.json").write_text(json.dumps({"source": str(out), "prompt_version": PROMPT_VERSION,
+                                                  "nature": "model_draft_double_blind", **counts},
+                                                 ensure_ascii=False, indent=1) + "\n", "utf-8")
+    return counts
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--root", type=Path, required=True, help="review4 directory with tasks/ and GUIDE-ADDENDUM.txt")
@@ -139,6 +158,8 @@ def main() -> None:
     ap.add_argument("--max-calls", type=int, default=800)
     ap.add_argument("--max-tokens", type=int, default=16000)
     ap.add_argument("--execute", action="store_true")
+    ap.add_argument("--export-passes", action="store_true",
+                    help="after the run, write answers into ROOT/pass1 and ROOT/pass2 for review4 merge")
     args = ap.parse_args()
     providers, _, _ = load_config()
     for spec in args.alias:
@@ -151,6 +172,8 @@ def main() -> None:
                          cap=args.cap, max_calls=args.max_calls, max_tokens=args.max_tokens,
                          ids=set(args.ids.read_text("utf-8").split()) if args.ids else None,
                          execute=args.execute, addendum=args.addendum), ensure_ascii=False))
+    if args.export_passes:
+        print(json.dumps(export_passes(args.root, args.out, tuple(args.providers.split(",")[:2])), ensure_ascii=False))
 
 
 if __name__ == "__main__":
