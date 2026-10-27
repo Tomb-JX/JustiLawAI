@@ -120,8 +120,15 @@ def test_jiangsu_below_min_cites_exemption():
 
 @pytest.mark.parametrize("kw, bands", [
     ({"personal_stake": {"min": 300, "max": 300}}, ["情节较轻"]),
-    # 第 121 条"一场赌资……或者个人赌资……"：个人 300（较轻），一场 1500（一般）→ 取较高档
-    ({"personal_stake": {"min": 300, "max": 300}, "onsite_stake_total": {"min": 1500, "max": 1500}}, ["一般情节"]),
+    # 个人赌资查明时只按个人定档（combine: personal_first）：个人 300（较轻），一场 1500 不再抬档
+    ({"personal_stake": {"min": 300, "max": 300}, "onsite_stake_total": {"min": 1500, "max": 1500}}, ["情节较轻"]),
+    # 本人 400、整场 11000：按个人定为较轻，不因他人赌资升至较重
+    ({"personal_stake": {"min": 400, "max": 400}, "onsite_stake_total": {"min": 11000, "max": 11000}}, ["情节较轻"]),
+    # 一场赌资达到 500 元起罚线、个人 100 未达第一档 → 托底第一档
+    ({"personal_stake": {"min": 100, "max": 100}, "onsite_stake_total": {"min": 600, "max": 600}}, ["情节较轻"]),
+    # 个人不明 → 按一场赌资门槛（河北专设，不用人均）
+    ({"onsite_stake_total": {"min": 1226, "max": 1226}, "participant_count": 4}, ["一般情节"]),
+    ({"personal_stake": {"min": 100, "max": 100}}, ["未达起罚标准"]),
     ({"personal_stake": {"min": 100, "max": 100}, "venue_type": "公共场所"}, ["情节较重"]),
     ({"personal_stake": {"min": 300, "max": None}}, ["情节较轻", "一般情节", "情节较重"]),   # "300 元以上"开口
 ])
@@ -187,8 +194,10 @@ def test_unknown_aggravator_is_not_treated_as_negative():
 def test_elevation_without_stake_does_not_claim_stake_threshold_reached():
     r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
                            behavior_type="参与赌博", region="320582", civil_servant=True)).stake_threshold
-    assert r["bands"] == ["第三档"]
+    # 第七十条以"赌资较大"为前提：赌资不明时升档结果不确定，未达则不予处罚
+    assert r["bands"] == ["未达起罚标准", "第三档"]
     assert r["status"] == "明确情节升档、赌资门槛未知"
+    assert any("未达则不予处罚" in n for n in r["notes"])
     assert "personal_or_per_capita" in r["unknown_conditions"]
 
 
@@ -208,12 +217,26 @@ def test_missing_decision_date_marks_provisional_temporal_scope():
     assert any("未提供决定日期" in note for note in r["notes"])
 
 
-def test_missing_parallel_measure_keeps_unknown():
+def test_personal_known_makes_onsite_irrelevant_but_band_stays_advisory():
     r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), region="130102",
                            behavior_type="参与赌博", personal_stake=AmountRange(min=300, max=300))).stake_threshold
     assert r["bands"] == ["情节较轻"]
-    assert "onsite_stake_total" in r["unknown_conditions"]
+    assert "onsite_stake_total" not in r["unknown_conditions"]
+    assert any("按个人赌资定档" in n for n in r["notes"])
     assert r["final_band_determinable"] is False
+
+
+def test_hebei_online_without_stake_keeps_not_punishable_candidate():
+    r = nl.assess(nl.Facts(behavior_date=date(2023, 4, 26), decision_date=date(2023, 5, 1), region="130102",
+                           behavior_type="参与赌博", method="网络赌博")).stake_threshold
+    assert r["bands"] == ["未达起罚标准", "情节较重"]
+
+
+def test_provide_conditions_elevation_needs_no_stake_threshold():
+    # 为赌博提供条件以营利为前提，不以赌资较大为前提：升档条件照常确定档次
+    r = nl.assess(nl.Facts(behavior_date=date(2023, 4, 26), decision_date=date(2023, 5, 1), region="130102",
+                           behavior_type="为赌博提供条件", civil_servant=True)).stake_threshold
+    assert r["bands"] == ["情节较重"]
 
 
 def test_category_union_is_exact_not_interval_envelope():

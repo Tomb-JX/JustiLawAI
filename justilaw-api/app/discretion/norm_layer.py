@@ -383,7 +383,12 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
     has_signal = measure_found = False
     if f.decision_date is None:
         notes.append("未提供决定日期，省级基准时间判断暂以行为日期代替")
-    for m in rule["measures"]:
+    measures = rule["measures"]
+    if rule.get("combine") == "personal_first" and _measure_interval(f, "personal_stake") is not None:
+        # 个人赌资查明时只按个人定档；其余计量（一场赌资）仅经 entry_floor 判断是否达到起罚线
+        measures = [m for m in measures if m["field"] == "personal_stake"]
+        notes.append(rule.get("combine_note") or "个人赌资已查明，按个人赌资定档")
+    for m in measures:
         got = _measure_interval(f, m["field"])
         if got is None:
             unknown.append(m["field"])
@@ -405,12 +410,26 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
                                          _band_index(b, m["lower_bounds"]) + 1))
         possible = {max(previous, current) for previous in possible for current in measure_possible}
         used.append(m.get("label") or how)
+    floor = rule.get("entry_floor")
+    if floor and 0 in possible:
+        got = _measure_interval(f, floor["field"])
+        if got is not None and got[0][1] >= floor["min"]:
+            lifted = {max(k, floor["to"]) for k in possible}
+            possible = lifted if got[0][0] >= floor["min"] else possible | lifted
+            measure_found = has_signal = True
+            used.append(floor["text"])
     amount_possible = set(possible)
     elevated = False
     for e in rule.get("elevate") or []:
         hit = _flag(f, e["when"])
         if hit is True:
-            possible = {max(k, e["to"]) for k in possible}
+            if f.behavior_type == "参与赌博" and not measure_found:
+                # 第七十条以"赌资较大"为参与赌博的处罚前提：赌资不明时，未达则不予处罚，达到才按升档条件定档
+                possible = possible | {e["to"]}
+                notes.append(f"赌资是否达到起罚标准未知：未达则不予处罚；达到则依“{e['text']}”定为"
+                             f"{bands['names'][e['to'] - 1]}")
+            else:
+                possible = {max(k, e["to"]) for k in possible}
             elevated = True
             has_signal = True
             used.append(e["text"])

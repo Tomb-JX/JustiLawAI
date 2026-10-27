@@ -60,6 +60,14 @@ rules:
     measures:
       - {field: personal_stake, lower_bounds: [200, 500, 1000], label: 个人赌资}
       - {field: onsite_stake_total, lower_bounds: [500, 1000, 2000], label: 一场赌资（以现场查获赌资合计近似）}
+    # 计量取舍（引擎 2026-10-28 裁定，依据与检验见 docs/05-research/2026-10-28-rule-chain-validation.md）：
+    # 第 121 条"一场赌资……或者个人赌资……"字面取高会让本人 400 元、整场 11000 元的参赌者升至情节较重；
+    # 治安管理处罚法第七十条以本人"赌资较大"为前提、第五条过罚相当，公通字〔2005〕30号第六条以个人投注为准。
+    # 故个人赌资查明 → 只按个人定档；个人不明 → 按一场赌资门槛（河北专设，不再用人均）；
+    # 一场赌资达到 500 元起罚线而个人量不到第一档 → 托底第一档。
+    combine: personal_first
+    combine_note: 个人赌资已查明，按个人赌资定档；一场赌资仅用于判断是否达到起罚线（第121条、治安管理处罚法第五条、公通字〔2005〕30号第六条）
+    entry_floor: {field: onsite_stake_total, min: 500, to: 1, text: 一场赌资达到起罚线（500元），个人赌资未达第一档时按第一档}
     below_min: null               # 河北未规定未达起罚标准的处理，按"赌资较大"未达到
     elevate:
       - {when: civil_servant, to: 3, text: 国家工作人员参与赌博的}
