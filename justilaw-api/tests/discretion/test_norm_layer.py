@@ -70,6 +70,12 @@ def test_missing_behavior_date_rejected():
         nl.assess(nl.Facts(behavior_type="参与赌博"))
 
 
+def test_decision_before_behavior_rejected():
+    with pytest.raises(ValueError, match="早于违法行为日期"):
+        nl.assess(nl.Facts(behavior_date=date(2025, 6, 2), decision_date=date(2025, 6, 1),
+                           behavior_type="参与赌博"))
+
+
 def test_merge_detention_cap():
     lib = load()
     assert nl.merge_detention([15, 10], lib.law("psal-2025")) == 20
@@ -95,7 +101,7 @@ def _prov(region, **kw):
     ({"method": "网络赌博", "personal_stake": {"min": 1000, "max": 1000}}, "达到赌资较大", ["第三档"]),
     # 家中麻将 300 元：若属聚众赌博为第一档，否则未达 500 元起罚标准 → 三值"可能达到"
     ({"method": "麻将", "personal_stake": {"min": 300, "max": 300}}, "可能达到", ["未达起罚标准", "第一档"]),
-    ({"method": "麻将", "personal_stake": {"min": 50, "max": 50}}, "未达到赌资较大", ["未达起罚标准"]),
+    ({"method": "麻将", "personal_stake": {"min": 50, "max": 50}}, "已知赌资未达、其他条件待核", ["未达起罚标准"]),
     # 个人赌资查不清：现场 2000 元 ÷ 4 人 = 人均 500 元
     ({"method": "赌博机", "onsite_stake_total": {"min": 2000, "max": 2000}, "participant_count": 4},
      "达到赌资较大", ["第二档"]),
@@ -128,13 +134,122 @@ def test_provincial_note_when_new_law_applies():
     a = nl.assess(nl.Facts(behavior_date=date(2026, 3, 1), behavior_type="参与赌博", region="320582",
                            method="网络赌博", personal_stake=AmountRange(min=300, max=300)))
     assert a.law_id == "psal-2025"
-    assert any("数额衔接待法律组核验" in n for n in a.stake_threshold["notes"])
+    assert a.stake_threshold["status"] == "法律衔接待核验"
+    assert a.stake_threshold["bands"] == []
+    assert a.stake_threshold["hard_filter_allowed"] is False
+    assert any("数额衔接待核验" in n for n in a.stake_threshold["notes"])
+    assert any("衔接未核验" in n for n in a.needs_review)
 
 
 def test_jiangsu_provide_conditions_bands():
     r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), behavior_type="为赌博提供条件", region="320582",
                            commission=AmountRange(min=300, max=300), times=3)).stake_threshold
-    assert r["status"] == "档次确定" and r["bands"] == ["第三档"]   # 获利 300（第二档）与 3 次（第三档）取较高
+    assert r["status"] == "已知要素档次确定" and r["bands"] == ["第三档"]   # 获利 300（第二档）与 3 次（第三档）取较高
+
+
+@pytest.mark.parametrize("region, behavior_date", [
+    ("320582", date(2018, 6, 1)),  # 苏公规〔2019〕1号尚未生效
+    ("130102", date(2020, 6, 1)),  # 河北 2021 修订版尚未生效
+])
+def test_provincial_rule_before_effective_date_abstains(region, behavior_date):
+    a = nl.assess(nl.Facts(behavior_date=behavior_date, decision_date=behavior_date,
+                           behavior_type="参与赌博", region=region,
+                           personal_stake=AmountRange(min=600, max=600)))
+    r = a.stake_threshold
+    assert r["status"] == "基准未生效" and r["applicability"] == "unavailable"
+    assert r["bands"] == r["band_penalty"] == []
+    assert r["hard_filter_allowed"] is False
+    assert a.tiers  # 国家法定空间仍可单独计算
+
+
+def test_provincial_boundary_date_applies_but_never_hard_filters():
+    r = nl.assess(nl.Facts(behavior_date=date(2019, 2, 2), decision_date=date(2019, 2, 3),
+                           behavior_type="参与赌博", region="320582", method="网络赌博",
+                           personal_stake=AmountRange(min=300, max=300))).stake_threshold
+    assert r["applicability"] == "applicable" and r["bands"] == ["第一档"]
+    assert r["final_band_determinable"] is False and r["hard_filter_allowed"] is False
+
+
+def test_unknown_aggravator_is_not_treated_as_negative():
+    base = dict(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
+                behavior_type="参与赌博", region="320582", method="网络赌博",
+                personal_stake=AmountRange(min=300, max=300))
+    unknown = nl.assess(nl.Facts(**base)).stake_threshold
+    false = nl.assess(nl.Facts(**base, civil_servant=False)).stake_threshold
+    true = nl.assess(nl.Facts(**base, civil_servant=True)).stake_threshold
+    assert unknown["bands"] == false["bands"] == ["第一档"]  # 已知金额投影相同
+    assert "civil_servant" in unknown["unknown_conditions"]
+    assert "civil_servant" not in false["unknown_conditions"]
+    assert true["bands"] == ["第三档"]
+    assert all(r["hard_filter_allowed"] is False for r in (unknown, false, true))
+
+
+def test_elevation_without_stake_does_not_claim_stake_threshold_reached():
+    r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
+                           behavior_type="参与赌博", region="320582", civil_servant=True)).stake_threshold
+    assert r["bands"] == ["第三档"]
+    assert r["status"] == "明确情节升档、赌资门槛未知"
+    assert "personal_or_per_capita" in r["unknown_conditions"]
+
+
+def test_elevation_with_low_stake_does_not_claim_amount_threshold_reached():
+    r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
+                           behavior_type="参与赌博", region="320582", method="麻将",
+                           personal_stake=AmountRange(min=50, max=50), civil_servant=True)).stake_threshold
+    assert r["bands"] == ["第三档"]
+    assert r["status"] == "情节升档、已知赌资未达数额门槛"
+
+
+def test_missing_decision_date_marks_provisional_temporal_scope():
+    r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), behavior_type="参与赌博",
+                           region="320582", method="网络赌博",
+                           personal_stake=AmountRange(min=300, max=300))).stake_threshold
+    assert r["applicability"] == "provisional"
+    assert any("未提供决定日期" in note for note in r["notes"])
+
+
+def test_missing_parallel_measure_keeps_unknown():
+    r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), region="130102",
+                           behavior_type="参与赌博", personal_stake=AmountRange(min=300, max=300))).stake_threshold
+    assert r["bands"] == ["情节较轻"]
+    assert "onsite_stake_total" in r["unknown_conditions"]
+    assert r["final_band_determinable"] is False
+
+
+def test_category_union_is_exact_not_interval_envelope():
+    # 1200 元：江苏特殊方式第三档、其他方式第一档；第二档不在这两条分支中。
+    r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), region="320582",
+                           behavior_type="参与赌博", method="麻将",
+                           personal_stake=AmountRange(min=1200, max=1200))).stake_threshold
+    assert r["observed_band_indices"] == [1, 3]
+    assert r["bands"] == ["第一档", "第三档"]
+    assert "赌博方式的省级法定类别" in r["unknown_conditions"]
+
+
+def test_provincial_output_contract_never_claims_final_decision():
+    cases = [
+        nl.Facts(behavior_date=date(2018, 1, 1), decision_date=date(2018, 1, 2),
+                 behavior_type="参与赌博", region="320582", personal_stake=AmountRange(min=300, max=300)),
+        nl.Facts(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
+                 behavior_type="参与赌博", region="320582", method="麻将",
+                 personal_stake=AmountRange(min=1200, max=1200)),
+        nl.Facts(behavior_date=date(2026, 6, 1), decision_date=date(2026, 6, 2),
+                 behavior_type="参与赌博", region="320582", method="网络赌博",
+                 personal_stake=AmountRange(min=300, max=300)),
+        nl.Facts(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
+                 behavior_type="参与赌博", region="330100"),
+    ]
+    for case in cases:
+        a = nl.assess(case)
+        r = a.stake_threshold
+        assert r["hard_filter_allowed"] is False
+        assert r["final_band_determinable"] is False
+        assert a.exhaustive_for_case is False
+        assert len(r["bands"]) == len(r["observed_band_indices"])
+        if r["applicability"] == "unavailable":
+            assert r["bands"] == r["band_penalty"] == []
+        else:
+            assert all(0 <= k <= 3 for k in r["observed_band_indices"])
 
 
 @pytest.mark.parametrize("stake, status", [

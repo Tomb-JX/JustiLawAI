@@ -167,8 +167,12 @@ class Assessment:
     stake_threshold: dict = field(default_factory=dict)
     needs_review: list[str] = field(default_factory=list)
     basis_verified: bool = False
+    # tiers 逐档枚举按已知事实展开的选项；不表示某档已被事实证明。
+    option_scope: str = "各预设档次下按已知事实展开的法定选项"
+    exhaustive_for_case: bool = False
 
     def contains(self, tier: str, detention_days: int, fine: float) -> bool:
+        """仅检查所选档次内已列出的选项，不证明档次选择或个案事实已穷尽。"""
         return any(o.contains(detention_days, fine) for o in self.tiers[tier].options)
 
 
@@ -329,56 +333,121 @@ def _flag(f: Facts, key: str) -> bool | None:
             "prior_within_year": prior}.get(key)
 
 
+def _date_value(value) -> date | None:
+    if value is None or isinstance(value, date):
+        return value
+    return date.fromisoformat(str(value))
+
+
+def _stake_unavailable(status: str, reason: str, *, basis: str | None = None,
+                       verified: bool = False, notes: list[str] | None = None) -> dict:
+    """无可用省级分档时保持同形返回，避免调用方误用旧档位。"""
+    return {"status": status, "applicability": "unavailable", "reason": reason,
+            "bands": [], "band_penalty": [], "measures_used": [],
+            "basis": basis, "verified": verified, "notes": notes or [],
+            "scope": "已知要素的省级建议，不是最终处罚结论",
+            "observed_band_indices": [],
+            "unknown_conditions": [], "final_band_determinable": False,
+            "hard_filter_allowed": False}
+
+
 def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict:
     if f.behavior_type not in ("参与赌博", "为赌博提供条件"):
-        return {"status": "不适用"}
+        return _stake_unavailable("不适用", "行为类型不属于已建模的省级分档")
     prov = lib.provinces.get((f.region or "")[:2] + "0000")
     rules = (prov or {}).get("rules") or {}
     if f.behavior_type not in rules:
-        return {"status": "门槛未知", "reason": "目标省份裁量基准未录入或未核验"}
+        return _stake_unavailable("门槛未知", "目标省份裁量基准未录入或未核验")
     rule, bands = rules[f.behavior_type], prov["bands"]
     doc = (prov.get("documents") or [{}])[0]
-    notes, used, lo, hi = [], [], None, None
+    basis = doc.get("number") or doc.get("title")
+    verified = (doc.get("verification") or {}).get("status") == "已核验"
+    decision = f.decision_date or f.behavior_date
+    start, end = _date_value(doc.get("effective_from")), _date_value(doc.get("effective_to"))
+    if ((start and f.behavior_date and f.behavior_date < start)
+            or (end and decision and decision > end)):
+        return _stake_unavailable("基准未生效", "省级基准不适用于本案行为或决定日期",
+                                  basis=basis, verified=verified)
+    if decision and decision >= date(2026, 1, 1) and doc.get("new_law_alignment") == "未更新-旧法数额":
+        note = f"省级基准依据 {doc.get('law_basis')} 制定；本案决定在新法施行后，数额衔接待核验"
+        return _stake_unavailable("法律衔接待核验", "省级旧法基准与新法衔接未核验",
+                                  basis=basis, verified=verified, notes=[note])
+    if law is not None and doc.get("law_basis") and doc["law_basis"] != law.law_id:
+        note = f"省级基准依据 {doc['law_basis']} 制定，本案适用 {law.law_id}，数额衔接待核验"
+        return _stake_unavailable("法律衔接待核验", "省级基准所依法律与本案适用法律不一致",
+                                  basis=basis, verified=verified, notes=[note])
+    if not verified:
+        return _stake_unavailable("基准待核验", "省级基准尚未核验", basis=basis)
+    notes, used, unknown = [], [], []
+    possible = {0}                  # 已知计量下可能的档次索引；0 = 未达第一档
+    has_signal = measure_found = False
+    if f.decision_date is None:
+        notes.append("未提供决定日期，省级基准时间判断暂以行为日期代替")
     for m in rule["measures"]:
         got = _measure_interval(f, m["field"])
         if got is None:
+            unknown.append(m["field"])
             continue
+        has_signal = True
+        measure_found = True
         (a, b), how = got
         if "categories" in m:
             cats = m["categories"]
             options = [c for c in cats if f.method in (c.get("methods") or [])] or cats
             if len(options) > 1:
+                unknown.append("赌博方式的省级法定类别")
                 notes.append("赌博方式归类不能从要素确定（如是否属聚众、赌场赌博），按"
                              + "、".join(c["id"] for c in options) + "分别计算，档次取并集")
-            pairs = [(_band_index(a, c["lower_bounds"]), _band_index(b, c["lower_bounds"])) for c in options]
-            m_lo, m_hi = min(p[0] for p in pairs), max(p[1] for p in pairs)
+            measure_possible = {k for c in options for k in range(
+                _band_index(a, c["lower_bounds"]), _band_index(b, c["lower_bounds"]) + 1)}
         else:
-            m_lo, m_hi = _band_index(a, m["lower_bounds"]), _band_index(b, m["lower_bounds"])
-        lo, hi = max(lo or 0, m_lo), max(hi or 0, m_hi)        # 多个计量是"或"的关系：取较高档
+            measure_possible = set(range(_band_index(a, m["lower_bounds"]),
+                                         _band_index(b, m["lower_bounds"]) + 1))
+        possible = {max(previous, current) for previous in possible for current in measure_possible}
         used.append(m.get("label") or how)
+    amount_possible = set(possible)
+    elevated = False
     for e in rule.get("elevate") or []:
-        if _flag(f, e["when"]) is True:
-            lo, hi = max(lo or 0, e["to"]), max(hi or 0, e["to"])
+        hit = _flag(f, e["when"])
+        if hit is True:
+            possible = {max(k, e["to"]) for k in possible}
+            elevated = True
+            has_signal = True
             used.append(e["text"])
+        elif hit is None:
+            unknown.append(e["when"])
     for e in rule.get("floor_hint") or []:
-        if _flag(f, e["when"]) is True:
+        hit = _flag(f, e["when"])
+        if hit is True:
             notes.append(f"可能至少落入{bands['names'][e['to'] - 1]}：{e['text']}")
-    if lo is None:
-        return {"status": "无法判断", "reason": "缺少分档所需的数额或情节", "basis": doc.get("number") or doc.get("title")}
-    names = (["未达起罚标准"] if lo == 0 else []) + [bands["names"][k - 1] for k in range(max(lo, 1), hi + 1)]
-    out = {"bands": names, "band_penalty": [bands["penalty"][k - 1] for k in range(max(lo, 1), hi + 1)],
-           "measures_used": used, "basis": doc.get("number") or doc.get("title"),
-           "verified": (doc.get("verification") or {}).get("status") == "已核验"}
+        elif hit is None:
+            unknown.append(e["when"])
+    if not has_signal:
+        out = _stake_unavailable("无法判断", "缺少分档所需的数额或情节", basis=basis, verified=verified)
+        out["unknown_conditions"] = list(dict.fromkeys(unknown))
+        out["notes"] = notes
+        return out
+    lo, hi = min(possible), max(possible)
+    names = ["未达起罚标准" if k == 0 else bands["names"][k - 1] for k in sorted(possible)]
+    out = {"bands": names, "band_penalty": [bands["penalty"][k - 1] for k in sorted(possible) if k > 0],
+           "measures_used": used, "basis": basis, "verified": verified,
+           "applicability": "applicable" if f.decision_date is not None else "provisional",
+           "scope": "已知要素的省级建议，不是最终处罚结论",
+           "observed_band_indices": sorted(possible),
+           "unknown_conditions": list(dict.fromkeys(unknown)),
+           "final_band_determinable": False, "hard_filter_allowed": False}
     if f.behavior_type == "参与赌博":
-        out["status"] = "未达到赌资较大" if hi == 0 else ("达到赌资较大" if lo >= 1 else "可能达到")
+        out["status"] = ("明确情节升档、赌资门槛未知" if not measure_found
+                         else "情节升档、已知赌资未达数额门槛" if elevated and max(amount_possible) == 0
+                         else "已知赌资未达、其他条件待核" if hi == 0 and unknown
+                         else "未达到赌资较大" if hi == 0
+                         else "达到赌资较大" if min(amount_possible) >= 1 else "可能达到")
         if lo == 0 and rule.get("below_min"):
             notes.append(rule["below_min"])
     else:
-        out["status"] = "未达第一档" if hi == 0 else ("档次确定" if lo == hi else "档次待定")
+        out["status"] = "未达第一档" if hi == 0 else ("已知要素档次确定" if lo == hi else "已知要素档次待定")
     if any("近似" in u for u in used):
         notes.append("'一场赌资'以现场查获赌资合计近似，两者口径不完全相同")
-    if law is not None and doc.get("law_basis") and doc["law_basis"] != law.law_id:
-        notes.append(f"省级基准依据 {doc['law_basis']} 制定，本案适用 {law.law_id}，数额衔接待法律组核验")
     out["notes"] = notes
     return out
 
@@ -404,9 +473,13 @@ def _assess_with(lib: NormLibrary, law: Law, f: Facts) -> Assessment:
     if any(d.effect == "从宽" for d in dirs):
         notes.append("认错认罚'可以依法从宽'：从宽幅度由裁量模型学习，规范层不改变处罚空间")
     used = {law.law_id, lib.mitigation_rules.get("basis", "").split("#")[0]} if "减轻" in effects else {law.law_id}
+    stake = _stake_threshold(lib, f, law)
+    if stake["status"] in ("基准未生效", "法律衔接待核验", "基准待核验"):
+        notes.append(stake["reason"])
+        notes.extend(stake["notes"])
     return Assessment(
         law_id=law.law_id, temporal_note="", tiers=tiers, directions=dirs,
-        referral=_referral(lib, f), stake_threshold=_stake_threshold(lib, f, law),
+        referral=_referral(lib, f), stake_threshold=stake,
         needs_review=list(dict.fromkeys(notes)),
         basis_verified=all(lib.is_verified(d) for d in used if d),
     )
@@ -432,6 +505,8 @@ def assess(f: Facts, lib: NormLibrary | None = None) -> Assessment:
     if f.behavior_date is None:
         raise ValueError("缺少违法行为发生日期，无法确定适用法律")
     decision = f.decision_date or f.behavior_date
+    if decision < f.behavior_date:
+        raise ValueError("处罚决定日期早于违法行为日期，无法确定适用法律")
     old, new = lib.law_in_force(f.behavior_date), lib.law_in_force(decision)
     if old is None or new is None:
         raise ValueError("行为日期或决定日期不在规范库覆盖的施行期间内")
