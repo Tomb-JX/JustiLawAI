@@ -48,6 +48,7 @@ FIELD_BINDING: dict[str, BindingType] = {
     "persons.relatives_only": BindingType.SHARED,        # 参与者是否均为亲属
     "venue.venue_type": BindingType.SHARED,              # 赌博场所类型
     "conduct.method": BindingType.SHARED,                # 赌博方式（麻将/扑克等）
+    "conduct.gambling_form": BindingType.SHARED,         # 本场赌博组织形式（聚众/赌场/其他，schema 1.2.0）
 
     # ── 个人级（target）：因人而异 ──
     "conduct.behavior_type": BindingType.TARGET,         # 本人行为类型

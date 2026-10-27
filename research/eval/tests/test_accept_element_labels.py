@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from accept_element_labels import (FIELD_INFO, classify_divergences,  # noqa: E402
+from accept_element_labels import (FIELD_INFO, SCHEMA_VERSION, classify_divergences,  # noqa: E402
                                     compare_predictions, evaluate)
 
 
@@ -17,7 +17,7 @@ def row(i):
     return {"id": f"T-{i}", "input": {"target": "甲", "facts_text": full,
             "meta_text": "", "text_full": full,
             "text_orig_sha256": hashlib.sha256(full.encode()).hexdigest()},
-            "elements": elements, "element_schema_version": "1.1.0",
+            "elements": elements, "element_schema_version": SCHEMA_VERSION,
             "element_prompt_version": "element-v1",
             "label_provenance": "model-adjudicated", "human_review": False}
 
