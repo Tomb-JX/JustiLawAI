@@ -19,7 +19,7 @@ from typing import Generic, TypeVar
 
 from pydantic import BaseModel, Field, model_validator
 
-SCHEMA_VERSION = "1.1.0"  # 1.1.0：金额允许无上界；营利目的改为只记原文认定与本人获利事实（collab-log 2026-10-17）
+SCHEMA_VERSION = "1.2.0"  # 1.2.0：新增 conduct.gambling_form（江苏基准按聚众/赌场与其他赌博活动分两类门槛，collab-log 2026-10-28）； 1.1.0：金额允许无上界；营利目的改为只记原文认定与本人获利事实（collab-log 2026-10-17）
 
 T = TypeVar("T")
 
@@ -93,6 +93,12 @@ class BehaviorType(str, Enum):
     OTHER = "其他"
 
 
+class GamblingForm(str, Enum):
+    GATHERING = "聚众赌博"                # 有人组织、召集他人赌博
+    CASINO = "赌场赌博"                   # 专门开设的赌场或以赌博为经营的场所
+    OTHER = "其他"                        # 无组织者的自发赌博（如亲友邻里间）
+
+
 class GamblingMethod(str, Enum):
     MAHJONG = "麻将"
     POKER = "扑克"
@@ -141,6 +147,10 @@ class Conduct(BaseModel):
                     "优先级：组织者>抽头者>提供条件者>参赌者；望风者和放贷者独立标注")
     method: Extracted[GamblingMethod] = Field(default_factory=Extracted,
         description="赌博方式。'打牌'默认记为扑克；同一次查处涉及多种方式时选本人实际参与的方式")
+    gambling_form: Extracted[GamblingForm] = Field(default_factory=Extracted,
+        description="本人参与的这场赌博的组织形式（不是本人的行为类型）。原文写'聚众赌博'，或写明有人组织、召集他人赌博、"
+                    "抽头渔利，记聚众赌博；在专门开设的赌场或以赌博为经营的场所，记赌场赌博；原文完整叙述赌博经过且没有"
+                    "组织、召集、抽头、开设赌场的任何表述（如亲友邻里自发打牌），可推断为其他；拿不准记未提及")
     times: Extracted[int] = Field(default_factory=Extracted,
         description="赌博或提供条件的次数（场次）。'多次/数次'等无法确定确切次数时值记 null、状态推断")
     duration_days: Extracted[float] = Field(default_factory=Extracted, description="持续时间（天），如'持续三个月'记 90")

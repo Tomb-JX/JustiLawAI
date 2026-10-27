@@ -17,7 +17,7 @@ def blank():
 
 def test_schema_tracks_ontology():
     schema = teacher_output_schema()
-    assert len(FIELD_INFO) == len(list(iter_fields())) == 36
+    assert len(FIELD_INFO) == len(list(iter_fields())) == 37
     assert len(schema["properties"]) == 7
     assert len(teacher_output_schema(located=True)["properties"]["conduct"]
                ["properties"]["role"]["properties"]["evidence"]["items"]["required"]) == 3

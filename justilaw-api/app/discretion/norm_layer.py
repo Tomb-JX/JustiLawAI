@@ -49,6 +49,7 @@ class Facts:
     abroad_organized_count: int | None = None
     # 省级裁量基准分档用（2026-10-17 江苏、河北录入后加）
     method: str | None = None
+    gambling_form: str | None = None
     venue_type: str | None = None
     civil_servant: bool | None = None
     minors_involved: bool | None = None
@@ -75,7 +76,7 @@ class Facts:
             commission=v(a.commission), cumulative_stake=v(a.cumulative_stake),
             participant_count=v(p.participant_count), cumulative_participants=v(p.cumulative_participants),
             abroad_organized_count=v(p.abroad_organized_count),
-            method=v(e.conduct.method), venue_type=v(e.venue.venue_type), civil_servant=v(p.civil_servant),
+            method=v(e.conduct.method), gambling_form=v(e.conduct.gambling_form), venue_type=v(e.venue.venue_type), civil_servant=v(p.civil_servant),
             minors_involved=v(p.minors_involved), profit_purpose=v(e.intent.profit_purpose), times=v(e.conduct.times),
         )
 
@@ -398,7 +399,9 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
         (a, b), how = got
         if "categories" in m:
             cats = m["categories"]
-            options = [c for c in cats if f.method in (c.get("methods") or [])] or cats
+            # 方式（网络、赌博机、私彩等）可直接归类；其余看本场赌博的组织形式（聚众、赌场 / 其他）
+            options = ([c for c in cats if f.method in (c.get("methods") or [])]
+                       or [c for c in cats if f.gambling_form in (c.get("forms") or [])] or cats)
             if len(options) > 1:
                 unknown.append("赌博方式的省级法定类别")
                 notes.append("赌博方式归类不能从要素确定（如是否属聚众、赌场赌博），按"

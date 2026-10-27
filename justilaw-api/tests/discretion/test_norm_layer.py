@@ -298,3 +298,23 @@ def test_every_option_respects_statutory_maximum():
             for o in tr.options:
                 assert o.detention is None or o.detention[1] <= t.detention[1]
                 assert o.fine is None or o.fine[1] <= t.fine[1]
+
+
+@pytest.mark.parametrize("form, bands", [
+    ("聚众赌博", ["第二档"]),     # 聚众类：500–1000 元为第二档（5 日以下拘留）
+    ("赌场赌博", ["第二档"]),
+    ("其他", ["第一档"]),         # 其他赌博活动：500–2000 元为第一档（罚款）
+    (None, ["第一档", "第二档"]),  # 组织形式不明：两类门槛取并集
+])
+def test_jiangsu_category_by_gambling_form(form, bands):
+    r = nl.assess(nl.Facts(behavior_date=date(2023, 5, 1), decision_date=date(2023, 5, 10), region="320582",
+                           behavior_type="参与赌博", method="麻将", gambling_form=form,
+                           personal_stake=AmountRange(min=600, max=600))).stake_threshold
+    assert r["bands"] == bands
+
+
+def test_online_method_wins_over_form():
+    r = nl.assess(nl.Facts(behavior_date=date(2023, 5, 1), decision_date=date(2023, 5, 10), region="320582",
+                           behavior_type="参与赌博", method="网络赌博", gambling_form="其他",
+                           personal_stake=AmountRange(min=600, max=600))).stake_threshold
+    assert r["bands"] == ["第二档"]

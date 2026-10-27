@@ -171,6 +171,57 @@
           ],
           "additionalProperties": false
         },
+        "gambling_form": {
+          "type": "object",
+          "description": "本人参与的这场赌博的组织形式（不是本人的行为类型）。原文写'聚众赌博'，或写明有人组织、召集他人赌博、抽头渔利，记聚众赌博；在专门开设的赌场或以赌博为经营的场所，记赌场赌博；原文完整叙述赌博经过且没有组织、召集、抽头、开设赌场的任何表述（如亲友邻里自发打牌），可推断为其他；拿不准记未提及",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "明确",
+                "推断",
+                "未提及"
+              ]
+            },
+            "value": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "enum": [
+                    "聚众赌博",
+                    "赌场赌博",
+                    "其他"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "evidence": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "quote": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "quote"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "status",
+            "value",
+            "evidence"
+          ],
+          "additionalProperties": false
+        },
         "times": {
           "type": "object",
           "description": "赌博或提供条件的次数（场次）。'多次/数次'等无法确定确切次数时值记 null、状态推断",
@@ -316,6 +367,7 @@
         "behavior_type",
         "role",
         "method",
+        "gambling_form",
         "times",
         "duration_days",
         "cheating"
