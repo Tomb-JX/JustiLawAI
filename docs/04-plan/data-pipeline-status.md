@@ -1,6 +1,7 @@
 # 数据链路现状（2026-10-26 核对版）
 
-> 核对方式：逐项读取外置数据目录 `D:/02_Dev/Data/justilaw-research/`（lake catalog SQLite、REGISTRY.csv、delivery、unified_raw_refresh、s1_runs、coordination 看板）、main 与各 codex 分支的 git 记录、法宝作战手册 §11–§18。**所有数字为 2026-10-26 实测或引自当日协调看板**（`$DATA/coordination/CURRENT.md`，自动生成于 10-26 16:07，事件源 events.jsonl 163 条）。
+> **维护体系（2026-10-27 起）**：本文快变数字（湖底账/批次/净入库/成本余额）为 **as-of 快照**，运行时以看板指标表（`$DATA/coordination/CURRENT.md`）为准——变化先入板（metric/note 一行）、检查点（会话收尾/WP 完成/每日边界）再回写本文。规则见 `docs/04-plan/doc-maintenance-system.md`。
+> 核对方式：逐项读取外置数据目录 `D:/02_Dev/Data/justilaw-research/`（lake catalog SQLite、REGISTRY.csv、delivery、unified_raw_refresh、s1_runs、coordination 看板）、main 与各 codex 分支的 git 记录、法宝作战手册 §11–§18。**所有数字为 2026-10-26 实测或引自当日协调看板**（v2.3 起含 10-27 回写；`$DATA/coordination/CURRENT.md` 自动生成，事件源 events.jsonl）。
 > 本文取代 2026-10-16 版《数据链路阶段总结》（旧版全文见 git 历史，提交 aab696b 之前）；旧版数字全部失效，对照清单见 §9。
 > 范围：数据处理链路（L0–L5 与 S0–S4）。引擎模块（M0–M6）状态见协调分支 `PROJECT-PANORAMA-STATUS-2026-10-22.md`，本文只在"消费侧"一节引用其结论。
 > 配套：[数据链路全景 data-flow.md](../05-research/data-flow.md)（v0.2 状态刷新）· [法宝作战手册](./pkulaw-playbook.md) §11–§18 · [数据交付规格](../05-research/data-spec.md) · [协作记录](./collab-log.md)
@@ -162,6 +163,7 @@ r6 口径要点：输入为 web-r2（4,939→范围内 1,778）+ pkulaw merged-b
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
 | 2026-10-27 | v2.3 | 开工前对账刷新（新引擎会话）：§3 批次表补 3 批（P9 定向 3,112、常州手工 1,077、手工 r1 741）合计 **14,257 records/12,031 docs/19 批**（10-27 lake.db 实测，与 ml-review §2 一致）；§0.4 与 §6 补 P9 叙述式全量净入库 1,156 行（94.4%、~¥14.7、132 条 stage4 待充值）与现行基座 v3-clean 1,682 标注 | 宏观指引会话 |
+| 2026-10-27 | v2.4 | 挂文档维护体系横幅（`doc-maintenance-system.md` v1 立制）：本文快变数字=as-of 快照、运行时以看板指标表为准、变化先入板+检查点回写 | 宏观指引会话（负责人指示立制） |
 | 2026-10-26 | v2.2 | 按当晚 20:18 看板与 lake.db 实测回写：湖 8,436→**9,327 条/7,732 文书/16 批**（无锡手工 ZIP 两波 777 + recovered 1）；**手工 ZIP=批量主力通道、CDP=自动化兜底**定案入档；§6 新增 P3-P7 批（631 合格）与 **m4-facts-silver-1740-v2 统一开发训练包**（train 1,740/1,348 事件、valid 357 三套、test 40 封存），lake-text-v3-345 并入该包不再单独现行；L5 next-30 小批隔离状态与"X元起"硬闸误拒缺口登记；§7 加手工波密度行。旧口径"四批银标/345 现行/8,436 湖"作废 | 宏观指引会话（用户指正数字滞后） |
 | 2026-10-26 | v2.1 | 四支（engine/coordination/binding-fix/l5-quality）并入 main：§2 代码位置注记更新为"main 可复现 L5 管线"、§8 代码归并项关闭；记录 5 个 unify 冲突手工合并、gate-reports ~11 万行排除入库、E-05 缺口 normalize_date_range/normalize_count 补全、collect 67/eval 83/unify 286 测试全绿 | 宏观指引会话（用户指示） |
 | 2026-10-26 | v2 | 全文重写为 2026-10-26 核对版：数据湖/统一层/交付序列/L5 银标四批/密度定论/binding v1.1/阻塞清单/旧版过时点对照；登记重心裁定（法宝主线、网页线停维）。取代 10-16 v1.1 | 宏观指引会话（用户指示） |
