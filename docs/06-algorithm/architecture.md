@@ -34,7 +34,7 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 | B 法定空间 | 国家层罚则双纪元（2012 第七十条 / 2025 第八十二条）；时间效力；法定档次与修正情节展开；涉刑提示 | `app/discretion/norm_layer.py`（`assess`、`_statutory`、`_mitigated`、`_not_executed`、`_referral`）；`norms/national/` | 国家层 22 项逐字核对 | 减轻展开中"拘留或罚款"的减轻组合仍提示人工复核 |
 | C 基准定档 | 河北：个人优先、个人不明按一场、一场达起罚线托底第一档、升档条件下赌资不明给候选；江苏：两类方式门槛，`gambling_form` 判类；新法推定沿用 | `norm_layer._stake_threshold`；`decide.band_types`；`norms/provinces/130000.yaml`、`320000.yaml` | ADR-003（D-005）、ADR-004（D-006） | ① 河北升档给候选、江苏补字段，都未经新数据检验（Q-10）；② 只录了两省（Q-04）；③ 江苏低额按原文给"免予处罚"，与实务不符（C-03，Q-02） |
 | D 裁量：候选内选择 | 文本模型概率由调用方传入；**线上接口不接文本模型**，多候选时返回候选、不选 | `decide.decide(type_probabilities=…)`；研究侧 `research/eval/rule_chain/engine_v1_eval.py`（字符 1–3 元 TF-IDF + 类别平衡 LR，C=3） | ADR-003 | 线上多候选时无选择 |
-| D 裁量：档内数额 | 全国 v5 train、2026 年前决定，按处罚种类、事件加权的历史分布（例：罚款档 500 元占 47%），再按本案法定幅度过滤 | `decide._legal_distribution`；`data/band_quantities.json`（由 `research/eval/rule_chain/build_band_quantities.py` 生成） | ADR-005 | **与 ADR-001 不一致**：未按"省份 × 规则档位"条件化（Q-01）；"可以"减轻的选择未建模（Q-03） |
+| D 裁量：档内数额 | 全国 v5 train、2026 年前决定，按处罚种类、事件加权的历史分布（例：罚款档 500 元占 47%），再按本案法定幅度过滤 | `decide._legal_distribution`；`data/band_quantities.json`（由 `research/eval/rule_chain/build_band_quantities.py` 生成） | ADR-005 | 省份 × 种类、省份 × 规则档位都已检验，对未见机关无可迁移增益，维持全国分布（EXP-051）；"可以"减轻的选择未建模（Q-03） |
 | E 偏离 | 无 | — | — | Q-02 |
 | F 输出 | 种类、路由、候选、档内分布、依据、needs_review；前端「裁量建议」页 | `app/routers/discretion.py`；`justilaw-web/src/features/discretion/` | API 契约 §3.11 | 校准、共形区间、偏离预警、类案都未做（Q-07、Q-08） |
 
@@ -49,13 +49,14 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 
 ## 4. 目标架构（ADR-001）与下一步
 
-- **D 层以"省份 × 规则档位"为索引**：每个档位有自己的取值范围和子模型；先用分布，Q-01 通过后再考虑部分池化结构（省 → 机关，原设计专家 A 的思路）。
+- **D 层以档位为索引**：档位决定种类、取值范围和法定幅度过滤（已实现）。档内数额比"种类"更细的条件化（省份、规则档位细分）经 Q-01 检验，在未见机关上没有增益，暂不做；事后子群（拘留档天数、河北）待新数据。
 - **E 层单列**：C 层照原文输出，E 层给实务分布与偏离提示（Q-02）。
 - **F 层**：分布校准、按地域 × 档位的分组共形区间、偏离预警（Q-07）。
-- 优先级：Q-01 →（Q-02、Q-10 并行）→ Q-09 → Q-07。
+- 优先级：（Q-02、Q-10 并行）→ Q-09 → Q-07。Q-01 已关闭（EXP-051）。
 
 ## 变更日志
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-28 | v1.1 | Q-01 检验结果：档内维持全国分布；§2 D 层差距与 §4 优先级更新 | 引擎（规则链路） |
 | 2026-10-28 | v1 | 初版：按 main 上引擎第一版（`decide.py`、`norm_layer.py`、`routers/discretion.py`）写现行架构，并对照 ADR-001 列差距 | 引擎（规则链路） |
