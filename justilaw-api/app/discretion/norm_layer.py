@@ -469,6 +469,8 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
                          else "达到赌资较大" if min(amount_possible) >= 1 else "可能达到")
         if lo == 0 and rule.get("below_min"):
             notes.append(rule["below_min"])
+            if rule.get("below_min_review"):
+                notes.append(rule["below_min_review"])
     else:
         out["status"] = "未达第一档" if hi == 0 else ("已知要素档次确定" if lo == hi else "已知要素档次待定")
     if any("近似" in u for u in used):
@@ -504,6 +506,7 @@ def _assess_with(lib: NormLibrary, law: Law, f: Facts) -> Assessment:
         notes.extend(stake["notes"])
     elif stake.get("law_alignment"):
         notes.extend(n for n in stake["notes"] if "推定沿用" in n)
+    notes.extend(n for n in stake.get("notes") or [] if n.startswith("请核实"))   # 输入口径提示（如江苏低额赌资口径，Q-02）
     return Assessment(
         law_id=law.law_id, temporal_note="", tiers=tiers, directions=dirs,
         referral=_referral(lib, f), stake_threshold=stake,

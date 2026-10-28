@@ -117,6 +117,7 @@ def test_jiangsu_bands(kw, status, bands):
 def test_jiangsu_below_min_cites_exemption():
     r = _prov("320582", method="麻将", personal_stake={"min": 50, "max": 50})
     assert any("免予处罚" in n for n in r["notes"])
+    assert any(n.startswith("请核实赌资口径") for n in r["notes"])
 
 
 @pytest.mark.parametrize("kw, bands", [
@@ -327,3 +328,13 @@ def test_online_method_wins_over_form():
                            behavior_type="参与赌博", method="网络赌博", gambling_form="其他",
                            personal_stake=AmountRange(min=600, max=600))).stake_threshold
     assert r["bands"] == ["第二档"]
+
+
+def test_jiangsu_below_min_review_reaches_decision():
+    from app.discretion.schema import AmountRange
+    f = nl.Facts(region="320000", behavior_date=date(2023, 7, 6), decision_date=date(2023, 7, 7),
+              behavior_type="参与赌博", method="麻将", gambling_form="其他")
+    f.personal_stake = AmountRange(min=300, max=300)
+    d = decide(f)
+    assert d.penalty_type == "不予处罚"
+    assert any(n.startswith("请核实赌资口径") for n in d.notes)

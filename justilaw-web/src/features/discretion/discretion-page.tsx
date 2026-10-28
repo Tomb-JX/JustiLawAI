@@ -307,7 +307,9 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Result({ d }: { d: DiscretionDecision }) {
   const a = d.assessment
   const st = a.stake_threshold
-  const notes = [...new Set(d.notes)]
+  const allNotes = [...new Set(d.notes)]
+  const verify = allNotes.filter((n) => n.startsWith('请核实'))
+  const notes = allNotes.filter((n) => !n.startsWith('请核实'))
   return (
     <div className="space-y-4">
       <div className="rounded-xl border bg-card p-5 shadow-sm">
@@ -434,6 +436,13 @@ function Result({ d }: { d: DiscretionDecision }) {
           </div>
         </div>
       )}
+
+      {verify.map((n) => (
+        <div key={n} className="flex gap-2 rounded-xl border border-amber-300 bg-amber-50 p-4 text-xs text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          <div>{n}</div>
+        </div>
+      ))}
 
       {notes.length > 0 && (
         <Card title="提示">
