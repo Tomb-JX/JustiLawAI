@@ -94,6 +94,8 @@
 
 | EXP-056 | 10-28 | E | 规则锚定实务模型 RAP vs 引擎第一版，工单 B 新数据，预注册后只跑一次 | RPS 0.154 vs 0.196，差 −0.042（−0.066 ~ −0.019），准确率 0.548 vs 0.464；两省、网络赌博子集都更好 → 采纳（ADR-007） | C-37 | `$DATA/engine/development/rap-20261028/{PREREG.md,report_dev.json,report_test.json}`；`research/eval/rule_chain/rap_model.py`（a7b0dc0） |
 
+| EXP-057 | 10-28 | E | RAP 特征组消融（规则 / 要素 / 文本），开发集事件 5 折 + 新数据事后描述 | 规则特征贡献最大，要素无增量，新数据上文本最重要 | C-38 | 本会话内联（`rap_model.build/fit`） |
+
 ## 变更日志
 
 | 日期 | 版本 | 变更 | 作者 |
