@@ -106,6 +106,7 @@
 | EXP-062 | 10-28 | E | RAP 无文本版全量训练并导出线上参数；附开发集事件 5 折与工单 B 描述性数字 | 开发 RPS 0.103 / 准确率 0.703；工单 B RPS 0.179 / 0.464，拘留召回 0 | C-43 | `research/eval/rule_chain/rap_export.py`；参数 `justilaw-api/app/discretion/data/rap-notext-v1.json` |
 | EXP-063 | 10-28 | A / C / E | 新数据准确率低的分层诊断：按规则路由拆开发集（5 折）与工单 B 的准确率、覆盖、缺失；缺赌资记录的事实段金额反事实代入 | 主因是赌资缺失（79%）；其中 27 条金额已标在累计赌资、但规则与 RAP 不读该字段（同日更正）；补上后河北网络投注全判第三档、7/21 对，暴露成文与实务差异；RAP 无锚时过度预测并处 | C-44 | `research/eval/rule_chain/diagnose_newdata.py`；`$DATA/engine/development/diagnose-newdata-20261028/report.json`；反事实部分本会话内联 |
 | EXP-064 | 10-28 | D | 档内要素学习（Q-27）第一阶段：以实际种类为条件，要素 → 档内锚点，按机关留出 5 折 + 时间外推 + 方差分解，预注册后只跑一次 | 未通过：M1 比边际分布显著更差（+0.033），GBDT 同样更差；机关 ICC 0.11～0.62 | C-45 | `$DATA/engine/development/within-band-elements-20261028/{PREREG.md,report_dev.json}`；`research/eval/rule_chain/within_band_elements.py`（3470df1） |
+| EXP-065 | 10-28 | E | RAP v2：规则生成特征（86 维）vs v1 手工特征 vs 只用规则结论 vs 边际分布，开发集 + 工单 B 475 条，事件 / 机关 5 折（描述） | 只用规则结论最好（机关轴 RPS 0.116 vs v1 0.126、v2 0.123）；v2 全量有过拟合迹象 → 只用规则结论作为工单 C 主候选 | — | `research/eval/rule_chain/rap_v2.py`；`$DATA/engine/development/rap-v2-20261028/report_dev.json`；参数 `rap-ruled-v2.json`、`rap-ruleonly-v2.json` |
 
 ## 变更日志
 

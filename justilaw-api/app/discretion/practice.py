@@ -83,24 +83,46 @@ def features(f: Facts, types: list[str], province: str) -> list[float]:
     return x
 
 
-@lru_cache(maxsize=1)
+def _spec_of(m: dict) -> list[dict]:
+    if m.get("feature_set") == "rule":
+        from . import rule_features
+        return list(rule_features.spec())
+    return feature_spec()
+
+
+@lru_cache(maxsize=4)
 def load_model(path: str | None = None) -> dict | None:
+    """feature_set = manual（v1 手工特征）或 rule（规则生成特征，ADR-011）。规则特征的名单哈希必须与当前规则一致：
+    规则改了而模型没重训，返回带 stale 标记的模型，predict 不出结果（由测试在提交前拦住）。"""
     p = Path(path) if path else MODEL_PATH
     if not p.exists():
         return None
     m = json.loads(p.read_text(encoding="utf-8"))
-    names = [s["name"] for s in feature_spec()]
-    if m["features"] != names:
+    if m.get("feature_set") == "rule":
+        from . import rule_features
+        if m.get("spec_hash") != rule_features.spec_hash() or not set(m["features"]) <= {
+                s["name"] for s in rule_features.spec()}:
+            return {**m, "stale": "规则已变更、实务模型未重训，特征名单不一致"}
+        return m
+    if m["features"] != [s["name"] for s in feature_spec()]:
         raise RuntimeError(f"RAP 参数文件的特征与代码不一致：{p}")
     return m
 
 
 def predict(f: Facts, types: list[str], province: str, model: dict | None = None) -> dict | None:
-    """返回分布、基线、逐特征贡献与按组汇总；没有参数文件时返回 None。"""
+    """返回分布、基线、逐特征贡献与按组汇总；没有参数文件或模型过期时返回 None。"""
     m = model or load_model()
-    if m is None:
+    if m is None or m.get("stale"):
         return None
-    spec, x = feature_spec(), features(f, types, province)
+    if m.get("feature_set") == "rule":           # 规则生成特征，可只取其中一部分（如只用规则结论）
+        from . import rule_features
+        full = list(rule_features.spec())
+        pos = {s["name"]: i for i, s in enumerate(full)}
+        xs = rule_features.features(f)
+        spec = [full[pos[n]] for n in m["features"]]
+        x = [xs[pos[n]] for n in m["features"]]
+    else:
+        spec, x = feature_spec(), features(f, types, province)
     z = [(xi - mu) / sd for xi, mu, sd in zip(x, m["mean"], m["scale"])]
     classes = m["classes"]
     contrib = {k: [w * zi for w, zi in zip(m["coef"][i], z)] for i, k in enumerate(classes)}
@@ -129,4 +151,4 @@ def predict(f: Facts, types: list[str], province: str, model: dict | None = None
             "contributions": items,
             "groups": {g: {k: round(v, 4) for k, v in d.items()} for g, d in groups.items()},
             "margin_for_predicted": dict(sorted(margin.items(), key=lambda kv: -abs(kv[1]))),
-            "model": {k: m[k] for k in ("version", "trained", "training", "evaluation", "limits") if k in m}}
+            "model": {k: m[k] for k in ("version", "feature_set", "trained", "training", "evaluation", "limits") if k in m}}
