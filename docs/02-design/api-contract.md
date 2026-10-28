@@ -382,6 +382,51 @@ POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decis
   // 行为日期晚于决定日期、日期超出规范库覆盖范围 → 422 { code: 42200, message }
 ```
 
+### 3.12 裁量能力层（草案，待评审，未实现）
+
+> 设计：[裁量能力层](./discretion-capability-layer.md)。原则：要素是规范输入（不接文本模型）；模型调用走平台网关，按槽位配置；**每个结果都带 `trace`**（推理步骤、原文依据、计算过程、学习部分贡献分解、模型调用回执、版本），可按 `run_id` 取回。§3.11 的 `/discretion/decide` 保留兼容，后续由 `/discretion/assess` 取代。
+
+```
+GET  /discretion/settings          → data: { models: { segment, extract: { model_id, params, fallback_model_id } },
+                                             allowed_models: string[], prompt_versions: { segment, extract } }
+PUT  /discretion/settings          （管理员）{ models?: { segment?, extract? } }   // model_id 须为平台已登记、带 completion 能力的模型
+                                   → 同 GET；不合法的模型 → 422 { code: 42200 }
+
+POST /discretion/parse             { text, doc_kind: '笔录' | '叙述' | '决定书', target?, model_id? }
+  → data: { run_id, sentences: string[], zones: [{ type, from, to }], subject: { mention, aliases },
+            outcome?: { type, detention_days, fine, articles, not_executed, … },   // 仅 doc_kind=决定书
+            dates: { behavior, decision }, gambling: { verdict, reason },
+            validation: { ok, violations: string[] }, trace }
+
+POST /discretion/extract           { text | parse_run_id, doc_kind, target?, model_id? }
+  → data: { run_id, schema_version,
+            elements: { <path>: { value, status: '明确' | '推断' | '未提及',
+                                  evidence: [{ quote, sentence, span: [start, end] }],
+                                  origin: 'extracted' } },
+            dropped: [{ path, reason }], trace }
+
+POST /discretion/assess            { elements: { <path>: { value, status?, origin?: 'human' | 'extracted' | 'extracted_then_confirmed' | 'edited', evidence? } },
+                                     region?, behavior_date, decision_date?,
+                                     proposed?: { type, detention_days?, fine? } }
+  → data: { run_id,
+            written: { type | null, route, candidates: string[], legal_space, band },    // 成文结论（法律）
+            practice: { distribution: { <type>: p }, note },                            // 实务参照（学习，非法律结论）
+            amounts: { fine?: [值, 占比][], detention_days?: [值, 占比][] },
+            deviation?: { levels: [{ level: 'legal_space' | 'written_band' | 'practice', ok, detail }] },   // 有 proposed 时
+            missing: [{ field, why, effect }],
+            needs_review: string[], trace }
+
+POST /discretion/review            { text, target? } 或 { elements, actual: { type, detention_days?, fine? }, region?, behavior_date, decision_date? }
+  → data: { run_id, parse?, elements, written, practice, amounts,
+            deviation: { levels: [...], summary }, trace }      // 决定书审查：actual 取自解析结果
+
+GET  /discretion/runs/{run_id}     → data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', created_at, request_sha256, result, trace }
+```
+
+`trace` 结构见设计文档 §4.2：`versions`、`inputs`（要素逐项含证据与来源）、`steps`（law / legal_space / modifiers / band / written_type / practice / amount / deviation / missing，每步含 result、reasoning 或 computation、basis 原文）、`model_calls`（槽位、平台模型 ID、供应商、提示版本、输入输出哈希、耗时、usage）。
+
+错误：日期矛盾或超出规范库覆盖 → 42200；模型槽位未配置或模型不可用 → 50300 `{ message: "裁量模型未配置/不可用" }`；未知要素路径 → 42200。
+
 ## 4. 联调约定
 
 1. 前端基于 MSW 按本契约**全量 Mock**（SSE 用 ReadableStream 模拟增量），先行开发
@@ -398,5 +443,6 @@ POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decis
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v0.8（草案） | 新增 §3.12 裁量能力层草案：settings（模型槽位）、parse、extract、assess、review、runs；结果统一带 trace（待评审，未实现） | 引擎 |
 | 2026-10-28 | v0.7 | 新增 §3.11 裁量建议：`GET /discretion/meta`、`POST /discretion/decide`（引擎第一版，人工要素输入） | 引擎 |
 | 2026-10-22 | v0.6 | 模型能力自动识别（免手动填写）：`/providers/{id}/remote-models` 返回 `{ id, capabilities }[]`（读上游 capabilities/supported_parameters/architecture.input_modalities，族名兜底）；`POST /providers/{id}/models` 的 `capabilities` 可缺省，缺省时服务端自动识别，显式数组仅表人工覆盖 | 前端平台 |

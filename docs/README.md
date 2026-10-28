@@ -19,6 +19,7 @@ docs/
 │   ├── api-contract.md          API 契约（前后端对接唯一依据，变更须评审）
 │   ├── gambling-discretion-engine.md  赌博案件智能裁量引擎方案（业界调研 / 架构 / 数据 / 评测）
 │   ├── discretion-services-design.md  裁量引擎两类服务设计草案（执法计算器 + 公众结果预期）
+│   ├── discretion-capability-layer.md 裁量能力层：封装、模型槽位配置、可追溯设计（草案）
 │   ├── framework-panorama.md     框架全景笔记（活文档：三层全景、模块总表、逐项确认清单）
 │   └── data-lake-design-2026-10-17.md  数据湖设计 v0.2（分区 / 内容寻址 blob / manifest / 目录 / 迁移；T-L1 实施）
 ├── 03-dev/                    开发层
