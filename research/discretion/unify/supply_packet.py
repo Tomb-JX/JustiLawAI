@@ -20,6 +20,18 @@ AGE = re.compile(fr"{_NUM}岁")
 TIME = re.compile(r"\d{4}年\d{1,2}月至(?:(?:\d{4}年)?\d{1,2}月)|\d{4}年\d{1,2}月\d{1,2}[日号]|\d{4}年\d{1,2}月|\d{4}年")
 DURATION = re.compile(fr"(?:持续|长达|历时)\s*{_NUM}(?:个?月|年|天|日|周)")
 _CLAUSE_END = re.compile(r"[。；;\n]|(?<!\d)[，,]|[，,](?!\d)")
+# Source layout sometimes hard-wraps inside a number ("赌资100\r\n   0元"). With
+# layout_wraps=True a line break between two digits is joined instead of ending
+# the clause; the candidate raw keeps the wrap so its offsets stay source-exact.
+_DIGIT = "0-9０-９〇零一二两三四五六七八九十百千万亿壹贰叁肆伍陆柒捌玖拾佰仟"
+# A layout gap: a line break, optionally with indentation or table-cell pipes around it.
+_GAP = r"[ \t　|]*\r?\n[ \t　|]*"
+_WRAP = fr"(?<=[{_DIGIT}]){_GAP}(?=[{_DIGIT}])"
+_NUM_WRAPPED = fr"{_NUM}(?:{_WRAP}{_NUM})*"
+# The unit may also land on the next line ("壹仟肆佰玖拾柒 |\r\n|元").
+MONEY_WRAPPED = re.compile(MONEY.pattern.replace(_NUM, _NUM_WRAPPED).replace(
+    "[余多]?(?:元|块)", fr"[余多]?(?:{_GAP})?(?:元|块)", 1))
+COUNT_WRAPPED = re.compile(COUNT.pattern.replace(_NUM, _NUM_WRAPPED))
 # This is used only for negative binding guards. Prefer unresolved to a false
 # other-person hit inside ordinary words such as 自己 or 给郑某.
 _SIMPLE_PERSON = re.compile(
@@ -59,9 +71,39 @@ def _id(prefix: str, *parts: object) -> str:
     return prefix + "-" + hashlib.sha256(value.encode("utf-8")).hexdigest()[:16]
 
 
-def _clauses(view: dict):
+def _join_wrapped_views(views: list[dict], text_full: str) -> list[dict]:
+    """Merge adjacent same-zone views whose gap is a layout wrap inside one amount or count.
+
+    The sentence table cuts at every line break, so a hard-wrapped number lands in two
+    views. Only whitespace is added to the visible text, so no hidden zone leaks in.
+    """
+    out: list[dict] = []
+    for view in sorted(views, key=lambda v: v.get("start", -1)):
+        prev = out[-1] if out else None
+        if (prev is not None and isinstance(view.get("start"), int) and isinstance(prev.get("end"), int)
+                and prev.get("type") == view.get("type") and prev["end"] <= view["start"]
+                and re.fullmatch(_GAP, text_full[prev["end"]:view["start"]])
+                and _number_crosses(text_full[prev["start"]:view["end"]], prev["end"] - prev["start"])):
+            out[-1] = {**prev, "end": view["end"], "text": text_full[prev["start"]:view["end"]]}
+        else:
+            out.append(view)
+    return out
+
+
+def _number_crosses(text: str, gap: int) -> bool:
+    """True when an amount or count expression spans the line break at offset `gap`."""
+    return any(m.start() < gap < m.end() for pattern in (MONEY_WRAPPED, COUNT_WRAPPED)
+               for m in pattern.finditer(text))
+
+
+def _clauses(view: dict, layout_wraps: bool = False):
     value, start = view["text"], 0
+    # With layout_wraps a break inside an amount or count expression does not end the clause.
+    protected = ([(m.start(), m.end()) for pattern in (MONEY_WRAPPED, COUNT_WRAPPED)
+                  for m in pattern.finditer(value) if "\n" in m.group()] if layout_wraps else [])
     for m in _CLAUSE_END.finditer(value):
+        if any(a <= m.start() < b for a, b in protected):
+            continue
         if value[start:m.end()].strip():
             yield view["start"] + start, view["start"] + m.end()
         start = m.end()
@@ -114,6 +156,7 @@ def _surface_operator(raw: str, *, exact: bool) -> tuple[str, bool, bool, str]:
 
 def _normalized(raw: str, typ: str) -> dict:
     e05 = normalization_spec()
+    raw = re.sub(r"[\s|]+", "", raw)  # no-op unless a joined layout wrap is inside
     if typ == "amount":
         value = e05.normalize_amount(raw)
         if value is None:
@@ -155,7 +198,7 @@ def _normalized(raw: str, typ: str) -> dict:
 
 
 def build_packet(text_full: str, inp: dict, *, record_id: str, case_event_id: str | None = None,
-                 schema_version: str = "1.1.0") -> dict:
+                 schema_version: str = "1.1.0", layout_wraps: bool = False) -> dict:
     """Produce source-anchored proposals from an already allowed facts/meta view."""
     if not isinstance(text_full, str) or not isinstance(inp, dict):
         raise ValueError("invalid_supply_input")
@@ -174,9 +217,12 @@ def build_packet(text_full: str, inp: dict, *, record_id: str, case_event_id: st
                          "fact_view_version": inp.get("fact_view_version")},
               "visible_spans": [], "mentions": [], "persons": [], "scenes": [],
               "economic_items": [], "claims": [], "quantities": [], "relations": [],
+              **({"layout_wraps": True} if layout_wraps else {}),
               "derivations": [], "bindings": [], "field_disposition": {}, "unresolved": []}
     target_id = packet["source"]["target_id"]
     packet["persons"].append({"person_id": target_id, "target": True, "mention_ids": []})
+    if layout_wraps:
+        views = _join_wrapped_views(views, text_full)
     occupied = []
     for view in views:
         a, b = view.get("start"), view.get("end")
@@ -199,7 +245,7 @@ def build_packet(text_full: str, inp: dict, *, record_id: str, case_event_id: st
                 packet["mentions"].append({"mention_id": mid, "source_span_id": sid,
                                            "start": ma, "end": mb, "raw": name, "person_id": target_id})
                 packet["persons"][0]["mention_ids"].append(mid)
-        for ca, cb in _clauses(view):
+        for ca, cb in _clauses(view, layout_wraps):
             clause = text_full[ca:cb]
             prior = bool(_PRIOR.search(clause) and re.search(r"处罚|拘留|罚款", clause))
             scene_kind = "prior_penalty" if prior else "gambling_activity" if _BEHAVIOR.search(clause) else "context"
@@ -207,7 +253,8 @@ def build_packet(text_full: str, inp: dict, *, record_id: str, case_event_id: st
             packet["scenes"].append({"scene_id": scene_id, "kind": scene_kind,
                                      "state": "provisional", "support_span_ids": [sid], "start": ca, "end": cb})
             matches = []
-            for typ, pattern in (("amount", MONEY), ("count", COUNT), ("age", AGE),
+            money, count = (MONEY_WRAPPED, COUNT_WRAPPED) if layout_wraps else (MONEY, COUNT)
+            for typ, pattern in (("amount", money), ("count", count), ("age", AGE),
                                  ("date", TIME), ("duration", DURATION)):
                 for m in pattern.finditer(clause):
                     ma, mb = ca + m.start(), ca + m.end()

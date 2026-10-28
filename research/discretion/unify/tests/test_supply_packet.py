@@ -166,3 +166,58 @@ def test_v2_recovers_intact_miszoned_fact_but_v1_does_not():
            "fact_candidate_version": "v2", "fact_clause_ids": [v2[0]["id"]]}
     result = fact_view(record, out)
     assert [x["text"] for x in result] == ["甲主动投案自首。"]
+
+
+def _split_views(text: str, cut: int, gap: int, target: str = "乙") -> dict:
+    """Two facts views separated by a layout wrap, as the sentence table emits them."""
+    views = [{"id": "S1", "sentence_id": 1, "type": "facts", "start": 0, "end": cut, "text": text[:cut]},
+             {"id": "S2", "sentence_id": 2, "type": "facts", "start": cut + gap, "end": len(text),
+              "text": text[cut + gap:]}]
+    return {"target": target, "aliases": [], "sentence_view": views,
+            "source_sha256": hashlib.sha256(text.encode()).hexdigest()}
+
+
+def test_layout_wrap_inside_number_is_joined_only_when_enabled():
+    text = "乙赌资100\r\n   0元，甲赌资50元。"
+    cut = text.index("\r")
+    inp = _split_views(text, cut, len("\r\n   "))
+    off = [q for q in build_packet(text, inp, record_id="R1")["quantities"] if q["type"] == "amount"]
+    assert [q["raw"] for q in off] == ["0元", "50元"]  # v1 behaviour kept by default
+    on = build_packet(text, inp, record_id="R1", layout_wraps=True)
+    amounts = [q for q in on["quantities"] if q["type"] == "amount"]
+    assert [q["engine_projection"]["min"] for q in amounts] == [1000.0, 50.0]
+    first = amounts[0]
+    assert text[first["start"]:first["end"]] == first["raw"] == "100\r\n   0元"
+    assert len(on["visible_spans"]) == 1 and on["layout_wraps"] is True
+
+
+def test_layout_wrap_not_joined_without_digits_on_both_sides():
+    text = "乙赌资100元\r\n   0元为找零。"
+    cut = text.index("\r")
+    inp = _split_views(text, cut, len("\r\n   "))
+    on = build_packet(text, inp, record_id="R1", layout_wraps=True)
+    assert [q["raw"] for q in on["quantities"] if q["type"] == "amount"] == ["100元", "0元"]
+    assert len(on["visible_spans"]) == 2
+
+
+def test_layout_wrap_inside_chinese_numerals_is_joined():
+    text = "乙赌资人民币二千三百\r\n   一十元，甲赌资50元。"
+    cut = text.index("\r")
+    inp = _split_views(text, cut, len("\r\n   "))
+    on = build_packet(text, inp, record_id="R1", layout_wraps=True)
+    assert [q["engine_projection"]["min"] for q in on["quantities"] if q["type"] == "amount"] == [2310.0, 50.0]
+
+
+def test_layout_wrap_between_unrelated_lines_is_not_joined():
+    text = "乙于2022年\r\n   一同前往赌博。"
+    cut = text.index("\r")
+    inp = _split_views(text, cut, len("\r\n   "))
+    assert len(build_packet(text, inp, record_id="R1", layout_wraps=True)["visible_spans"]) == 2
+
+
+def test_unit_on_next_line_after_table_pipe_is_joined():
+    text = "乙机内的壹仟肆佰玖拾柒 |\r\n|元人民币。"
+    cut = text.index(" |")
+    inp = _split_views(text, cut, len(" |\r\n|"))
+    on = build_packet(text, inp, record_id="R1", layout_wraps=True)
+    assert [q["engine_projection"]["min"] for q in on["quantities"] if q["type"] == "amount"] == [1497.0]

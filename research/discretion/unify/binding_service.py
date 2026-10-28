@@ -160,6 +160,30 @@ class BindingService:
                 "quote": quote, "raw": quote, "kind": path["kind"]}
 
     def bind(self, records: list[dict]) -> list[dict]:
+        """One output row per input, in input order; an input the packet builder rejects gets
+        every field unresolved with reason input_rejected instead of failing the batch."""
+        good, rejected = [], {}
+        for r in records:
+            try:
+                build_packet(r["text_full"], r, record_id=r["id"])
+                good.append(r)
+            except (ValueError, KeyError, TypeError) as exc:
+                rejected[r.get("id")] = f"input_rejected:{exc}"
+        rows = {row["id"]: row for row in self._bind(good)} if good else {}
+        out = []
+        for r in records:
+            if r.get("id") in rejected:
+                out.append({"id": r.get("id"), "target": r.get("target"), "service_version": VERSION,
+                            "artifact_manifest_sha256": self.manifest_sha256,
+                            "bindings": [{"field": path, "target_id": r.get("id"), "binding_status": "unresolved",
+                                          "value": None, "candidate_ids": [], "evidence": [],
+                                          "decision_source": None, "reason": rejected[r.get("id")]}
+                                         for path in FIELD_PATH.values()]})
+            else:
+                out.append(rows[r["id"]])
+        return out
+
+    def _bind(self, records: list[dict]) -> list[dict]:
         items = self._items(records)
         self._pair_features(items)
         chain = frozen_predictions(records, self.root / "frozen_chain_amounts.json",
