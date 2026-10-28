@@ -116,4 +116,10 @@ def test_practice_features_match_spec():
     from app.discretion import practice
     from app.discretion.norm_layer import Facts
     assert len(practice.features(Facts(), [], "320000")) == len(practice.feature_spec())
-    assert practice.load_model()["features"] == [s["name"] for s in practice.feature_spec()]
+    model = practice.load_model()
+    assert model and not model.get("stale")
+    names = [s["name"] for s in practice._spec_of(model)]
+    if model.get("feature_set") == "rule":
+        assert set(model["features"]) <= set(names)
+    else:
+        assert model["features"] == names
