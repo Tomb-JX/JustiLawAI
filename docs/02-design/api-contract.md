@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.7（§3.11 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
+> 版本 v0.8.2（§3.11、§3.12 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -411,12 +411,15 @@ POST /discretion/assess            【已实现】要素字段与 §3.11 decide 
                                      proposed?: { type, detention_days?, fine? } }
   → data: { run_id,
             written: { type | null, route, candidates: string[], legal_space, band },    // 成文结论（法律）
-            practice: { distribution: { <type>: p }, note },                            // 实务参照（学习，非法律结论）
+            practice: { status: 'reference' | 'out_of_scope' | 'unavailable', distribution?: { <type>: p }, predicted?, reading?: string[], note? },   // 实务参照（学习，非法律结论）
             amounts: { fine?: [值, 占比][], detention_days?: [值, 占比][] },
-            deviation?: { levels: [{ level: 'legal_space' | 'written_band' | 'practice', ok, detail }] },   // 有 proposed 时
+            deviation?: { levels: [{ level: 'legal_space' | 'written_band' | 'amount_reference' | 'practice', ok, detail, probability? }] },   // 有 proposed 时
             missing: [{ field, why, effect }],
             needs_review: string[], trace }
-  // practice 在 RAP 接入前为 null（trace 中 practice 步骤 status=unavailable）；deviation 当前含 legal_space / written_band / amount_reference 三层
+  // practice 由 RAP 无文本版给出（v0.8.2）；两省以外、其他行为类型、新法时期为 out_of_scope，不外推。
+  // trace 的 practice 步骤另含 explanation：baseline_logits、logits、groups（按要素组汇总的贡献）、margin_for_predicted、
+  //   contributions[{ name, label, group, value, train_mean, contribution: { <type>: 对数几率贡献 } }]；基线 + 逐项贡献 = 对数几率，可精确复算
+  // practice 的 ok 恒为 null：实务参照只报比例，不判对错
   // 每次调用存档，run_id 可用 GET /discretion/runs/{run_id} 取回（仅本人与管理员可见）
 
 POST /discretion/review            { text, target? } 或 { elements, actual: { type, detention_days?, fine? }, region?, behavior_date, decision_date? }
@@ -446,6 +449,7 @@ GET  /discretion/runs/{run_id}     【已实现，当前只有 assess】→ data
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v0.8.2（草案） | §3.12 assess 的 `practice` 接入 RAP 无文本版：status / distribution / predicted / reading；trace 的 practice 步骤给逐特征贡献分解与模型元数据；deviation 加 practice 层（拟处罚种类在相近历史案件中的比例）；versions.practice_model | 引擎 |
 | 2026-10-28 | v0.8.1（草案） | §3.12 `assess`、`runs` 已实现：assess 请求改为与 decide 同名的扁平要素 + provenance + proposed；trace 含适用法律、法定空间（条文原文）、修正情节、涉刑提示、省级定档（计算过程 + 档位条款原文）、成文种类、数额参照（数据来源）、实务参照（待接入）、偏离、补查、版本 | 引擎 |
 | 2026-10-28 | v0.8（草案） | 新增 §3.12 裁量能力层草案：settings（模型槽位）、parse、extract、assess、review、runs；结果统一带 trace（待评审，未实现） | 引擎 |
 | 2026-10-28 | v0.7 | 新增 §3.11 裁量建议：`GET /discretion/meta`、`POST /discretion/decide`（引擎第一版，人工要素输入） | 引擎 |

@@ -17,7 +17,8 @@ from enum import Enum
 from functools import lru_cache
 from pathlib import Path
 
-from .decide import QUANTITIES, Decision
+from . import practice as rap
+from .decide import QUANTITIES, Decision, band_types
 from .norm_layer import Facts
 from .norm_store import NORMS_DIR, NormLibrary
 from .schema import SCHEMA_VERSION
@@ -82,8 +83,43 @@ def versions(lib: NormLibrary, region: str | None) -> dict:
                                 "verification": (pdoc.get("verification") or {}).get("status"),
                                 "checked_at": (pdoc.get("verification") or {}).get("checked_at")} if prov else None),
         "band_quantities": _quantities_meta(),
-        "practice_model": None,          # RAP 尚未接入（Q-23）
+        "practice_model": _practice_meta(),
     }
+
+
+def _practice_meta() -> dict | None:
+    m = rap.load_model()
+    return {"version": m["version"], "trained": m["trained"], "training_n": m["training"]["n"],
+            "training_ids_sha256": m["training"]["ids_sha256"]} if m else None
+
+
+PRACTICE_PROVINCES = {"130000", "320000"}
+
+
+def practice_step(facts: Facts, decision: Decision) -> dict:
+    """RAP 无文本版：分布 + 逐特征贡献。范围外（省份、行为类型、新法时期）不外推。"""
+    base = {"id": "practice", "title": "实务参照（学习，非法律结论）"}
+    province = (facts.region or "")[:2] + "0000"
+    st = decision.assessment.stake_threshold
+    why = ("训练数据只覆盖河北、江苏" if province not in PRACTICE_PROVINCES else
+           "训练数据只覆盖参与赌博、为赌博提供条件" if facts.behavior_type not in ("参与赌博", "为赌博提供条件") else
+           "训练数据全部是旧法（2012 修正）时期，新法时期的实务分布未知" if decision.assessment.law_id != "psal-2012" else
+           "省级基准在行为时尚未施行，训练数据不含此时期" if st.get("status") in ("基准未生效", "基准待核验") else None)
+    if why:
+        return {**base, "status": "out_of_scope", "result": None, "note": why}
+    out = rap.predict(facts, band_types(st), province)
+    if out is None:
+        return {**base, "status": "unavailable", "result": None, "note": "实务模型参数文件缺失"}
+    reading = [f"历史上与本案规则结论、要素相近的案件，最常见的处罚是「{out['predicted']}」"
+               f"（{out['distribution'][out['predicted']]:.0%}）"]
+    for g, v in list(out["margin_for_predicted"].items())[:3]:
+        reading.append(f"{g}：使「{out['predicted']}」相对其他种类的对数几率{'提高' if v > 0 else '降低'} {abs(v):.2f}")
+    return {**base, "status": "reference",
+            "result": {"distribution": out["distribution"], "predicted": out["predicted"]},
+            "reading": reading,
+            "explanation": {k: out[k] for k in ("baseline_logits", "logits", "groups", "margin_for_predicted", "contributions")},
+            "method": "多项逻辑回归（标准化特征）；对数几率 = 基线（训练集平均案件）+ Σ 系数 × 标准化特征值，逐项即贡献",
+            "model": out["model"]}
 
 
 def _band_step(lib: NormLibrary, facts: Facts, st: dict) -> dict:
@@ -122,7 +158,7 @@ def _band_step(lib: NormLibrary, facts: Facts, st: dict) -> dict:
     }
 
 
-def deviation(decision: Decision, proposed: dict | None) -> dict | None:
+def deviation(decision: Decision, proposed: dict | None, practice: dict | None = None) -> dict | None:
     if not proposed:
         return None
     a, kind = decision.assessment, proposed.get("type")
@@ -146,7 +182,15 @@ def deviation(decision: Decision, proposed: dict | None) -> dict | None:
         share = dist.get(float(x)) or dist.get(x)
         levels.append({"level": "amount_reference", "title": "档内数额参照（历史统计，非法律结论）",
                        "ok": None, "detail": f"拟处罚取值在历史分布中的占比：{share:.0%}" if share else "该取值不在历史分布常见取值中"})
-    levels.append({"level": "practice", "title": "实务参照（学习）", "ok": None, "detail": "实务模型尚未接入（Q-23）"})
+    if practice and practice.get("status") == "reference":
+        dist = practice["result"]["distribution"]
+        rank = sorted(dist, key=dist.get, reverse=True).index(kind) + 1 if kind in dist else None
+        levels.append({"level": "practice", "title": "实务参照（学习，非法律结论）", "ok": None,
+                       "detail": f"相近历史案件中处「{kind}」的比例约 {dist.get(kind, 0):.0%}" + (f"，排第 {rank}" if rank else ""),
+                       "probability": dist.get(kind)})
+    else:
+        levels.append({"level": "practice", "title": "实务参照（学习，非法律结论）", "ok": None,
+                       "detail": (practice or {}).get("note") or "无实务参照"})
     return {"proposed": proposed, "levels": levels}
 
 
@@ -201,10 +245,9 @@ def build(lib: NormLibrary, facts: Facts, decision: Decision, provenance: dict |
                     **{k: v for k, v in _quantities_meta().items() if k != "events"},
                     "events": {k: v for k, v in _quantities_meta()["events"].items()
                                if k.split(":")[0] == decision.penalty_type}}},
-        {"id": "practice", "title": "实务参照（学习，非法律结论）", "status": "unavailable", "result": None,
-         "note": "规则锚定实务模型（RAP）尚未接入线上（Q-23）"},
+        practice_step(facts, decision),
     ]
-    dev = deviation(decision, proposed)
+    dev = deviation(decision, proposed, steps[-1])
     if dev:
         steps.append({"id": "deviation", "title": "偏离检查", "status": "checked", "result": dev})
     miss = missing(st)

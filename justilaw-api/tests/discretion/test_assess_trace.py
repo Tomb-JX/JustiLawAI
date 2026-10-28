@@ -41,7 +41,7 @@ def test_assess_traces_law_space_band_with_original_text(client):
     v = data["trace"]["versions"]
     assert v["engine"] and v["schema"] and len(v["norm_library_sha256"]) == 64
     assert v["province_benchmark"]["number"] == "苏公规〔2019〕1号"
-    assert s["amount"]["source"]["source_sha256"] and s["practice"]["status"] == "unavailable"
+    assert s["amount"]["source"]["source_sha256"] and s["practice"]["status"] == "reference"
 
 
 def test_assess_records_provenance_deviation_and_archives_run(client):
@@ -89,3 +89,31 @@ def test_band_clauses_are_verbatim_from_document(code):
         for k, clause in bands.items():
             if k != "ref":
                 assert clause in text, (code, bt, k)
+
+
+def test_practice_reference_is_decomposable(client):
+    data = client.post("/api/v1/discretion/assess", json={**JIANGSU, "proposed": {"type": "拘留", "detention_days": 5}}).json()["data"]
+    p = data["practice"]
+    assert p["status"] == "reference" and abs(sum(p["distribution"].values()) - 1) < 1e-3
+    step = _steps(data)["practice"]
+    ex = step["explanation"]
+    for k, logit in ex["logits"].items():          # 基线 + 逐项贡献 = 对数几率（精确分解）
+        total = ex["baseline_logits"][k] + sum(c["contribution"][k] for c in ex["contributions"])
+        assert abs(total - logit) < 1e-2
+    assert step["model"]["version"] == "rap-notext-v1" and step["model"]["limits"]
+    assert data["trace"]["versions"]["practice_model"]["training_n"] > 0
+    lv = {x["level"]: x for x in data["deviation"]["levels"]}["practice"]
+    assert lv["probability"] == p["distribution"]["拘留"]
+
+
+def test_practice_not_extrapolated_to_new_law(client):
+    body = {**JIANGSU, "behavior_date": "2026-03-01", "decision_date": "2026-03-05"}
+    p = client.post("/api/v1/discretion/assess", json=body).json()["data"]["practice"]
+    assert p["status"] == "out_of_scope" and "旧法" in p["note"]
+
+
+def test_practice_features_match_spec():
+    from app.discretion import practice
+    from app.discretion.norm_layer import Facts
+    assert len(practice.features(Facts(), [], "320000")) == len(practice.feature_spec())
+    assert practice.load_model()["features"] == [s["name"] for s in practice.feature_spec()]
