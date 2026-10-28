@@ -53,6 +53,9 @@
 | JurisMMA / Agents on the Bench / AgentsCourt | arXiv 2601.12815 / 2412.18697 / 2403.02959 | B | 【SOTA】多智能体模拟庭审 | 仅作 M6 说理的备选方案，暂不采用（对数值裁量的提升未被证明） |
 | DISC-LawLLM | arXiv 2309.11325 (2023) | A | 【奠基】法律三段论 SFT 数据构造 + 检索模块；公开 30 万条 SFT 数据 | 说理 SFT 数据格式参考 |
 | 法律 LLM 综述 When LLMs Meet Law | arXiv 2507.07748 (2025) | B | 【奠基】2025 年综述，覆盖判决预测、检索、伦理 | 新成员入门读物 |
+| **Legal Judgment Prediction: If You Are Going to Do It, Do It Right**（Medvedeva & McBride） | NLLP 2023；<https://aclanthology.org/2023.nllp-1.9/> | A | 【警示】171 篇判决预测论文仅约 7% 使用判决前可得数据；点名 CAIL2018、ECHR、ILDC 基准对预测未来判决几乎无帮助；转引同一模型 F1 0.92（判决书事实）vs 0.64（判决前事实）✅（2026-10-28 下载全文核对） | 评测与应用一致性的依据（ADR-009、回路 R8）；附录 A 检查单用于明确终端用户与评测数据（Q-26） |
+| SCOTUS 预测（Katz, Bommarito, Blackman） | PLOS ONE 2017；doi 10.1371/journal.pone.0174698 | B | 【基准】只用判决前已知的人工编码变量，案件 70.2%、票 71.9% ✅ | 结构化、事前输入的预测先例 |
+| ILDC for CJPE（Malik 等） | ACL-IJCNLP 2021 | B | 【基准】【警示】印度最高法院 3.5 万件，输入为去掉结论的判决书；最好模型 78%，专家 94% ✅ | 判决后文书基准的典型；人类专家对照的做法 |
 
 ## 2. 法律基准与数据集（固定对照的数据来源）
 
@@ -233,4 +236,5 @@
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-28 | v0.2 | §1 新增 3 条：Medvedeva & McBride 2023（输入时点警示）、Katz 2017、ILDC；见 `2026-10-28-related-work-input-and-scenario.md` | 引擎（规则链路） |
 | 2026-10-15 | v0.1 | 初版：128 条文献（A 33 / B 56 / C 39），全部经 arXiv API 核对；附开源代码与规范性文件清单 | 模型组 |
