@@ -22,6 +22,7 @@ def main():
     ap = argparse.ArgumentParser(description="L4 Word 补救下载（CDP）")
     ap.add_argument("--cap", type=int, default=400, help="最大下载数")
     ap.add_argument("--interval", type=float, default=2.5, help="最小请求间隔秒")
+    ap.add_argument("--max-fail-streak", type=int, default=10, help="连续失败熔断阈值（会话劣化保护）")
     ap.add_argument("--run-dir", default="", help="含 results.jsonl 的目录")
     ap.add_argument("--out-dir", default="", help="Word 文件保存目录")
     args = ap.parse_args()
@@ -62,6 +63,7 @@ def main():
     last_time = 0.0
     ok_count = 0
     fail_count = 0
+    fail_streak = 0
 
     # 纪律（crawler-ops §5）：后台自动化不得抢占用户界面——开**后台标签**并全程复用，
     # 绝不 bring_to_front；用户看不到任何弹窗/切页。
@@ -94,10 +96,14 @@ def main():
 
                 # 安全验证检查
                 if "安全验证" in page.title():
-                    print("\n⚠️ 安全验证页，请在浏览器中完成验证后按 Enter")
-                    input()
-                    page.goto(url, wait_until="load", timeout=30_000)
-                    page.wait_for_timeout(2500)
+                    print("\n⚠️ 安全验证页——被拦即停（crawler-ops §5 红线），退出批次待人工")
+                    return 2
+
+                # 会话掉线墙检测：正文含 VIP/登录墙字样 = 机构会话时效到期，硬停不瞎重试
+                body = page.evaluate("() => document.body.innerText.slice(0, 4000)") or ""
+                if ("已购买此数据库" in body or "请您登录账号" in body) and "登录/注册" in body:
+                    print("\n⚠️ 机构会话已到期（正文回 VIP 墙）——硬停；重登后清 done 失败段续跑")
+                    return 3
 
                 # 点「下载WORD」
                 link = page.locator('a:has-text("下载WORD")')
@@ -134,6 +140,13 @@ def main():
             except Exception as exc:
                 fail_count += 1
                 print(f" ✗ {type(exc).__name__}: {str(exc)[:60]}")
+
+            # 连续失败熔断：会话半死/半墙状态下载会退化为无事件超时，别拿 3 千次去撞
+            fail_streak = 0 if saved else fail_streak + 1
+            if fail_streak >= args.max_fail_streak:
+                print(f"\n⚠️ 连续 {args.max_fail_streak} 件失败——熔断停机（多为登录态劣化），"
+                      "请人工核对后清 done 失败段续跑")
+                return 4
 
             done_log.write(json.dumps({
                 "gid": rec["gid"], "doc_no": rec.get("doc_no", ""),
