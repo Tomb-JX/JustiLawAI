@@ -1,0 +1,61 @@
+# 现行算法架构
+
+> 版本 v1 · 2026-10-28 · **算法部分的权威说明**（[引擎方案](../02-design/gambling-discretion-engine.md) §4–§5 的算法内容以本文为准）
+> 每次算法变动与代码同提交更新本文。目标架构由 [ADR-001](./adr/ADR-001-law-first.md) 规定；本文写的是**现在实际跑的**，以及和目标之间的差距。
+
+## 1. 一张图
+
+```
+要素（人工填写；实验中为人工标注或大模型抽取）+ 辖区 + 行为日期 + 决定日期
+   │
+   ▼
+B 法定空间   norm_layer.assess：适用法律（从旧兼从轻）→ 法定档次与 Ω → 修正情节（减轻、不执行拘留、合并）→ 涉刑提示
+   │
+   ▼
+C 基准定档   norm_layer._stake_threshold：两目标省按基准定档 → decide.band_types 转为种类集合
+   │           新法案件推定沿用（ADR-004）
+   ├─ 唯一种类 ───────────────→ rule_single
+   ├─ 多个候选 + 有文本概率 ──→ rule_candidates（候选内取文本概率最大）
+   ├─ 无分档 + 有文本概率 ────→ model_fallback（标"统计参考"）
+   └─ 否则 ───────────────────→ undetermined（只给法定空间）
+   │
+   ▼
+D 裁量       档内数额：data/band_quantities.json（全国、按种类、事件加权）→ 按本案法定幅度过滤 → 众数 / 前 2 / 频率
+   │
+   ▼
+F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review    （API：POST /api/v1/discretion/decide）
+```
+
+## 2. 逐层
+
+| 层 | 现行方案 | 代码 | 依据 | 与目标的差距 |
+|---|---|---|---|---|
+| A 事实 | 产品里由人填写要素（schema 1.2.0，37 字段 + 记录级元数据）；实验中用人工标注或大模型抽取 | `app/discretion/schema.py`；`extract.py`（M1 原型，未接入） | ADR-002 | 上线时的要素来源未定（Q-06） |
+| B 法定空间 | 国家层罚则双纪元（2012 第七十条 / 2025 第八十二条）；时间效力；法定档次与修正情节展开；涉刑提示 | `app/discretion/norm_layer.py`（`assess`、`_statutory`、`_mitigated`、`_not_executed`、`_referral`）；`norms/national/` | 国家层 22 项逐字核对 | 减轻展开中"拘留或罚款"的减轻组合仍提示人工复核 |
+| C 基准定档 | 河北：个人优先、个人不明按一场、一场达起罚线托底第一档、升档条件下赌资不明给候选；江苏：两类方式门槛，`gambling_form` 判类；新法推定沿用 | `norm_layer._stake_threshold`；`decide.band_types`；`norms/provinces/130000.yaml`、`320000.yaml` | ADR-003（D-005）、ADR-004（D-006） | ① 河北升档给候选、江苏补字段，都未经新数据检验（Q-10）；② 只录了两省（Q-04）；③ 江苏低额按原文给"免予处罚"，与实务不符（C-03，Q-02） |
+| D 裁量：候选内选择 | 文本模型概率由调用方传入；**线上接口不接文本模型**，多候选时返回候选、不选 | `decide.decide(type_probabilities=…)`；研究侧 `research/eval/rule_chain/engine_v1_eval.py`（字符 1–3 元 TF-IDF + 类别平衡 LR，C=3） | ADR-003 | 线上多候选时无选择 |
+| D 裁量：档内数额 | 全国 v5 train、2026 年前决定，按处罚种类、事件加权的历史分布（例：罚款档 500 元占 47%），再按本案法定幅度过滤 | `decide._legal_distribution`；`data/band_quantities.json`（由 `research/eval/rule_chain/build_band_quantities.py` 生成） | ADR-005 | **与 ADR-001 不一致**：未按"省份 × 规则档位"条件化（Q-01）；"可以"减轻的选择未建模（Q-03） |
+| E 偏离 | 无 | — | — | Q-02 |
+| F 输出 | 种类、路由、候选、档内分布、依据、needs_review；前端「裁量建议」页 | `app/routers/discretion.py`；`justilaw-web/src/features/discretion/` | API 契约 §3.11 | 校准、共形区间、偏离预警、类案都未做（Q-07、Q-08） |
+
+## 3. 研究侧在用的组件（不在线上）
+
+| 组件 | 用途 | 位置 | 状态 |
+|---|---|---|---|
+| 文本类型头 | 候选内选择、无分档兜底的对照 | 加权字符 TF-IDF + LR（EXP-040） | 现行对照；继续调参已搁置（Q-20） |
+| 机关先验接口 | 按省 → 市 → 机关逐级收缩的历史分布 | `research/eval/agency_prior.py` | 接口保留；与文本相乘的融合不放行（Q-16） |
+| 规则链路评估 | EP-3、EP-4、EP-5 的脚本 | `research/eval/rule_chain/` | 现行 |
+| binding v1.1 | 四字段确定性绑定服务 | `research/discretion/unify/binding_service.py`；`$DATA/serving/binding-v1.1-47bffae/` | 只许影子推理；线已关闭（Q-11） |
+
+## 4. 目标架构（ADR-001）与下一步
+
+- **D 层以"省份 × 规则档位"为索引**：每个档位有自己的取值范围和子模型；先用分布，Q-01 通过后再考虑部分池化结构（省 → 机关，原设计专家 A 的思路）。
+- **E 层单列**：C 层照原文输出，E 层给实务分布与偏离提示（Q-02）。
+- **F 层**：分布校准、按地域 × 档位的分组共形区间、偏离预警（Q-07）。
+- 优先级：Q-01 →（Q-02、Q-10 并行）→ Q-09 → Q-07。
+
+## 变更日志
+
+| 日期 | 版本 | 变更 | 作者 |
+|---|---|---|---|
+| 2026-10-28 | v1 | 初版：按 main 上引擎第一版（`decide.py`、`norm_layer.py`、`routers/discretion.py`）写现行架构，并对照 ADR-001 列差距 | 引擎（规则链路） |
