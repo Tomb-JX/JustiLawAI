@@ -88,6 +88,8 @@
 
 | EXP-053 | 预注册 10-28，待跑 | C | Q-10：D-005 事后修订在工单 B 新数据上的检验 | 等工单 B 交回 | — | `$DATA/engine/development/q10-newdata-20261028/PREREG.md`；`research/eval/rule_chain/q10_newdata.py` |
 
+| EXP-054 | 10-28 | C / D | 引擎第一版在两省 391 条开发数据上的错误来源分解（按省份 × 路由） | 131 个错误：无分档 80（河北 40、江苏 40）、规则唯一 26（河北 21）、多候选 25（江苏类别不明 14）。河北无分档 58 条中只有 9 条事实段提到金额 | C-31 | 本会话内联统计（`prob_chain.load_cases("dev")` + `out_both/cases.jsonl`） |
+
 ## 变更日志
 
 | 日期 | 版本 | 变更 | 作者 |
