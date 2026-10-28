@@ -9,3 +9,4 @@ justilaw-api/.env
 .claude
 release
 *.zip
+research/discretion/*/tests

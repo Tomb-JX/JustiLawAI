@@ -1,5 +1,6 @@
 """§3.12 settings / parse / extract / review：复用 S1 与要素链路，模型调用走网关（测试用假网关，不发真实请求）。"""
 import json
+import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -160,6 +161,20 @@ def test_review_from_confirmed_elements_needs_no_model(env):
             "actual": {"type": "拘留", "detention_days": 5}}
     data = client.post("/api/v1/discretion/review", json=body).json()["data"]
     assert not fake.calls and "存在偏离：省级基准档位" in data["deviation"]["summary"]
+
+
+def test_extract_drops_unsupported_field_instead_of_failing(env, monkeypatch):
+    client, fake, _ = env
+    bad = element_payload()
+    bad["amounts"]["commission"] = {"status": "明确", "value": {"min": 5, "max": 5}, "evidence": [{"sentence_ids": ["S2.1"]}]}
+    monkeypatch.setattr(sys.modules[__name__], "element_payload", lambda: bad)
+    data = client.post("/api/v1/discretion/extract", json={"text": TEXT, "region": "320582"}).json()["data"]
+    assert [d["path"] for d in data["dropped"]] == ["amounts.commission"]
+    assert data["elements"]["amounts.commission"]["status"] == "待核实" and "commission" not in data["assess_input"]
+    assert data["elements"]["amounts.personal_stake"]["value"] == {"min": 600, "max": 600}
+    assert all("_raw" not in c for c in data["trace"]["model_calls"])
+    archived = discretion_runs_db.data[data["run_id"]]["result"]["trace"]["model_calls"]
+    assert archived[-1]["_raw"]
 
 
 def test_user_cannot_override_model_unless_allowed(env):

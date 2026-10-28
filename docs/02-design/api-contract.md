@@ -385,7 +385,7 @@ POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decis
 ### 3.12 裁量能力层（草案，待前端组评审；**全部已实现**，v0.9）
 
 > 设计：[裁量能力层](./discretion-capability-layer.md)。原则：要素是规范输入（不接文本模型）；模型调用走平台网关，按槽位配置；**每个结果都带 `trace`**（推理步骤、原文依据、计算过程、学习部分贡献分解、模型调用回执、版本），可按 `run_id` 取回。§3.11 的 `/discretion/decide` 保留兼容，后续由 `/discretion/assess` 取代。
-> parse / extract / review(text) 复用 `research/discretion/unify` 的 S1 与要素链路（提示、输入视图、校验、引用编译原样调用，只把模型请求改走网关）。**部署镜像目前不含该目录**，此时这三个接口返回 503，`GET /discretion/settings` 的 `chain.available=false`。
+> parse / extract / review(text) 复用 `research/discretion/unify` 的 S1 与要素链路（提示、输入视图、校验、引用编译原样调用，只把模型请求改走网关）。部署镜像已复制链路目录（v0.9.1）；链路不可用时这三个接口返回 503，`GET /discretion/settings` 的 `chain.available=false`。
 
 ```
 GET  /discretion/settings          → data: { models: { segment | extract: { title, model_id, effective_model_id, fallback_model_id,
@@ -411,6 +411,7 @@ POST /discretion/extract           { text? | parse_run_id?, doc_kind?, target?, 
                                          evidence: [{ quote, sentence, span: [start, end] }],
                                          origin: 'extracted', fact_field: <assess 字段名> | null } },
             assess_input: { <assess 扁平要素>, provenance },     // 可直接（经人工确认后）提交 assess
+            dropped: [{ path, reason }],                         // 校验不通过而剔除的字段（最多 3 个），elements 中 status='待核实'，不进 assess_input
             meta_missing: ('behavior_date' | 'region')[],         // 评估前须补齐
             note, trace: { versions, inputs: { text_sha256, parse_run_id, target, input_view }, model_calls } }
   // 给 parse_run_id 时复用该次分段结果，不再调用分段模型；target 缺省取分段结果的 subject.mention
@@ -445,7 +446,7 @@ POST /discretion/review            【已实现】决定书审查，两种输入
                                    B. { elements: <assess 请求体>, actual: { type, detention_days?, fine? } }   // 已确认要素，不调用模型
   → data: { <assess 的全部字段>, actual, parse?, extraction?: { elements, assess_input, meta_missing, target },
             deviation: { levels: [...], summary } }   // trace.model_calls 含两次调用回执
-  // 抽取后缺地区或行为日期 → 422（请求中补齐）；决定书种类不在 不予处罚 / 罚款 / 拘留 / 拘留并处罚款 → 422
+  // 抽取后缺地区或行为日期 → 422（请求中补齐；已完成的解析与抽取存档，message 含 run_id）；决定书种类不在 不予处罚 / 罚款 / 拘留 / 拘留并处罚款 → 422
 
 GET  /discretion/runs/{run_id}     【已实现】→ data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', created_at, request_sha256, result, trace }
 ```
@@ -470,6 +471,7 @@ GET  /discretion/runs/{run_id}     【已实现】→ data: { run_id, kind: 'par
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v0.9.1（草案） | extract / review 加 `dropped`（字段级剔除，交人工核实）；review 的 422 也存档并返回 run_id；镜像已带链路 | 引擎 |
 | 2026-10-28 | v0.9（草案） | §3.12 全部实现：`settings`（segment / extract 槽位，管理员可改，提示随代码版本）、`parse`、`extract`（证据含句号与坐标，给出可直接提交 assess 的 `assess_input`）、`review`（决定书文本或已确认要素 + 实际处罚）；模型调用回执 `model_calls` 结构与重试规则；错误码 403 / 502 / 503 | 引擎 |
 | 2026-10-28 | v0.8.2（草案） | §3.12 assess 的 `practice` 接入 RAP 无文本版：status / distribution / predicted / reading；trace 的 practice 步骤给逐特征贡献分解与模型元数据；deviation 加 practice 层（拟处罚种类在相近历史案件中的比例）；versions.practice_model | 引擎 |
 | 2026-10-28 | v0.8.1（草案） | §3.12 `assess`、`runs` 已实现：assess 请求改为与 decide 同名的扁平要素 + provenance + proposed；trace 含适用法律、法定空间（条文原文）、修正情节、涉刑提示、省级定档（计算过程 + 档位条款原文）、成文种类、数额参照（数据来源）、实务参照（待接入）、偏离、补查、版本 | 引擎 |

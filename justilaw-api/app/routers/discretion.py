@@ -248,14 +248,19 @@ def _slot(slot: str, override: str | None, user: dict) -> dict:
         raise HTTPException(503, detail=err(50300, f"裁量模型未配置/不可用：{e}"))
 
 
-def _fail(kind: str, user: dict, request: dict, e: Exception) -> HTTPException:
-    """模型链路失败也存档（回执可查），返回 run_id。"""
+def _public(calls: list[dict]) -> list[dict]:
+    """响应里去掉原始模型输出（只留在存档里）。"""
+    return [{k: v for k, v in c.items() if k != "_raw"} for c in calls]
+
+
+def _fail(kind: str, user: dict, request: dict, e: Exception, prior: list[dict] | None = None) -> HTTPException:
+    """模型链路失败也存档（含此前各步回执与原始输出），返回 run_id。"""
     if isinstance(e, HTTPException):
         return e
     if isinstance(e, chain.ChainUnavailable):
         return HTTPException(503, detail=err(50300, str(e)))
     if isinstance(e, chain.ChainFailed):
-        run_id = _archive(kind, user, request, {"ok": False, "error": str(e), "model_calls": e.calls})
+        run_id = _archive(kind, user, request, {"ok": False, "error": str(e), "model_calls": (prior or []) + e.calls})
         return HTTPException(502, detail=err(50200, f"{e}（运行记录 {run_id}）"))
     return HTTPException(422, detail=err(42200, str(e)))
 
@@ -285,9 +290,10 @@ async def parse_route(body: ParseRequest, user: dict = Depends(current_user)):
     view = _parse_view(p, body.doc_kind)
     trace = {"versions": {"engine": tr.ENGINE_VERSION, **chain.versions()},
              "inputs": {"text_sha256": p["text_sha256"], "doc_kind": body.doc_kind, "target": body.target},
-             "model_calls": p["model_calls"]}
+             "model_calls": _public(p["model_calls"])}
     internal = {"spans": p["spans"], "output": p["output"], "text": body.text, "text_sha256": p["text_sha256"]}
-    run_id = _archive("parse", user, req, {**view, "trace": trace, "_internal": internal})
+    run_id = _archive("parse", user, req, {**view, "trace": {**trace, "model_calls": p["model_calls"]},
+                                           "_internal": internal})
     return ok({"run_id": run_id, **view, "trace": trace})
 
 
@@ -330,16 +336,16 @@ async def extract_route(body: ExtractRequest, user: dict = Depends(current_user)
         x = await _extract(text, parsed, body.target, body.region, body.behavior_date,
                            body.decision_date, body.model_id, user)
     except Exception as e:  # noqa: BLE001
-        raise _fail("extract", user, req, e)
+        raise _fail("extract", user, req, e, calls)
     calls += x["model_calls"]
     trace = {"versions": {"engine": tr.ENGINE_VERSION, "schema": SCHEMA_VERSION, **chain.versions()},
              "inputs": {"text_sha256": parsed["text_sha256"], "parse_run_id": body.parse_run_id,
                         "target": x["target"], "input_view": x["input_view"]},
-             "model_calls": calls}
-    data = {"elements": x["elements"], "assess_input": x["assess_input"], "meta_missing": x["meta_missing"],
-            "target": x["target"], "trace": trace,
+             "model_calls": _public(calls)}
+    data = {"elements": x["elements"], "dropped": x["dropped"], "assess_input": x["assess_input"],
+            "meta_missing": x["meta_missing"], "target": x["target"], "trace": trace,
             "note": "抽取结果须经人工确认后再用于评估；确认或修改后把 provenance.origin 改为 extracted_then_confirmed / edited"}
-    run_id = _archive("extract", user, req, data)
+    run_id = _archive("extract", user, req, {**data, "trace": {**trace, "model_calls": calls}})
     return ok({"run_id": run_id, "schema_version": SCHEMA_VERSION, **data})
 
 
@@ -355,21 +361,24 @@ async def review_route(body: ReviewRequest, user: dict = Depends(current_user)):
             raise HTTPException(422, detail=err(42200, "给 elements 时必须同时给 actual（实际处罚）"))
         assess_body, actual = body.elements, body.actual.model_dump()
     elif body.text:
+        parsed = None
         try:
             parsed = await _parse(body.text, "决定书", body.target, body.segment_model_id, user)
             x = await _extract(body.text, parsed, body.target, body.region, body.behavior_date,
                                body.decision_date, body.model_id, user)
         except Exception as e:  # noqa: BLE001
-            raise _fail("review", user, req, e)
+            raise _fail("review", user, req, e, parsed["model_calls"] if parsed else None)
         calls = parsed["model_calls"] + x["model_calls"]
         parse_view = _parse_view(parsed, "决定书")
-        extraction = {k: x[k] for k in ("elements", "assess_input", "meta_missing", "target")}
-        if x["meta_missing"]:
-            raise HTTPException(422, detail=err(42200, f"解析后仍缺 {'、'.join(x['meta_missing'])}，请在请求中补充"))
+        extraction = {k: x[k] for k in ("elements", "dropped", "assess_input", "meta_missing", "target")}
         oc = parsed["output"].get("outcome") or {}
-        if oc.get("type") not in REVIEWABLE:
-            raise HTTPException(422, detail=err(
-                42200, f"决定书处罚种类为「{oc.get('type')}」，不在可审查范围（{'、'.join(sorted(REVIEWABLE))}）"))
+        problem = (f"解析后仍缺 {'、'.join(x['meta_missing'])}，请在请求中补充" if x["meta_missing"] else
+                   f"决定书处罚种类为「{oc.get('type')}」，不在可审查范围（{'、'.join(sorted(REVIEWABLE))}）"
+                   if oc.get("type") not in REVIEWABLE else None)
+        if problem:     # 已花费的模型调用不丢：存档解析与抽取结果，返回 run_id
+            run_id = _archive("review", user, req, {"ok": False, "error": problem, "parse": parse_view,
+                                                    "extraction": extraction, "model_calls": calls})
+            raise HTTPException(422, detail=err(42200, f"{problem}（运行记录 {run_id}）"))
         actual = {"type": oc["type"], "detention_days": oc.get("detention_days") or None, "fine": oc.get("fine") or None}
         try:
             assess_body = AssessRequest.model_validate(x["assess_input"])
@@ -382,10 +391,10 @@ async def review_route(body: ReviewRequest, user: dict = Depends(current_user)):
     data["deviation"]["summary"] = (("未发现偏离" if not flagged else "存在偏离：" + "、".join(flagged))
                                     + "（实务参照只报比例，不判对错）")
     data.update(actual=actual, parse=parse_view, extraction=extraction)
-    data["trace"]["model_calls"] = calls
+    data["trace"]["model_calls"] = _public(calls)
     if calls:
         data["trace"]["versions"].update(chain.versions())
-    _archive("review", user, req, data, data["run_id"])
+    _archive("review", user, req, {**data, "trace": {**data["trace"], "model_calls": calls}}, data["run_id"])
     return ok(data)
 
 

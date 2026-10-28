@@ -13,6 +13,7 @@ import bisect
 import hashlib
 import json
 import os
+import re
 import sys
 from dataclasses import fields
 from functools import lru_cache
@@ -91,7 +92,8 @@ async def _run(slot: str, cfg: dict, messages: list[dict], check, prompt: dict) 
             last = str(e)[:300]
             continue
         result, errors = check(content)
-        calls.append({**base, **receipt, "validation": {"ok": not errors, "violations": errors[:10]}})
+        calls.append({**base, **receipt, "validation": {"ok": not errors, "violations": errors[:10]},
+                      "_raw": content})                     # 原始输出只进存档，不随响应返回
         if not errors:
             return result, calls
         last = "；".join(errors[:3])
@@ -125,6 +127,22 @@ async def parse(text: str, doc_kind: str, target: str | None, cfg: dict) -> dict
 
 # ---------- ③ 要素抽取 ----------
 
+MAX_DROP = 3
+GROUPS = "conduct|amounts|persons|venue|intent|circumstances|person"
+_PATH_RES = (re.compile(rf"\b({GROUPS})\.([a-z_]+)"), re.compile(rf"\['({GROUPS})', '([a-z_]+)'"))
+
+
+def _field_paths(msg: str) -> list[str]:
+    """校验错误信息里点名的字段路径（两种写法：group.field 与 ['group', 'field', ...]）。"""
+    known, out = load().engine.FIELD_INFO, []
+    for rx in _PATH_RES:
+        for g, n in rx.findall(msg):
+            p = f"{g}.{n}"
+            if p in known and p not in out:
+                out.append(p)
+    return out
+
+
 def _path_by_fact() -> dict[str, str]:
     names = {f.name for f in fields(Facts)}
     out = {}
@@ -148,12 +166,30 @@ async def extract(text: str, parsed: dict, target: str, cfg: dict, meta: dict) -
                                            schema_version=ns.engine.SCHEMA_VERSION)
     messages = ns.re.messages(ns.engine, inp)
 
+    dropped: dict[str, str] = {}
+
     def check(content):
+        """字段级降级：校验点名的字段逐个剔除后重编译（最多 MAX_DROP 个），剔除项交人工核实；结构性错误整次重试。"""
+        dropped.clear()
         try:
             payload = ns.s1.extract_json(content)
-            return ns.re.compile_references(payload, inp, text, ns.engine), []
-        except ValueError as e:
-            return None, [str(e)[:300]]
+        except Exception as e:  # noqa: BLE001
+            return None, [f"无法提取 JSON：{str(e)[:80]}"]
+        for _ in range(MAX_DROP + 1):
+            try:
+                return ns.re.compile_references(payload, inp, text, ns.engine), []
+            except ValueError as e:
+                msg = str(e)
+                paths = [p for p in _field_paths(msg) if p not in dropped]
+                if not paths or len(dropped) + len(paths) > MAX_DROP:
+                    return None, [msg[:300]]
+                for p in paths:
+                    group, name = p.split(".")
+                    if not isinstance((payload.get(group) or {}).get(name), dict):
+                        return None, [msg[:300]]
+                    payload[group][name] = {"status": "未提及", "value": None, "evidence": []}
+                    dropped[p] = msg[:200]
+        return None, ["剔除字段后仍未通过校验"]
 
     compiled, calls = await _run("extract", cfg, messages, check, ns.extract_prompt)
     starts = [a for a, _ in parsed["spans"]]
@@ -164,6 +200,10 @@ async def extract(text: str, parsed: dict, target: str, cfg: dict, meta: dict) -
             path = f"{group}.{name}"
             ev = [{"quote": e["quote"], "sentence": bisect.bisect_right(starts, e["start"]),
                    "span": [e["start"], e["end"]]} for e in item.get("evidence") or []]
+            if path in dropped:
+                elements[path] = {"value": None, "status": "待核实", "evidence": [], "origin": "extracted",
+                                  "fact_field": by_fact.get(path), "dropped_reason": dropped[path]}
+                continue
             elements[path] = {"value": item.get("value"), "status": item.get("status"), "evidence": ev,
                               "origin": "extracted", "fact_field": by_fact.get(path)}
             if by_fact.get(path) and item.get("status") != "未提及":
@@ -174,5 +214,6 @@ async def extract(text: str, parsed: dict, target: str, cfg: dict, meta: dict) -
             for k, v in vars(facts).items() if v is not None}
     flat = json.loads(json.dumps(flat, ensure_ascii=False, default=lambda o: o.model_dump() if hasattr(o, "model_dump") else str(o)))
     return {"elements": elements, "assess_input": {**flat, "provenance": provenance},
+            "dropped": [{"path": p, "reason": r} for p, r in dropped.items()],
             "input_view": {"sentences": [s["sentence_id"] for s in inp["sentence_view"]], "view_sha256": inp["view_hash"]},
             "model_calls": calls}

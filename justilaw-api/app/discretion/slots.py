@@ -16,7 +16,7 @@ SLOTS = {
                 "params": {"temperature": 0, "max_tokens": 4000, "seed": 20261028, "thinking": False,
                            "timeout_s": 180, "retries": 1}},
     "extract": {"title": "要素抽取（要素链路）",
-                "params": {"temperature": 0, "max_tokens": 8000, "seed": 20261028, "thinking": False,
+                "params": {"temperature": 0, "max_tokens": 16000, "seed": 20261028, "thinking": False,
                            "timeout_s": 300, "retries": 1}},
 }
 PARAM_KEYS = {"temperature", "top_p", "max_tokens", "seed", "thinking", "timeout_s", "retries", "extra_body"}
