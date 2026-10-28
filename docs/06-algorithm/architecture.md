@@ -36,7 +36,7 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 | D 裁量：候选内选择 | **ADR-009 后**：文本模型退出核心；候选内由无文本 RAP 给实务分布（待接入，Q-23）。现线上接口多候选时返回候选、不选 | `decide.decide(type_probabilities=…)`；研究侧 `research/eval/rule_chain/engine_v1_eval.py`（字符 1–3 元 TF-IDF + 类别平衡 LR，C=3） | ADR-003 | 线上多候选时无选择 |
 | D 裁量：档内数额 | 全国 v5 train、2026 年前决定，按处罚种类、事件加权的历史分布（例：罚款档 500 元占 47%），再按本案法定幅度过滤 | `decide._legal_distribution`；`data/band_quantities.json`（由 `research/eval/rule_chain/build_band_quantities.py` 生成） | ADR-005 | 省份 × 种类、省份 × 规则档位都已检验，对未见机关无可迁移增益，维持全国分布（EXP-051）；本机关分层分布在时间外推上也更差（EXP-058）；"可以"减轻的选择未建模（Q-03） |
 | E 偏离 | **规则锚定实务模型 RAP**（算法已采纳，线上未接入）：以规则结论为锚，学实际处罚分布 | `research/eval/rule_chain/rap_model.py` | ADR-007 | 线上接入待做（Q-23） |
-| F 输出 | 种类、路由、候选、档内分布、依据、needs_review；前端「裁量建议」页 | `app/routers/discretion.py`；`justilaw-web/src/features/discretion/` | API 契约 §3.11 | 校准、共形区间、偏离预警、类案都未做（Q-07、Q-08） |
+| F 输出 | 种类、路由、候选、档内分布、依据、needs_review；前端「裁量建议」页。**`/discretion/assess`（10-28）**：同样的结论加完整 trace（依据原文、定档计算过程与条款原文、数据来源、要素来源、偏离检查、补查提示、版本）并存档 | `app/routers/discretion.py`、`app/discretion/trace.py`；`justilaw-web/src/features/discretion/` | API 契约 §3.11、§3.12 | 校准、共形区间、偏离预警、类案都未做（Q-07、Q-08） |
 
 ## 3. 研究侧在用的组件（不在线上）
 
@@ -58,6 +58,7 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-28 | v1.7 | F 层：assess 与完整追踪 | 引擎（规则链路） |
 | 2026-10-28 | v1.6 | ADR-009：要素为规范输入，文本模型退出核心，E 层用无文本 RAP | 引擎（规则链路） |
 | 2026-10-28 | v1.5 | D 层档内数额补 EXP-058 负结果 | 引擎（规则链路） |
 | 2026-10-28 | v1.4 | E 层采纳 RAP（ADR-007）；升档 + 赌资不明各档保留为候选（ADR-008） | 引擎（规则链路） |

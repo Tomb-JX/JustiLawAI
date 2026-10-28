@@ -52,6 +52,7 @@ users_db = JsonDB("users", [])                             # list[User]
 files_db = JsonDB("files", {})                             # {file_id: {filename, size, path, owner}}
 settings_db = JsonDB("settings", {})                       # 平台设置（默认模型等）
 stats_db = JsonDB("stats", {"daily_calls": {}, "model_calls": {}})  # 统计
+discretion_runs_db = JsonDB("discretion_runs", {})         # {run_id: 裁量运行存档（请求摘要、结果、trace）}
 
 
 def record_call(model_id: str, usage: dict | None = None):

@@ -349,7 +349,7 @@ def _stake_unavailable(status: str, reason: str, *, basis: str | None = None,
             "scope": "已知要素的省级建议，不是最终处罚结论",
             "observed_band_indices": [],
             "unknown_conditions": [], "final_band_determinable": False,
-            "hard_filter_allowed": False}
+            "hard_filter_allowed": False, "computation": []}
 
 
 def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict:
@@ -372,6 +372,7 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
     if not verified:
         return _stake_unavailable("基准待核验", "省级基准尚未核验", basis=basis)
     notes, used, unknown = [], [], []
+    comp = []                       # 计算过程（追踪用）：每个计量 / 托底 / 升档一条，只记录已发生的比较
     # 新法施行后省级基准未更新（法宝 2026-10-28 核：两省及公安部均无新法版本，旧版仍标现行有效）。
     # 新法第八十二条档次结构不变（一般：拘留或罚款；情节严重：拘留并处罚款），只提高了罚款数额，
     # 故推定沿用省级门槛与档次判断处罚种类；档位原文中的罚款数额是旧法数额，本案数额以新法法定幅度为准。
@@ -394,6 +395,8 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
         got = _measure_interval(f, m["field"])
         if got is None:
             unknown.append(m["field"])
+            comp.append({"step": "measure", "field": m["field"], "label": m.get("label"), "value": None,
+                         "result": "未知"})
             continue
         has_signal = True
         measure_found = True
@@ -409,9 +412,17 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
                              + "、".join(c["id"] for c in options) + "分别计算，档次取并集")
             measure_possible = {k for c in options for k in range(
                 _band_index(a, c["lower_bounds"]), _band_index(b, c["lower_bounds"]) + 1)}
+            thresholds = [{"category": c["id"], "label": c.get("label"), "lower_bounds": c["lower_bounds"],
+                           "bands": sorted(range(_band_index(a, c["lower_bounds"]),
+                                                 _band_index(b, c["lower_bounds"]) + 1))} for c in options]
         else:
             measure_possible = set(range(_band_index(a, m["lower_bounds"]),
                                          _band_index(b, m["lower_bounds"]) + 1))
+            thresholds = [{"category": None, "label": None, "lower_bounds": m["lower_bounds"],
+                           "bands": sorted(measure_possible)}]
+        comp.append({"step": "measure", "field": m["field"], "label": m.get("label") or how, "basis_of_value": how,
+                     "value": [a, None if b == float("inf") else b], "thresholds": thresholds,
+                     "result": sorted(measure_possible)})
         possible = {max(previous, current) for previous in possible for current in measure_possible}
         used.append(m.get("label") or how)
     floor = rule.get("entry_floor")
@@ -420,6 +431,8 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
         if got is not None and got[0][1] >= floor["min"]:
             lifted = {max(k, floor["to"]) for k in possible}
             possible = lifted if got[0][0] >= floor["min"] else possible | lifted
+            comp.append({"step": "entry_floor", "field": floor["field"], "value": [got[0][0], None if got[0][1] == float("inf") else got[0][1]],
+                         "min": floor["min"], "text": floor["text"], "result": sorted(possible)})
             measure_found = has_signal = True
             used.append(floor["text"])
     amount_possible = set(possible)
@@ -435,6 +448,8 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
                              f"{bands['names'][e['to'] - 1]}")
             else:
                 possible = {max(k, e["to"]) for k in possible}
+            comp.append({"step": "elevate", "condition": e["when"], "text": e["text"], "to": e["to"],
+                         "stake_known": measure_found, "result": sorted(possible)})
             elevated = True
             has_signal = True
             used.append(e["text"])
@@ -459,7 +474,7 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
            "applicability": "applicable" if f.decision_date is not None and alignment is None else "provisional",
            "law_alignment": "新法推定沿用" if alignment else None,
            "scope": "已知要素的省级建议，不是最终处罚结论",
-           "observed_band_indices": sorted(possible),
+           "observed_band_indices": sorted(possible), "computation": comp,
            "unknown_conditions": list(dict.fromkeys(unknown)),
            "final_band_determinable": False, "hard_filter_allowed": False}
     if f.behavior_type == "参与赌博":
