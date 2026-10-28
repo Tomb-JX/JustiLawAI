@@ -1,0 +1,476 @@
+# 江苏省赌博违法案件裁量指导意见 逐条台账（ADR-010 决定 4；流程 docs/06-algorithm/ledger-process.md）
+document: 苏公规〔2019〕1号
+title: 江苏省公安厅关于印发《赌博违法案件裁量指导意见》的通知
+province: '320000'
+province_rules: norms/provinces/320000.yaml
+source_sha256: 54179d59e790b131f75ab4fdcf3b87109249d458dc4d1e64e7ef785dfaf7f2e1
+segmenter: ledger-seg-v1
+status: 初版（引擎编制，待法律组复核）
+built: '2026-10-28'
+reviewed_by: []
+items:
+- path: 前言.1
+  text: 江苏省公安厅关于印发《赌博违法案件裁量指导意见》的通知（苏公规〔2019〕1号）
+  disposition: context
+- path: 前言.2
+  text: 各市、县公安局，城市公安分局：为遏制赌博违法活动发展蔓延，厘清群众棋牌娱乐与赌博违法行为的界限，进一步完善赌博违法案件裁量标准，保障法律正确实施，积极回应社会关切，省厅制定了《赌博违法案件裁量指导意见》，现印发给你们，请结合实际认真贯彻执行。执行中遇到的问题，请及时报告省厅。
+  disposition: context
+- path: 前言.3
+  text: 江苏省公安厅2019年2月2日
+  disposition: context
+- path: 前言.4
+  text: 为规范公安机关治安管理处罚赌博违法案件自由裁量权，确保执法公平公正，根据《中华人民共和国治安管理处罚法》《中华人民共和国行政处罚法》《公安机关办理行政案件程序规定》等，结合执法实践，制定本指导意见。
+  disposition: context
+- path: 一
+  text: 一、赌资的认定及处理
+  disposition: context
+- path: 一.（一）
+  text: （一）下列财物应当认定为赌资：
+  disposition: element
+  refs:
+  - field:amounts.personal_stake
+  - field:amounts.cumulative_stake
+  note: 赌资认定范围的总述，由赌资字段定义承接
+- path: 一.（一）.1
+  text: 1．赌博活动中用作赌注的款物；
+  disposition: element
+  refs:
+  - field:amounts.personal_stake
+  note: schema 定义：本人用作赌注的款物
+- path: 一.（一）.2
+  text: 2．赌博活动中换取筹码的款物；
+  disposition: element
+  refs:
+  - field:amounts.personal_stake
+  note: schema 定义：换取筹码的款物
+- path: 一.（一）.3
+  text: 3．通过赌博赢取的款物；
+  disposition: element
+  refs:
+  - field:amounts.personal_stake
+  note: schema 定义：赢取的款物
+- path: 一.（一）.4
+  text: 4．在利用计算机网络或组织他人赴境外进行的赌博活动中，分赌场、下级庄家或者赌博参与者在组织或者参与赌博前向赌博组织者、上级庄家或者赌博公司交付的押金；
+  disposition: gap
+  refs:
+  - field:amounts.cumulative_stake
+  note: 网络 / 境外赌博中交付的押金计入赌资：字段定义与标注指南未写明（Q-21）
+- path: 一.（一）.5
+  text: 5．在赌博活动中放贷的款物。
+  disposition: gap
+  refs:
+  - field:amounts.personal_stake
+  note: 赌博中放贷的款物计入赌资：字段定义与标注指南未写明（Q-21）
+- path: 一.（二）
+  text: （二）赌博现场没有赌资，而是以筹码、电子钱包移动支付或者事先约定事后交割等方式代替的，赌资数额经调查属实后予以认定。
+  disposition: element
+  refs:
+  - field:amounts.personal_stake
+  - field:amounts.cumulative_stake
+  note: 筹码、电子支付、事后交割经查实的数额计入赌资；工单 C BRIEF 已写入口径，标注指南待同步（Q-21）
+- path: 一.（三）
+  text: （三）每次赌博查实的赌资应当累计计算。
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita
+  - field:amounts.cumulative_stake
+  note: 10-28 补编：累计赌资优先作为定档赌资（C-44）
+- path: 一.（四）
+  text: （四）个人赌资能够查实的，优先适用个人查实赌资量罚；个人赌资无法确定时，按照参赌款物的价值总额除以参赌人数得出的人均赌资量罚。
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita
+  note: 个人查实优先、否则人均（per_capita）
+- path: 一.（五）
+  text: （五）通过计算机网络、赌博机实施赌博活动的赌资数额，可以按照在计算机网络、赌博机上投注或者赢取的总点数乘以每个点数实际代表的金额认定。
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita
+  - field:amounts.cumulative_stake
+  note: 网络、赌博机按投注总额认定，标注口径记入累计赌资，按一.（三）同一取值顺序定档
+- path: 一.（六）
+  text: （六）对查获的赌资应当收缴。对现场查获的赌资无法分清所有人的，可以作为参赌人员的共同赌资予以收缴。对现场查获参赌人员随身携带的财物，根据赌博方式、赌注大小、参赌时间等案件调查情况，查明属于赌资的，应当予以收缴。对参加计算机网络赌博的，按照查实的结算后实有赌资予以收缴。
+  disposition: not_applicable
+  note: 赌资收缴，属处置措施，不影响处罚种类与档位
+- path: 二
+  text: 二、对赌博活动中的交通、通讯工具的处理对参与赌博人员使用的交通、通讯工具用作赌注的，应当收缴。
+  disposition: not_applicable
+  note: 交通、通讯工具收缴，属处置措施
+- path: 二.段2
+  text: 在以营利为目的，聚众赌博、开设赌场，或者发行、销售“六合彩”等其他私彩为赌博提供条件，尚不够刑事处罚的案件中，违法行为人本人所有的用于纠集、联络、运送参赌人员以及用于望风护赌的交通、通讯工具，应当认定为作案工具依法予以收缴。
+  disposition: not_applicable
+  note: 作案工具收缴，属处置措施
+- path: 三
+  text: 三、对赌博行为治安处罚的裁量标准对赌博行为作出治安处罚，应当坚持公平公正、同等情况同等对待，依据赌博方式、赌资数额，并结合其他情节确定处罚幅度。
+  disposition: context
+- path: 三.（一）
+  text: （一）有下列情形之一的，处500元以下罚款：
+  disposition: encoded
+  refs:
+  - bands.penalty
+  note: 第一档处罚：500 元以下罚款
+- path: 三.（一）.1
+  text: 1．参与聚众赌博、网络赌博、赌博机赌博、赌场赌博、“六合彩”以及其他私彩方式赌博，个人赌资或者人均赌资100元以上、不满500元的；
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita.categories.聚众网络机器赌场私彩
+- path: 三.（一）.2
+  text: 2．参与其他赌博活动，个人赌资或者人均赌资500元以上、不满2000元的。
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita.categories.其他
+- path: 三.（二）
+  text: （二）有下列情形之一的，处5日以下拘留：
+  disposition: encoded
+  refs:
+  - bands.penalty
+  note: 第二档处罚：5 日以下拘留
+- path: 三.（二）.1
+  text: 1．参与聚众赌博、网络赌博、赌博机赌博、赌场赌博、“六合彩”以及其他私彩方式赌博，个人赌资或者人均赌资500元以上、不满1000元的；
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita.categories.聚众网络机器赌场私彩
+- path: 三.（二）.2
+  text: 2．参与其他赌博活动，个人赌资或者人均赌资2000元以上、不满5000元的；
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita.categories.其他
+- path: 三.（二）.3
+  text: 3．一年内因赌博被治安管理处罚后又实施的。
+  disposition: encoded
+  refs:
+  - rules.参与赌博.floor_hint.prior_within_year
+  note: 作为提示（须核实前次是否因赌博），不直接定档
+- path: 三.（三）
+  text: （三）有下列情形之一的，处10日以上15日以下拘留，并处500元以上3000元以下罚款：
+  disposition: encoded
+  refs:
+  - bands.penalty
+  - serious_circumstances
+  note: 第三档处罚：10–15 日拘留并处 500–3000 元罚款
+- path: 三.（三）.1
+  text: 1．参与聚众赌博、网络赌博、赌博机赌博、赌场赌博、“六合彩”以及其他私彩方式赌博，个人赌资或者人均赌资1000元以上的；
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita.categories.聚众网络机器赌场私彩
+- path: 三.（三）.2
+  text: 2．参与其他赌博活动，个人赌资或者人均赌资5000元以上的；
+  disposition: encoded
+  refs:
+  - rules.参与赌博.measures.personal_or_per_capita.categories.其他
+- path: 三.（三）.3
+  text: 3．国家工作人员参与赌博的；
+  disposition: encoded
+  refs:
+  - rules.参与赌博.elevate.civil_servant
+- path: 三.（三）.4
+  text: 4．其他情节严重的情形。
+  disposition: manual
+  note: 兜底条款"其他情节严重的情形"，由办案人判断，引擎只提示
+- path: 四
+  text: 四、对为赌博提供条件行为治安处罚的裁量标准对为赌博提供条件行为作出治安处罚，应当依据行为人非法获利数额、违法次数，并结合其他情节确定处罚幅度。
+  disposition: context
+- path: 四.（一）
+  text: （一）有下列情形之一的，处500元以下罚款：
+  disposition: encoded
+  refs:
+  - bands.penalty
+- path: 四.（一）.1
+  text: 1．为赌博提供条件，非法获利累计不满200元的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.commission
+- path: 四.（一）.2
+  text: 2．为赌博提供条件，累计不满5人次的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.cumulative_participants
+- path: 四.（一）.3
+  text: 3．设置赌博机或者为他人提供场所放置赌博机的；
+  disposition: gap
+  note: 设置 / 提供场所放置赌博机（第一档）：要素表无赌博机台数字段，规则未编
+- path: 四.（一）.4
+  text: 4．明知是赌博机而提供配件或维保服务不满5台的。
+  disposition: gap
+  note: 明知是赌博机而提供配件、维保（按台数分档）：无对应要素与规则
+- path: 四.（二）
+  text: （二）有下列情形之一的，处5日以下拘留：
+  disposition: encoded
+  refs:
+  - bands.penalty
+- path: 四.（二）.1
+  text: 1．为赌博提供条件，非法获利累计200元以上、不满500元的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.commission
+- path: 四.（二）.2
+  text: 2．为赌博提供条件2次的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.times
+- path: 四.（二）.3
+  text: 3．为赌博提供条件，累计5人次以上、不满10人次的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.cumulative_participants
+- path: 四.（二）.4
+  text: 4．一年内因为赌博提供条件被治安管理处罚后又实施的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.floor_hint.prior_within_year
+  note: 作为提示（须核实前次事由）
+- path: 四.（二）.5
+  text: 5．设置赌博机或者为他人提供场所放置赌博机2台以上，不满5台的；
+  disposition: gap
+  note: 放置赌博机 2–4 台（第二档）：无赌博机台数字段
+- path: 四.（二）.6
+  text: 6．明知是赌博机而提供配件或维保服务5台以上，不满10台的。
+  disposition: gap
+  note: 提供配件、维保 5–9 台（第二档）：无对应要素与规则
+- path: 四.（三）
+  text: （三）有下列情形之一的，处10日以上15日以下拘留，并处500元以上3000元以下罚款：
+  disposition: encoded
+  refs:
+  - bands.penalty
+- path: 四.（三）.1
+  text: 1．为赌博提供条件，非法获利累计500元以上的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.commission
+- path: 四.（三）.2
+  text: 2．为赌博提供条件3次以上的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.times
+- path: 四.（三）.3
+  text: 3．为赌博提供条件，累计10人次以上的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.measures.cumulative_participants
+- path: 四.（三）.4
+  text: 4．明知他人赌博而放贷赌资的；
+  disposition: gap
+  refs:
+  - field:conduct.role
+  note: 明知他人赌博而放贷赌资→第三档：要素 conduct.role 有"放贷者"，规则未编
+- path: 四.（三）.5
+  text: 5．发行、销售“六合彩”等其他私彩的；
+  disposition: gap
+  refs:
+  - field:conduct.method
+  note: 发行、销售私彩→第三档：规则未编（方式字段有私彩、六合彩，行为是"发行销售"需另判）
+- path: 四.（三）.6
+  text: 6．明知他人从事赌博活动而向其销售赌博机的；
+  disposition: gap
+  note: 向赌博者销售赌博机→第三档：无对应要素
+- path: 四.（三）.7
+  text: 7．为未成年人赌博提供条件的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.elevate.minors_involved
+- path: 四.（三）.8
+  text: 8．国家工作人员为赌博提供条件的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.elevate.civil_servant
+- path: 四.（三）.9
+  text: 9．组织、协助他人出境赌博的；
+  disposition: gap
+  refs:
+  - field:persons.abroad_organized_count
+  note: 组织、协助他人出境赌博→第三档：要素 persons.abroad_organized_count 已有，省级规则未编（国家层涉刑提示另有）
+- path: 四.（三）.10
+  text: 10．通过计算机信息网络平台为赌博提供条件的；
+  disposition: encoded
+  refs:
+  - rules.为赌博提供条件.elevate.method_online
+- path: 四.（三）.11
+  text: 11．设置赌博机或者为他人提供场所放置赌博机5台以上，不满10台的；
+  disposition: gap
+  note: 放置赌博机 5–9 台（第三档）：无赌博机台数字段
+- path: 四.（三）.12
+  text: 12．在中小学校园周边200米范围内设置赌博机的；
+  disposition: gap
+  note: 中小学校园周边 200 米设置赌博机→第三档：无对应要素
+- path: 四.（三）.13
+  text: 13．明知是赌博机而提供配件或维保服务10台以上的；
+  disposition: gap
+  note: 提供配件、维保 10 台以上（第三档）：无对应要素
+- path: 四.（三）.14
+  text: 14．为赌场接送参赌人员、望风看场、发牌坐庄、兑换筹码的；
+  disposition: gap
+  refs:
+  - field:conduct.role
+  note: 为赌场接送、望风、发牌坐庄、兑换筹码→第三档：要素 conduct.role 有"望风者"，其余角色与规则未编
+- path: 四.（三）.15
+  text: 15．其他情节严重的情形。
+  disposition: manual
+  note: 兜底条款"其他情节严重的情形"
+- path: 五
+  text: 五、从重、从轻、减轻处罚和不予处罚等情节
+  disposition: context
+- path: 五.（一）
+  text: （一）有下列情形之一的，从重处罚：
+  disposition: context
+- path: 五.（一）.1
+  text: 1．因赌博或者为赌博提供条件引发其他治安、刑事案件的；
+  disposition: gap
+  note: 因赌博引发其他治安、刑事案件→从重：无对应要素
+- path: 五.（一）.2
+  text: 2．教唆、胁迫、诱骗他人赌博或者为赌博提供条件的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._active
+  - field:circumstances.instigated_others
+  note: 与国家法从重情节"教唆、胁迫、诱骗他人"同一触发
+- path: 五.（一）.3
+  text: 3．对报案人、控告人、举报人、证人打击报复的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._active
+  - field:circumstances.retaliation
+  note: 与国家法从重情节"打击报复"同一触发
+- path: 五.（一）.4
+  text: 4．刑事处罚执行完毕三年内，或者在缓刑、假释期间，实施赌博或者为赌博提供条件的；
+  disposition: gap
+  note: 刑罚执行完毕三年内、缓刑假释期间→从重：无对应要素
+- path: 五.（一）.5
+  text: 5．六个月内曾受过治安管理处罚或者一年内因赌博或者为赌博提供条件违法行为受到两次以上公安行政处罚的；
+  disposition: gap
+  refs:
+  - code:norm_layer._prior_within
+  - field:circumstances.violations_last_year
+  note: 前半句"六个月内曾受过治安管理处罚"由国家法从重覆盖（code:norm_layer._prior_within）；后半句"一年内因赌博受两次以上公安行政处罚"未编
+- path: 五.（一）.6
+  text: 6．组织、领导实施赌博或者为赌博提供条件的，或在共同赌博或者为赌博提供条件违法行为中起主要作用的；
+  disposition: gap
+  refs:
+  - field:conduct.role
+  note: 组织、领导或起主要作用→从重：要素 conduct.role 有"组织者"，规则未编
+- path: 五.（一）.7
+  text: 7．在聚众赌博、开设赌场共同犯罪中，未被追究刑事责任的；
+  disposition: gap
+  note: 聚众赌博、开设赌场共同犯罪中未被追究刑事责任→从重：无对应要素
+- path: 五.（一）.8
+  text: 8．其他依法应当从重处罚的情形。
+  disposition: manual
+  note: 兜底条款"其他依法应当从重处罚的情形"
+- path: 五.（二）
+  text: （二）有下列情形之一的，从轻、减轻或者免予处罚：
+  disposition: context
+- path: 五.（二）.1
+  text: 1．未成年人参与赌博或者为赌博提供条件的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._not_executed
+  - field:person.age
+  note: 未成年人从轻减轻由国家法年龄规则覆盖
+- path: 五.（二）.2
+  text: 2．被胁迫、诱骗参与赌博或者为赌博提供条件的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._active
+  - field:circumstances.coerced_or_lured
+  note: 国家法"出于他人胁迫或者诱骗"
+- path: 五.（二）.3
+  text: 3．主动投案，向公安机关如实陈述赌博或者为赌博提供条件的违法行为的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._active
+  - field:circumstances.surrendered
+  - field:circumstances.truthful_statement
+  note: 国家法"主动投案如实陈述"
+- path: 五.（二）.4
+  text: 4．自愿认错认罚，协助查禁赌博活动，有立功表现的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._active
+  - field:circumstances.admits_and_accepts
+  - field:circumstances.meritorious
+  note: 国家法"认错认罚""立功"
+- path: 五.（二）.5
+  text: 5．检举、揭发他人赌博行为，并经查证属实的；
+  disposition: encoded
+  refs:
+  - code:norm_layer._active
+  - field:circumstances.meritorious
+  note: 检举揭发经查证属实按立功
+- path: 五.（二）.6
+  text: 6．其他依法应当从轻、减轻或者不予处罚的情形。
+  disposition: manual
+  note: 兜底条款"其他依法应当从轻、减轻或者不予处罚的情形"
+- path: 六
+  text: 六、不以赌博或者为赌博提供条件论处的情形
+  disposition: context
+- path: 六.（一）
+  text: （一）不以营利为目的，家庭成员、亲属之间进行的带有财物输赢的打麻将、玩扑克等活动，不以赌博论处；亲属之外的其他人之间带有少量财物输赢的打麻将、玩扑克等娱乐活动，不予处罚。
+  disposition: element
+  refs:
+  - field:conduct.behavior_type
+  note: 亲属间带彩娱乐、少量输赢娱乐不以赌博论处：由行为类型（带彩娱乐等）承接，引擎对非赌博行为不给省级档位
+- path: 六.（二）
+  text: （二）提供棋牌服务场所只收取正常的场所和服务费用的经营行为，不以为赌博提供条件论处，但明知他人赌博的除外。
+  disposition: manual
+  refs:
+  - field:amounts.commission
+  note: 只收正常场所服务费的棋牌经营不论处，但"明知他人赌博"除外：明知的认定由办案人判断（见七.（一））
+- path: 六.（三）
+  text: （三）在赌博场所从事一般服务、领取固定工资报酬、不从赌博行为中抽取利润的工作人员，不以为赌博提供条件论处。
+  disposition: manual
+  refs:
+  - field:conduct.role
+  note: 赌场一般服务人员不论处：须判断是否从赌博中抽取利润
+- path: 六.（四）
+  text: （四）赌资数额未达到本意见起罚下限标准的，对赌博人员免予处罚，但应当给予批评教育；未成年人有赌博违法行为的，应当责令父母或者其他监护人严加管教。
+  disposition: encoded
+  refs:
+  - rules.参与赌博.below_min
+  - rules.参与赌博.below_min_review
+  note: 未达起罚下限免予处罚；附赌资口径核实提示（Q-02）
+- path: 七
+  text: 七、其他规定
+  disposition: context
+- path: 七.（一）
+  text: （一）有下列情形之一的，可以认定为本意见第六条第（二）项规定的“明知”：
+  disposition: manual
+  note: '"明知"的认定情形，供办案人判断六.（二）'
+- path: 七.（一）.1
+  text: 1．提供以筹码换现金服务的；
+  disposition: manual
+  note: 明知认定情形
+- path: 七.（一）.2
+  text: 2．不收取固定服务费用，按照参赌人数的多少收取费用或者获利金额抽头渔利的；
+  disposition: manual
+  note: 明知认定情形
+- path: 七.（一）.3
+  text: 3．参赌人员在桌面公开摆放赌资的；
+  disposition: manual
+  note: 明知认定情形
+- path: 七.（一）.4
+  text: 4．场所业主和从业人员组织、招引他人赌博的；
+  disposition: manual
+  note: 明知认定情形
+- path: 七.（一）.5
+  text: 5．在执法人员调查时，以向涉赌嫌疑人员通风报信、与涉赌人员串供等方式干扰调查的；
+  disposition: manual
+  note: 明知认定情形
+- path: 七.（一）.6
+  text: 6．有其他证据证明行为人系明知的。
+  disposition: manual
+  note: 明知认定情形
+- path: 七.（二）
+  text: （二）本意见规定的“以上”、“以下”均含本数。
+  disposition: encoded
+  refs:
+  - code:norm_layer._band_index
+  note: '"以上"含本数：x ≥ 下限即达该档'
+- path: 七.（三）
+  text: （三）可同时供多人使用的赌博机，台数按照能够独立供一人进行赌博活动的操作基本单元的数量认定。
+  disposition: gap
+  note: 赌博机台数按可独立操作单元计：无赌博机台数字段（见四.（一）.3 等）
+- path: 七.（四）
+  text: （四）本意见自公布之日起执行，此前省公安厅有关规定与本意见不一致的，以本意见为准。
+  disposition: encoded
+  refs:
+  - documents
+  note: 施行日期记于 documents.effective_from，规则按行为、决定日期判断是否生效

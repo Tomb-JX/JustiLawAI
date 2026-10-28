@@ -301,10 +301,24 @@ def _referral(lib: NormLibrary, f: Facts) -> list[dict]:
 # 省级基准把同一法定档次再细分成几档（如江苏：赌资 100 元起罚款、500 元起拘留、1000 元起情节严重）。
 # 这里只按原文数额做确定性分档，并对区间值、归类不明做三值处理；它是"裁量建议"，不改变合法空间 Ω。
 
-def _measure_interval(f: Facts, field_name: str) -> tuple[tuple[float, float], str] | None:
-    """计量 → ([下界, 上界], 说明)。上界开口时为正无穷。"""
+def _measure_interval(f: Facts, field_name: str, sources: list[dict] | None = None
+                      ) -> tuple[tuple[float, float], str] | None:
+    """计量 → ([下界, 上界], 说明)。上界开口时为正无穷。
+
+    sources：省级 YAML 声明的取值顺序（每项 {use, label}，label 写明基准条款），按顺序取第一个已知的；
+    没有声明时沿用内置口径。"""
     def rng(a: AmountRange | None):
         return (a.min, a.upper) if a is not None else None
+    if sources:
+        for s in sources:
+            got = _measure_interval(f, s["use"])
+            if got is not None:
+                return got[0], s.get("label") or got[1]
+        return None
+    if field_name == "per_capita":
+        if f.onsite_stake_total is not None and f.participant_count:
+            return rng(per_capita_stake(f.onsite_stake_total, f.participant_count)), "人均赌资（现场赌资 ÷ 参赌人数）"
+        return None
     if field_name == "personal_or_per_capita":
         if f.personal_stake is not None:
             return rng(f.personal_stake), "个人赌资"
@@ -392,7 +406,7 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
         measures = [m for m in measures if m["field"] == "personal_stake"]
         notes.append(rule.get("combine_note") or "个人赌资已查明，按个人赌资定档")
     for m in measures:
-        got = _measure_interval(f, m["field"])
+        got = _measure_interval(f, m["field"], m.get("sources"))
         if got is None:
             unknown.append(m["field"])
             comp.append({"step": "measure", "field": m["field"], "label": m.get("label"), "value": None,
