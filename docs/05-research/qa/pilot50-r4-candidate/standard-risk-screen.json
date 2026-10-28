@@ -1,0 +1,29 @@
+{
+  "source_version": "2026-10-16.r4",
+  "source_file_sha256": "e0c8018d250f078e10ab3f9301873c684a432088a33312f95b0e419036867901",
+  "scope": "regex_triage_only_not_field_decision",
+  "n_candidate": 50,
+  "n_open_amount_phrase_candidates": 2,
+  "records": [
+    {
+      "id": "P-347",
+      "text_sha256": "d4f23b34790c3660b9610d1e1db412e95254d26436ffa718acbe5275b431b637",
+      "codes": [
+        "open_amount_phrase_candidate"
+      ],
+      "profit_purpose_explicit_phrase_in_facts": false,
+      "fee_mechanism_keyword_in_facts": true
+    },
+    {
+      "id": "W-001059",
+      "text_sha256": "70108372dc78fd5af5473c4671af86cb44cc56a43db955cc9a96381713d72e85",
+      "codes": [
+        "open_amount_phrase_candidate"
+      ],
+      "profit_purpose_explicit_phrase_in_facts": false,
+      "fee_mechanism_keyword_in_facts": false
+    }
+  ],
+  "n_profit_phrase_in_facts": 0,
+  "n_fee_keyword_in_facts": 5
+}

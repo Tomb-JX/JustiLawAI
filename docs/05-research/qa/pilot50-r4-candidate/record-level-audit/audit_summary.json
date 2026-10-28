@@ -1,0 +1,16 @@
+{
+  "source_version": "2026-10-16.r4",
+  "source_file_sha256": "e0c8018d250f078e10ab3f9301873c684a432088a33312f95b0e419036867901",
+  "whole_release_status": "not_approved",
+  "subset_status": "review_pending",
+  "n_candidates": 50,
+  "n_events": 50,
+  "n_with_automatic_flags": 9,
+  "flag_counts": {
+    "subject_ambiguity_signal": 1,
+    "facts_or_parse_warning": 2,
+    "second_name_detector_signal": 7
+  },
+  "n_record_receipts_closed": 0,
+  "n_replacement_suggestions": 9
+}
