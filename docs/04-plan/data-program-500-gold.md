@@ -1,5 +1,9 @@
 # 行政赌博案例 500 件金标：数据供给与验收计划
 
+> **已归档（2026-10-18）**：本页不是当前阶段计划。500 金标已由 [stage-plan-v2](./stage-plan-v2-2026-10-17.md) 放到 Stage 3 选项 A；当前数据版本口径与 r7 取样框见 [dataset-registry](./dataset-registry-2026-10-18.md)。仅保留历史。
+
+> **2026-10-22 实际**：**gold=0，500 未达成**。当前是 203 银标/135 事件（`release_approved=true` 只限银标训练，`gold=false`、test 禁用）、909 模型银标/726 事件（training-only）、706 湖文本 S1 文本观察值。534/2,918 是候选，不是金标。详见 [PROJECT-PANORAMA-STATUS-2026-10-22.md](./PROJECT-PANORAMA-STATUS-2026-10-22.md)。
+
 > 版本 v0.7 · 2026-10-16 18:28 协调快照 · 目标省份：河北、江苏（用户已确认用于采集规划；省级基准的现行效力仍须法律组核验）
 > 本文是执行台账和交接规则；字段以 [数据交付规格](../05-research/data-spec.md) v0.3 和 `records.py` 为准，门槛以 [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md) 为准。统计随交付版本更新，旧数字不覆盖。
 

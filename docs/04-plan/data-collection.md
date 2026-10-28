@@ -1,5 +1,7 @@
 # 数据收集计划：赌博案件智能裁量引擎
 
+> **已归档（2026-10-18）**：v0.5 收集计划；现行供给事实见 [data-distribution-2026-10-18](./data-distribution-2026-10-18.md)，版本口径见 [dataset-registry](./dataset-registry-2026-10-18.md)。
+
 > 版本 v0.5 · 2026-10-16 · 将[引擎方案 §6](../02-design/gambling-discretion-engine.md) 的数据方向细化为可执行计划
 > 配套：[**数据链路阶段总结**](./data-pipeline-status.md)（现行状态与优先级，发现层维护）· [行政案例数据交付规格](../05-research/data-spec.md)（交引擎的格式）· [固定对照与阶段门禁](../05-research/sota-baselines-and-gates.md) · [北大法宝作战手册](./pkulaw-playbook.md)
 >

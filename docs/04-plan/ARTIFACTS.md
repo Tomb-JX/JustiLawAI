@@ -3,7 +3,7 @@
 > `$DATA` = `D:/02_Dev/Data/justilaw-research`。下表是各线消费时应引用的**唯一当前版本**；状态为“过期/基线/WIP”的产物不得当作现行契约。
 > 文件哈希为 SHA-256；部分 JSON 内部还有自己的 `hash` 字段，二者不同，引用时写明是“文件 SHA”还是“内部 digest”。
 
-**最后更新：2026-10-18 13:04**
+**最后更新：2026-10-22 00:30**
 
 | 产物 | 路径 | 版本 / 哈希 | Owner | 消费方 | 状态 |
 |---|---|---|---|---|---|
@@ -46,3 +46,18 @@
 2. 产物更新后先改本表，再发 handoff；不得在消息里另写一份路径。
 3. 旧版本不删除，但在本表标“已被取代”，避免两条线同时消费不同版本。
 4. 模型调用产生的产物必须另标模型 ID、prompt 版本、调用批次日；未标者不得当作可复现结果。
+
+## 2026-10-22 新增/更新
+
+| 产物 | 路径 | 状态 |
+|---|---|---|
+| 现行状态主文档 | `docs/04-plan/CURRENT-STATUS-2026-10-22.md` | 现行 |
+| 全项目全景状态 | `docs/04-plan/PROJECT-PANORAMA-STATUS-2026-10-22.md` | 现行 |
+| 909 timesfix | `$DATA/s1_runs/expansion-1000-20261021/labels-909-timesfix/` | 现行（training-only） |
+| 字段/前科实现 | `research/discretion/unify/field_table.py`、`s1.py`、`run_seg.py` | 未提交 |
+| 字段/前科报告 | `$DATA/s1_runs/expansion-1000-20261021/FIELD-PRIOR-CLOSED-LOOP.md`、`NON-SENTENCE-FIELD-AUDIT.md` | 现行 |
+| qwen 12 报告 | `$DATA/s1_runs/qwen37-prior-test2-20261021/QWEN37-PRIOR-TEST.md` | 现行 |
+| qwen 30 报告 | `$DATA/s1_runs/qwen37-30b-20261021/QWEN37-30-TEST.md` | 现行（部分） |
+| qwen 30c | `$DATA/s1_runs/qwen37-30c-20261022/seg-run/` | 完成（26/30） |
+| 706b | `$DATA/s1_runs/lake-text-706b-20261022/` | incomplete 567/706；139 missing；`missing-ids.json`、`INCOMPLETE-SUMMARY.json` |
+| 价格/模型配置 | `$DATA/config/s1_prices.json`、`s1_models.json` | 现行；凭据不入库 |
