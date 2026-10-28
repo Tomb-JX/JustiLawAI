@@ -51,6 +51,7 @@ import type { ModelInfo, ModelProvider, RemoteModel } from '@/types/api'
 import { DEFAULT_LOCAL_URL, useLocalOllamaStore } from './local-ollama'
 import { OllamaSetupDialog, type SetupTarget } from './ollama-setup'
 import { useLocalModels } from './use-chat-models'
+import { SlotSettings } from '@/features/discretion/slot-settings'
 
 const CAP_LABELS: Record<string, string> = {
   completion: '对话',
@@ -582,6 +583,7 @@ export default function ProvidersPage() {
         )}
 
         {canEdit && <DefaultModelsCard />}
+        {canEdit && <SlotSettings />}
 
         {isLoading ? (
           <PageLoading />

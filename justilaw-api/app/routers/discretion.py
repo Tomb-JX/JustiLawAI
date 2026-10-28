@@ -294,16 +294,21 @@ def _record(run_id: str, kind: str, user: dict, request: dict, **fields) -> dict
     return rec
 
 
+def _phase(run_id: str, phase: str) -> None:
+    discretion_runs_db.data[run_id]["phase"] = phase
+    discretion_runs_db.save()
+
+
 async def _execute(run_id: str, work) -> None:
     rec = discretion_runs_db.data[run_id]
     try:
-        public, archived = await work()
+        public, archived = await work(run_id)
         if "run_id" in public:      # review 内部复用 assess，结果里的 run_id 统一为任务号
             public["run_id"] = run_id
-        rec.update(status="succeeded", result=public, archive=archived)
+        rec.update(status="succeeded", phase="completed", result=public, archive=archived)
     except Exception as e:  # noqa: BLE001  任务失败一律落档，不向外抛
         je = _job_error(e)
-        rec.update(status="failed",
+        rec.update(status="failed", phase="failed",
                    error={"http_status": je.status, "code": je.code, "message": str(je)},
                    partial={**je.partial, "model_calls": _public(je.calls)} if (je.partial or je.calls) else None,
                    archive={"model_calls": je.calls})
@@ -315,7 +320,7 @@ async def _execute(run_id: str, work) -> None:
 
 def _submit(kind: str, user: dict, request: dict, work, background: BackgroundTasks) -> JSONResponse:
     run_id = tr.new_run_id()
-    _record(run_id, kind, user, request, status="running")
+    _record(run_id, kind, user, request, status="running", phase="queued")
     discretion_runs_db.save()
     _ACTIVE.add(run_id)
     background.add_task(_execute, run_id, work)
@@ -340,7 +345,8 @@ async def parse_route(body: ParseRequest, background: BackgroundTasks, user: dic
     cfg = _slot("segment", body.model_id, user)
     req = body.model_dump(mode="json")
 
-    async def work():
+    async def work(run_id: str):
+        _phase(run_id, "segment")
         try:
             p = await chain.parse(body.text, body.doc_kind, body.target, cfg)
         except Exception as e:  # noqa: BLE001
@@ -395,11 +401,13 @@ async def extract_route(body: ExtractRequest, background: BackgroundTasks, user:
     cfg = _slot("extract", body.model_id, user)
     req = body.model_dump(mode="json")
 
-    async def work():
+    async def work(run_id: str):
         calls = []
         try:
+            _phase(run_id, "segment" if parsed0 is None else "extract")
             parsed = parsed0 or await chain.parse(text, body.doc_kind, body.target, seg_cfg)
             calls += parsed["model_calls"]
+            _phase(run_id, "extract")
             x = await _extract(text, parsed, body.target, body.region, body.behavior_date, body.decision_date, cfg)
         except Exception as e:  # noqa: BLE001
             raise _job_error(e, calls)
@@ -439,7 +447,8 @@ async def review_route(body: ReviewRequest, background: BackgroundTasks, user: d
         if body.actual is None:
             raise HTTPException(422, detail=err(42200, "给 elements 时必须同时给 actual（实际处罚）"))
 
-        async def work():           # 已确认要素：不调用模型，任务立即完成
+        async def work(run_id: str):           # 已确认要素：不调用模型，任务立即完成
+            _phase(run_id, "assess")
             data = _review_result(body.elements, body.actual.model_dump(), None, None, [])
             return data, {}
 
@@ -450,11 +459,13 @@ async def review_route(body: ReviewRequest, background: BackgroundTasks, user: d
     seg_cfg = _slot("segment", body.segment_model_id, user)
     cfg = _slot("extract", body.model_id, user)
 
-    async def work():
+    async def work(run_id: str):
         calls = []
         try:
+            _phase(run_id, "segment")
             parsed = await chain.parse(body.text, "决定书", body.target, seg_cfg)
             calls += parsed["model_calls"]
+            _phase(run_id, "extract")
             x = await _extract(body.text, parsed, body.target, body.region, body.behavior_date,
                                body.decision_date, cfg)
         except Exception as e:  # noqa: BLE001
@@ -470,6 +481,7 @@ async def review_route(body: ReviewRequest, background: BackgroundTasks, user: d
             raise JobError(422, 42200, problem, calls, {"parse": parse_view, "extraction": extraction})
         actual = {"type": oc["type"], "detention_days": oc.get("detention_days") or None,
                   "fine": oc.get("fine") or None}
+        _phase(run_id, "assess")
         try:
             assess_body = AssessRequest.model_validate(x["assess_input"])
         except Exception as e:  # noqa: BLE001
@@ -485,7 +497,24 @@ async def review_route(body: ReviewRequest, background: BackgroundTasks, user: d
     return _submit("review", user, req, work, background)
 
 
-RUN_VIEW = ("run_id", "kind", "status", "created_at", "finished_at", "request_sha256", "result", "error", "partial")
+RUN_VIEW = ("run_id", "kind", "status", "phase", "created_at", "finished_at", "request_sha256", "result", "error", "partial")
+
+
+@router.get("/discretion/runs")
+async def list_runs(limit: int = 50, user: dict = Depends(current_user)):
+    """本人运行目录；只返回摘要，不暴露案情原文与模型响应。"""
+    limit = max(1, min(limit, 100))
+    rows = []
+    for rec in discretion_runs_db.data.values():
+        if rec.get("owner") != user.get("id") and user.get("role") != "admin":
+            continue
+        result = rec.get("result") or {}
+        rows.append({"run_id": rec.get("run_id"), "kind": rec.get("kind"),
+                     "status": rec.get("status", "succeeded"), "created_at": rec.get("created_at"),
+                     "finished_at": rec.get("finished_at"),
+                     "summary": (result.get("written") or {}).get("type") if isinstance(result, dict) else None})
+    rows.sort(key=lambda x: x.get("created_at") or "", reverse=True)
+    return ok(rows[:limit])
 
 
 @router.get("/discretion/runs/{run_id}")

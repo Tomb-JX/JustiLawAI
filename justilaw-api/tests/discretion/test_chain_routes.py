@@ -209,3 +209,21 @@ def test_interrupted_job_is_reported_failed(env):
     discretion_runs_db.data["dr_x"] = {"run_id": "dr_x", "kind": "parse", "owner": "u1", "status": "running"}
     run = client.get("/api/v1/discretion/runs/dr_x").json()["data"]
     assert run["status"] == "failed" and run["error"]["code"] == 50001
+
+
+def test_run_directory_exposes_only_owned_summaries(env):
+    client, _, _ = env
+    own = job(client, "/api/v1/discretion/parse", {"text": TEXT})
+    assert own["phase"] == "completed"
+    discretion_runs_db.data["dr_other"] = {
+        "run_id": "dr_other", "kind": "review", "owner": "u2", "status": "succeeded",
+        "created_at": "2026-10-28T00:00:00+08:00", "result": {"written": {"type": "罚款"}},
+        "archive": {"raw_text": "private"},
+    }
+    rows = client.get("/api/v1/discretion/runs").json()["data"]
+    assert [row["run_id"] for row in rows] == [own["run_id"]]
+    assert all("archive" not in row and "result" not in row for row in rows)
+    as_admin()
+    admin_rows = client.get("/api/v1/discretion/runs").json()["data"]
+    assert {row["run_id"] for row in admin_rows} == {own["run_id"], "dr_other"}
+    assert next(row for row in admin_rows if row["run_id"] == "dr_other")["summary"] == "罚款"

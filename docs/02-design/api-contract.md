@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v1.0（§3.11、§3.12 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
+> 版本 v1.1（§3.12 运行目录与阶段状态已接入工作台，待前后端联调评审） · 2026-10-28（v0.6 · 2026-10-22）
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -397,8 +397,11 @@ POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decis
   // 不需要模型就能发现的错误在提交时同步返回、不建任务：参数缺失 / 冲突 → 422；槽位未配置、链路不可用 → 503；
   //   普通用户临时指定模型而槽位不允许 → 403；parse_run_id 不存在 → 404，分段任务未成功 → 409
 
+GET  /discretion/runs?limit=50    （仅本人与管理员）→ data: [{ run_id, kind, status, created_at, finished_at, summary }]
+  // 最近运行目录，按创建时间倒序；limit 限 1–100。只给摘要，不返回案情原文或模型原始输出。
 GET  /discretion/runs/{run_id}     （仅本人与管理员）
   → data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', status: 'running' | 'succeeded' | 'failed',
+            phase: 'queued' | 'segment' | 'extract' | 'assess' | 'completed' | 'failed',
             created_at, finished_at | null, request_sha256,
             result: <下列各接口的结果> | null,                       // succeeded 时
             error: { http_status, code, message } | null,             // failed 时；http_status 为同步调用时会用的状态码
@@ -484,6 +487,7 @@ POST /discretion/review            【已实现】决定书审查，两种输入
 
 | 日期 | 版本 | 变更 | 提出方 |
 |---|---|---|---|
+| 2026-10-28 | v1.1（待联调评审） | §3.12 增加本人运行目录 `GET /discretion/runs` 与运行 `phase`；阶段只表示服务端当前步骤，不提供模型 token 级进度；工作台代码已集成 | 前端组／阶段收束会话 |
 | 2026-10-14 | v0.1 | 初稿（待后端评审） | 前端组 |
 | 2026-10-14 | v0.2 | 鉴权改为 Logto OIDC：移除 `/auth/register`、`/auth/login`；新增 §1.3 JWT 校验约定；`User` 增加 `logto_id`、`email` | 前端组 |
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
