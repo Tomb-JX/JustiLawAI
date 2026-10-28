@@ -1,6 +1,6 @@
 # JustiLawAI 文档中心
 
-> 版本 v0.5 · 2026-10-28。快变数字以外置看板 `$DATA/coordination/CURRENT.md` 为准；维护规则见 [文档维护体系](./04-plan/doc-maintenance-system.md)。
+> 版本 v0.6 · 2026-10-28。快变数字以外置看板 `$DATA/coordination/CURRENT.md` 为准；维护规则见 [文档维护体系](./04-plan/doc-maintenance-system.md)。
 
 > 项目：法律大模型智能体工作平台（AI 大模型辅助裁决赌博类行政案件）· 学生大创项目
 >
@@ -77,7 +77,7 @@ docs/
 
 ## 阅读路径
 
-**阶段交接先读**：[数据链路现状](./04-plan/data-pipeline-status.md)（L1 快照）、[引擎线现状](./05-research/engine-line-status-2026-10-26.md)（L1 快照）、[现行算法架构](./06-algorithm/architecture.md)（L2 设计）、[文档维护体系](./04-plan/doc-maintenance-system.md)。运行时数字读 `$DATA/coordination/CURRENT.md`；2026-10-16 的 `project-status.md` 与 `data-flow.md` 中旧数字只作历史资料。
+**阶段交接先读**：[项目概览草稿](./04-plan/handoffs/2026-10-28-project-stage-overview-draft.md) → [数据链路现状](./04-plan/data-pipeline-status.md)（L1 快照）或[引擎线现状](./05-research/engine-line-status-2026-10-26.md)（L1 快照）→ [现行算法架构](./06-algorithm/architecture.md)（L2 设计）→ [文档维护体系](./04-plan/doc-maintenance-system.md)。运行时数字读 `$DATA/coordination/CURRENT.md`；2026-10-16 的 `project-status.md` 与 `data-flow.md` 中旧数字只作历史资料。
 
 | 你是谁 | 建议阅读顺序 |
 |---|---|
@@ -112,3 +112,4 @@ docs/
 | 2026-10-28 | v0.4 | 文档地图加 `06-algorithm/ledger-process.md` | 引擎（规则链路） |
 | 2026-10-28 | v0.3 | 文档地图新增 `06-algorithm/` 算法层；模型组阅读路径以其 README 为起点 | 引擎（规则链路，负责人批准） |
 | 2026-10-28 | v0.5 | 纠正历史快照入口；增加阶段交接阅读路径和看板时效说明 | 阶段收束会话 |
+| 2026-10-28 | v0.6 | 增加面向新接手成员的阶段交接概览草稿入口 | 阶段收束会话 |
