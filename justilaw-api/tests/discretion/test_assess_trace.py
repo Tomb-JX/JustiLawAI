@@ -116,4 +116,6 @@ def test_practice_features_match_spec():
     from app.discretion import practice
     from app.discretion.norm_layer import Facts
     assert len(practice.features(Facts(), [], "320000")) == len(practice.feature_spec())
-    assert practice.load_model()["features"] == [s["name"] for s in practice.feature_spec()]
+    v1 = practice.load_model(str(practice.MODEL_PATH.parent / "rap-notext-v1.json"))
+    assert v1["features"] == [s["name"] for s in practice.feature_spec()]
+    assert practice.load_model()["version"] == "rap-ruleonly-v2"            # 线上默认（C-46）

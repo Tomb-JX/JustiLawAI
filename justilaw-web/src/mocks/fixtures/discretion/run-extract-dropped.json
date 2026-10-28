@@ -2,11 +2,11 @@
  "code": 0,
  "message": "ok",
  "data": {
-  "run_id": "dr_fe2a8ace473a4716",
+  "run_id": "dr_21db75f42f504720",
   "kind": "extract",
   "status": "succeeded",
-  "created_at": "2026-10-28T12:54:21.008514+00:00",
-  "finished_at": "2026-10-28T12:54:21.042065+00:00",
+  "created_at": "2026-10-28T13:55:31.576672+00:00",
+  "finished_at": "2026-10-28T13:55:31.624835+00:00",
   "request_sha256": "15d686151487b4f3f3dbac29659bfe1c5be11e7bce3b02c120cb2ab6634ff3bf",
   "result": {
    "schema_version": "1.2.0",

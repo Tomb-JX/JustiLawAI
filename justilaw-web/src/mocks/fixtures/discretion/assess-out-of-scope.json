@@ -2,7 +2,7 @@
  "code": 0,
  "message": "ok",
  "data": {
-  "run_id": "dr_8113f8e0a0f04be0",
+  "run_id": "dr_aacae911c35c4ed7",
   "written": {
    "type": "罚款",
    "route": "rule_single",
@@ -158,10 +158,10 @@
      }
     },
     "practice_model": {
-     "version": "rap-notext-v1",
+     "version": "rap-ruleonly-v2",
      "trained": "2026-10-28",
-     "training_n": 391,
-     "training_ids_sha256": "c7afa181e71a2443d82d3992ef7c2ca69ed928023028a3f8f35a532266583be6"
+     "training_n": 475,
+     "training_ids_sha256": "4bc38259e9adc67395fb444af70990c6a646a9818a1b551a6d690ebfc839005c"
     }
    },
    "inputs": {

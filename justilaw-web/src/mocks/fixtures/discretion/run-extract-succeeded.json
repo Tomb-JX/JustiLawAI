@@ -2,12 +2,12 @@
  "code": 0,
  "message": "ok",
  "data": {
-  "run_id": "dr_47e4f095d67d4a70",
+  "run_id": "dr_703d12738ff34b94",
   "kind": "extract",
   "status": "succeeded",
-  "created_at": "2026-10-28T12:54:20.865976+00:00",
-  "finished_at": "2026-10-28T12:54:21.003680+00:00",
-  "request_sha256": "dea25d2b0ff407600091363fd3eee7bd2431e6f54d8d24b87dd2650dca156d2b",
+  "created_at": "2026-10-28T13:55:31.341901+00:00",
+  "finished_at": "2026-10-28T13:55:31.569219+00:00",
+  "request_sha256": "b3b65f7956794dd6938b072c0329e9a66e2dcafe3bf2b834956d0c9faeb3e723",
   "result": {
    "schema_version": "1.2.0",
    "elements": {
@@ -407,7 +407,7 @@
     },
     "inputs": {
      "text_sha256": "c5408bb3394cd88020879241a4f782bac9b52fa159917ad83a9e18feb008a351",
-     "parse_run_id": "dr_b186ae8474a04a4a",
+     "parse_run_id": "dr_ee5651ebe1bf4ab1",
      "target": "张三",
      "input_view": {
       "sentences": [
