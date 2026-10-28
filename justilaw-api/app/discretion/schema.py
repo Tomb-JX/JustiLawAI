@@ -53,6 +53,22 @@ class Extracted(BaseModel, Generic[T]):
         return self
 
 
+class ExtractedNullableWhenInferred(Extracted[T], Generic[T]):
+    """模糊量值字段（次数、人数、年龄）：'多次''数人''三十余岁'等无法确定确切值时，值记 null、状态推断，仍须附证据。
+
+    与指南 v0.2 裁定和 element_labels.NULLABLE_WHEN_INFERRED 一致（工单 C 回报校验器与指南冲突，10-28 对齐）。"""
+
+    @model_validator(mode="after")
+    def _consistent(self):
+        if self.status == FieldStatus.ABSENT and self.value is not None:
+            raise ValueError("状态为'未提及'时值必须为空")
+        if self.status == FieldStatus.EXPLICIT and self.value is None:
+            raise ValueError("状态为'明确'时必须给出值")
+        if self.status != FieldStatus.ABSENT and not self.evidence:
+            raise ValueError("给出值或推断时必须附原文证据")
+        return self
+
+
 class AmountRange(BaseModel):
     """金额（元），闭区间 [min, max]。
 
@@ -151,7 +167,7 @@ class Conduct(BaseModel):
         description="本人参与的这场赌博的组织形式（不是本人的行为类型）。原文写'聚众赌博'，或写明有人组织、召集他人赌博、"
                     "抽头渔利，记聚众赌博；在专门开设的赌场或以赌博为经营的场所，记赌场赌博；原文完整叙述赌博经过且没有"
                     "组织、召集、抽头、开设赌场的任何表述（如亲友邻里自发打牌），可推断为其他；拿不准记未提及")
-    times: Extracted[int] = Field(default_factory=Extracted,
+    times: ExtractedNullableWhenInferred[int] = Field(default_factory=ExtractedNullableWhenInferred,
         description="赌博或提供条件的次数（场次）。'多次/数次'等无法确定确切次数时值记 null、状态推断")
     duration_days: Extracted[float] = Field(default_factory=Extracted, description="持续时间（天），如'持续三个月'记 90")
     cheating: Extracted[bool] = Field(default_factory=Extracted, description="是否以作弊手段赢取财物（可能转为诈骗）")
@@ -172,7 +188,7 @@ class Amounts(BaseModel):
 
 
 class Persons(BaseModel):
-    participant_count: Extracted[int] = Field(default_factory=Extracted,
+    participant_count: ExtractedNullableWhenInferred[int] = Field(default_factory=ExtractedNullableWhenInferred,
         description="参赌人数（同一场次在场参赌的人数，含本人，不含围观者）。'多人/数人'等无法确定确切人数时值记 null、状态推断")
     cumulative_participants: Extracted[int] = Field(default_factory=Extracted, description="累计参赌人数（多场次合计）")
     minors_involved: Extracted[bool] = Field(default_factory=Extracted, description="是否有未成年人参赌")
@@ -224,7 +240,7 @@ class Circumstances(BaseModel):
 
 
 class Person(BaseModel):
-    age: Extracted[int] = Field(default_factory=Extracted,
+    age: ExtractedNullableWhenInferred[int] = Field(default_factory=ExtractedNullableWhenInferred,
         description="行为时的周岁年龄。只有出生年份时按 7 月 1 日估算并标'推断'；"
                     "'三十余岁'等模糊表述值记 null、状态推断")
     pregnant_or_nursing: Extracted[bool] = Field(default_factory=Extracted,

@@ -1,6 +1,6 @@
 # 要素标注指南
 
-> 版本 v0.4.4 · 2026-10-28 · 对应门禁 G0.3
+> 版本 v0.4.5 · 2026-10-28 · 对应门禁 G0.3
 > 字段定义的唯一来源是 `justilaw-api/app/discretion/schema.py`；本文 §4 的字段表由它自动生成。
 > 配套：[固定对照与阶段门禁](./sota-baselines-and-gates.md) · [数据收集计划](../04-plan/data-collection.md) · [并行工作流与分工](../04-plan/workstreams.md) §5
 
@@ -298,6 +298,7 @@
 ## 变更日志
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-28 | v0.4.5 | 校验器对齐：次数、参赌人数、年龄三字段允许"推断 + 值为空"（仍须附证据），与 v0.2 裁定一致；此前 schema 校验器拒绝，工单 C 回报冲突（`ExtractedNullableWhenInferred`） | 引擎（规则链路） |
 | 2026-10-28 | v0.4.4 | schema 1.2.0：新增 `conduct.gambling_form`（本场赌博的组织形式：聚众赌博 / 赌场赌博 / 其他），§3.4 后补判定表；起因是江苏基准分两类门槛、36 字段无法表达，见 [规则链路验证](./2026-10-28-rule-chain-validation.md) | 引擎（规则链路） |
 | 2026-10-18 | v0.4.3 | §3.11 澄清字段边界并同步 `60ebb52` 复跑：scene-level money 把他人个人金额标 shared，130/130 无 artifact；BIND-03/BIND-04 未关闭 | 协调层代笔（引擎线复核） |
 | 2026-10-18 | v0.4.2 | §3.11 实现状态更新到 v5：证据感知 3 步、切片无多人案例、528 review 为 unclassified role、contract/code 不一致 | 协调层代笔（引擎线复核） |
