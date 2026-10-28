@@ -104,6 +104,7 @@
 
 | EXP-061 | 10-28 | D / 文本 | 冻结配置的文本模型（v5 全量训练）在**全新文本包 funnel1740**（江苏 1,732 条、约 15 个机关、2016–2023，从未用于选型）上一次性评测；档内数额全国众数同测 | 种类准确率 0.618，**低于多数类基线 0.758**；宏 F1 0.333；拘留 P0.06 / R0.07，并处 P0.20 / R0.15；按批次 0.46–0.69。罚款数额全国众数 500 命中 0.768 | C-42 | 本会话内联；包 `$DATA/engine/training/m4-facts-silver-funnel1740-20261028/` |
 | EXP-062 | 10-28 | E | RAP 无文本版全量训练并导出线上参数；附开发集事件 5 折与工单 B 描述性数字 | 开发 RPS 0.103 / 准确率 0.703；工单 B RPS 0.179 / 0.464，拘留召回 0 | C-43 | `research/eval/rule_chain/rap_export.py`；参数 `justilaw-api/app/discretion/data/rap-notext-v1.json` |
+| EXP-063 | 10-28 | A / C / E | 新数据准确率低的分层诊断：按规则路由拆开发集（5 折）与工单 B 的准确率、覆盖、缺失；缺赌资记录的事实段金额反事实代入 | 主因是赌资缺失（79%，其中近半事实段有金额、口径未计入）；补上后河北网络投注全判第三档、7/21 对，暴露成文与实务差异；RAP 无锚时过度预测并处 | C-44 | `research/eval/rule_chain/diagnose_newdata.py`；`$DATA/engine/development/diagnose-newdata-20261028/report.json`；反事实部分本会话内联 |
 
 ## 变更日志
 
