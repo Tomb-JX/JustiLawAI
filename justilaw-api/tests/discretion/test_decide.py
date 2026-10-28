@@ -52,8 +52,9 @@ def test_no_provincial_band_falls_back_to_model_or_stays_undetermined():
 
 def test_online_without_stake_keeps_not_punishable_candidate():
     d = decide(_facts(HEBEI, method="网络赌博"), {"拘留": 0.5, "拘留并处罚款": 0.3, "不予处罚": 0.2})
-    assert d.candidates == ["不予处罚", "拘留并处罚款"]
-    assert d.penalty_type == "拘留并处罚款" and d.quantities
+    # Q-10：赌资不明时升档不足以定档，四种种类都保留为候选，候选内按文本概率选
+    assert d.candidates == ["不予处罚", "拘留", "拘留并处罚款", "罚款"]
+    assert d.penalty_type == "拘留" and d.quantities
 
 
 def test_band_types_maps_penalty_text():

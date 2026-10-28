@@ -35,7 +35,7 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 | C 基准定档 | 河北：个人优先、个人不明按一场、一场达起罚线托底第一档、升档条件下赌资不明给候选；江苏：两类方式门槛，`gambling_form` 判类；新法推定沿用 | `norm_layer._stake_threshold`；`decide.band_types`；`norms/provinces/130000.yaml`、`320000.yaml` | ADR-003（D-005）、ADR-004（D-006） | ① 河北升档给候选、江苏补字段，都未经新数据检验（Q-10）；② 只录了两省（Q-04）；③ 江苏低额按原文给"免予处罚"，公开数据中同类多为罚款；经核查，部分是赌资口径差异、部分是选择偏差（C-28、C-29），已在输出中提示核实赌资口径（`320000.yaml` `below_min_review`，经 needs_review 传到页面醒目显示） |
 | D 裁量：候选内选择 | 文本模型概率由调用方传入；**线上接口不接文本模型**，多候选时返回候选、不选 | `decide.decide(type_probabilities=…)`；研究侧 `research/eval/rule_chain/engine_v1_eval.py`（字符 1–3 元 TF-IDF + 类别平衡 LR，C=3） | ADR-003 | 线上多候选时无选择 |
 | D 裁量：档内数额 | 全国 v5 train、2026 年前决定，按处罚种类、事件加权的历史分布（例：罚款档 500 元占 47%），再按本案法定幅度过滤 | `decide._legal_distribution`；`data/band_quantities.json`（由 `research/eval/rule_chain/build_band_quantities.py` 生成） | ADR-005 | 省份 × 种类、省份 × 规则档位都已检验，对未见机关无可迁移增益，维持全国分布（EXP-051）；"可以"减轻的选择未建模（Q-03） |
-| E 偏离 | 无 | — | — | Q-02 |
+| E 偏离 | **规则锚定实务模型 RAP**（算法已采纳，线上未接入）：以规则结论为锚，学实际处罚分布 | `research/eval/rule_chain/rap_model.py` | ADR-007 | 线上接入待做（Q-23） |
 | F 输出 | 种类、路由、候选、档内分布、依据、needs_review；前端「裁量建议」页 | `app/routers/discretion.py`；`justilaw-web/src/features/discretion/` | API 契约 §3.11 | 校准、共形区间、偏离预警、类案都未做（Q-07、Q-08） |
 
 ## 3. 研究侧在用的组件（不在线上）
@@ -58,6 +58,7 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-28 | v1.4 | E 层采纳 RAP（ADR-007）；升档 + 赌资不明各档保留为候选（ADR-008） | 引擎（规则链路） |
 | 2026-10-28 | v1.3 | Q-02 ②：江苏低额免罚时输出赌资口径核实提示 | 引擎（规则链路） |
 | 2026-10-28 | v1.2 | C 层差距③按 Q-02 ① 核查结果改写 | 引擎（规则链路） |
 | 2026-10-28 | v1.1 | Q-01 检验结果：档内维持全国分布；§2 D 层差距与 §4 优先级更新 | 引擎（规则链路） |

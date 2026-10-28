@@ -429,7 +429,8 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
         if hit is True:
             if f.behavior_type == "参与赌博" and not measure_found:
                 # 第七十条以"赌资较大"为参与赌博的处罚前提：赌资不明时，未达则不予处罚，达到才按升档条件定档
-                possible = possible | {e["to"]}
+                # Q-10（新数据检验，2026-10-28）：赌资不明时升档条件不足以定到该档，历史只有 48% 到第三档 → 各档都保留为候选
+                possible = possible | set(range(1, e["to"] + 1))
                 notes.append(f"赌资是否达到起罚标准未知：未达则不予处罚；达到则依“{e['text']}”定为"
                              f"{bands['names'][e['to'] - 1]}")
             else:

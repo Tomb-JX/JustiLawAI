@@ -205,7 +205,7 @@ def test_elevation_without_stake_does_not_claim_stake_threshold_reached():
     r = nl.assess(nl.Facts(behavior_date=date(2025, 6, 1), decision_date=date(2025, 6, 2),
                            behavior_type="参与赌博", region="320582", civil_servant=True)).stake_threshold
     # 第七十条以"赌资较大"为前提：赌资不明时升档结果不确定，未达则不予处罚
-    assert r["bands"] == ["未达起罚标准", "第三档"]
+    assert r["bands"] == ["未达起罚标准", "第一档", "第二档", "第三档"]
     assert r["status"] == "明确情节升档、赌资门槛未知"
     assert any("未达则不予处罚" in n for n in r["notes"])
     assert "personal_or_per_capita" in r["unknown_conditions"]
@@ -239,7 +239,7 @@ def test_personal_known_makes_onsite_irrelevant_but_band_stays_advisory():
 def test_hebei_online_without_stake_keeps_not_punishable_candidate():
     r = nl.assess(nl.Facts(behavior_date=date(2023, 4, 26), decision_date=date(2023, 5, 1), region="130102",
                            behavior_type="参与赌博", method="网络赌博")).stake_threshold
-    assert r["bands"] == ["未达起罚标准", "情节较重"]
+    assert r["bands"] == ["未达起罚标准", "情节较轻", "一般情节", "情节较重"]
 
 
 def test_provide_conditions_elevation_needs_no_stake_threshold():
