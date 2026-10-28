@@ -100,7 +100,7 @@ def test_practice_reference_is_decomposable(client):
     for k, logit in ex["logits"].items():          # 基线 + 逐项贡献 = 对数几率（精确分解）
         total = ex["baseline_logits"][k] + sum(c["contribution"][k] for c in ex["contributions"])
         assert abs(total - logit) < 1e-2
-    assert step["model"]["version"] == "rap-notext-v1" and step["model"]["limits"]
+    assert step["model"]["version"] == "rap-ruleonly-v2" and step["model"]["limits"]
     assert data["trace"]["versions"]["practice_model"]["training_n"] > 0
     lv = {x["level"]: x for x in data["deviation"]["levels"]}["practice"]
     assert lv["probability"] == p["distribution"]["拘留"]

@@ -17,7 +17,7 @@ from pathlib import Path
 from .norm_layer import Facts
 
 ORDER = ["不予处罚", "罚款", "拘留", "拘留并处罚款"]
-MODEL_PATH = Path(__file__).parent / "data" / "rap-notext-v1.json"
+MODEL_PATH = Path(__file__).parent / "data" / "rap-ruleonly-v2.json"   # 工单 C 预注册 H2 通过后切换（C-46）
 NETWORK, MACHINE, LOTTERY = {"网络赌博"}, {"赌博机"}, {"私彩", "六合彩", "赌球"}
 AMOUNTS = (("personal_stake", "本人赌资"), ("onsite_stake_total", "现场赌资合计"), ("commission", "抽头渔利"))
 
