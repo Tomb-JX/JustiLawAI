@@ -1,6 +1,6 @@
 # JustiLawAI 文档中心
 
-> 版本 v0.1 · 2026-10-16
+> 版本 v0.5 · 2026-10-28。快变数字以外置看板 `$DATA/coordination/CURRENT.md` 为准；维护规则见 [文档维护体系](./04-plan/doc-maintenance-system.md)。
 
 > 项目：法律大模型智能体工作平台（AI 大模型辅助裁决赌博类行政案件）· 学生大创项目
 >
@@ -36,12 +36,12 @@ docs/
 │   ├── search-discovery-design.md  发现层设计（千帆搜索 API / 饱和拆分 / 交付文件）
 │   ├── web-harvest-design.md    公开网页收割设计（分诊 → 收割 → 解析 → 脱敏）
 │   ├── text-processing-spec.md  文本处理规范与数据对接分析（分段 / 脱敏 / D1–D5 待拍板）
-│   ├── project-status.md        ★ 项目现状总览与数据流水线规范化方案（唯一入口：会话归属、产物分层、问题、待人工决定事项）
+│   ├── project-status.md        10-16 历史快照与数据流水线规范化方案；现状见 data-pipeline-status.md
 │   ├── zcode-web-discovery-handoff-2026-10-17.md 网页发现层正式移交单（现行 Zcode 执行归属）
 │   ├── data-pipeline-status.md  数据链路阶段总结（核对版，各来源件数与缺口）
 │   ├── data-program-500-gold.md 500 件金标计划（双来源供给、质检、交付与门禁）
 │   ├── coordination-audit-2026-10-16.md 交接文档现势审计（当前交付／质检／差异与责任）
-│   ├── zcode-web-discovery-handoff-2026-10-17.md 网页发现层正式移交单（Zcode 原修复会话接续）
+│   ├── doc-maintenance-system.md 三层文档模型与检查点同步规则
 │   ├── workstreams.md           并行工作树与会话分工（单写入方、交接、Git 纪律）
 │   ├── collab-log.md            协作记录（只追加，union 合并）
 │   └── meetings/                周例会纪要（YYYY-MM-DD-主题.md）
@@ -77,6 +77,8 @@ docs/
 
 ## 阅读路径
 
+**阶段交接先读**：[数据链路现状](./04-plan/data-pipeline-status.md)（L1 快照）、[引擎线现状](./05-research/engine-line-status-2026-10-26.md)（L1 快照）、[现行算法架构](./06-algorithm/architecture.md)（L2 设计）、[文档维护体系](./04-plan/doc-maintenance-system.md)。运行时数字读 `$DATA/coordination/CURRENT.md`；2026-10-16 的 `project-status.md` 与 `data-flow.md` 中旧数字只作历史资料。
+
 | 你是谁 | 建议阅读顺序 |
 |---|---|
 | 新加入的成员 | 根 README → 术语表 → 前端设计方案 → 环境搭建 |
@@ -109,3 +111,4 @@ docs/
 | 2026-10-26 | v0.2 | 新增第 7 条「模块文档同步纪律」（硬性）；合并协调分支变更日志 | 宏观指引会话（用户指示） |
 | 2026-10-28 | v0.4 | 文档地图加 `06-algorithm/ledger-process.md` | 引擎（规则链路） |
 | 2026-10-28 | v0.3 | 文档地图新增 `06-algorithm/` 算法层；模型组阅读路径以其 README 为起点 | 引擎（规则链路，负责人批准） |
+| 2026-10-28 | v0.5 | 纠正历史快照入口；增加阶段交接阅读路径和看板时效说明 | 阶段收束会话 |

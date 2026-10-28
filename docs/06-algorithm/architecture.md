@@ -1,6 +1,6 @@
 # 现行算法架构
 
-> 版本 v2 · 2026-10-28 · **算法部分的权威说明**（[引擎方案](../02-design/gambling-discretion-engine.md) §4–§5 的算法内容以本文为准）
+> 版本 v2.2 · 2026-10-28 · **算法部分的权威说明**（[引擎方案](../02-design/gambling-discretion-engine.md) §4–§5 的算法内容以本文为准）；已同步工单 C / C-46 / EXP-066 与 `rap-ruleonly-v2` 线上切换。
 > 每次算法变动与代码同提交更新本文。目标架构由 [ADR-001](./adr/ADR-001-law-first.md)（法律先行）与 [ADR-010](./adr/ADR-010-positioning-ledger-driven-rules.md)（定位与分层边界）规定；本文写的是**现在实际跑的**，以及和目标之间的差距。
 
 ## 0. 一句话定位（ADR-010）
@@ -24,7 +24,7 @@ C 基准定档   norm_layer._stake_threshold（计算过程 + 档位条款原文
    ▼
 D 档内       全国按种类的历史分布（band_quantities.json），按本案法定幅度过滤 —— 统计参照（ADR-005、C-45）
    │
-E 实务参照   RAP 无文本版（practice.py）：规则结论 + 要素 → 实际种类分布，逐特征贡献可精确分解
+E 实务参照   rap-ruleonly-v2（practice.py）：只用规则结论 → 实际种类分布，逐特征贡献可精确分解
    │           两省、两类行为、旧法时期以外不外推
    ▼
 F 输出       assess：成文结论 / 实务参照 / 档内参照 / 偏离（法定空间、基准档位、数额、实务）/ 补查 / 完整 trace / 版本
@@ -38,8 +38,8 @@ F 输出       assess：成文结论 / 实务参照 / 档内参照 / 偏离（�
 | A 事实 | 产品里由人填写要素（schema 1.2.0，37 字段）；接口可从文本抽取要素草稿（复用 S1 与要素链路，模型走平台网关、按槽位配置，证据可定位，校验不过的字段剔除并标"待核实"），人工确认后评估 | `app/discretion/schema.py`；`chain.py`、`slots.py`；`model_gateway.call_json` | ADR-002、ADR-009 | 案卷文体上的抽取准确率未知（Q-06）；DeepSeek 冒烟 1 份决定书通过 |
 | B 法定空间 | 国家层罚则双纪元（2012 第七十条 / 2025 第八十二条）；时间效力；法定档次与修正情节展开；涉刑提示 | `norm_layer.py`（`assess`、`_statutory`、`_mitigated`、`_not_executed`、`_referral`）；`norms/national/` | 国家层 22 项逐字核对 | **国家层逐条台账未建**（ADR-010 决定 4）；减轻展开中"拘留或罚款"的减轻组合仍提示人工复核 |
 | C 基准定档 | 河北：个人优先、个人不明按一场、一场达起罚线托底第一档、升档条件下赌资不明给各档候选（ADR-008）；江苏：两类方式门槛，`gambling_form` 判类，个人不明按人均；新法推定沿用 | `norm_layer._stake_threshold`；`decide.band_types`；`norms/provinces/130000.yaml`、`320000.yaml`（含逐字档位条款 `clauses`） | ADR-003、ADR-004、ADR-008 | ① 江苏逐条台账初版已建（`norms/ledgers/320000.yaml`，[流程](./ledger-process.md)），累计赌资已补编（`measures[].sources`），余 20 个缺口待排期、待法律组复核；② 河北规则库只存 869 字节选，基准总则未核对；③ 河北"网络投注一律情节较重"与实务明显不符（C-32、C-44），规则照原文，偏离交 E 层与审查；④ 只录两省（ADR-006） |
-| D 档内 | 全国 v5、2026 年前决定，按处罚种类、事件加权的历史分布，按本案法定幅度过滤；作"参照，不是法律结论"展示 | `decide._legal_distribution`；`data/band_quantities.json` | ADR-005、ADR-010 | 要素式档内学习第一阶段未通过（C-45），省份 / 机关 / 档位细分均无可迁移增益（C-25、C-26、C-39）；基准写明的档内规则（从重从轻、"可以并处"条件）待台账覆盖后编码；Q-27 第二阶段待工单 C |
-| E 实务参照 | RAP 无文本版 `rap-notext-v1`：多项逻辑回归（标准化），规则结论 one-hot + 要素；输出分布与逐特征贡献（基线 + 贡献 = 对数几率） | `app/discretion/practice.py`；参数 `data/rap-notext-v1.json`（`research/eval/rule_chain/rap_export.py` 导出，特征与研究脚本逐条核对） | ADR-007、ADR-009 | 特征手工挑选，未读累计赌资（C-44）→ 改为由规则生成（ADR-010 决定 5）；无文本版未经独立预注册检验，工单 B 描述性准确率 0.464、拘留召回 0（C-43）；训练集无不予处罚 |
+| D 档内 | 全国 v5、2026 年前决定，按处罚种类、事件加权的历史分布，按本案法定幅度过滤；作"参照，不是法律结论"展示 | `decide._legal_distribution`；`data/band_quantities.json` | ADR-005、ADR-010 | 要素式档内学习第一阶段未通过（C-45），工单 C 第二阶段也未过（C-46）；省份 / 机关 / 档位细分尚无可迁移增益（C-25、C-26、C-39）；基准写明的档内规则仍待台账覆盖后编码 |
+| E 实务参照 | `rap-ruleonly-v2`：只用规则结论作特征的 RAP 多项逻辑回归，输出种类分布与逐特征贡献；工单 C 封存检验 RPS 0.109，对 v1 非劣且优于边际分布（C-46）。规则生成全特征 v2 在同检验中更差，未上线 | `app/discretion/practice.py`；参数 `data/rap-ruleonly-v2.json`；训练/检验 `research/eval/rule_chain/rap_v2.py`、`workorder_c_test.py` | ADR-007、ADR-009、C-46 / EXP-066 | 只检验两省、两类行为与旧法时期；更大新来源样本及不予处罚类仍待验证 |
 | F 输出 | `assess`：成文 / 实务 / 档内 / 偏离 / 补查 / trace / 版本，同步并存档；`parse`、`extract`、`review`：提交 202 + run_id，轮询 runs；`decide`（§3.11）保留兼容 | `app/routers/discretion.py`、`app/discretion/trace.py`；契约 §3.11、§3.12 v1.0 | ADR-010 决定 1 | 分组共形区间与校准、基于共形 p 值的偏离预警未做（Q-07）；类案检索未做（Q-08） |
 
 ## 3. 研究侧组件（不在线上）
@@ -47,7 +47,7 @@ F 输出       assess：成文结论 / 实务参照 / 档内参照 / 偏离（�
 | 组件 | 用途 | 位置 | 状态 |
 |---|---|---|---|
 | 规则链路评估与诊断 | EP-3～EP-6、新数据分层诊断、档内要素学习检验 | `research/eval/rule_chain/`（`diagnose_newdata.py`、`within_band_elements.py` 等） | 现行 |
-| 工单构建 | 两省人工要素标注工单（B 已完成、C 封存检验集已派发） | `research/eval/rule_chain/build_workorder_c.py` | 工单 C 标注中 |
+| 工单构建 | 两省人工要素标注工单与 C 封存检验集 | `research/eval/rule_chain/build_workorder_c.py`、`workorder_c_test.py` | 工单 C 已一次性检验，结果见 C-46 / EXP-066 |
 | 文本类型头 | 历史对照 | 加权字符 TF-IDF + LR（EXP-040） | 退出核心（ADR-009）；新人群上无区分力（C-42） |
 | 机关先验接口 | 按省 → 市 → 机关逐级收缩的历史分布 | `research/eval/agency_prior.py` | 不进入裁决（C-39） |
 | binding v1.1 | 四字段确定性绑定服务 | `research/discretion/unify/binding_service.py` | 线已关闭（Q-11） |
@@ -57,8 +57,8 @@ F 输出       assess：成文结论 / 实务参照 / 档内参照 / 偏离（�
 1. ~~江苏逐条台账样板~~（10-28 完成初版，累计赌资已补编）；江苏 20 个缺口排期，交法律组复核。
 2. **河北补全基准原文**后建台账（需负责人或数据组提供原件）。
 3. **国家层台账**（治安管理处罚法新旧两版、行政处罚法相关条款）。
-4. **RAP 特征改为由规则生成**；开发集 + 工单 B 重训；写预注册。
-5. **工单 C 交回后**：按预注册检验（Q-21 修正后的规则与 RAP；Q-27 第二阶段）。
+4. ~~RAP 特征候选重训与工单 C 预注册检验~~：已完成 EXP-065 / EXP-066；只用规则结论的 `rap-ruleonly-v2` 上线（C-46），规则生成全特征版未通过比较。
+5. 工单 C H1 规则修正非劣、H2 实务参照有效、H3 档内要素学习第二阶段未过；后续按 [问题台账](./questions.md) 的重开条件推进，不重复使用封存检验集选型。
 6. F 层：分组共形区间与偏离预警（Q-07）。
 
 ## 变更日志
@@ -66,6 +66,7 @@ F 输出       assess：成文结论 / 实务参照 / 档内参照 / 偏离（�
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
 | 2026-10-28 | v2.1 | C 层：江苏台账初版与累计赌资补编 | 引擎（规则链路） |
+| 2026-10-28 | v2.2 | 按 C-46 / EXP-066 同步 E 层现行模型、工单 C 三项结果及下一步状态；不变更算法门槛 | 阶段收束会话 |
 | 2026-10-28 | v2 | 按 ADR-010 重写：§0 定位；§1 图更新为现行（抽取、assess / review、去掉文本路由）；§2 C 层差距改为台账缺口与已知漏编，D 层补 C-45，E 层补特征来源问题；§3 去掉过时组件；§4 下一步按 ADR-010 | 引擎（规则链路） |
 | 2026-10-28 | v1.8 | E 层：RAP 无文本版接入 assess（Q-23） | 引擎（规则链路） |
 | 2026-10-28 | v1.7 | F 层：assess 与完整追踪 | 引擎（规则链路） |
