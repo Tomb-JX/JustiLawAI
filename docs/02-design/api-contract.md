@@ -368,7 +368,8 @@ GET  /discretion/meta    → data: { behavior_types, methods, gambling_forms, ve
                                    provinces: { code, name }[], laws: { id, title }[] }
 POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decision_date?, region? (六位区划码),
                            personal_stake? / onsite_stake_total? / commission?: { min, max | null },
-                           method?, gambling_form?, venue_type?, civil_servant?, age?, first_offense?, … }
+                           method?, gambling_form?, venue_type?, civil_servant?, age?, first_offense?, role?, … }
+                           // role（v1.0.1）：本人角色，枚举见 GET /discretion/meta 的 roles；江苏为赌博提供条件中放贷者、望风者升第三档
                            // 字段与 norm_layer.Facts 同名；未传 = 未知（不是"否"）；未知字段 → 422
   → data: {
       penalty_type: string | null,       // 罚款 / 拘留 / 拘留并处罚款 / 不予处罚；null = 未确定
@@ -488,6 +489,7 @@ POST /discretion/review            【已实现】决定书审查，两种输入
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v1.0.1 | decide / assess 要素加 `role`（本人角色）；`GET /discretion/meta` 加 `roles` | 引擎 |
 | 2026-10-28 | v1.0（待评审） | §3.12 parse / extract / review 改为**任务号 + 轮询**：提交返回 202 + run_id，轮询 `GET /discretion/runs/{run_id}`（status / result / error / partial）；配置与参数错误仍同步返回；assess 保持同步；附模拟数据目录与生成脚本 | 引擎 |
 | 2026-10-28 | v0.9.1（草案） | extract / review 加 `dropped`（字段级剔除，交人工核实）；review 的 422 也存档并返回 run_id；镜像已带链路 | 引擎 |
 | 2026-10-28 | v0.9（草案） | §3.12 全部实现：`settings`（segment / extract 槽位，管理员可改，提示随代码版本）、`parse`、`extract`（证据含句号与坐标，给出可直接提交 assess 的 `assess_input`）、`review`（决定书文本或已确认要素 + 实际处罚）；模型调用回执 `model_calls` 结构与重试规则；错误码 403 / 502 / 503 | 引擎 |

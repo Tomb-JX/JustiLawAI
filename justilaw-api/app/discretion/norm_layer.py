@@ -55,6 +55,7 @@ class Facts:
     minors_involved: bool | None = None
     profit_purpose: bool | None = None
     times: int | None = None
+    role: str | None = None          # 本人角色（江苏为赌博提供条件：放贷者、望风者升第三档，台账 四.（三））
 
     @classmethod
     def from_elements(cls, e: GamblingElements) -> "Facts":
@@ -78,6 +79,7 @@ class Facts:
             abroad_organized_count=v(p.abroad_organized_count),
             method=v(e.conduct.method), gambling_form=v(e.conduct.gambling_form), venue_type=v(e.venue.venue_type), civil_servant=v(p.civil_servant),
             minors_involved=v(p.minors_involved), profit_purpose=v(e.intent.profit_purpose), times=v(e.conduct.times),
+            role=v(e.conduct.role),
         )
 
 
@@ -345,7 +347,10 @@ def _flag(f: Facts, key: str) -> bool | None:
         prior = 0 <= _months_between(f.last_prior_penalty_date, f.behavior_date) <= 12
     return {"civil_servant": f.civil_servant, "minors_involved": f.minors_involved, "venue_public": public,
             "method_online": online, "venue_public_for_profit": _all(public, f.profit_purpose),
-            "prior_within_year": prior}.get(key)
+            "prior_within_year": prior,
+            "role_lender": None if f.role is None else f.role == "放贷者",
+            "role_lookout": None if f.role is None else f.role == "望风者",
+            "abroad_organized": None if f.abroad_organized_count is None else f.abroad_organized_count > 0}.get(key)
 
 
 def _date_value(value) -> date | None:
@@ -467,7 +472,7 @@ def _stake_threshold(lib: NormLibrary, f: Facts, law: Law | None = None) -> dict
             elevated = True
             has_signal = True
             used.append(e["text"])
-        elif hit is None:
+        elif hit is None and e.get("ask", True):       # ask: false 的条件只在成立时升档，未知时不追问
             unknown.append(e["when"])
     for e in rule.get("floor_hint") or []:
         hit = _flag(f, e["when"])

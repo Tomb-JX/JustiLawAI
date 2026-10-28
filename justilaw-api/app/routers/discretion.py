@@ -22,7 +22,7 @@ from ..discretion import trace as tr
 from ..discretion.decide import decide
 from ..discretion.norm_layer import Facts
 from ..discretion.norm_store import load
-from ..discretion.schema import (SCHEMA_VERSION, AmountRange, BehaviorType, GamblingForm, GamblingMethod, MinorLevel,
+from ..discretion.schema import (SCHEMA_VERSION, AmountRange, Role, BehaviorType, GamblingForm, GamblingMethod, MinorLevel,
                                  VenueType)
 from ..resp import err, ok
 from ..store import discretion_runs_db
@@ -67,6 +67,7 @@ class DecideRequest(BaseModel):
     minors_involved: bool | None = None
     profit_purpose: bool | None = None
     times: int | None = None
+    role: Role | None = None
 
 
 class Evidence(BaseModel):
@@ -116,7 +117,7 @@ async def meta(user: dict = Depends(current_user)):
     return ok({
         "behavior_types": _values(BehaviorType), "methods": _values(GamblingMethod),
         "gambling_forms": _values(GamblingForm), "venue_types": _values(VenueType),
-        "minor_levels": _values(MinorLevel),
+        "minor_levels": _values(MinorLevel), "roles": _values(Role),
         "provinces": [{"code": code, "name": p.get("name")} for code, p in sorted(lib.provinces.items())],
         "laws": [{"id": law.law_id, "title": law.title} for law in lib.laws],
     })

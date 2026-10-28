@@ -68,3 +68,18 @@ def test_jiangsu_cumulative_stake_bands_by_clause():
     hebei = assess(Facts(**{**base, "region": "130100", "behavior_date": date(2022, 5, 1)},
                          cumulative_stake=AmountRange(min=600, max=600))).stake_threshold
     assert "cumulative" not in str([c.get("basis_of_value") for c in hebei["computation"]])   # 河北原文无条款，不用
+
+
+def test_jiangsu_provide_conditions_role_elevations():
+    """台账 四.（三）.4 / .9 / .14：放贷者、组织出境、望风者 → 第三档；角色未知不追问。"""
+    from datetime import date
+
+    from app.discretion.norm_layer import Facts, assess
+    from app.discretion.schema import AmountRange
+    base = dict(behavior_date=date(2022, 5, 1), decision_date=date(2022, 6, 1), region="320500",
+                behavior_type="为赌博提供条件", commission=AmountRange(min=100, max=100))
+    assert assess(Facts(**base)).stake_threshold["bands"] == ["第一档"]
+    assert not {"role_lender", "role_lookout", "abroad_organized"} & set(assess(Facts(**base)).stake_threshold["unknown_conditions"])
+    for kw in ({"role": "放贷者"}, {"role": "望风者"}, {"abroad_organized_count": 3}):
+        assert assess(Facts(**base, **kw)).stake_threshold["bands"] == ["第三档"], kw
+    assert assess(Facts(**base, role="抽头者")).stake_threshold["bands"] == ["第一档"]

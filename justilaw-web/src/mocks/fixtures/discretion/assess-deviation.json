@@ -2,7 +2,7 @@
  "code": 0,
  "message": "ok",
  "data": {
-  "run_id": "dr_c606e8210bde4afc",
+  "run_id": "dr_7402499b61244b00",
   "written": {
    "type": "罚款",
    "route": "rule_single",
@@ -172,7 +172,7 @@
    "versions": {
     "engine": "de-0.2.0",
     "schema": "1.2.0",
-    "norm_library_sha256": "942ccdd7c8709213d2f3006aae220afed729317546da86bc9dfadbb81126b8f5",
+    "norm_library_sha256": "f377d3b9da4d0fde096aef040ff43b5f61c1b1a7df48c9c1489f72934275ef7b",
     "laws": [
      {
       "id": "psal-2012",
@@ -369,14 +369,14 @@
       "处500元以下罚款"
      ],
      "computation": [
-      "个人赌资 600 元，按「参与其他赌博活动」门槛 500 / 2000 / 5000 元 → 第一档"
+      "个人赌资（基准第一节（四）个人赌资能够查实的优先适用） 600 元，按「参与其他赌博活动」门槛 500 / 2000 / 5000 元 → 第一档"
      ],
      "computation_detail": [
       {
        "step": "measure",
        "field": "personal_or_per_capita",
-       "label": "个人赌资",
-       "basis_of_value": "个人赌资",
+       "label": "个人赌资（基准第一节（四）个人赌资能够查实的优先适用）",
+       "basis_of_value": "个人赌资（基准第一节（四）个人赌资能够查实的优先适用）",
        "value": [
         600.0,
         600.0

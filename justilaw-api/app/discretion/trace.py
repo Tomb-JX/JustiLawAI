@@ -31,7 +31,8 @@ LABELS = {
     "commission": "为赌博提供条件的获利", "times": "为赌博提供条件次数", "cumulative_participants": "累计参赌人次",
     "participant_count": "参赌人数", "civil_servant": "是否国家工作人员", "venue_public": "是否在公共场所",
     "method_online": "是否网络赌博", "minors_involved": "是否涉及未成年人", "prior_within_year": "一年内是否受过治安处罚",
-    "venue_public_for_profit": "是否以营利为目的在公共场所提供条件", "赌博方式的省级法定类别": "赌博组织形式（聚众、赌场 / 其他）",
+    "venue_public_for_profit": "是否以营利为目的在公共场所提供条件",
+    "role_lender": "是否明知他人赌博而放贷", "role_lookout": "是否为赌场望风看场", "abroad_organized": "是否组织、协助他人出境赌博", "赌博方式的省级法定类别": "赌博组织形式（聚众、赌场 / 其他）",
 }
 
 

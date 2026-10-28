@@ -2,11 +2,11 @@
  "code": 0,
  "message": "ok",
  "data": {
-  "run_id": "dr_6725d7d59a2944a7",
+  "run_id": "dr_fe2a8ace473a4716",
   "kind": "extract",
   "status": "succeeded",
-  "created_at": "2026-10-28T10:28:56.931496+00:00",
-  "finished_at": "2026-10-28T10:28:56.975715+00:00",
+  "created_at": "2026-10-28T12:54:21.008514+00:00",
+  "finished_at": "2026-10-28T12:54:21.042065+00:00",
   "request_sha256": "15d686151487b4f3f3dbac29659bfe1c5be11e7bce3b02c120cb2ab6634ff3bf",
   "result": {
    "schema_version": "1.2.0",
@@ -32,7 +32,7 @@
      "status": "未提及",
      "evidence": [],
      "origin": "extracted",
-     "fact_field": null
+     "fact_field": "role"
     },
     "conduct.method": {
      "value": "麻将",

@@ -2,7 +2,7 @@
  "code": 0,
  "message": "ok",
  "data": {
-  "run_id": "dr_347cead435eb42d3",
+  "run_id": "dr_cb92cc47387a4e12",
   "written": {
    "type": null,
    "route": "undetermined",
@@ -132,7 +132,7 @@
    "versions": {
     "engine": "de-0.2.0",
     "schema": "1.2.0",
-    "norm_library_sha256": "942ccdd7c8709213d2f3006aae220afed729317546da86bc9dfadbb81126b8f5",
+    "norm_library_sha256": "f377d3b9da4d0fde096aef040ff43b5f61c1b1a7df48c9c1489f72934275ef7b",
     "laws": [
      {
       "id": "psal-2012",

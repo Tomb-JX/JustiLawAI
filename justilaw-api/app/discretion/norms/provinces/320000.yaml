@@ -145,6 +145,10 @@ rules:
       - {when: minors_involved, to: 3, text: 为未成年人赌博提供条件的}
       - {when: civil_servant, to: 3, text: 国家工作人员为赌博提供条件的}
       - {when: method_online, to: 3, text: 通过计算机信息网络平台为赌博提供条件的}
+      # 台账 四.（三）.4 / .9 / .14（10-28 补编，ADR-011：法律依据明确、字段已有）；ask: false = 只在成立时升档，未知不追问
+      - {when: role_lender, to: 3, ask: false, text: 明知他人赌博而放贷赌资的}
+      - {when: abroad_organized, to: 3, ask: false, text: 组织、协助他人出境赌博的}
+      - {when: role_lookout, to: 3, ask: false, text: 为赌场望风看场的（同条接送参赌人员、发牌坐庄、兑换筹码无对应要素，未编）}
     floor_hint:
       - {when: prior_within_year, to: 2, text: 一年内因为赌博提供条件被治安管理处罚后又实施的（须核实前次事由）}
 serious_circumstances:            # 第三节（三）“处 10 日以上 15 日以下拘留”档列举（逐字）

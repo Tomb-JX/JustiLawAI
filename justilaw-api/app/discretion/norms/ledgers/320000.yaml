@@ -249,10 +249,11 @@ items:
   - rules.为赌博提供条件.measures.cumulative_participants
 - path: 四.（三）.4
   text: 4．明知他人赌博而放贷赌资的；
-  disposition: gap
+  disposition: encoded
   refs:
+  - rules.为赌博提供条件.elevate.role_lender
   - field:conduct.role
-  note: 明知他人赌博而放贷赌资→第三档：要素 conduct.role 有"放贷者"，规则未编
+  note: 10-28 补编：role=放贷者 且行为为为赌博提供条件 → 第三档；未知不追问
 - path: 四.（三）.5
   text: 5．发行、销售“六合彩”等其他私彩的；
   disposition: gap
@@ -275,10 +276,11 @@ items:
   - rules.为赌博提供条件.elevate.civil_servant
 - path: 四.（三）.9
   text: 9．组织、协助他人出境赌博的；
-  disposition: gap
+  disposition: encoded
   refs:
+  - rules.为赌博提供条件.elevate.abroad_organized
   - field:persons.abroad_organized_count
-  note: 组织、协助他人出境赌博→第三档：要素 persons.abroad_organized_count 已有，省级规则未编（国家层涉刑提示另有）
+  note: 10-28 补编：组织出境人数 > 0 → 第三档；未知不追问
 - path: 四.（三）.10
   text: 10．通过计算机信息网络平台为赌博提供条件的；
   disposition: encoded
@@ -300,8 +302,9 @@ items:
   text: 14．为赌场接送参赌人员、望风看场、发牌坐庄、兑换筹码的；
   disposition: gap
   refs:
+  - rules.为赌博提供条件.elevate.role_lookout
   - field:conduct.role
-  note: 为赌场接送、望风、发牌坐庄、兑换筹码→第三档：要素 conduct.role 有"望风者"，其余角色与规则未编
+  note: 部分补编（10-28）："望风看场"（role=望风者）→ 第三档；接送参赌人员、发牌坐庄、兑换筹码无对应要素，仍为缺口。数据中另有 2 例望风者被标为"其他"行为，不受此规则影响
 - path: 四.（三）.15
   text: 15．其他情节严重的情形。
   disposition: manual
