@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.8.2（§3.11、§3.12 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
+> 版本 v0.9（§3.11、§3.12 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -382,30 +382,47 @@ POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decis
   // 行为日期晚于决定日期、日期超出规范库覆盖范围 → 422 { code: 42200, message }
 ```
 
-### 3.12 裁量能力层（草案，待评审；`assess` 与 `runs` 已实现，其余未实现）
+### 3.12 裁量能力层（草案，待前端组评审；**全部已实现**，v0.9）
 
 > 设计：[裁量能力层](./discretion-capability-layer.md)。原则：要素是规范输入（不接文本模型）；模型调用走平台网关，按槽位配置；**每个结果都带 `trace`**（推理步骤、原文依据、计算过程、学习部分贡献分解、模型调用回执、版本），可按 `run_id` 取回。§3.11 的 `/discretion/decide` 保留兼容，后续由 `/discretion/assess` 取代。
+> parse / extract / review(text) 复用 `research/discretion/unify` 的 S1 与要素链路（提示、输入视图、校验、引用编译原样调用，只把模型请求改走网关）。**部署镜像目前不含该目录**，此时这三个接口返回 503，`GET /discretion/settings` 的 `chain.available=false`。
 
 ```
-GET  /discretion/settings          → data: { models: { segment, extract: { model_id, params, fallback_model_id } },
-                                             allowed_models: string[], prompt_versions: { segment, extract } }
-PUT  /discretion/settings          （管理员）{ models?: { segment?, extract? } }   // model_id 须为平台已登记、带 completion 能力的模型
-                                   → 同 GET；不合法的模型 → 422 { code: 42200 }
+GET  /discretion/settings          → data: { models: { segment | extract: { title, model_id, effective_model_id, fallback_model_id,
+                                                                           params: { temperature, top_p?, max_tokens, seed, thinking, timeout_s, retries, extra_body? },
+                                                                           allow_user_override } },
+                                             chain: { available, reason?, segment_prompt: { version, system_sha256 },
+                                                      extract_prompt: { version, wire, schema, fingerprint_sha256 }, chain_files_sha256 } }
+                                   // model_id 为空 = 用平台默认对话模型（effective_model_id 为实际生效值）
+PUT  /discretion/settings          （管理员）{ models: { segment?: {...}, extract?: {...} } }   // 只改给出的键
+                                   → 同 GET；模型不是已登记的对话模型、params 含不支持的键 → 422；非管理员 → 403
+                                   // 提示词不可在此修改（随代码版本走，保证可复现）
 
-POST /discretion/parse             { text, doc_kind: '笔录' | '叙述' | '决定书', target?, model_id? }
+POST /discretion/parse             { text, doc_kind: '笔录' | '叙述' | '决定书' = '叙述', target?, model_id? }
   → data: { run_id, sentences: string[], zones: [{ type, from, to }], subject: { mention, aliases },
             outcome?: { type, detention_days, fine, articles, not_executed, … },   // 仅 doc_kind=决定书
-            dates: { behavior, decision }, gambling: { verdict, reason },
-            validation: { ok, violations: string[] }, trace }
+            dates: { behavior, decision }, gambling: { verdict, reason }, review,
+            validation: { ok, violations: string[] }, trace: { versions, inputs, model_calls } }
 
-POST /discretion/extract           { text | parse_run_id, doc_kind, target?, model_id? }
-  → data: { run_id, schema_version,
-            elements: { <path>: { value, status: '明确' | '推断' | '未提及',
-                                  evidence: [{ quote, sentence, span: [start, end] }],
-                                  origin: 'extracted' } },
-            dropped: [{ path, reason }], trace }
+POST /discretion/extract           { text? | parse_run_id?, doc_kind?, target?, region?, behavior_date?, decision_date?,
+                                     model_id?（extract 槽位）, segment_model_id?（需要先分段时） }
+  → data: { run_id, schema_version, target,
+            elements: { '<组>.<字段>': { value, status: '明确' | '推断' | '未提及',
+                                         evidence: [{ quote, sentence, span: [start, end] }],
+                                         origin: 'extracted', fact_field: <assess 字段名> | null } },
+            assess_input: { <assess 扁平要素>, provenance },     // 可直接（经人工确认后）提交 assess
+            meta_missing: ('behavior_date' | 'region')[],         // 评估前须补齐
+            note, trace: { versions, inputs: { text_sha256, parse_run_id, target, input_view }, model_calls } }
+  // 给 parse_run_id 时复用该次分段结果，不再调用分段模型；target 缺省取分段结果的 subject.mention
+```
 
+`model_calls[]`（模型调用回执，每次尝试一条，失败也记）：`{ slot, attempt, prompt: { version, … }, platform_model_id, provider_id, provider_type, model, response_model, response_id?, params, structured, schema_fallback?, request_sha256, response_sha256, usage, latency_ms, finish_reason, status: 'ok' | 'fail', error?, validation: { ok, violations } }`。不含密钥与原始提示全文（提示由版本与哈希确定）。
+
+重试规则（每个槽位）：主模型最多 `1 + retries` 次，校验不过时把违例回灌重试；仍失败换 `fallback_model_id` 一次。全部失败 → **502** `{ code: 50200, message 含 run_id }`，失败运行也存档（回执可查）。
+
+```
 POST /discretion/assess            【已实现】要素字段与 §3.11 decide 相同（扁平，未填 = 未知），另加：
+```
                                    { provenance?: { <要素字段名>: { status: '明确' | '推断', origin: 'human' | 'extracted' | 'extracted_then_confirmed' | 'edited',
                                                                  evidence: [{ quote, sentence?, span? }] } },   // 未给的要素按 human、明确处理
                                      proposed?: { type, detention_days?, fine? } }
@@ -422,16 +439,20 @@ POST /discretion/assess            【已实现】要素字段与 §3.11 decide 
   // practice 的 ok 恒为 null：实务参照只报比例，不判对错
   // 每次调用存档，run_id 可用 GET /discretion/runs/{run_id} 取回（仅本人与管理员可见）
 
-POST /discretion/review            { text, target? } 或 { elements, actual: { type, detention_days?, fine? }, region?, behavior_date, decision_date? }
-  → data: { run_id, parse?, elements, written, practice, amounts,
-            deviation: { levels: [...], summary }, trace }      // 决定书审查：actual 取自解析结果
+POST /discretion/review            【已实现】决定书审查，两种输入：
+                                   A. { text, target?, region?, behavior_date?, decision_date?, model_id?, segment_model_id? }
+                                      → 分段（doc_kind=决定书）→ 抽取 → actual 取自分段结果的 outcome → assess
+                                   B. { elements: <assess 请求体>, actual: { type, detention_days?, fine? } }   // 已确认要素，不调用模型
+  → data: { <assess 的全部字段>, actual, parse?, extraction?: { elements, assess_input, meta_missing, target },
+            deviation: { levels: [...], summary } }   // trace.model_calls 含两次调用回执
+  // 抽取后缺地区或行为日期 → 422（请求中补齐）；决定书种类不在 不予处罚 / 罚款 / 拘留 / 拘留并处罚款 → 422
 
-GET  /discretion/runs/{run_id}     【已实现，当前只有 assess】→ data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', created_at, request_sha256, result, trace }
+GET  /discretion/runs/{run_id}     【已实现】→ data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', created_at, request_sha256, result, trace }
 ```
 
 `trace` 结构见设计文档 §4.2：`versions`、`inputs`（要素逐项含证据与来源）、`steps`（law / legal_space / modifiers / band / written_type / practice / amount / deviation / missing，每步含 result、reasoning 或 computation、basis 原文）、`model_calls`（槽位、平台模型 ID、供应商、提示版本、输入输出哈希、耗时、usage）。
 
-错误：日期矛盾或超出规范库覆盖 → 42200；模型槽位未配置或模型不可用 → 50300 `{ message: "裁量模型未配置/不可用" }`；未知要素路径 → 42200。
+错误：日期矛盾或超出规范库覆盖 → 42200；模型槽位未配置或模型不可用、链路模块不可用 → 503 `50300`；普通用户在槽位不允许时临时指定模型 → 403 `40300`；模型调用全部失败 → 502 `50200`；未知要素路径 → 42200。
 
 ## 4. 联调约定
 
@@ -449,6 +470,7 @@ GET  /discretion/runs/{run_id}     【已实现，当前只有 assess】→ data
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v0.9（草案） | §3.12 全部实现：`settings`（segment / extract 槽位，管理员可改，提示随代码版本）、`parse`、`extract`（证据含句号与坐标，给出可直接提交 assess 的 `assess_input`）、`review`（决定书文本或已确认要素 + 实际处罚）；模型调用回执 `model_calls` 结构与重试规则；错误码 403 / 502 / 503 | 引擎 |
 | 2026-10-28 | v0.8.2（草案） | §3.12 assess 的 `practice` 接入 RAP 无文本版：status / distribution / predicted / reading；trace 的 practice 步骤给逐特征贡献分解与模型元数据；deviation 加 practice 层（拟处罚种类在相近历史案件中的比例）；versions.practice_model | 引擎 |
 | 2026-10-28 | v0.8.1（草案） | §3.12 `assess`、`runs` 已实现：assess 请求改为与 decide 同名的扁平要素 + provenance + proposed；trace 含适用法律、法定空间（条文原文）、修正情节、涉刑提示、省级定档（计算过程 + 档位条款原文）、成文种类、数额参照（数据来源）、实务参照（待接入）、偏离、补查、版本 | 引擎 |
 | 2026-10-28 | v0.8（草案） | 新增 §3.12 裁量能力层草案：settings（模型槽位）、parse、extract、assess、review、runs；结果统一带 trace（待评审，未实现） | 引擎 |

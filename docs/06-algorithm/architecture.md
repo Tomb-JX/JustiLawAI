@@ -30,7 +30,7 @@ F 输出       种类 + 路由 + 候选 + 档内分布 + 依据 + needs_review  
 
 | 层 | 现行方案 | 代码 | 依据 | 与目标的差距 |
 |---|---|---|---|---|
-| A 事实 | 产品里由人填写要素（schema 1.2.0，37 字段 + 记录级元数据）；实验中用人工标注或大模型抽取 | `app/discretion/schema.py`；`extract.py`（M1 原型，未接入） | ADR-002 | 上线时的要素来源未定（Q-06） |
+| A 事实 | 产品里由人填写要素（schema 1.2.0，37 字段 + 记录级元数据）；实验中用人工标注或大模型抽取。**10-28 起**接口可从文本抽取要素草稿（`/discretion/extract`，复用要素链路，经人工确认后再评估） | `app/discretion/schema.py`；`chain.py`（接口抽取，复用 `research/discretion/unify`）；`extract.py`（M1 原型，未接入） | ADR-002 | 上线时的要素来源未定（Q-06） |
 | B 法定空间 | 国家层罚则双纪元（2012 第七十条 / 2025 第八十二条）；时间效力；法定档次与修正情节展开；涉刑提示 | `app/discretion/norm_layer.py`（`assess`、`_statutory`、`_mitigated`、`_not_executed`、`_referral`）；`norms/national/` | 国家层 22 项逐字核对 | 减轻展开中"拘留或罚款"的减轻组合仍提示人工复核 |
 | C 基准定档 | 河北：个人优先、个人不明按一场、一场达起罚线托底第一档、升档条件下赌资不明给候选；江苏：两类方式门槛，`gambling_form` 判类；新法推定沿用 | `norm_layer._stake_threshold`；`decide.band_types`；`norms/provinces/130000.yaml`、`320000.yaml` | ADR-003（D-005）、ADR-004（D-006） | ① 河北升档给候选、江苏补字段，都未经新数据检验（Q-10）；② 只录了两省（Q-04）；③ 江苏低额按原文给"免予处罚"，公开数据中同类多为罚款；经核查，部分是赌资口径差异、部分是选择偏差（C-28、C-29），已在输出中提示核实赌资口径（`320000.yaml` `below_min_review`，经 needs_review 传到页面醒目显示） |
 | D 裁量：候选内选择 | **ADR-009 后**：文本模型退出核心；候选内由无文本 RAP 给实务分布（assess 已接入，作参照并列展示，不替成文结论做选择）。`decide` 多候选时仍返回候选、不选 | `decide.decide(type_probabilities=…)`；研究侧 `research/eval/rule_chain/engine_v1_eval.py`（字符 1–3 元 TF-IDF + 类别平衡 LR，C=3） | ADR-003 | 线上多候选时无选择 |

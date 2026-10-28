@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import re
 import threading
@@ -525,6 +526,90 @@ async def complete(model_id: str, messages: list[dict], params: dict) -> tuple[s
         if d.usage:
             usage = d.usage
     return "".join(parts), usage
+
+
+def _digest(obj) -> str:
+    raw = obj if isinstance(obj, str) else json.dumps(obj, ensure_ascii=False, sort_keys=True)
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+async def call_json(model_id: str, messages: list[dict], params: dict) -> tuple[str, dict]:
+    """非流式结构化调用（裁量能力层的分段 / 抽取用）：返回 (全文, 回执)。
+
+    params 在 temperature / top_p / max_tokens 之外另认：
+    - response_schema：JSON Schema → Ollama `format`，OpenAI 兼容 `response_format: json_schema`；
+      上游不认 json_schema（400/422）时退回 `json_object` 一次，回执记 schema_fallback
+    - json：True 时只要求 JSON 模式（无 schema）
+    - seed：透传（Ollama options.seed；OpenAI 兼容 seed）
+    - thinking：仅对带 thinking 能力的 Ollama 模型传 think
+    - extra_body：只并入 OpenAI 兼容请求体，不覆盖核心键（如 DashScope enable_thinking）
+    - timeout_s
+    回执含供应商、真实模型名、上游返回的模型名与 ID、usage、耗时、请求与响应摘要（sha256），不含密钥。
+    调用失败抛 RuntimeError，异常对象带 receipt 属性（失败也留回执）。
+    """
+    provider, real_model = await _resolve_or_raise(model_id)
+    info = provider_store.model_info(f"{provider.id}/{real_model}") or {}
+    schema, seed = params.get("response_schema"), params.get("seed")
+    sent = {k: params[k] for k in ("temperature", "top_p", "max_tokens", "seed", "thinking") if k in params}
+    receipt = {"platform_model_id": f"{provider.id}/{real_model}", "provider_id": provider.id,
+               "provider_type": provider.type, "model": real_model, "params": sent,
+               "structured": "json_schema" if schema else ("json" if params.get("json") else "none"),
+               "request_sha256": _digest(messages), "started_at": time.time()}
+    if provider.type == "ollama":
+        options = {"temperature": params.get("temperature", 0), "top_p": params.get("top_p", 1),
+                   "num_predict": params.get("max_tokens", 2048)}
+        if seed is not None:
+            options["seed"] = seed
+        payload = {"model": real_model, "messages": messages, "stream": False, "options": options}
+        if schema or params.get("json"):
+            payload["format"] = schema or "json"
+        if "thinking" in info.get("capabilities", []):
+            payload["think"] = bool(params.get("thinking", False))
+        url = f"{provider.base_url}/api/chat"
+    else:
+        payload = {"model": real_model, "messages": messages, "stream": False,
+                   "temperature": params.get("temperature", 0), "top_p": params.get("top_p", 1),
+                   "max_tokens": params.get("max_tokens", 2048)}
+        if seed is not None:
+            payload["seed"] = seed
+        if schema:
+            payload["response_format"] = {"type": "json_schema",
+                                          "json_schema": {"name": "output", "schema": schema}}
+        elif params.get("json"):
+            payload["response_format"] = {"type": "json_object"}
+        payload.update({k: v for k, v in (params.get("extra_body") or {}).items() if k not in payload})
+        url = provider.base_url.rstrip("/") + "/chat/completions"
+    t0 = time.monotonic()
+    try:
+        async with provider.client(params.get("timeout_s", config.LLM_TIMEOUT_S)) as client:
+            r = await client.post(url, json=payload, headers=provider.headers())
+            if (r.status_code in (400, 422) and provider.type != "ollama"
+                    and (payload.get("response_format") or {}).get("type") == "json_schema"):
+                payload["response_format"] = {"type": "json_object"}
+                receipt["schema_fallback"] = f"上游 {r.status_code} 不支持 json_schema，退回 json_object"
+                r = await client.post(url, json=payload, headers=provider.headers())
+            if r.status_code != 200:
+                raise RuntimeError(f"上游 {r.status_code}：{r.text[:300]}")
+            j = r.json()
+    except Exception as e:  # noqa: BLE001  失败也留回执
+        receipt.update(status="fail", error=_short_error(e), latency_ms=round((time.monotonic() - t0) * 1000))
+        err = RuntimeError(f"{model_id} 调用失败：{_short_error(e)}")
+        err.receipt = receipt
+        raise err from None
+    if provider.type == "ollama":
+        content = (j.get("message") or {}).get("content") or ""
+        usage = {"prompt_tokens": j.get("prompt_eval_count", 0), "completion_tokens": j.get("eval_count", 0)}
+        receipt.update(response_model=j.get("model"), finish_reason=j.get("done_reason"))
+    else:
+        choice = (j.get("choices") or [{}])[0]
+        content = (choice.get("message") or {}).get("content") or ""
+        u = j.get("usage") or {}
+        usage = {"prompt_tokens": u.get("prompt_tokens", 0), "completion_tokens": u.get("completion_tokens", 0)}
+        receipt.update(response_model=j.get("model"), response_id=j.get("id"),
+                       finish_reason=choice.get("finish_reason"), system_fingerprint=j.get("system_fingerprint"))
+    receipt.update(status="ok", usage=usage, latency_ms=round((time.monotonic() - t0) * 1000),
+                   response_sha256=_digest(content))
+    return content, receipt
 
 
 async def embed_texts(model_id: str | None, texts: list[str]) -> list[list[float]]:
