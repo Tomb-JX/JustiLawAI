@@ -86,6 +86,8 @@
 | EXP-051 | 10-28 | D | Q-01：档内数额按"省份 × 种类"（A1）、"省份 × 规则档位"（A2）条件化 vs 全国 × 种类；EP-6；预注册后只跑一次 | A1 机关轴 +0.036（−0.023 ~ +0.093）未过，只有事件轴过 → 机关习惯；A2 规则档位细分比省份 × 种类更差（−0.102）。维持全国分布 | C-25、C-26、C-27 | `$DATA/engine/development/q01-band-conditioned-20261028/{PREREG.md,report.json}`；`research/eval/rule_chain/q01_band_conditioned.py`（10ac265） |
 | EXP-052 | 10-28 | E | Q-02 ①：江苏低额"成文免罚、实务罚款"的执行口径（法宝检索 + 决定书全文 + 分档统计） | 无执行口径文件，决定书不引基准；扑克、麻将类在 500 元以上按类二门槛执行；500 元以下的偏离部分来自赌资口径（10/17 人均 ≥500），部分来自公开数据选择偏差（法宝江苏赌博"不罚"文书仅 4 件） | C-03、C-28、C-29 | `2026-10-28-jiangsu-low-stake-practice.md` |
 
+| EXP-053 | 预注册 10-28，待跑 | C | Q-10：D-005 事后修订在工单 B 新数据上的检验 | 等工单 B 交回 | — | `$DATA/engine/development/q10-newdata-20261028/PREREG.md`；`research/eval/rule_chain/q10_newdata.py` |
+
 ## 变更日志
 
 | 日期 | 版本 | 变更 | 作者 |
