@@ -1,0 +1,58 @@
+{
+ "code": 0,
+ "message": "ok",
+ "data": {
+  "models": {
+   "segment": {
+    "title": "分段与结果解析（S1 链路）",
+    "model_id": null,
+    "effective_model_id": "deepseek/deepseek-flash",
+    "fallback_model_id": null,
+    "params": {
+     "temperature": 0,
+     "max_tokens": 4000,
+     "seed": 20261028,
+     "thinking": false,
+     "timeout_s": 180,
+     "retries": 1
+    },
+    "allow_user_override": false
+   },
+   "extract": {
+    "title": "要素抽取（要素链路）",
+    "model_id": null,
+    "effective_model_id": "deepseek/deepseek-flash",
+    "fallback_model_id": null,
+    "params": {
+     "temperature": 0,
+     "max_tokens": 16000,
+     "seed": 20261028,
+     "thinking": false,
+     "timeout_s": 300,
+     "retries": 1
+    },
+    "allow_user_override": false
+   }
+  },
+  "chain": {
+   "available": true,
+   "segment_prompt": {
+    "version": "seg-v2",
+    "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+   },
+   "extract_prompt": {
+    "version": "element-v1",
+    "wire": "element-ref-v3",
+    "schema": "1.2.0",
+    "fingerprint_sha256": "bd64271f3cda5e5c3d710ff81c6d57ff6e484dfea188ec5418c3e5d8ddbf9c34"
+   },
+   "chain_files_sha256": {
+    "s1.py": "e51ba4e970739a668c12fbc9182173706b11101a48d5b82edcd54171bc2bdb25",
+    "cleanse.py": "d927747f4c36d0510bc46717da5e1fd22b832513af954786c6de1bf091318f43",
+    "run_elements.py": "99e083470d8519af36105b076da53d8b65a5d950a2fcb5f6ea947e71e694cb88",
+    "element_contract.py": "7d51e73e98000d174460138d1f5c2badb99bf8012bb8e4629e4ac6dd9c6ba8eb",
+    "supply_packet.py": "0bc626fb45be02322562db7dc0d27088adfdae6dd4e06872679acc7968d27ba2"
+   }
+  }
+ }
+}

@@ -1,6 +1,6 @@
 # JustiLawAI API 契约（前端 ⇆ 后端）
 
-> 版本 v0.9（§3.11、§3.12 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
+> 版本 v1.0（§3.11、§3.12 由引擎线先实现后补契约，待前端组评审） · 2026-10-28（v0.6 · 2026-10-22）
 >
 > 本文档是前后端对接的**唯一依据**：任何接口变更必须先修改本文档、双方评审通过后再实现，并记录到文末变更日志。前端将依据本文档先行 Mock 开发。
 
@@ -382,10 +382,29 @@ POST /discretion/decide  { behavior_date (必填), behavior_type (必填), decis
   // 行为日期晚于决定日期、日期超出规范库覆盖范围 → 422 { code: 42200, message }
 ```
 
-### 3.12 裁量能力层（草案，待前端组评审；**全部已实现**，v0.9）
+### 3.12 裁量能力层（待前端组评审；**全部已实现**，v1.0）
 
 > 设计：[裁量能力层](./discretion-capability-layer.md)。原则：要素是规范输入（不接文本模型）；模型调用走平台网关，按槽位配置；**每个结果都带 `trace`**（推理步骤、原文依据、计算过程、学习部分贡献分解、模型调用回执、版本），可按 `run_id` 取回。§3.11 的 `/discretion/decide` 保留兼容，后续由 `/discretion/assess` 取代。
 > parse / extract / review(text) 复用 `research/discretion/unify` 的 S1 与要素链路（提示、输入视图、校验、引用编译原样调用，只把模型请求改走网关）。部署镜像已复制链路目录（v0.9.1）；链路不可用时这三个接口返回 503，`GET /discretion/settings` 的 `chain.available=false`。
+> **模拟数据**：`justilaw-web/src/mocks/fixtures/discretion/`（`index.json` 列出每个文件对应的接口与场景），由 `justilaw-api/scripts/export_discretion_fixtures.py` 从真实路由生成，契约变化后重跑即可同步。
+
+**任务号 + 轮询（v1.0）**：调用模型的 `parse`、`extract`、`review` 一律异步——提交后立即返回 **202**，工作在后台执行，前端轮询 `GET /discretion/runs/{run_id}` 直到 `status` 不是 `running`。真实模型下抽取约 40 秒、审查约 60 秒，不受前端 30 秒请求超时限制。`assess`（无模型调用，毫秒级）保持同步。
+
+```
+提交（parse / extract / review）→ 202
+  data: { run_id, kind, status: 'running', poll: '/api/v1/discretion/runs/<run_id>', poll_interval_ms: 2000 }
+  // 不需要模型就能发现的错误在提交时同步返回、不建任务：参数缺失 / 冲突 → 422；槽位未配置、链路不可用 → 503；
+  //   普通用户临时指定模型而槽位不允许 → 403；parse_run_id 不存在 → 404，分段任务未成功 → 409
+
+GET  /discretion/runs/{run_id}     （仅本人与管理员）
+  → data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', status: 'running' | 'succeeded' | 'failed',
+            created_at, finished_at | null, request_sha256,
+            result: <下列各接口的结果> | null,                       // succeeded 时
+            error: { http_status, code, message } | null,             // failed 时；http_status 为同步调用时会用的状态码
+            partial: { parse?, extraction?, model_calls } | null }    // failed 时已完成的部分（已花费的模型调用不丢）
+  // 服务重启时未完成的任务 → failed，code 50001（"服务重启，任务中断，请重新提交"）
+  // 原始模型输出只留在服务端存档，不返回
+```
 
 ```
 GET  /discretion/settings          → data: { models: { segment | extract: { title, model_id, effective_model_id, fallback_model_id,
@@ -399,14 +418,14 @@ PUT  /discretion/settings          （管理员）{ models: { segment?: {...}, e
                                    // 提示词不可在此修改（随代码版本走，保证可复现）
 
 POST /discretion/parse             { text, doc_kind: '笔录' | '叙述' | '决定书' = '叙述', target?, model_id? }
-  → data: { run_id, sentences: string[], zones: [{ type, from, to }], subject: { mention, aliases },
+  → 202；result: { sentences: string[], zones: [{ type, from, to }], subject: { mention, aliases },
             outcome?: { type, detention_days, fine, articles, not_executed, … },   // 仅 doc_kind=决定书
             dates: { behavior, decision }, gambling: { verdict, reason }, review,
             validation: { ok, violations: string[] }, trace: { versions, inputs, model_calls } }
 
 POST /discretion/extract           { text? | parse_run_id?, doc_kind?, target?, region?, behavior_date?, decision_date?,
                                      model_id?（extract 槽位）, segment_model_id?（需要先分段时） }
-  → data: { run_id, schema_version, target,
+  → 202；result: { run_id, schema_version, target,
             elements: { '<组>.<字段>': { value, status: '明确' | '推断' | '未提及',
                                          evidence: [{ quote, sentence, span: [start, end] }],
                                          origin: 'extracted', fact_field: <assess 字段名> | null } },
@@ -419,11 +438,10 @@ POST /discretion/extract           { text? | parse_run_id?, doc_kind?, target?, 
 
 `model_calls[]`（模型调用回执，每次尝试一条，失败也记）：`{ slot, attempt, prompt: { version, … }, platform_model_id, provider_id, provider_type, model, response_model, response_id?, params, structured, schema_fallback?, request_sha256, response_sha256, usage, latency_ms, finish_reason, status: 'ok' | 'fail', error?, validation: { ok, violations } }`。不含密钥与原始提示全文（提示由版本与哈希确定）。
 
-重试规则（每个槽位）：主模型最多 `1 + retries` 次，校验不过时把违例回灌重试；仍失败换 `fallback_model_id` 一次。全部失败 → **502** `{ code: 50200, message 含 run_id }`，失败运行也存档（回执可查）。
+重试规则（每个槽位）：主模型最多 `1 + retries` 次，校验不过时把违例回灌重试；仍失败换 `fallback_model_id` 一次。全部失败 → 任务 `failed`，`error: { http_status: 502, code: 50200 }`，`partial.model_calls` 含全部回执。
 
 ```
-POST /discretion/assess            【已实现】要素字段与 §3.11 decide 相同（扁平，未填 = 未知），另加：
-```
+POST /discretion/assess            【已实现，同步】要素字段与 §3.11 decide 相同（扁平，未填 = 未知），另加：
                                    { provenance?: { <要素字段名>: { status: '明确' | '推断', origin: 'human' | 'extracted' | 'extracted_then_confirmed' | 'edited',
                                                                  evidence: [{ quote, sentence?, span? }] } },   // 未给的要素按 human、明确处理
                                      proposed?: { type, detention_days?, fine? } }
@@ -438,22 +456,21 @@ POST /discretion/assess            【已实现】要素字段与 §3.11 decide 
   // trace 的 practice 步骤另含 explanation：baseline_logits、logits、groups（按要素组汇总的贡献）、margin_for_predicted、
   //   contributions[{ name, label, group, value, train_mean, contribution: { <type>: 对数几率贡献 } }]；基线 + 逐项贡献 = 对数几率，可精确复算
   // practice 的 ok 恒为 null：实务参照只报比例，不判对错
-  // 每次调用存档，run_id 可用 GET /discretion/runs/{run_id} 取回（仅本人与管理员可见）
+  // 每次调用存档（status=succeeded），run_id 可用 GET /discretion/runs/{run_id} 取回
 
 POST /discretion/review            【已实现】决定书审查，两种输入：
                                    A. { text, target?, region?, behavior_date?, decision_date?, model_id?, segment_model_id? }
                                       → 分段（doc_kind=决定书）→ 抽取 → actual 取自分段结果的 outcome → assess
                                    B. { elements: <assess 请求体>, actual: { type, detention_days?, fine? } }   // 已确认要素，不调用模型
-  → data: { <assess 的全部字段>, actual, parse?, extraction?: { elements, assess_input, meta_missing, target },
-            deviation: { levels: [...], summary } }   // trace.model_calls 含两次调用回执
-  // 抽取后缺地区或行为日期 → 422（请求中补齐；已完成的解析与抽取存档，message 含 run_id）；决定书种类不在 不予处罚 / 罚款 / 拘留 / 拘留并处罚款 → 422
-
-GET  /discretion/runs/{run_id}     【已实现】→ data: { run_id, kind: 'parse' | 'extract' | 'assess' | 'review', created_at, request_sha256, result, trace }
+  → 202（B 也走任务，立即完成）；result: { <assess 的全部字段>, actual, parse?, extraction?: { elements, dropped, assess_input, meta_missing, target },
+            deviation: { levels: [...], summary } }   // trace.model_calls 含两次调用回执；result.run_id 即任务号
+  // 任务内失败（error.code 42200）：抽取后缺地区或行为日期（partial 含解析与抽取，补齐后可改用 B 提交）；
+  //   决定书种类不在 不予处罚 / 罚款 / 拘留 / 拘留并处罚款
 ```
 
 `trace` 结构见设计文档 §4.2：`versions`、`inputs`（要素逐项含证据与来源）、`steps`（law / legal_space / modifiers / band / written_type / practice / amount / deviation / missing，每步含 result、reasoning 或 computation、basis 原文）、`model_calls`（槽位、平台模型 ID、供应商、提示版本、输入输出哈希、耗时、usage）。
 
-错误：日期矛盾或超出规范库覆盖 → 42200；模型槽位未配置或模型不可用、链路模块不可用 → 503 `50300`；普通用户在槽位不允许时临时指定模型 → 403 `40300`；模型调用全部失败 → 502 `50200`；未知要素路径 → 42200。
+错误：同步返回的见上方"提交"说明；任务内失败通过轮询的 `error` 返回，`code` 与同步时一致（日期矛盾或超出规范库覆盖、要素不可用 42200；模型调用全部失败 50200；链路不可用 50300；服务重启中断 50001）。
 
 ## 4. 联调约定
 
@@ -471,6 +488,7 @@ GET  /discretion/runs/{run_id}     【已实现】→ data: { run_id, kind: 'par
 | 2026-10-14 | v0.3 | 按 justilaw-api 实现对齐：§1.3 增加 resource / idtoken / 本地三种鉴权模式与管理员判定；错误响应包与 40000；`Dataset.embed_model`、`ModelInfo.capabilities`、`ModelProvider`；新增 `/settings/models`、`/providers/*`（含 remote-models / refresh / 模型注册）、`/datasets/{id}/reindex`、`DELETE /documents/{id}`、`DELETE /conversations/{id}/messages`、§3.8 提示词与管理后台；`/chat/completions` 增加 `thinking`、`attachments`，`tool_call` 增加 failed；`/workflows/{id}/run` 改为 `{inputs, dsl?}` 并定义运行事件；列表接口暂不分页 | 模型组 |
 | 2026-10-15 | v0.4 | 用户本地 Ollama 接入：§1.3 增加前端单机模式；新增 §3.3.1 浏览器直连本机模型（`/chat/prepare`、`/chat/commit`，`local/` 模型前缀）；`/providers/ollama/detect`、`/providers/{id}/pull`；`/providers` 附带 Ollama 连接状态；内置 Ollama 地址可修改；新增 §3.9 `/health` 字段（`setup_required`、`ollama`）与 §3.10 后端托管前端 | 模型组 |
 | 2026-10-16 | v0.5 | 平台功能补全：§3.2 新增单条消息删除与点赞/点踩反馈（`Message.feedback`）；§3.8 提示词改删限创建者/管理员；§3.6 知识库列表/详情按创建者过滤（自己的 + 系统种子库对所有人可见，其余仅管理员）；`AdminUser` 增加 `logto_id` | 模型组 |
+| 2026-10-28 | v1.0（待评审） | §3.12 parse / extract / review 改为**任务号 + 轮询**：提交返回 202 + run_id，轮询 `GET /discretion/runs/{run_id}`（status / result / error / partial）；配置与参数错误仍同步返回；assess 保持同步；附模拟数据目录与生成脚本 | 引擎 |
 | 2026-10-28 | v0.9.1（草案） | extract / review 加 `dropped`（字段级剔除，交人工核实）；review 的 422 也存档并返回 run_id；镜像已带链路 | 引擎 |
 | 2026-10-28 | v0.9（草案） | §3.12 全部实现：`settings`（segment / extract 槽位，管理员可改，提示随代码版本）、`parse`、`extract`（证据含句号与坐标，给出可直接提交 assess 的 `assess_input`）、`review`（决定书文本或已确认要素 + 实际处罚）；模型调用回执 `model_calls` 结构与重试规则；错误码 403 / 502 / 503 | 引擎 |
 | 2026-10-28 | v0.8.2（草案） | §3.12 assess 的 `practice` 接入 RAP 无文本版：status / distribution / predicted / reading；trace 的 practice 步骤给逐特征贡献分解与模型元数据；deviation 加 practice 层（拟处罚种类在相近历史案件中的比例）；versions.practice_model | 引擎 |

@@ -1,0 +1,489 @@
+{
+ "code": 0,
+ "message": "ok",
+ "data": {
+  "run_id": "dr_6725d7d59a2944a7",
+  "kind": "extract",
+  "status": "succeeded",
+  "created_at": "2026-10-28T10:28:56.931496+00:00",
+  "finished_at": "2026-10-28T10:28:56.975715+00:00",
+  "request_sha256": "15d686151487b4f3f3dbac29659bfe1c5be11e7bce3b02c120cb2ab6634ff3bf",
+  "result": {
+   "schema_version": "1.2.0",
+   "elements": {
+    "conduct.behavior_type": {
+     "value": "参与赌博",
+     "status": "明确",
+     "evidence": [
+      {
+       "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+       "sentence": 2,
+       "span": [
+        17,
+        59
+       ]
+      }
+     ],
+     "origin": "extracted",
+     "fact_field": "behavior_type"
+    },
+    "conduct.role": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "conduct.method": {
+     "value": "麻将",
+     "status": "明确",
+     "evidence": [
+      {
+       "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+       "sentence": 2,
+       "span": [
+        17,
+        59
+       ]
+      }
+     ],
+     "origin": "extracted",
+     "fact_field": "method"
+    },
+    "conduct.gambling_form": {
+     "value": "其他",
+     "status": "推断",
+     "evidence": [
+      {
+       "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+       "sentence": 2,
+       "span": [
+        17,
+        59
+       ]
+      }
+     ],
+     "origin": "extracted",
+     "fact_field": "gambling_form"
+    },
+    "conduct.times": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "times"
+    },
+    "conduct.duration_days": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "conduct.cheating": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "amounts.personal_stake": {
+     "value": {
+      "min": 600,
+      "max": 600
+     },
+     "status": "明确",
+     "evidence": [
+      {
+       "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+       "sentence": 2,
+       "span": [
+        17,
+        59
+       ]
+      }
+     ],
+     "origin": "extracted",
+     "fact_field": "personal_stake"
+    },
+    "amounts.per_bet": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "amounts.onsite_stake_total": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "onsite_stake_total"
+    },
+    "amounts.cumulative_stake": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "cumulative_stake"
+    },
+    "amounts.commission": {
+     "value": null,
+     "status": "待核实",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "commission",
+     "dropped_reason": "numeric_evidence_unsupported:amounts.commission"
+    },
+    "amounts.illegal_gain": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "persons.participant_count": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "participant_count"
+    },
+    "persons.cumulative_participants": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "cumulative_participants"
+    },
+    "persons.minors_involved": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "minors_involved"
+    },
+    "persons.civil_servant": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "civil_servant"
+    },
+    "persons.relatives_only": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "persons.abroad_organized_count": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "abroad_organized_count"
+    },
+    "venue.venue_type": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "venue_type"
+    },
+    "intent.profit_purpose": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "profit_purpose"
+    },
+    "circumstances.last_prior_penalty_date": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "last_prior_penalty_date"
+    },
+    "circumstances.surrendered": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "surrendered"
+    },
+    "circumstances.truthful_statement": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "truthful_statement"
+    },
+    "circumstances.admits_and_accepts": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "admits_and_accepts"
+    },
+    "circumstances.remedied_consequence": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "remedied_consequence"
+    },
+    "circumstances.victim_forgiveness": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "victim_forgiveness"
+    },
+    "circumstances.coerced_or_lured": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "coerced_or_lured"
+    },
+    "circumstances.meritorious": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "meritorious"
+    },
+    "circumstances.instigated_others": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "instigated_others"
+    },
+    "circumstances.retaliation": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "retaliation"
+    },
+    "circumstances.obstructed_police": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": null
+    },
+    "circumstances.minor_circumstance": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "minor_circumstance"
+    },
+    "circumstances.first_offense": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "first_offense"
+    },
+    "circumstances.violations_last_year": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "violations_last_year"
+    },
+    "person.age": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "age"
+    },
+    "person.pregnant_or_nursing": {
+     "value": null,
+     "status": "未提及",
+     "evidence": [],
+     "origin": "extracted",
+     "fact_field": "pregnant_or_nursing"
+    }
+   },
+   "dropped": [
+    {
+     "path": "amounts.commission",
+     "reason": "numeric_evidence_unsupported:amounts.commission"
+    }
+   ],
+   "assess_input": {
+    "behavior_date": "2023-07-06",
+    "decision_date": "2023-07-07",
+    "region": "320582",
+    "behavior_type": "参与赌博",
+    "personal_stake": {
+     "min": 600.0,
+     "max": 600.0
+    },
+    "method": "麻将",
+    "gambling_form": "其他",
+    "provenance": {
+     "behavior_type": {
+      "status": "明确",
+      "origin": "extracted",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ]
+     },
+     "method": {
+      "status": "明确",
+      "origin": "extracted",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ]
+     },
+     "gambling_form": {
+      "status": "推断",
+      "origin": "extracted",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ]
+     },
+     "personal_stake": {
+      "status": "明确",
+      "origin": "extracted",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ]
+     }
+    }
+   },
+   "meta_missing": [],
+   "target": "张三",
+   "trace": {
+    "versions": {
+     "engine": "de-0.2.0",
+     "schema": "1.2.0",
+     "segment_prompt": {
+      "version": "seg-v2",
+      "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+     },
+     "extract_prompt": {
+      "version": "element-v1",
+      "wire": "element-ref-v3",
+      "schema": "1.2.0",
+      "fingerprint_sha256": "bd64271f3cda5e5c3d710ff81c6d57ff6e484dfea188ec5418c3e5d8ddbf9c34"
+     },
+     "chain_files_sha256": {
+      "s1.py": "e51ba4e970739a668c12fbc9182173706b11101a48d5b82edcd54171bc2bdb25",
+      "cleanse.py": "d927747f4c36d0510bc46717da5e1fd22b832513af954786c6de1bf091318f43",
+      "run_elements.py": "99e083470d8519af36105b076da53d8b65a5d950a2fcb5f6ea947e71e694cb88",
+      "element_contract.py": "7d51e73e98000d174460138d1f5c2badb99bf8012bb8e4629e4ac6dd9c6ba8eb",
+      "supply_packet.py": "0bc626fb45be02322562db7dc0d27088adfdae6dd4e06872679acc7968d27ba2"
+     }
+    },
+    "inputs": {
+     "text_sha256": "c5408bb3394cd88020879241a4f782bac9b52fa159917ad83a9e18feb008a351",
+     "parse_run_id": null,
+     "target": "张三",
+     "input_view": {
+      "sentences": [
+       2
+      ],
+      "view_sha256": "a9bc58547d05d9ec867191ff328c041fa18405359c54a61d5fc3d067644a0da5"
+     }
+    },
+    "model_calls": [
+     {
+      "slot": "segment",
+      "attempt": 1,
+      "prompt": {
+       "version": "seg-v2",
+       "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+      },
+      "platform_model_id": "deepseek/deepseek-flash",
+      "provider_id": "fake",
+      "model": "deepseek-flash",
+      "params": {
+       "temperature": 0,
+       "seed": 20261028
+      },
+      "status": "ok",
+      "usage": {
+       "prompt_tokens": 10,
+       "completion_tokens": 5
+      },
+      "latency_ms": 1,
+      "request_sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "response_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+      "validation": {
+       "ok": true,
+       "violations": []
+      }
+     },
+     {
+      "slot": "extract",
+      "attempt": 1,
+      "prompt": {
+       "version": "element-v1",
+       "wire": "element-ref-v3",
+       "schema": "1.2.0",
+       "fingerprint_sha256": "bd64271f3cda5e5c3d710ff81c6d57ff6e484dfea188ec5418c3e5d8ddbf9c34"
+      },
+      "platform_model_id": "deepseek/deepseek-flash",
+      "provider_id": "fake",
+      "model": "deepseek-flash",
+      "params": {
+       "temperature": 0,
+       "seed": 20261028
+      },
+      "status": "ok",
+      "usage": {
+       "prompt_tokens": 10,
+       "completion_tokens": 5
+      },
+      "latency_ms": 1,
+      "request_sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+      "response_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+      "validation": {
+       "ok": true,
+       "violations": []
+      }
+     }
+    ]
+   },
+   "note": "抽取结果须经人工确认后再用于评估；确认或修改后把 provenance.origin 改为 extracted_then_confirmed / edited"
+  },
+  "error": null,
+  "partial": null
+ }
+}

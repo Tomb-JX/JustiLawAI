@@ -1,0 +1,70 @@
+{
+ "code": 0,
+ "message": "ok",
+ "data": {
+  "run_id": "dr_f89bf4131d694d5c",
+  "kind": "parse",
+  "status": "failed",
+  "created_at": "2026-10-28T10:28:57.070134+00:00",
+  "finished_at": "2026-10-28T10:28:57.070236+00:00",
+  "request_sha256": "aeb3e022701ea22d0734e8a987a384b44f860845c32cefc14ab8d2e3746c8287",
+  "result": null,
+  "error": {
+   "http_status": 502,
+   "code": 50200,
+   "message": "segment 失败：连接超时"
+  },
+  "partial": {
+   "model_calls": [
+    {
+     "slot": "segment",
+     "attempt": 1,
+     "prompt": {
+      "version": "seg-v2",
+      "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+     },
+     "platform_model_id": "deepseek/deepseek-flash",
+     "provider_id": "fake",
+     "model": "deepseek-flash",
+     "params": {
+      "temperature": 0,
+      "seed": 20261028
+     },
+     "status": "fail",
+     "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5
+     },
+     "latency_ms": 1,
+     "request_sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+     "response_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+     "error": "连接超时"
+    },
+    {
+     "slot": "segment",
+     "attempt": 2,
+     "prompt": {
+      "version": "seg-v2",
+      "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+     },
+     "platform_model_id": "deepseek/deepseek-flash",
+     "provider_id": "fake",
+     "model": "deepseek-flash",
+     "params": {
+      "temperature": 0,
+      "seed": 20261028
+     },
+     "status": "fail",
+     "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5
+     },
+     "latency_ms": 1,
+     "request_sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+     "response_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+     "error": "连接超时"
+    }
+   ]
+  }
+ }
+}

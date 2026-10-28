@@ -1,0 +1,1622 @@
+{
+ "code": 0,
+ "message": "ok",
+ "data": {
+  "run_id": "dr_73cfcd297fe44239",
+  "kind": "review",
+  "status": "succeeded",
+  "created_at": "2026-10-28T10:30:00+00:00",
+  "finished_at": "2026-10-28T10:31:00+00:00",
+  "request_sha256": null,
+  "result": {
+   "run_id": "dr_73cfcd297fe44239",
+   "written": {
+    "type": null,
+    "route": "undetermined",
+    "candidates": [],
+    "legal_space": {
+     "一般": {
+      "options": [
+       {
+        "kind": "拘留",
+        "detention": [
+         1,
+         5
+        ],
+        "fine": null,
+        "via": "法定幅度",
+        "basis": [
+         {
+          "ref": "psal-2012#70",
+          "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。",
+          "verified": false
+         }
+        ]
+       },
+       {
+        "kind": "罚款",
+        "detention": null,
+        "fine": [
+         1,
+         500
+        ],
+        "via": "法定幅度",
+        "basis": [
+         {
+          "ref": "psal-2012#70",
+          "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。",
+          "verified": false
+         }
+        ]
+       }
+      ],
+      "detention_executable": true,
+      "not_executed_reason": null
+     },
+     "情节严重": {
+      "options": [
+       {
+        "kind": "拘留并处罚款",
+        "detention": [
+         10,
+         15
+        ],
+        "fine": [
+         500,
+         3000
+        ],
+        "via": "法定幅度",
+        "basis": [
+         {
+          "ref": "psal-2012#70",
+          "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。",
+          "verified": false
+         }
+        ]
+       }
+      ],
+      "detention_executable": true,
+      "not_executed_reason": null
+     }
+    },
+    "band": []
+   },
+   "practice": {
+    "status": "reference",
+    "distribution": {
+     "不予处罚": 0.0,
+     "罚款": 0.2939,
+     "拘留": 0.3089,
+     "拘留并处罚款": 0.3972
+    },
+    "predicted": "拘留并处罚款",
+    "reading": [
+     "历史上与本案规则结论、要素相近的案件，最常见的处罚是「拘留并处罚款」（40%）",
+     "规则结论：使「拘留并处罚款」相对其他种类的对数几率提高 1.22",
+     "参赌人数：使「拘留并处罚款」相对其他种类的对数几率降低 0.65",
+     "赌资与获利：使「拘留并处罚款」相对其他种类的对数几率降低 0.26"
+    ],
+    "note": null
+   },
+   "amounts": {},
+   "deviation": {
+    "proposed": {
+     "type": "拘留并处罚款",
+     "detention_days": 10,
+     "fine": 1000.0
+    },
+    "levels": [
+     {
+      "level": "legal_space",
+      "title": "法定处罚空间",
+      "ok": true,
+      "detail": "在法定档次与修正情节展开的选项内"
+     },
+     {
+      "level": "written_band",
+      "title": "省级基准档位",
+      "ok": null,
+      "detail": "无省级分档结论，无法对照"
+     },
+     {
+      "level": "amount_reference",
+      "title": "档内数额参照（历史统计，非法律结论）",
+      "ok": null,
+      "detail": "拟处罚种类与成文种类不同，不比较数额"
+     },
+     {
+      "level": "practice",
+      "title": "实务参照（学习，非法律结论）",
+      "ok": null,
+      "detail": "相近历史案件中处「拘留并处罚款」的比例约 40%，排第 1",
+      "probability": 0.3972
+     }
+    ],
+    "summary": "未发现偏离（实务参照只报比例，不判对错）"
+   },
+   "missing": [
+    {
+     "field": "commission",
+     "label": "为赌博提供条件的获利",
+     "why": "省级基准的升档、归类或从重条件"
+    },
+    {
+     "field": "civil_servant",
+     "label": "是否国家工作人员",
+     "why": "省级基准的升档、归类或从重条件"
+    }
+   ],
+   "needs_review": [
+    "无省级分档且无文本模型概率，仅给出法定处罚空间"
+   ],
+   "trace": {
+    "versions": {
+     "engine": "de-0.2.0",
+     "schema": "1.2.0",
+     "norm_library_sha256": "942ccdd7c8709213d2f3006aae220afed729317546da86bc9dfadbb81126b8f5",
+     "laws": [
+      {
+       "id": "psal-2012",
+       "title": "中华人民共和国治安管理处罚法（2012年修正）"
+      },
+      {
+       "id": "psal-2025",
+       "title": "中华人民共和国治安管理处罚法（2025年修订）"
+      }
+     ],
+     "province_benchmark": {
+      "number": null,
+      "title": "河北省公安厅关于印发《河北省公安机关部分治安管理处罚裁量标准(2021修订版)》的通知",
+      "verification": "已核验",
+      "checked_at": "2026-10-27"
+     },
+     "band_quantities": {
+      "version": "band-quantities-1",
+      "law_epoch": "psal-2012（2026-01-01 前决定）",
+      "weighting": "每个事件计 1（同事件多人平分）",
+      "source_sha256": "b8fe38733d8ebdd04e64d2200741d1fa24de55b1ac7205c25d41e600fca9a460",
+      "events": {
+       "罚款:fine": 750.2,
+       "拘留:detention_days": 372.2,
+       "拘留并处罚款:detention_days": 448.6,
+       "拘留并处罚款:fine": 448.6
+      }
+     },
+     "practice_model": {
+      "version": "rap-notext-v1",
+      "trained": "2026-10-28",
+      "training_n": 391,
+      "training_ids_sha256": "c7afa181e71a2443d82d3992ef7c2ca69ed928023028a3f8f35a532266583be6"
+     },
+     "segment_prompt": {
+      "version": "seg-v2",
+      "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+     },
+     "extract_prompt": {
+      "version": "element-v1",
+      "wire": "element-ref-v3",
+      "schema": "1.2.0",
+      "fingerprint_sha256": "bd64271f3cda5e5c3d710ff81c6d57ff6e484dfea188ec5418c3e5d8ddbf9c34"
+     },
+     "chain_files_sha256": {
+      "s1.py": "e51ba4e970739a668c12fbc9182173706b11101a48d5b82edcd54171bc2bdb25",
+      "cleanse.py": "d927747f4c36d0510bc46717da5e1fd22b832513af954786c6de1bf091318f43",
+      "run_elements.py": "99e083470d8519af36105b076da53d8b65a5d950a2fcb5f6ea947e71e694cb88",
+      "element_contract.py": "7d51e73e98000d174460138d1f5c2badb99bf8012bb8e4629e4ac6dd9c6ba8eb",
+      "supply_packet.py": "0bc626fb45be02322562db7dc0d27088adfdae6dd4e06872679acc7968d27ba2"
+     }
+    },
+    "inputs": {
+     "elements": {
+      "behavior_date": {
+       "value": "2023-06-12",
+       "status": "明确",
+       "origin": "human",
+       "evidence": []
+      },
+      "region": {
+       "value": "130534",
+       "status": "明确",
+       "origin": "human",
+       "evidence": []
+      },
+      "behavior_type": {
+       "value": "为赌博提供条件",
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "participant_count": {
+       "value": 4,
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "method": {
+       "value": "扑克",
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "gambling_form": {
+       "value": "聚众赌博",
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "venue_type": {
+       "value": "住宅",
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "profit_purpose": {
+       "value": true,
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "times": {
+       "value": 1,
+       "status": "推断",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      }
+     },
+     "proposed": {
+      "type": "拘留并处罚款",
+      "detention_days": 10,
+      "fine": 1000.0
+     }
+    },
+    "steps": [
+     {
+      "id": "law",
+      "title": "适用法律",
+      "status": "determined",
+      "result": {
+       "id": "psal-2012",
+       "title": "中华人民共和国治安管理处罚法（2012年修正）"
+      },
+      "reasoning": "行为时与决定时均适用中华人民共和国治安管理处罚法（2012年修正）"
+     },
+     {
+      "id": "legal_space",
+      "title": "法定处罚空间",
+      "status": "determined",
+      "result": {
+       "一般": {
+        "options": [
+         {
+          "kind": "拘留",
+          "detention": [
+           1,
+           5
+          ],
+          "fine": null,
+          "via": "法定幅度",
+          "basis": [
+           {
+            "ref": "psal-2012#70",
+            "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。",
+            "verified": false
+           }
+          ]
+         },
+         {
+          "kind": "罚款",
+          "detention": null,
+          "fine": [
+           1,
+           500
+          ],
+          "via": "法定幅度",
+          "basis": [
+           {
+            "ref": "psal-2012#70",
+            "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。",
+            "verified": false
+           }
+          ]
+         }
+        ],
+        "detention_executable": true,
+        "not_executed_reason": null
+       },
+       "情节严重": {
+        "options": [
+         {
+          "kind": "拘留并处罚款",
+          "detention": [
+           10,
+           15
+          ],
+          "fine": [
+           500,
+           3000
+          ],
+          "via": "法定幅度",
+          "basis": [
+           {
+            "ref": "psal-2012#70",
+            "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者五百元以下罚款；情节严重的，处十日以上十五日以下拘留，并处五百元以上三千元以下罚款。",
+            "verified": false
+           }
+          ]
+         }
+        ],
+        "detention_executable": true,
+        "not_executed_reason": null
+       }
+      },
+      "scope": "各预设档次下按已知事实展开的法定选项",
+      "exhaustive_for_case": false
+     },
+     {
+      "id": "modifiers",
+      "title": "修正情节",
+      "status": "none_found",
+      "result": [],
+      "note": "按已填要素未发现从轻、减轻、从重等法定情节；未填的情节按未知处理"
+     },
+     {
+      "id": "referral",
+      "title": "涉嫌犯罪提示",
+      "status": "none_found",
+      "result": []
+     },
+     {
+      "id": "band",
+      "title": "省级基准定档",
+      "status": "unknown",
+      "result": [],
+      "penalty_text": [],
+      "computation": [],
+      "computation_detail": [],
+      "unknown_conditions": [
+       {
+        "condition": "commission",
+        "label": "为赌博提供条件的获利"
+       },
+       {
+        "condition": "civil_servant",
+        "label": "是否国家工作人员"
+       }
+      ],
+      "basis": {
+       "document": "河北省公安厅关于印发《河北省公安机关部分治安管理处罚裁量标准(2021修订版)》的通知",
+       "verified": true,
+       "ref": "第一百二十条",
+       "clauses": []
+      },
+      "status_text": "无法判断",
+      "applicability": "unavailable",
+      "law_alignment": null,
+      "notes": [
+       "未提供决定日期，省级基准时间判断暂以行为日期代替"
+      ],
+      "scope": "已知要素的省级建议，不是最终处罚结论"
+     },
+     {
+      "id": "written_type",
+      "title": "成文处罚种类",
+      "status": "undetermined",
+      "result": null,
+      "route": "undetermined",
+      "candidates": [],
+      "reasoning": "要素不足以确定处罚种类，只给出法定空间与候选"
+     },
+     {
+      "id": "amount",
+      "title": "档内数额参照（历史统计，非法律结论）",
+      "status": "none",
+      "result": {},
+      "source": {
+       "scope": "全国、旧法时期、按处罚种类、事件加权，已按本案法定幅度过滤",
+       "version": "band-quantities-1",
+       "law_epoch": "psal-2012（2026-01-01 前决定）",
+       "weighting": "每个事件计 1（同事件多人平分）",
+       "source_sha256": "b8fe38733d8ebdd04e64d2200741d1fa24de55b1ac7205c25d41e600fca9a460",
+       "events": {}
+      }
+     },
+     {
+      "id": "practice",
+      "title": "实务参照（学习，非法律结论）",
+      "status": "reference",
+      "result": {
+       "distribution": {
+        "不予处罚": 0.0,
+        "罚款": 0.2939,
+        "拘留": 0.3089,
+        "拘留并处罚款": 0.3972
+       },
+       "predicted": "拘留并处罚款"
+      },
+      "reading": [
+       "历史上与本案规则结论、要素相近的案件，最常见的处罚是「拘留并处罚款」（40%）",
+       "规则结论：使「拘留并处罚款」相对其他种类的对数几率提高 1.22",
+       "参赌人数：使「拘留并处罚款」相对其他种类的对数几率降低 0.65",
+       "赌资与获利：使「拘留并处罚款」相对其他种类的对数几率降低 0.26"
+      ],
+      "explanation": {
+       "baseline_logits": {
+        "拘留": -0.6978,
+        "拘留并处罚款": -0.3482,
+        "罚款": 1.046
+       },
+       "logits": {
+        "拘留": -0.0671,
+        "拘留并处罚款": 0.1842,
+        "罚款": -0.117
+       },
+       "groups": {
+        "规则结论": {
+         "拘留": -0.4758,
+         "拘留并处罚款": 0.811,
+         "罚款": -0.3351
+        },
+        "省份": {
+         "拘留": 0.2276,
+         "拘留并处罚款": 0.1339,
+         "罚款": -0.3615
+        },
+        "行为类型": {
+         "拘留": 0.4571,
+         "拘留并处罚款": -0.0429,
+         "罚款": -0.4142
+        },
+        "赌博方式": {
+         "拘留": -0.0824,
+         "拘留并处罚款": 0.1028,
+         "罚款": -0.0203
+        },
+        "场所": {
+         "拘留": -0.0399,
+         "拘留并处罚款": 0.1322,
+         "罚款": -0.0923
+        },
+        "赌资与获利": {
+         "拘留": 0.3385,
+         "拘留并处罚款": -0.172,
+         "罚款": -0.1664
+        },
+        "参赌人数": {
+         "拘留": 0.2057,
+         "拘留并处罚款": -0.4326,
+         "罚款": 0.2269
+        }
+       },
+       "margin_for_predicted": {
+        "规则结论": 1.2165,
+        "参赌人数": -0.6489,
+        "赌资与获利": -0.2581,
+        "省份": 0.2008,
+        "场所": 0.1983,
+        "赌博方式": 0.1542,
+        "行为类型": -0.0643
+       },
+       "contributions": [
+        {
+         "name": "rule_unique_不予处罚",
+         "label": "规则唯一结论为不予处罚",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.0358,
+         "contribution": {
+          "拘留": -0.0143,
+          "拘留并处罚款": 0.0494,
+          "罚款": -0.0351
+         }
+        },
+        {
+         "name": "rule_candidate_不予处罚",
+         "label": "规则候选含不予处罚",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.1151,
+         "contribution": {
+          "拘留": 0.083,
+          "拘留并处罚款": -0.1294,
+          "罚款": 0.0463
+         }
+        },
+        {
+         "name": "rule_unique_罚款",
+         "label": "规则唯一结论为罚款",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.0742,
+         "contribution": {
+          "拘留": -0.0698,
+          "拘留并处罚款": 0.226,
+          "罚款": -0.1562
+         }
+        },
+        {
+         "name": "rule_candidate_罚款",
+         "label": "规则候选含罚款",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.2737,
+         "contribution": {
+          "拘留": 0.2686,
+          "拘留并处罚款": 0.0579,
+          "罚款": -0.3264
+         }
+        },
+        {
+         "name": "rule_unique_拘留",
+         "label": "规则唯一结论为拘留",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.0716,
+         "contribution": {
+          "拘留": -0.2179,
+          "拘留并处罚款": 0.0794,
+          "罚款": 0.1385
+         }
+        },
+        {
+         "name": "rule_candidate_拘留",
+         "label": "规则候选含拘留",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.1432,
+         "contribution": {
+          "拘留": -0.0085,
+          "拘留并处罚款": 0.0669,
+          "罚款": -0.0584
+         }
+        },
+        {
+         "name": "rule_unique_拘留并处罚款",
+         "label": "规则唯一结论为拘留并处罚款",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.0972,
+         "contribution": {
+          "拘留": 0.0307,
+          "拘留并处罚款": -0.212,
+          "罚款": 0.1813
+         }
+        },
+        {
+         "name": "rule_candidate_拘留并处罚款",
+         "label": "规则候选含拘留并处罚款",
+         "group": "规则结论",
+         "value": 0.0,
+         "train_mean": 0.1535,
+         "contribution": {
+          "拘留": -0.1891,
+          "拘留并处罚款": -0.0464,
+          "罚款": 0.2355
+         }
+        },
+        {
+         "name": "rule_no_band",
+         "label": "规则无法定档",
+         "group": "规则结论",
+         "value": 1.0,
+         "train_mean": 0.4271,
+         "contribution": {
+          "拘留": -0.3585,
+          "拘留并处罚款": 0.7192,
+          "罚款": -0.3606
+         }
+        },
+        {
+         "name": "province_hebei",
+         "label": "河北（相对江苏）",
+         "group": "省份",
+         "value": 1.0,
+         "train_mean": 0.4194,
+         "contribution": {
+          "拘留": 0.2276,
+          "拘留并处罚款": 0.1339,
+          "罚款": -0.3615
+         }
+        },
+        {
+         "name": "provide_conditions",
+         "label": "为赌博提供条件（相对参与赌博）",
+         "group": "行为类型",
+         "value": 1.0,
+         "train_mean": 0.087,
+         "contribution": {
+          "拘留": 0.4571,
+          "拘留并处罚款": -0.0429,
+          "罚款": -0.4142
+         }
+        },
+        {
+         "name": "method_network",
+         "label": "网络赌博",
+         "group": "赌博方式",
+         "value": 0.0,
+         "train_mean": 0.1586,
+         "contribution": {
+          "拘留": -0.1035,
+          "拘留并处罚款": 0.034,
+          "罚款": 0.0695
+         }
+        },
+        {
+         "name": "method_machine",
+         "label": "赌博机",
+         "group": "赌博方式",
+         "value": 0.0,
+         "train_mean": 0.0307,
+         "contribution": {
+          "拘留": 0.0624,
+          "拘留并处罚款": -0.0159,
+          "罚款": -0.0464
+         }
+        },
+        {
+         "name": "method_lottery",
+         "label": "私彩/六合彩/赌球",
+         "group": "赌博方式",
+         "value": 0.0,
+         "train_mean": 0.0128,
+         "contribution": {
+          "拘留": -0.0042,
+          "拘留并处罚款": -0.0008,
+          "罚款": 0.005
+         }
+        },
+        {
+         "name": "method_unknown",
+         "label": "赌博方式未知",
+         "group": "赌博方式",
+         "value": 0.0,
+         "train_mean": 0.133,
+         "contribution": {
+          "拘留": -0.0371,
+          "拘留并处罚款": 0.0855,
+          "罚款": -0.0484
+         }
+        },
+        {
+         "name": "venue_public_yes",
+         "label": "公共场所/交通工具",
+         "group": "场所",
+         "value": 0.0,
+         "train_mean": 0.0102,
+         "contribution": {
+          "拘留": 0.0114,
+          "拘留并处罚款": -0.0207,
+          "罚款": 0.0093
+         }
+        },
+        {
+         "name": "venue_public_unknown",
+         "label": "场所未知",
+         "group": "场所",
+         "value": 0.0,
+         "train_mean": 0.2685,
+         "contribution": {
+          "拘留": -0.0513,
+          "拘留并处罚款": 0.1529,
+          "罚款": -0.1016
+         }
+        },
+        {
+         "name": "log_personal_stake",
+         "label": "本人赌资（对数）",
+         "group": "赌资与获利",
+         "value": 0.0,
+         "train_mean": 1.111,
+         "contribution": {
+          "拘留": 0.1888,
+          "拘留并处罚款": -0.5808,
+          "罚款": 0.392
+         }
+        },
+        {
+         "name": "missing_personal_stake",
+         "label": "本人赌资未知",
+         "group": "赌资与获利",
+         "value": 1.0,
+         "train_mean": 0.6164,
+         "contribution": {
+          "拘留": -0.2294,
+          "拘留并处罚款": 0.6637,
+          "罚款": -0.4342
+         }
+        },
+        {
+         "name": "log_onsite_stake_total",
+         "label": "现场赌资合计（对数）",
+         "group": "赌资与获利",
+         "value": 0.0,
+         "train_mean": 1.0938,
+         "contribution": {
+          "拘留": 0.0981,
+          "拘留并处罚款": -0.312,
+          "罚款": 0.2139
+         }
+        },
+        {
+         "name": "missing_onsite_stake_total",
+         "label": "现场赌资合计未知",
+         "group": "赌资与获利",
+         "value": 1.0,
+         "train_mean": 0.688,
+         "contribution": {
+          "拘留": 0.2347,
+          "拘留并处罚款": 0.1517,
+          "罚款": -0.3863
+         }
+        },
+        {
+         "name": "log_commission",
+         "label": "抽头渔利（对数）",
+         "group": "赌资与获利",
+         "value": 0.0,
+         "train_mean": 0.0705,
+         "contribution": {
+          "拘留": 0.0298,
+          "拘留并处罚款": -0.0218,
+          "罚款": -0.0081
+         }
+        },
+        {
+         "name": "missing_commission",
+         "label": "抽头渔利未知",
+         "group": "赌资与获利",
+         "value": 1.0,
+         "train_mean": 0.9693,
+         "contribution": {
+          "拘留": 0.0165,
+          "拘留并处罚款": -0.0728,
+          "罚款": 0.0563
+         }
+        },
+        {
+         "name": "log_participants",
+         "label": "参赌人数（对数）",
+         "group": "参赌人数",
+         "value": 1.3863,
+         "train_mean": 0.682,
+         "contribution": {
+          "拘留": -0.1533,
+          "拘留并处罚款": 0.4286,
+          "罚款": -0.2752
+         }
+        },
+        {
+         "name": "missing_participants",
+         "label": "参赌人数未知",
+         "group": "参赌人数",
+         "value": 0.0,
+         "train_mean": 0.5524,
+         "contribution": {
+          "拘留": 0.359,
+          "拘留并处罚款": -0.8612,
+          "罚款": 0.5021
+         }
+        }
+       ]
+      },
+      "method": "多项逻辑回归（标准化特征）；对数几率 = 基线（训练集平均案件）+ Σ 系数 × 标准化特征值，逐项即贡献",
+      "model": {
+       "version": "rap-notext-v1",
+       "trained": "2026-10-28",
+       "training": {
+        "n": 391,
+        "label_counts": {
+         "不予处罚": 0,
+         "罚款": 215,
+         "拘留": 64,
+         "拘留并处罚款": 112
+        },
+        "source": "开发集两省人工要素（331 会话标注 + 66 银标，校验通过、范围内）；规则按 ADR-008",
+        "ids_sha256": "c7afa181e71a2443d82d3992ef7c2ca69ed928023028a3f8f35a532266583be6",
+        "algorithm": "StandardScaler + 多项逻辑回归（C=1，lbfgs）",
+        "script": "research/eval/rule_chain/rap_export.py@4548a7d"
+       },
+       "evaluation": {
+        "dev_cv_event_5fold": {
+         "n": 391,
+         "rps": 0.1031,
+         "acc": 0.703,
+         "recall": {
+          "罚款": {
+           "n": 215,
+           "recall": 0.823
+          },
+          "拘留": {
+           "n": 64,
+           "recall": 0.422
+          },
+          "拘留并处罚款": {
+           "n": 112,
+           "recall": 0.634
+          }
+         }
+        },
+        "workorder_b_descriptive": {
+         "n": 84,
+         "rps": 0.1794,
+         "acc": 0.464,
+         "recall": {
+          "不予处罚": {
+           "n": 3,
+           "recall": 0.0
+          },
+          "罚款": {
+           "n": 17,
+           "recall": 0.294
+          },
+          "拘留": {
+           "n": 19,
+           "recall": 0.0
+          },
+          "拘留并处罚款": {
+           "n": 45,
+           "recall": 0.756
+          }
+         },
+         "note": "标签此前已看过（C-40、C-41），只作描述，不是预注册检验"
+        },
+        "frozen_test_reference": "含文本 RAP 冻结检验 C-37：RPS 0.154 vs 第一版 0.196"
+       },
+       "limits": [
+        "实务参照，不是法律结论",
+        "只在河北、江苏两省人工要素上训练；要素由模型抽取时表现未检验",
+        "无文本版未经独立预注册检验",
+        "拘留召回偏弱，不予处罚样本极少"
+       ]
+      }
+     },
+     {
+      "id": "deviation",
+      "title": "偏离检查",
+      "status": "checked",
+      "result": {
+       "proposed": {
+        "type": "拘留并处罚款",
+        "detention_days": 10,
+        "fine": 1000.0
+       },
+       "levels": [
+        {
+         "level": "legal_space",
+         "title": "法定处罚空间",
+         "ok": true,
+         "detail": "在法定档次与修正情节展开的选项内"
+        },
+        {
+         "level": "written_band",
+         "title": "省级基准档位",
+         "ok": null,
+         "detail": "无省级分档结论，无法对照"
+        },
+        {
+         "level": "amount_reference",
+         "title": "档内数额参照（历史统计，非法律结论）",
+         "ok": null,
+         "detail": "拟处罚种类与成文种类不同，不比较数额"
+        },
+        {
+         "level": "practice",
+         "title": "实务参照（学习，非法律结论）",
+         "ok": null,
+         "detail": "相近历史案件中处「拘留并处罚款」的比例约 40%，排第 1",
+         "probability": 0.3972
+        }
+       ]
+      }
+     },
+     {
+      "id": "missing",
+      "title": "补查提示",
+      "status": "found",
+      "result": [
+       {
+        "field": "commission",
+        "label": "为赌博提供条件的获利",
+        "why": "省级基准的升档、归类或从重条件"
+       },
+       {
+        "field": "civil_servant",
+        "label": "是否国家工作人员",
+        "why": "省级基准的升档、归类或从重条件"
+       }
+      ]
+     }
+    ],
+    "needs_review": [
+     "无省级分档且无文本模型概率，仅给出法定处罚空间"
+    ],
+    "disclaimer": "仅供辅助参考，不构成法律意见；结论须由办案人员审核确认",
+    "model_calls": [
+     {
+      "slot": "segment",
+      "attempt": 1,
+      "prompt": {
+       "version": "seg-v2",
+       "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+      },
+      "platform_model_id": "deepseek/deepseek-flash",
+      "provider_id": "deepseek",
+      "provider_type": "openai_compat",
+      "model": "deepseek-flash",
+      "params": {
+       "temperature": 0,
+       "max_tokens": 4000,
+       "seed": 20261028,
+       "thinking": false
+      },
+      "structured": "json",
+      "request_sha256": "f81bf6603041d9aacb395d1ecc34bcd8b8b00233790a47089d4d68705a04ba74",
+      "started_at": 1793181770.7452478,
+      "response_model": "deepseek-flash",
+      "response_id": "cd15b95e-6206-461c-9161-1aafa71e79aa",
+      "finish_reason": "stop",
+      "system_fingerprint": "bc19ba97cbe016479903222bb1578db6",
+      "status": "ok",
+      "usage": {
+       "prompt_tokens": 1480,
+       "completion_tokens": 2796
+      },
+      "latency_ms": 17939,
+      "response_sha256": "08a2b00b909b0ae563f29334fcb30ad0d67817d7314145127487ea39ee1113d0",
+      "validation": {
+       "ok": true,
+       "violations": []
+      }
+     },
+     {
+      "slot": "extract",
+      "attempt": 1,
+      "prompt": {
+       "version": "element-v1",
+       "wire": "element-ref-v3",
+       "schema": "1.2.0",
+       "fingerprint_sha256": "bd64271f3cda5e5c3d710ff81c6d57ff6e484dfea188ec5418c3e5d8ddbf9c34"
+      },
+      "platform_model_id": "deepseek/deepseek-flash",
+      "provider_id": "deepseek",
+      "provider_type": "openai_compat",
+      "model": "deepseek-flash",
+      "params": {
+       "temperature": 0,
+       "max_tokens": 16000,
+       "seed": 20261028,
+       "thinking": false
+      },
+      "structured": "json",
+      "request_sha256": "20d708a4c93c366847a05c67af3b969ff773568faa5b451dff83e55d945dfaa1",
+      "started_at": 1793181788.741992,
+      "response_model": "deepseek-flash",
+      "response_id": "133b147e-2656-4161-b685-8033b77d6a8c",
+      "finish_reason": "stop",
+      "system_fingerprint": "bc19ba97cbe016479903222bb1578db6",
+      "status": "ok",
+      "usage": {
+       "prompt_tokens": 13117,
+       "completion_tokens": 7063
+      },
+      "latency_ms": 39313,
+      "response_sha256": "f419940187a7749c87c70f58c7623e2bbe224c26c93a8c137c31d0eb24c47ffc",
+      "validation": {
+       "ok": true,
+       "violations": []
+      }
+     }
+    ]
+   },
+   "actual": {
+    "type": "拘留并处罚款",
+    "detention_days": 10,
+    "fine": 1000
+   },
+   "parse": {
+    "sentences": [
+     "清河县公安局",
+     "行政处罚决定书",
+     "〔文号 h:505912〕",
+     "被处罚人甲,男。",
+     "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+     "以上事实有违法人陈述申辩、证人证言等证据证实。",
+     "根据《中华人民共和国治安管理处罚法》第七十条之规定，现决定对甲行政拘留十日，并处罚款壹仟元整",
+     "执行方式和期限：限于收到本决定书之日起十五日内到河北清河农村商业银行股份有限公司陵城支行缴纳罚款壹仟元整；",
+     "由清河县公安局送邢台市清河县拘留所执行行政拘留十日。",
+     "逾期不交纳罚款的，每日按罚款数额的百分之三加处罚款，加处罚款的数额不超过罚款本数。",
+     "被处罚人如不服本决定，可以在收到本决定书之日起六十日内向清河县人民政府申请行政复议，或者在六个月内向清河县人民法院提起行政诉讼。",
+     "清河县公安局",
+     "二〇二三年八月"
+    ],
+    "zones": [
+     {
+      "type": "meta",
+      "from": 1,
+      "to": 4
+     },
+     {
+      "type": "facts",
+      "from": 5,
+      "to": 5
+     },
+     {
+      "type": "evidence",
+      "from": 6,
+      "to": 6
+     },
+     {
+      "type": "decision",
+      "from": 7,
+      "to": 11
+     },
+     {
+      "type": "meta",
+      "from": 12,
+      "to": 13
+     }
+    ],
+    "subject": {
+     "mention": "甲",
+     "aliases": []
+    },
+    "dates": {
+     "behavior": null,
+     "decision": null
+    },
+    "gambling": {
+     "verdict": "是",
+     "reason": "文书载明查获赌博人员、提供赌博工具扑克牌及筹码、抽取每人五元渔利并参与赌博，并适用《中华人民共和国治安管理处罚法》第七十条处理。"
+    },
+    "review": {
+     "result": "无",
+     "changed_outcome": null
+    },
+    "validation": {
+     "ok": true,
+     "violations": []
+    },
+    "outcome": {
+     "type": "拘留并处罚款",
+     "detention_days": 10,
+     "fine": 1000,
+     "not_executed": "否",
+     "multi_violation": false,
+     "executed_penalty": {
+      "detention_days": 0,
+      "fine": 0
+     },
+     "confiscation": [],
+     "detention_items": [],
+     "articles": [
+      {
+       "text": "《中华人民共和国治安管理处罚法》第七十条",
+       "edition": "2012修正"
+      }
+     ],
+     "stated_circumstances": []
+    }
+   },
+   "extraction": {
+    "elements": {
+     "conduct.behavior_type": {
+      "value": "为赌博提供条件",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "behavior_type"
+     },
+     "conduct.role": {
+      "value": "抽头者",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "conduct.method": {
+      "value": "扑克",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "method"
+     },
+     "conduct.gambling_form": {
+      "value": "聚众赌博",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "gambling_form"
+     },
+     "conduct.times": {
+      "value": 1,
+      "status": "推断",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "times"
+     },
+     "conduct.duration_days": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "conduct.cheating": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "amounts.personal_stake": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "personal_stake"
+     },
+     "amounts.per_bet": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "amounts.onsite_stake_total": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "onsite_stake_total"
+     },
+     "amounts.cumulative_stake": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "cumulative_stake"
+     },
+     "amounts.commission": {
+      "value": null,
+      "status": "待核实",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "commission",
+      "dropped_reason": "numeric_evidence_unsupported:amounts.commission"
+     },
+     "amounts.illegal_gain": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "persons.participant_count": {
+      "value": 4,
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "participant_count"
+     },
+     "persons.cumulative_participants": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "cumulative_participants"
+     },
+     "persons.minors_involved": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "minors_involved"
+     },
+     "persons.civil_servant": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "civil_servant"
+     },
+     "persons.relatives_only": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "persons.abroad_organized_count": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "abroad_organized_count"
+     },
+     "venue.venue_type": {
+      "value": "住宅",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "venue_type"
+     },
+     "intent.profit_purpose": {
+      "value": true,
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+        "sentence": 5,
+        "span": [
+         38,
+         149
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "profit_purpose"
+     },
+     "circumstances.last_prior_penalty_date": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "last_prior_penalty_date"
+     },
+     "circumstances.surrendered": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "surrendered"
+     },
+     "circumstances.truthful_statement": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "truthful_statement"
+     },
+     "circumstances.admits_and_accepts": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "admits_and_accepts"
+     },
+     "circumstances.remedied_consequence": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "remedied_consequence"
+     },
+     "circumstances.victim_forgiveness": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "victim_forgiveness"
+     },
+     "circumstances.coerced_or_lured": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "coerced_or_lured"
+     },
+     "circumstances.meritorious": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "meritorious"
+     },
+     "circumstances.instigated_others": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "instigated_others"
+     },
+     "circumstances.retaliation": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "retaliation"
+     },
+     "circumstances.obstructed_police": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "circumstances.minor_circumstance": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "minor_circumstance"
+     },
+     "circumstances.first_offense": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "first_offense"
+     },
+     "circumstances.violations_last_year": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "violations_last_year"
+     },
+     "person.age": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "age"
+     },
+     "person.pregnant_or_nursing": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "pregnant_or_nursing"
+     }
+    },
+    "dropped": [
+     {
+      "path": "amounts.commission",
+      "reason": "numeric_evidence_unsupported:amounts.commission"
+     }
+    ],
+    "assess_input": {
+     "behavior_date": "2023-06-12",
+     "region": "130534",
+     "behavior_type": "为赌博提供条件",
+     "participant_count": 4,
+     "method": "扑克",
+     "gambling_form": "聚众赌博",
+     "venue_type": "住宅",
+     "profit_purpose": true,
+     "times": 1,
+     "provenance": {
+      "behavior_type": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "method": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "gambling_form": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "times": {
+       "status": "推断",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "participant_count": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "venue_type": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      },
+      "profit_purpose": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "现查明：2023年6月，清河县看守所提供线索,经我所摸排，在清河县号闪电锂电池租赁定制门店内甲出租屋内现场抓获的赌博人员乙、丙、丁赌博，由甲提供的赌博工具扑克牌一副、赌博筹码（扑克牌60张），抽取每人五元渔利，并参与赌博。",
+         "sentence": 5,
+         "span": [
+          38,
+          149
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "meta_missing": [],
+    "target": "甲"
+   }
+  },
+  "error": null,
+  "partial": null
+ }
+}

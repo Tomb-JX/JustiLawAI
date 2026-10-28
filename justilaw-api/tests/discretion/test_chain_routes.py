@@ -78,6 +78,21 @@ def env(monkeypatch):
     app.dependency_overrides.clear()
 
 
+def job(client, path, body):
+    """提交 → 202 + run_id → 轮询一次（TestClient 中后台任务在响应返回前已执行完）。"""
+    r = client.post(path, json=body)
+    assert r.status_code == 202, r.text
+    sub = r.json()["data"]
+    assert sub["status"] == "running" and sub["poll"].endswith(sub["run_id"])
+    return client.get(sub["poll"]).json()["data"]
+
+
+def done(client, path, body):
+    run = job(client, path, body)
+    assert run["status"] == "succeeded", run.get("error")
+    return {"run_id": run["run_id"], **run["result"]}
+
+
 def as_admin():
     app.dependency_overrides[current_user] = lambda: {"id": "adm", "role": "admin"}
 
@@ -99,7 +114,7 @@ def test_settings_slots_validate_and_require_admin(env):
 
 def test_parse_returns_zones_and_model_receipts(env):
     client, fake, _ = env
-    data = client.post("/api/v1/discretion/parse", json={"text": TEXT, "doc_kind": "决定书"}).json()["data"]
+    data = done(client, "/api/v1/discretion/parse", {"text": TEXT, "doc_kind": "决定书"})
     assert len(data["sentences"]) == 4 and data["zones"][1]["type"] == "facts"
     assert data["outcome"]["type"] == "罚款" and data["validation"]["ok"]
     call = data["trace"]["model_calls"][0]
@@ -108,29 +123,27 @@ def test_parse_returns_zones_and_model_receipts(env):
 
 
 def test_parse_retries_with_feedback_then_falls_back(env):
-    client, fake, monkeypatch = env
+    client, fake, _ = env
     as_admin()
     client.put("/api/v1/discretion/settings", json={"models": {"segment": {"fallback_model_id": "fake/b"}}})
     fake.script["segment"] = ["bad", "error", "ok"]
-    data = client.post("/api/v1/discretion/parse", json={"text": TEXT}).json()["data"]
-    calls = data["trace"]["model_calls"]
+    calls = done(client, "/api/v1/discretion/parse", {"text": TEXT})["trace"]["model_calls"]
     assert [c["status"] for c in calls] == ["ok", "fail", "ok"] and calls[0]["validation"]["ok"] is False
     assert calls[-1]["platform_model_id"] == "fake/b"
 
 
-def test_parse_failure_is_archived(env):
+def test_parse_failure_is_reported_on_poll_with_receipts(env):
     client, fake, _ = env
     fake.script["segment"] = ["error", "error"]
-    r = client.post("/api/v1/discretion/parse", json={"text": TEXT})
-    assert r.status_code == 502
-    run = next(iter(discretion_runs_db.data.values()))
-    assert run["kind"] == "parse" and len(run["result"]["model_calls"]) == 2
+    run = job(client, "/api/v1/discretion/parse", {"text": TEXT})
+    assert run["status"] == "failed" and run["error"]["code"] == 50200 and run["error"]["http_status"] == 502
+    assert len(run["partial"]["model_calls"]) == 2 and run["finished_at"]
 
 
 def test_extract_from_parse_run_gives_evidence_and_assess_input(env):
     client, fake, _ = env
-    run_id = client.post("/api/v1/discretion/parse", json={"text": TEXT, "doc_kind": "决定书"}).json()["data"]["run_id"]
-    data = client.post("/api/v1/discretion/extract", json={"parse_run_id": run_id, "region": "320582"}).json()["data"]
+    run_id = done(client, "/api/v1/discretion/parse", {"text": TEXT, "doc_kind": "决定书"})["run_id"]
+    data = done(client, "/api/v1/discretion/extract", {"parse_run_id": run_id, "region": "320582"})
     assert [c[0] for c in fake.calls] == ["segment", "extract"]          # 不重复分段
     stake = data["elements"]["amounts.personal_stake"]
     assert stake["value"] == {"min": 600, "max": 600} and stake["evidence"][0]["sentence"] == 2
@@ -146,7 +159,7 @@ def test_extract_from_parse_run_gives_evidence_and_assess_input(env):
 
 def test_review_from_decision_text(env):
     client, _, _ = env
-    data = client.post("/api/v1/discretion/review", json={"text": TEXT, "region": "320582"}).json()["data"]
+    data = done(client, "/api/v1/discretion/review", {"text": TEXT, "region": "320582"})
     assert data["actual"] == {"type": "罚款", "detention_days": None, "fine": 500}
     levels = {lv["level"]: lv for lv in data["deviation"]["levels"]}
     assert levels["legal_space"]["ok"] and levels["written_band"]["ok"] and "未发现偏离" in data["deviation"]["summary"]
@@ -154,12 +167,20 @@ def test_review_from_decision_text(env):
     assert discretion_runs_db.data[data["run_id"]]["kind"] == "review"
 
 
+def test_review_missing_date_keeps_paid_results(env, monkeypatch):
+    client, _, _ = env
+    monkeypatch.setitem(S1_OUT, "dates", {"behavior": None, "decision": None})
+    run = job(client, "/api/v1/discretion/review", {"text": TEXT, "region": "320582"})
+    assert run["status"] == "failed" and run["error"]["code"] == 42200 and "behavior_date" in run["error"]["message"]
+    assert run["partial"]["extraction"]["elements"] and len(run["partial"]["model_calls"]) == 2
+
+
 def test_review_from_confirmed_elements_needs_no_model(env):
     client, fake, _ = env
     body = {"elements": {"behavior_date": "2023-07-06", "region": "320582", "behavior_type": "参与赌博",
                          "method": "麻将", "gambling_form": "其他", "personal_stake": {"min": 600, "max": 600}},
             "actual": {"type": "拘留", "detention_days": 5}}
-    data = client.post("/api/v1/discretion/review", json=body).json()["data"]
+    data = done(client, "/api/v1/discretion/review", body)
     assert not fake.calls and "存在偏离：省级基准档位" in data["deviation"]["summary"]
 
 
@@ -168,16 +189,23 @@ def test_extract_drops_unsupported_field_instead_of_failing(env, monkeypatch):
     bad = element_payload()
     bad["amounts"]["commission"] = {"status": "明确", "value": {"min": 5, "max": 5}, "evidence": [{"sentence_ids": ["S2.1"]}]}
     monkeypatch.setattr(sys.modules[__name__], "element_payload", lambda: bad)
-    data = client.post("/api/v1/discretion/extract", json={"text": TEXT, "region": "320582"}).json()["data"]
+    data = done(client, "/api/v1/discretion/extract", {"text": TEXT, "region": "320582"})
     assert [d["path"] for d in data["dropped"]] == ["amounts.commission"]
     assert data["elements"]["amounts.commission"]["status"] == "待核实" and "commission" not in data["assess_input"]
     assert data["elements"]["amounts.personal_stake"]["value"] == {"min": 600, "max": 600}
     assert all("_raw" not in c for c in data["trace"]["model_calls"])
-    archived = discretion_runs_db.data[data["run_id"]]["result"]["trace"]["model_calls"]
-    assert archived[-1]["_raw"]
+    assert discretion_runs_db.data[data["run_id"]]["archive"]["model_calls"][-1]["_raw"]
 
 
-def test_user_cannot_override_model_unless_allowed(env):
+def test_config_errors_return_immediately_without_job(env):
     client, _, _ = env
-    r = client.post("/api/v1/discretion/parse", json={"text": TEXT, "model_id": "fake/b"})
-    assert r.status_code == 403
+    assert client.post("/api/v1/discretion/parse", json={"text": TEXT, "model_id": "fake/b"}).status_code == 403
+    assert client.post("/api/v1/discretion/extract", json={"region": "320582"}).status_code == 422
+    assert not discretion_runs_db.data
+
+
+def test_interrupted_job_is_reported_failed(env):
+    client, _, _ = env
+    discretion_runs_db.data["dr_x"] = {"run_id": "dr_x", "kind": "parse", "owner": "u1", "status": "running"}
+    run = client.get("/api/v1/discretion/runs/dr_x").json()["data"]
+    assert run["status"] == "failed" and run["error"]["code"] == 50001

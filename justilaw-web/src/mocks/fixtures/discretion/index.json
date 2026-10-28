@@ -1,0 +1,82 @@
+{
+ "contract": "docs/02-design/api-contract.md §3.12 v1.0",
+ "generator": "justilaw-api/scripts/export_discretion_fixtures.py",
+ "note": "parse / extract / review 先返回 202 + run_id，再轮询 runs；模拟时按 *-submit → run-running → run-*-succeeded/failed 的顺序返回",
+ "files": [
+  {
+   "file": "settings.json",
+   "endpoint": "GET /discretion/settings",
+   "scene": "模型槽位与链路版本"
+  },
+  {
+   "file": "assess-jiangsu-fine.json",
+   "endpoint": "POST /discretion/assess",
+   "scene": "江苏麻将、本人赌资 600 元：唯一档位 → 罚款；含实务参照与逐项贡献"
+  },
+  {
+   "file": "assess-deviation.json",
+   "endpoint": "POST /discretion/assess",
+   "scene": "同上 + 拟处罚拘留 5 日：省级基准档位偏离"
+  },
+  {
+   "file": "assess-candidates.json",
+   "endpoint": "POST /discretion/assess",
+   "scene": "河北网络赌博、赌资不明：多档候选 + 补查提示"
+  },
+  {
+   "file": "assess-out-of-scope.json",
+   "endpoint": "POST /discretion/assess",
+   "scene": "新法时期：实务参照 out_of_scope（不外推）"
+  },
+  {
+   "file": "parse-submit.json",
+   "endpoint": "POST /discretion/parse → 202",
+   "scene": "提交后立即返回任务号"
+  },
+  {
+   "file": "run-running.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "轮询：仍在执行"
+  },
+  {
+   "file": "run-parse-succeeded.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "分段完成"
+  },
+  {
+   "file": "run-extract-succeeded.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "抽取完成：要素 + 证据 + assess_input"
+  },
+  {
+   "file": "run-extract-dropped.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "抽取完成但一个字段校验不过：dropped + 待核实"
+  },
+  {
+   "file": "run-review-succeeded.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "决定书审查完成：未发现偏离"
+  },
+  {
+   "file": "run-review-elements-deviation.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "已确认要素 + 实际处罚：存在偏离"
+  },
+  {
+   "file": "run-review-failed-missing-date.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "审查失败：缺行为日期，partial 保留解析与抽取"
+  },
+  {
+   "file": "run-parse-failed-model.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "模型调用全部失败：502 语义，partial 含回执"
+  },
+  {
+   "file": "run-review-real-deepseek.json",
+   "endpoint": "GET /discretion/runs/{run_id}",
+   "scene": "真实模型（DeepSeek）审查河北清河决定书 W-000114（已脱敏）"
+  }
+ ]
+}

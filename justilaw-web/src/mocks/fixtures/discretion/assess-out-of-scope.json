@@ -1,0 +1,466 @@
+{
+ "code": 0,
+ "message": "ok",
+ "data": {
+  "run_id": "dr_95e2b16eccc341b8",
+  "written": {
+   "type": "罚款",
+   "route": "rule_single",
+   "candidates": [
+    "罚款"
+   ],
+   "legal_space": {
+    "一般": {
+     "options": [
+      {
+       "kind": "拘留",
+       "detention": [
+        1,
+        5
+       ],
+       "fine": null,
+       "via": "法定幅度",
+       "basis": [
+        {
+         "ref": "psal-2025#82",
+         "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者一千元以下罚款；情节严重的，处十日以上十五日以下拘留，并处一千元以上五千元以下罚款。",
+         "verified": false
+        }
+       ]
+      },
+      {
+       "kind": "罚款",
+       "detention": null,
+       "fine": [
+        1,
+        1000
+       ],
+       "via": "法定幅度",
+       "basis": [
+        {
+         "ref": "psal-2025#82",
+         "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者一千元以下罚款；情节严重的，处十日以上十五日以下拘留，并处一千元以上五千元以下罚款。",
+         "verified": false
+        }
+       ]
+      }
+     ],
+     "detention_executable": true,
+     "not_executed_reason": null
+    },
+    "情节严重": {
+     "options": [
+      {
+       "kind": "拘留并处罚款",
+       "detention": [
+        10,
+        15
+       ],
+       "fine": [
+        1000,
+        5000
+       ],
+       "via": "法定幅度",
+       "basis": [
+        {
+         "ref": "psal-2025#82",
+         "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者一千元以下罚款；情节严重的，处十日以上十五日以下拘留，并处一千元以上五千元以下罚款。",
+         "verified": false
+        }
+       ]
+      }
+     ],
+     "detention_executable": true,
+     "not_executed_reason": null
+    }
+   },
+   "band": [
+    "第一档"
+   ]
+  },
+  "practice": {
+   "status": "out_of_scope",
+   "reading": null,
+   "note": "训练数据全部是旧法（2012 修正）时期，新法时期的实务分布未知"
+  },
+  "amounts": {
+   "fine": [
+    [
+     500.0,
+     0.473
+    ],
+    [
+     200.0,
+     0.198
+    ],
+    [
+     300.0,
+     0.193
+    ],
+    [
+     400.0,
+     0.085
+    ],
+    [
+     100.0,
+     0.051
+    ]
+   ]
+  },
+  "deviation": null,
+  "missing": [
+   {
+    "field": "civil_servant",
+    "label": "是否国家工作人员",
+    "why": "省级基准的升档、归类或从重条件"
+   },
+   {
+    "field": "prior_within_year",
+    "label": "一年内是否受过治安处罚",
+    "why": "省级基准的升档、归类或从重条件"
+   }
+  ],
+  "needs_review": [
+   "档内数额为历史分布（旧法时期决定），不是点预测",
+   "省级基准依据 psal-2012 制定，本案适用 psal-2025：推定沿用其赌资门槛与档次判断处罚种类；档位原文中的罚款数额为旧法数额，本案数额以新法法定幅度为准"
+  ],
+  "trace": {
+   "versions": {
+    "engine": "de-0.2.0",
+    "schema": "1.2.0",
+    "norm_library_sha256": "942ccdd7c8709213d2f3006aae220afed729317546da86bc9dfadbb81126b8f5",
+    "laws": [
+     {
+      "id": "psal-2012",
+      "title": "中华人民共和国治安管理处罚法（2012年修正）"
+     },
+     {
+      "id": "psal-2025",
+      "title": "中华人民共和国治安管理处罚法（2025年修订）"
+     }
+    ],
+    "province_benchmark": {
+     "number": "苏公规〔2019〕1号",
+     "title": "江苏省公安厅关于印发《赌博违法案件裁量指导意见》的通知",
+     "verification": "已核验",
+     "checked_at": "2026-10-27"
+    },
+    "band_quantities": {
+     "version": "band-quantities-1",
+     "law_epoch": "psal-2012（2026-01-01 前决定）",
+     "weighting": "每个事件计 1（同事件多人平分）",
+     "source_sha256": "b8fe38733d8ebdd04e64d2200741d1fa24de55b1ac7205c25d41e600fca9a460",
+     "events": {
+      "罚款:fine": 750.2,
+      "拘留:detention_days": 372.2,
+      "拘留并处罚款:detention_days": 448.6,
+      "拘留并处罚款:fine": 448.6
+     }
+    },
+    "practice_model": {
+     "version": "rap-notext-v1",
+     "trained": "2026-10-28",
+     "training_n": 391,
+     "training_ids_sha256": "c7afa181e71a2443d82d3992ef7c2ca69ed928023028a3f8f35a532266583be6"
+    }
+   },
+   "inputs": {
+    "elements": {
+     "behavior_date": {
+      "value": "2026-03-01",
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     },
+     "decision_date": {
+      "value": "2026-03-05",
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     },
+     "region": {
+      "value": "320582",
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     },
+     "behavior_type": {
+      "value": "参与赌博",
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     },
+     "personal_stake": {
+      "value": {
+       "min": 600.0,
+       "max": 600.0
+      },
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     },
+     "method": {
+      "value": "麻将",
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     },
+     "gambling_form": {
+      "value": "其他",
+      "status": "明确",
+      "origin": "human",
+      "evidence": []
+     }
+    },
+    "proposed": null
+   },
+   "steps": [
+    {
+     "id": "law",
+     "title": "适用法律",
+     "status": "determined",
+     "result": {
+      "id": "psal-2025",
+      "title": "中华人民共和国治安管理处罚法（2025年修订）"
+     },
+     "reasoning": "行为时与决定时均适用中华人民共和国治安管理处罚法（2025年修订）"
+    },
+    {
+     "id": "legal_space",
+     "title": "法定处罚空间",
+     "status": "determined",
+     "result": {
+      "一般": {
+       "options": [
+        {
+         "kind": "拘留",
+         "detention": [
+          1,
+          5
+         ],
+         "fine": null,
+         "via": "法定幅度",
+         "basis": [
+          {
+           "ref": "psal-2025#82",
+           "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者一千元以下罚款；情节严重的，处十日以上十五日以下拘留，并处一千元以上五千元以下罚款。",
+           "verified": false
+          }
+         ]
+        },
+        {
+         "kind": "罚款",
+         "detention": null,
+         "fine": [
+          1,
+          1000
+         ],
+         "via": "法定幅度",
+         "basis": [
+          {
+           "ref": "psal-2025#82",
+           "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者一千元以下罚款；情节严重的，处十日以上十五日以下拘留，并处一千元以上五千元以下罚款。",
+           "verified": false
+          }
+         ]
+        }
+       ],
+       "detention_executable": true,
+       "not_executed_reason": null
+      },
+      "情节严重": {
+       "options": [
+        {
+         "kind": "拘留并处罚款",
+         "detention": [
+          10,
+          15
+         ],
+         "fine": [
+          1000,
+          5000
+         ],
+         "via": "法定幅度",
+         "basis": [
+          {
+           "ref": "psal-2025#82",
+           "text": "以营利为目的，为赌博提供条件的，或者参与赌博赌资较大的，处五日以下拘留或者一千元以下罚款；情节严重的，处十日以上十五日以下拘留，并处一千元以上五千元以下罚款。",
+           "verified": false
+          }
+         ]
+        }
+       ],
+       "detention_executable": true,
+       "not_executed_reason": null
+      }
+     },
+     "scope": "各预设档次下按已知事实展开的法定选项",
+     "exhaustive_for_case": false
+    },
+    {
+     "id": "modifiers",
+     "title": "修正情节",
+     "status": "none_found",
+     "result": [],
+     "note": "按已填要素未发现从轻、减轻、从重等法定情节；未填的情节按未知处理"
+    },
+    {
+     "id": "referral",
+     "title": "涉嫌犯罪提示",
+     "status": "none_found",
+     "result": []
+    },
+    {
+     "id": "band",
+     "title": "省级基准定档",
+     "status": "determined",
+     "result": [
+      "第一档"
+     ],
+     "penalty_text": [
+      "处500元以下罚款"
+     ],
+     "computation": [
+      "个人赌资 600 元，按「参与其他赌博活动」门槛 500 / 2000 / 5000 元 → 第一档"
+     ],
+     "computation_detail": [
+      {
+       "step": "measure",
+       "field": "personal_or_per_capita",
+       "label": "个人赌资",
+       "basis_of_value": "个人赌资",
+       "value": [
+        600.0,
+        600.0
+       ],
+       "thresholds": [
+        {
+         "category": "其他",
+         "label": "参与其他赌博活动",
+         "lower_bounds": [
+          500,
+          2000,
+          5000
+         ],
+         "bands": [
+          1
+         ]
+        }
+       ],
+       "result": [
+        1
+       ]
+      }
+     ],
+     "unknown_conditions": [
+      {
+       "condition": "civil_servant",
+       "label": "是否国家工作人员"
+      },
+      {
+       "condition": "prior_within_year",
+       "label": "一年内是否受过治安处罚"
+      }
+     ],
+     "basis": {
+      "document": "苏公规〔2019〕1号",
+      "verified": true,
+      "ref": "第三节",
+      "clauses": [
+       {
+        "band": "第一档",
+        "text": "（一）有下列情形之一的，处500元以下罚款：1．参与聚众赌博、网络赌博、赌博机赌博、赌场赌博、“六合彩”以及其他私彩方式赌博，个人赌资或者人均赌资100元以上、不满500元的；\n2．参与其他赌博活动，个人赌资或者人均赌资500元以上、不满2000元的。"
+       }
+      ]
+     },
+     "status_text": "达到赌资较大",
+     "applicability": "provisional",
+     "law_alignment": "新法推定沿用",
+     "notes": [
+      "省级基准依据 psal-2012 制定，本案适用 psal-2025：推定沿用其赌资门槛与档次判断处罚种类；档位原文中的罚款数额为旧法数额，本案数额以新法法定幅度为准"
+     ],
+     "scope": "已知要素的省级建议，不是最终处罚结论"
+    },
+    {
+     "id": "written_type",
+     "title": "成文处罚种类",
+     "status": "determined",
+     "result": "罚款",
+     "route": "rule_single",
+     "candidates": [
+      "罚款"
+     ],
+     "reasoning": "省级基准只给出一个档位，对应唯一处罚种类"
+    },
+    {
+     "id": "amount",
+     "title": "档内数额参照（历史统计，非法律结论）",
+     "status": "reference",
+     "result": {
+      "fine": [
+       [
+        500.0,
+        0.473
+       ],
+       [
+        200.0,
+        0.198
+       ],
+       [
+        300.0,
+        0.193
+       ],
+       [
+        400.0,
+        0.085
+       ],
+       [
+        100.0,
+        0.051
+       ]
+      ]
+     },
+     "source": {
+      "scope": "全国、旧法时期、按处罚种类、事件加权，已按本案法定幅度过滤",
+      "version": "band-quantities-1",
+      "law_epoch": "psal-2012（2026-01-01 前决定）",
+      "weighting": "每个事件计 1（同事件多人平分）",
+      "source_sha256": "b8fe38733d8ebdd04e64d2200741d1fa24de55b1ac7205c25d41e600fca9a460",
+      "events": {
+       "罚款:fine": 750.2
+      }
+     }
+    },
+    {
+     "id": "practice",
+     "title": "实务参照（学习，非法律结论）",
+     "status": "out_of_scope",
+     "result": null,
+     "note": "训练数据全部是旧法（2012 修正）时期，新法时期的实务分布未知"
+    },
+    {
+     "id": "missing",
+     "title": "补查提示",
+     "status": "found",
+     "result": [
+      {
+       "field": "civil_servant",
+       "label": "是否国家工作人员",
+       "why": "省级基准的升档、归类或从重条件"
+      },
+      {
+       "field": "prior_within_year",
+       "label": "一年内是否受过治安处罚",
+       "why": "省级基准的升档、归类或从重条件"
+      }
+     ]
+    }
+   ],
+   "needs_review": [
+    "档内数额为历史分布（旧法时期决定），不是点预测",
+    "省级基准依据 psal-2012 制定，本案适用 psal-2025：推定沿用其赌资门槛与档次判断处罚种类；档位原文中的罚款数额为旧法数额，本案数额以新法法定幅度为准"
+   ],
+   "disclaimer": "仅供辅助参考，不构成法律意见；结论须由办案人员审核确认"
+  }
+ }
+}

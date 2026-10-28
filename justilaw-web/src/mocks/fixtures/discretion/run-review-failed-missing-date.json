@@ -1,0 +1,523 @@
+{
+ "code": 0,
+ "message": "ok",
+ "data": {
+  "run_id": "dr_adb7e547c0ef48ca",
+  "kind": "review",
+  "status": "failed",
+  "created_at": "2026-10-28T10:28:57.029319+00:00",
+  "finished_at": "2026-10-28T10:28:57.065225+00:00",
+  "request_sha256": "a8eb0ef416d7ca8b456b3d9b2902a125b708340186e28fbe2aa75dd9171384d6",
+  "result": null,
+  "error": {
+   "http_status": 422,
+   "code": 42200,
+   "message": "解析后仍缺 behavior_date，请在请求中补充"
+  },
+  "partial": {
+   "parse": {
+    "sentences": [
+     "违法嫌疑人张三，男，1980年生。",
+     "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+     "以上事实有张三陈述等证据证实。",
+     "根据《治安管理处罚法》第七十条，决定对张三处以罚款500元。"
+    ],
+    "zones": [
+     {
+      "type": "meta",
+      "from": 1,
+      "to": 1
+     },
+     {
+      "type": "facts",
+      "from": 2,
+      "to": 2
+     },
+     {
+      "type": "evidence",
+      "from": 3,
+      "to": 3
+     },
+     {
+      "type": "decision",
+      "from": 4,
+      "to": 4
+     }
+    ],
+    "subject": {
+     "mention": "张三",
+     "aliases": []
+    },
+    "dates": {
+     "behavior": null,
+     "decision": null
+    },
+    "gambling": {
+     "verdict": "是",
+     "reason": "打麻将赌博"
+    },
+    "review": {
+     "result": "无",
+     "changed_outcome": null
+    },
+    "validation": {
+     "ok": true,
+     "violations": []
+    },
+    "outcome": {
+     "type": "罚款",
+     "detention_days": 0,
+     "fine": 500,
+     "not_executed": "否",
+     "multi_violation": false,
+     "executed_penalty": {
+      "detention_days": 0,
+      "fine": 0
+     },
+     "confiscation": [],
+     "detention_items": [],
+     "articles": [
+      {
+       "text": "第七十条",
+       "edition": "2012修正"
+      }
+     ],
+     "stated_circumstances": []
+    }
+   },
+   "extraction": {
+    "elements": {
+     "conduct.behavior_type": {
+      "value": "参与赌博",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "behavior_type"
+     },
+     "conduct.role": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "conduct.method": {
+      "value": "麻将",
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "method"
+     },
+     "conduct.gambling_form": {
+      "value": "其他",
+      "status": "推断",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "gambling_form"
+     },
+     "conduct.times": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "times"
+     },
+     "conduct.duration_days": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "conduct.cheating": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "amounts.personal_stake": {
+      "value": {
+       "min": 600,
+       "max": 600
+      },
+      "status": "明确",
+      "evidence": [
+       {
+        "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+        "sentence": 2,
+        "span": [
+         17,
+         59
+        ]
+       }
+      ],
+      "origin": "extracted",
+      "fact_field": "personal_stake"
+     },
+     "amounts.per_bet": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "amounts.onsite_stake_total": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "onsite_stake_total"
+     },
+     "amounts.cumulative_stake": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "cumulative_stake"
+     },
+     "amounts.commission": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "commission"
+     },
+     "amounts.illegal_gain": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "persons.participant_count": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "participant_count"
+     },
+     "persons.cumulative_participants": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "cumulative_participants"
+     },
+     "persons.minors_involved": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "minors_involved"
+     },
+     "persons.civil_servant": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "civil_servant"
+     },
+     "persons.relatives_only": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "persons.abroad_organized_count": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "abroad_organized_count"
+     },
+     "venue.venue_type": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "venue_type"
+     },
+     "intent.profit_purpose": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "profit_purpose"
+     },
+     "circumstances.last_prior_penalty_date": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "last_prior_penalty_date"
+     },
+     "circumstances.surrendered": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "surrendered"
+     },
+     "circumstances.truthful_statement": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "truthful_statement"
+     },
+     "circumstances.admits_and_accepts": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "admits_and_accepts"
+     },
+     "circumstances.remedied_consequence": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "remedied_consequence"
+     },
+     "circumstances.victim_forgiveness": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "victim_forgiveness"
+     },
+     "circumstances.coerced_or_lured": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "coerced_or_lured"
+     },
+     "circumstances.meritorious": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "meritorious"
+     },
+     "circumstances.instigated_others": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "instigated_others"
+     },
+     "circumstances.retaliation": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "retaliation"
+     },
+     "circumstances.obstructed_police": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": null
+     },
+     "circumstances.minor_circumstance": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "minor_circumstance"
+     },
+     "circumstances.first_offense": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "first_offense"
+     },
+     "circumstances.violations_last_year": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "violations_last_year"
+     },
+     "person.age": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "age"
+     },
+     "person.pregnant_or_nursing": {
+      "value": null,
+      "status": "未提及",
+      "evidence": [],
+      "origin": "extracted",
+      "fact_field": "pregnant_or_nursing"
+     }
+    },
+    "dropped": [],
+    "assess_input": {
+     "region": "320582",
+     "behavior_type": "参与赌博",
+     "personal_stake": {
+      "min": 600.0,
+      "max": 600.0
+     },
+     "method": "麻将",
+     "gambling_form": "其他",
+     "provenance": {
+      "behavior_type": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+         "sentence": 2,
+         "span": [
+          17,
+          59
+         ]
+        }
+       ]
+      },
+      "method": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+         "sentence": 2,
+         "span": [
+          17,
+          59
+         ]
+        }
+       ]
+      },
+      "gambling_form": {
+       "status": "推断",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+         "sentence": 2,
+         "span": [
+          17,
+          59
+         ]
+        }
+       ]
+      },
+      "personal_stake": {
+       "status": "明确",
+       "origin": "extracted",
+       "evidence": [
+        {
+         "quote": "经查，2023年7月6日晚，张三在苏州市某镇棋牌室参与打麻将赌博，个人赌资600元。",
+         "sentence": 2,
+         "span": [
+          17,
+          59
+         ]
+        }
+       ]
+      }
+     }
+    },
+    "meta_missing": [
+     "behavior_date"
+    ],
+    "target": "张三"
+   },
+   "model_calls": [
+    {
+     "slot": "segment",
+     "attempt": 1,
+     "prompt": {
+      "version": "seg-v2",
+      "system_sha256": "debee01eebd271050da93d91650cdb3ca526ceb316d15f305f3192ea7f14678c"
+     },
+     "platform_model_id": "deepseek/deepseek-flash",
+     "provider_id": "fake",
+     "model": "deepseek-flash",
+     "params": {
+      "temperature": 0,
+      "seed": 20261028
+     },
+     "status": "ok",
+     "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5
+     },
+     "latency_ms": 1,
+     "request_sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+     "response_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+     "validation": {
+      "ok": true,
+      "violations": []
+     }
+    },
+    {
+     "slot": "extract",
+     "attempt": 1,
+     "prompt": {
+      "version": "element-v1",
+      "wire": "element-ref-v3",
+      "schema": "1.2.0",
+      "fingerprint_sha256": "bd64271f3cda5e5c3d710ff81c6d57ff6e484dfea188ec5418c3e5d8ddbf9c34"
+     },
+     "platform_model_id": "deepseek/deepseek-flash",
+     "provider_id": "fake",
+     "model": "deepseek-flash",
+     "params": {
+      "temperature": 0,
+      "seed": 20261028
+     },
+     "status": "ok",
+     "usage": {
+      "prompt_tokens": 10,
+      "completion_tokens": 5
+     },
+     "latency_ms": 1,
+     "request_sha256": "rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr",
+     "response_sha256": "ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss",
+     "validation": {
+      "ok": true,
+      "violations": []
+     }
+    }
+   ]
+  }
+ }
+}

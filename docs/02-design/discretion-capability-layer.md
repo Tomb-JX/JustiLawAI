@@ -1,6 +1,6 @@
 # 裁量能力层：封装、模型配置与可追溯设计（草案）
 
-> 版本 v0.5（接口已全部实现并经真实模型冒烟，待前端组评审）· 2026-10-28
+> 版本 v0.6（接口已全部实现并经真实模型冒烟，待前端组评审）· 2026-10-28
 > 关联：
 > - [两类服务设计](./discretion-services-design.md) §6；
 > - [API 契约](./api-contract.md) §3.12（草案）；
@@ -190,6 +190,7 @@
 4. `review` —— **已完成**：决定书文本（①–⑧）或已确认要素 + 实际处罚；
 5. run 存档与查询 —— **已完成**（`discretion_runs_db`，失败运行也存档）；
 6. 前端：推理链与要素证据展示 —— 前端组负责，后端只保证接口与 trace 完整。
+7. 长耗时调用 —— **已完成（v1.0）**：parse / extract / review 改为任务号 + 轮询（提交 202，轮询 `GET /discretion/runs/{run_id}`），任务状态与已完成部分写入运行存档；前端 30 秒请求超时不再是约束。模拟数据由 `justilaw-api/scripts/export_discretion_fixtures.py` 从真实路由生成到 `justilaw-web/src/mocks/fixtures/discretion/`。
 
 **部署打包（10-28，负责人选定"镜像额外复制链路目录"）**：Dockerfile 复制 `research/discretion/{unify,harvest,discover}` 与 `research/eval/` 的三个 E-05 校验模块（`normalization_spec.py`、`evidence_contract.py`、`binding_rules.py`）到 `/app/research/`；按 `research/discretion/unify/requirements.txt` 安装 `jsonschema`、`jionlp==1.5.29`，构建时 `import jionlp` 预解压词典（链路规定运行期不解压、不下载）；`JUSTILAW_ENGINE_API=/app/justilaw-api`。导入链实测共 26 个链路模块（unify 21、harvest 2、discover 3）。
 验证：按镜像目录布局复制到临时目录，用只装 `requirements.txt` + 链路 requirements 的干净虚拟环境跑 API 测试，174 通过；2 项失败均为只在仓库内有意义的文档同步测试（读 `docs/`、`research/eval/fixtures/`，镜像不带）。**10-28 已实际 `docker build`**：镜像（Python 3.12.16）内 jionlp 1.5.29 安装正常、词典已预解压（`backend_fingerprint` 通过），链路加载 `seg-v2` / `element-v1`；挂载测试目录在容器内跑 API 测试 174 通过，2 项失败同上（仓库内文档同步测试）。
@@ -204,6 +205,7 @@
 
 | 日期 | 版本 | 变更 | 作者 |
 |---|---|---|---|
+| 2026-10-28 | v0.6 | §6 加第 7 条：任务号 + 轮询；模拟数据 | 引擎（规则链路） |
 | 2026-10-28 | v0.5.1 | §6 记实际 docker build 验证 | 引擎（规则链路） |
 | 2026-10-28 | v0.5 | §6 部署打包方案与验证；DeepSeek 冒烟结果与据此做的四处修正 | 引擎（规则链路） |
 | 2026-10-28 | v0.4 | §6 更新实现状态（网关扩展、槽位、parse / extract / review 完成）；记部署打包缺口；§4.4 加 RAP 更新 | 引擎（规则链路） |
