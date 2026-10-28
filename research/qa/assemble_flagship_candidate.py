@@ -76,7 +76,8 @@ def standards_ok(path: Path | None, guide_hash: str, rows: list[dict] | tuple = 
     doc = json.loads(path.read_text(encoding="utf-8"))
     schema_hash = sha((API / "app" / "discretion" / "schema.py").read_bytes())
     description = Intent.model_fields["profit_purpose"].description or ""
-    guide_adoption_implemented = (SCHEMA_VERSION == "1.1.0"
+    schema_parts = tuple(int(part) for part in SCHEMA_VERSION.split(".")[:2])
+    guide_adoption_implemented = (schema_parts >= (1, 1) and schema_parts[0] == 1
                                   and "只收台费场地费" in description
                                   and "对其他参赌人的营利事实不算本人的" in description)
     try:

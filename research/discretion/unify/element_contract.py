@@ -56,9 +56,12 @@ def is_model_quality_failure(exc):
 
 def _engine_eval_dir() -> Path:
     """Resolve research/eval/ from the engine worktree (E-05 approval package location)."""
+    local_eval = Path(__file__).resolve().parents[2] / "eval"
     sibling_api = Path(__file__).resolve().parents[3].parent / "discretion-engine/justilaw-api"
-    api_path = Path(os.environ.get("JUSTILAW_ENGINE_API") or sibling_api)
-    eval_dir = api_path.parent / "research" / "eval"
+    api_override = os.environ.get("JUSTILAW_ENGINE_API")
+    eval_dir = (Path(api_override).parent / "research" / "eval" if api_override
+                else local_eval if (local_eval / "normalization_spec.py").is_file()
+                else sibling_api.parent / "research" / "eval")
     if not (eval_dir / "normalization_spec.py").is_file():
         raise RuntimeError("E-05 批准包不可达；research/eval/normalization_spec.py 缺失")
     return eval_dir
